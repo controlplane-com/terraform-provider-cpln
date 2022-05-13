@@ -157,3 +157,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 ## Version Info
 
 - v1.0.2 - Publish To Terraform Registry
+- v1.0.3 - Update docs
