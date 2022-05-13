@@ -153,3 +153,7 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - Needed to add CGO_ENABLED=0 for linux build when running within an alpine image. See: https://github.com/Mastercard/terraform-provider-restapi/issues/65
 
 - CLI Config File: https://www.terraform.io/docs/cli/config/config-file.html
+
+## Version Info
+
+- v1.0.2 - Publish To Terraform Registry
