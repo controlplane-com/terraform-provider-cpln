@@ -16,7 +16,7 @@ Each header below (i.e., `cpln_agent`) corresponds to a resource within the Cont
 Authenticate using one of the following methods:
 
 1. CLI
-  - [Install the CLI](https://docs.controlplane.com/reference/cli#installation) and execute the command `cpln login`. After a successful login, the provider will use the `default` profile to authenticate. To use a different profile, set the `profile` variable when initializing the provider or set the `CPLN_PROFILE` environment variable.
+  - [Install the CLI](https://docs.controlplane.com/reference/cli#installation) and execute the command `cpln login`. After a successful login, the Terraform provider will use the `default` profile to authenticate. To use a different profile, set the `profile` variable when initializing the provider or set the `CPLN_PROFILE` environment variable.
 
 2. Token
   - The `token` variable can be set when initializing the provider or by setting the `CPLN_TOKEN` environment variable.
@@ -47,7 +47,7 @@ terraform {
   required_providers {
     cpln = {
       version = "1.0.2"
-      source   = "controlplane.com/com/cpln"
+      source   = "controlplane-com/cpln"
     }
   }
 }
