@@ -46,8 +46,8 @@ Authenticate using one of the following methods:
 terraform {
   required_providers {
     cpln = {
-      version = "1.0.2"
-      source   = "controlplane-com/cpln"
+      source = "controlplane-com/cpln"
+      version = "1.0.3"
     }
   }
 }
