@@ -656,3 +656,47 @@ func StringSchema() *schema.Schema {
 		Type: schema.TypeString,
 	}
 }
+
+func WorkloadTypeValidator(val interface{}, key string) (warns []string, errs []error) {
+
+	workloadType := val.(string)
+
+	workloadTypes := []string{
+		"serverless",
+		"standard",
+		"cron",
+		"stateful",
+	}
+
+	for _, v := range workloadTypes {
+		if v == workloadType {
+			return
+		}
+	}
+
+	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, workloadType))
+
+	return
+}
+
+func PortProtocolValidator(val interface{}, key string) (warns []string, errs []error) {
+
+	portProtocol := val.(string)
+
+	portProtocols := []string{
+		"http",
+		"http2",
+		"grpc",
+		"tcp",
+	}
+
+	for _, v := range portProtocols {
+		if v == portProtocol {
+			return
+		}
+	}
+
+	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, portProtocol))
+
+	return
+}

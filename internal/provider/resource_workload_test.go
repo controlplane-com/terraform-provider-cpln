@@ -13,26 +13,59 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-func TestControlPlane_BuildContainers(t *testing.T) {
+func TestControlPlane_BuildContainersServerless(t *testing.T) {
 
 	unitTestWorkload := client.Workload{}
-	buildContainers(generateFlatTestContainer(), &unitTestWorkload)
+	buildContainers(generateFlatTestContainer("serverless"), &unitTestWorkload)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers()); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless")); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
 
-func generateTestContainers() *[]client.ContainerSpec {
+func TestControlPlane_BuildContainersStandard(t *testing.T) {
+
+	unitTestWorkload := client.Workload{}
+	buildContainers(generateFlatTestContainer("standard"), &unitTestWorkload)
+
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard")); diff != nil {
+		t.Errorf("Container was not built correctly. Diff: %s", diff)
+	}
+}
+
+func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	newContainer := client.ContainerSpec{
-		Name:             GetString("container-01"),
-		Image:            GetString("gcr.io/knative-samples/helloworld-go"),
-		Port:             GetInt(8080),
+		Name:  GetString("container-01"),
+		Image: GetString("gcr.io/knative-samples/helloworld-go"),
+		// Port:             GetInt(8080),
 		Memory:           GetString("128Mi"),
 		CPU:              GetString("50m"),
 		Command:          GetString("override-command"),
 		WorkingDirectory: GetString("/usr"),
+	}
+
+	if workloadType == "serverless" {
+		newContainer.Port = GetInt(8080)
+	} else if workloadType == "standard" {
+		newContainer.Ports = &[]client.PortSpec{
+			{
+				Protocol: GetString("http"),
+				Number:   GetInt(80),
+			},
+			{
+				Protocol: GetString("http2"),
+				Number:   GetInt(8080),
+			},
+			{
+				Protocol: GetString("grpc"),
+				Number:   GetInt(3000),
+			},
+			{
+				Protocol: GetString("tcp"),
+				Number:   GetInt(3001),
+			},
+		}
 	}
 
 	newContainer.Args = &[]string{
@@ -136,12 +169,12 @@ func generateTestContainers() *[]client.ContainerSpec {
 	return &testContainers
 }
 
-func generateFlatTestContainer() []interface{} {
+func generateFlatTestContainer(workloadType string) []interface{} {
 
 	c := map[string]interface{}{
-		"name":              "container-01",
-		"image":             "gcr.io/knative-samples/helloworld-go",
-		"port":              8080,
+		"name":  "container-01",
+		"image": "gcr.io/knative-samples/helloworld-go",
+		// "port":              8080,
 		"memory":            "128Mi",
 		"cpu":               "50m",
 		"command":           "override-command",
@@ -176,6 +209,35 @@ func generateFlatTestContainer() []interface{} {
 	metrics := make(map[string]interface{})
 	metrics["path"] = "/metrics"
 	metrics["port"] = 8181
+
+	if workloadType == "serverless" {
+		c["port"] = 8080
+	} else if workloadType == "standard" {
+
+		port_01 := make(map[string]interface{})
+		port_01["protocol"] = "http"
+		port_01["number"] = 80
+
+		port_02 := make(map[string]interface{})
+		port_02["protocol"] = "http2"
+		port_02["number"] = 8080
+
+		port_03 := make(map[string]interface{})
+		port_03["protocol"] = "grpc"
+		port_03["number"] = 3000
+
+		port_04 := make(map[string]interface{})
+		port_04["protocol"] = "tcp"
+		port_04["number"] = 3001
+
+		c["ports"] = []interface{}{
+			port_01,
+			port_02,
+			port_03,
+			port_04,
+		}
+
+	}
 
 	c["metrics"] = []interface{}{
 		metrics,
@@ -255,12 +317,30 @@ func TestControlPlane_BuildOptions(t *testing.T) {
 
 	buildOptions(generateFlatTestOptions(), &unitTestWorkload, false, "")
 
-	if diff := deep.Equal(unitTestWorkload.Spec.DefaultOptions, generateTestOptions()); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.DefaultOptions, generateTestOptions("serverless")); diff != nil {
 		t.Errorf("Options was not built correctly. Diff: %s", diff)
 	}
 }
 
-func generateTestOptions() *client.Options {
+func generateTestOptions(workloadType string) *client.Options {
+
+	if workloadType == "standard" {
+		return &client.Options{
+			CapacityAI:     GetBool(false),
+			Spot:           GetBool(true),
+			TimeoutSeconds: GetInt(30),
+			Debug:          GetBool(false),
+
+			AutoScaling: &client.AutoScaling{
+				Metric:           GetString("cpu"),
+				Target:           GetInt(60),
+				MaxScale:         GetInt(3),
+				MinScale:         GetInt(2),
+				MaxConcurrency:   GetInt(500),
+				ScaleToZeroDelay: GetInt(400),
+			},
+		}
+	}
 
 	return &client.Options{
 		CapacityAI:     GetBool(true),
@@ -399,12 +479,24 @@ func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 	}
 }
 
-func TestControlPlane_FlattenContainer(t *testing.T) {
+func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
-	containers := generateTestContainers()
+	containers := generateTestContainers("serverless")
 	flattenedContainer := flattenContainer(containers)
 
-	flatContainer := generateFlatTestContainer()
+	flatContainer := generateFlatTestContainer("serverless")
+
+	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
+		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenContainerStandard(t *testing.T) {
+
+	containers := generateTestContainers("standard")
+	flattenedContainer := flattenContainer(containers)
+
+	flatContainer := generateFlatTestContainer("standard")
 
 	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
 		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
@@ -413,7 +505,7 @@ func TestControlPlane_FlattenContainer(t *testing.T) {
 
 func TestControlPlane_FlattenOptions(t *testing.T) {
 
-	options := generateTestOptions()
+	options := generateTestOptions("serverless")
 	flatOptions := generateFlatTestOptions()
 	flattenedOptions := flattenOptions([]client.Options{*options}, false, "")
 
@@ -451,7 +543,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
 				),
@@ -460,7 +552,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
 				),
 			},
@@ -468,8 +560,16 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
+				),
+			},
+			{
+				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
 		},
@@ -691,7 +791,7 @@ func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName 
 	}
 }
 
-func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload) resource.TestCheckFunc {
+func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		tags := *workload.Tags
@@ -704,13 +804,13 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload) resou
 			return fmt.Errorf("Tags - workload acceptance_test attribute does not match")
 		}
 
-		containers := generateTestContainers()
+		containers := generateTestContainers(workloadType)
 
 		if diff := deep.Equal(containers, workload.Spec.Containers); diff != nil {
 			return fmt.Errorf("Containers attributes does not match. Diff: %s", diff)
 		}
 
-		options := generateTestOptions()
+		options := generateTestOptions(workloadType)
 
 		if diff := deep.Equal(options, workload.Spec.DefaultOptions); diff != nil {
 			return fmt.Errorf("Options attributes does not match. Diff: %s", diff)
@@ -724,6 +824,196 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload) resou
 
 		return nil
 	}
+}
+
+func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"	
+		description = "%s"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+	}
+	  
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		identity_link = cpln_identity.new.self_link
+
+		type = "standard" 
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+		  memory = "128Mi"
+		  cpu = "50m"	  
+
+		  ports {
+		    protocol = "http"
+			number   = "80" 
+		  }
+
+		  ports {
+			protocol = "http2"
+			number   = "8080" 
+	      }
+
+		  ports {
+			protocol = "grpc"
+			number   = "3000" 
+	      }
+
+		  ports {
+			protocol = "tcp"
+			number   = "3001" 
+	      }
+
+
+		  command = "override-command"
+		  working_directory = "/usr"
+	  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  volume {
+			uri  = "s3://bucket"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+
+		  readiness_probe {
+
+			tcp_socket {
+			  port = 8181
+			}
+
+			// exec {
+			// 	command = ["test1", "test2"]
+			// }
+	  
+			period_seconds       = 11
+			timeout_seconds      = 2
+			failure_threshold    = 4
+			success_threshold    = 2
+			initial_delay_seconds = 1
+		  }
+
+		  liveness_probe {
+
+			http_get {
+				path = "/path"
+				port = 8282
+				scheme = "HTTPS"
+				http_headers = {
+					header-name-01 = "header-value-01"
+					header-name-02 = "header-value-02"
+				}
+			}
+	  
+			period_seconds       = 10
+			timeout_seconds      = 3
+			failure_threshold    = 5
+			success_threshold    = 1
+			initial_delay_seconds = 2
+		  }
+		}
+	 	  	  
+		options {
+		  capacity_ai = false
+	      spot = true
+		  timeout_seconds = 30
+	  
+		  autoscaling {
+			metric = "cpu"
+			target = 60
+			max_scale = 3
+			min_scale = 2
+			max_concurrency = 500
+			scale_to_zero_delay = 400
+		  }
+		}
+
+		// locations = ["aws-eu-central-1", "aws-us-west-2", "azure-eastus2", "azure-eastus2"]
+
+		// local_options {
+		// 	location = "aws-eu-central-1"
+		// 	capacity_ai = true
+		// 	spot = true
+		// 	timeout_seconds = 30
+		
+		// 	autoscaling {
+		// 	  metric = "concurrency"
+		// 	  target = 100
+		// 	  max_scale = 3
+		// 	  min_scale = 2
+		// 	  max_concurrency = 500
+		// 	  scale_to_zero_delay = 400
+		// 	}
+		// }
+	  
+		firewall_spec {
+		  external {
+			inbound_allow_cidr =  ["0.0.0.0/0"]
+			// outbound_allow_cidr =  []
+			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+		  }
+		  internal { 
+			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+			inbound_allow_type = "none"
+			inbound_allow_workload = []
+		  }
+		}
+	  }
+	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
 
 func testAccCheckControlPlaneWorkloadCheckDestroy(s *terraform.State) error {

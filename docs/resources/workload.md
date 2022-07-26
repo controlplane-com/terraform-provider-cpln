@@ -21,6 +21,8 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 
 - **description** (String) Description of the Workload.
 
+- **type** (String) Workload Type. Either `serverless` or `standard`. Default: `serverless`. 
+
 - **container** (Block List) ([see below](#nestedblock--container)).
 - **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
 - **identity_link** (String) Full link to an Identity.
@@ -46,14 +48,15 @@ Required:
 
 Optional:
 
-- **port** (Number) The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`.
+- **port** (Number) The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`. Used by `serverless` Workload type.
+
+- **ports** (Block List) ([see below](#nestedblock--container--ports)). 
 
 ~> **Note**  The ports listed below are blocked and are not allowed to be used.
 Containers which attempt to use these ports will not be able to bind:
 8012, 8022, 9090, 9091, 15000, 15001, 15006, 15020, 15021, 15090, 41000.
 
 
-  
 - **args** (List of String) Command line arguments passed to the container at runtime.
 - **env** (Map of String) Name-Value list of environment variables.
 - **command** (String) Override the entry point. 
@@ -68,7 +71,15 @@ Containers which attempt to use these ports will not be able to bind:
 - **volume** (Block List) ([see below](#nestedblock--container--volume)) [Reference Page](https://docs.controlplane.com/reference/workload#volumes).
 - **working_directory** (String) Override the working directory. Must be an absolute path.
 
+<a id="nestedblock--container--ports"></a>
+ ### `container.ports`
 
+Required:
+
+- **protocol** (String) Protocol. Choice of: `http`, `http2`, or `grpc`.
+- **number** (String) Port to expose.
+
+<a id="nestedblock--container--ports"></a>
 
 
 <a id="nestedblock--container--liveness_probe"></a>

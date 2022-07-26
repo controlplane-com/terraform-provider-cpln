@@ -62,6 +62,13 @@ func resourceWorkload() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"type": {
+				Type:         schema.TypeString,
+				ForceNew:     true,
+				Optional:     true,
+				Default:      "serverless",
+				ValidateFunc: WorkloadTypeValidator,
+			},
 			"container": {
 				Type:     schema.TypeList,
 				Required: true,
@@ -78,13 +85,13 @@ func resourceWorkload() *schema.Resource {
 
 								v := val.(string)
 
-								if strings.HasPrefix(v, "cpln_") {
-									errs = append(errs, fmt.Errorf("%q cannot start with 'cpln_', got: %s", key, v))
+								if strings.HasPrefix(v, "cpln-") {
+									errs = append(errs, fmt.Errorf("%q cannot start with 'cpln-', got: %s", key, v))
 									return
 								}
 
-								if v == "istio-proxy" || v == "queue-proxy" || v == "istio-validation" {
-									errs = append(errs, fmt.Errorf("%q cannot be set to 'istio-proxy', 'queue-proxy', 'istio-validation', got: %s", key, v))
+								if v == "istio-proxy" || v == "queue-proxy" || v == "istio-validation" || v == "cpln-envoy-assassin" || v == "cpln-writer-proxy" || v == "cpln-reader-proxy" || v == "cpln-dbaas-config" {
+									errs = append(errs, fmt.Errorf("%q cannot be set to 'istio-proxy', 'queue-proxy', 'istio-validation', 'cpln-envoy-assassin', 'cpln-writer-proxy', 'cpln-reader-proxy', 'cpln-dbaas-config', got: %s", key, v))
 								}
 
 								return
@@ -98,6 +105,24 @@ func resourceWorkload() *schema.Resource {
 							Type:         schema.TypeInt,
 							Optional:     true,
 							ValidateFunc: PortValidator,
+						},
+						"ports": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"protocol": {
+										Type:         schema.TypeString,
+										Optional:     true,
+										ValidateFunc: PortProtocolValidator,
+										Default:      "http",
+									},
+									"number": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+								},
+							},
 						},
 						"cpu": {
 							Type:         schema.TypeString,
@@ -190,10 +215,10 @@ func resourceWorkload() *schema.Resource {
 
 											v := val.(string)
 
-											re := regexp.MustCompile(`^(s3|gs|azureblob|azurefs):\/\/.+`)
+											re := regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln):\/\/.+`)
 
 											if !re.MatchString(v) {
-												errs = append(errs, fmt.Errorf("%q must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, got: %s", key, v))
+												errs = append(errs, fmt.Errorf("%q must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, got: %s", key, v))
 											}
 
 											return
@@ -369,6 +394,14 @@ func resourceWorkload() *schema.Resource {
 						},
 						"endpoint": {
 							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"internal_name": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"current_replica_count": {
+							Type:     schema.TypeInt,
 							Optional: true,
 						},
 						"health_check": {
@@ -731,6 +764,20 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 	buildOptions(d.Get("local_options").([]interface{}), &workload, true, c.Org)
 	buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workload, false)
 
+	if d.Get("type") != nil {
+
+		workloadType := strings.TrimSpace(d.Get("type").(string))
+
+		if workloadType != "" {
+
+			if workload.Spec == nil {
+				workload.Spec = &client.WorkloadSpec{}
+			}
+
+			workload.Spec.Type = GetString(workloadType)
+		}
+	}
+
 	if d.Get("identity_link") != nil {
 
 		identityLink := strings.TrimSpace(d.Get("identity_link").(string))
@@ -777,6 +824,10 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 
 		if c["port"] != nil {
 			newContainer.Port = GetPortInt(c["port"])
+		}
+
+		if c["ports"] != nil {
+			newContainer.Ports = buildPortSpec(c["ports"].([]interface{}))
 		}
 
 		argArray := []string{}
@@ -834,6 +885,32 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 	}
 
 	workload.Spec.Containers = &newContainers
+}
+
+func buildPortSpec(ports []interface{}) *[]client.PortSpec {
+
+	if len(ports) > 0 {
+		output := []client.PortSpec{}
+
+		for _, value := range ports {
+
+			v := value.(map[string]interface{})
+
+			protocol := v["protocol"].(string)
+			number := v["number"].(int)
+
+			localPort := client.PortSpec{
+				Protocol: &protocol,
+				Number:   &number,
+			}
+
+			output = append(output, localPort)
+		}
+
+		return &output
+	}
+
+	return nil
 }
 
 func buildVolumeSpec(volumes []interface{}) *[]client.VolumeSpec {
@@ -1197,7 +1274,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "container", "options", "local_options", "firewall_spec", "identity_link") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link") {
 
 		c := m.(*client.Client)
 
@@ -1212,6 +1289,16 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 		if d.HasChange("tags") {
 			workloadToUpdate.Tags = GetTagChanges(d)
+		}
+
+		if d.HasChange("type") {
+
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			workloadToUpdate.Spec.Type = GetString(d.Get("type"))
 		}
 
 		if d.HasChange("container") {
@@ -1344,6 +1431,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 		if err := d.Set("identity_link", workload.Spec.IdentityLink); err != nil {
 			return diag.FromErr(err)
 		}
+
+		if err := d.Set("type", workload.Spec.Type); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if err := d.Set("status", flattenWorkloadStatus(workload.Status)); err != nil {
@@ -1373,6 +1464,14 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 
 		if status.CanonicalEndpoint != nil {
 			fs["canonical_endpoint"] = *status.CanonicalEndpoint
+		}
+
+		if status.InternalName != nil {
+			fs["internal_name"] = *status.InternalName
+		}
+
+		if status.CurrentReplicaCount != nil {
+			fs["current_replica_count"] = *status.CurrentReplicaCount
 		}
 
 		if status.HealthCheck != nil {
@@ -1436,6 +1535,10 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 				c["port"] = *container.Port
 			}
 
+			if container.Ports != nil {
+				c["ports"] = flattenPortSpec(container.Ports)
+			}
+
 			c["memory"] = *container.Memory
 			c["cpu"] = *container.CPU
 
@@ -1466,11 +1569,11 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 			}
 
 			if container.LivenessProbe != nil {
-				c["liveness_probe"] = flattentHealthCheckSpec(container.LivenessProbe)
+				c["liveness_probe"] = flattenHealthCheckSpec(container.LivenessProbe)
 			}
 
 			if container.ReadinessProbe != nil {
-				c["readiness_probe"] = flattentHealthCheckSpec(container.ReadinessProbe)
+				c["readiness_probe"] = flattenHealthCheckSpec(container.ReadinessProbe)
 			}
 
 			if container.Volumes != nil {
@@ -1512,6 +1615,28 @@ func flattenVolumeSpec(volumes *[]client.VolumeSpec) []interface{} {
 	return nil
 }
 
+func flattenPortSpec(ports *[]client.PortSpec) []interface{} {
+
+	if ports != nil && len(*ports) > 0 {
+
+		output := []interface{}{}
+
+		for _, port := range *ports {
+
+			v := map[string]interface{}{}
+
+			v["protocol"] = *port.Protocol
+			v["number"] = *port.Number
+
+			output = append(output, v)
+		}
+
+		return output
+	}
+
+	return nil
+}
+
 func flattenMetrics(metrics *client.Metrics) []interface{} {
 
 	if metrics != nil {
@@ -1531,7 +1656,7 @@ func flattenMetrics(metrics *client.Metrics) []interface{} {
 	return nil
 }
 
-func flattentHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
+func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 
 	if healthCheck != nil {
 

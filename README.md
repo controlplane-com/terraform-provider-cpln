@@ -146,7 +146,9 @@ Windows
 ```
 tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpln_1.0.0_windows_amd64.exe
 ```
+## Terraform Registry Publishing
 
+- https://www.terraform.io/registry/providers/publishing
 
 ## Notes
 
@@ -156,5 +158,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 
 ## Version Info
 
-- v1.0.2 - Publish To Terraform Registry
-- v1.0.3 - Update docs
+- v1.0.2 - Publish To Terraform Registry.
+- v1.0.3 - Update docs.
+- v1.0.4 - Add standard workload type.
