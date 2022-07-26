@@ -285,7 +285,7 @@ The following attributes are exported:
 - **status** (List of Object) ([see below](#nestedatt--status)).
 
 
-## Example Usage
+## Example Usage - Serverless
 
 ```terraform
 resource "cpln_gvc" "example" {
@@ -326,6 +326,8 @@ resource "cpln_workload" "new" {
   }
 
   identity_link = cpln_identity.example.self_link
+
+  type = "serverless" 
 
   container {
     name   = "container-01"
@@ -425,4 +427,102 @@ resource "cpln_workload" "new" {
     }
   }
 }
+```
+
+
+## Example Usage - Standard
+
+```terraform
+
+resource "cpln_gvc" "example" {
+  name        = "gvc-example"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_identity" "example" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "identity-example"
+  description = "Example Identity"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "workload-example"
+  description = "Example Workload"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  type = "standard" 
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    memory = "128Mi"
+    cpu    = "50m"
+
+		ports {
+		  protocol = "http"
+			number   = "80" 
+		}
+
+		ports {
+			protocol = "http2"
+			number   = "8080" 
+	  }
+
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02",
+    }
+  }
+ 
+  options {
+    capacity_ai     = false
+    spot            = true
+    timeout_seconds = 30
+
+    autoscaling {
+      metric          = "cpu"
+      target          = 60
+      max_scale       = 3
+      min_scale       = 2
+      max_concurrency = 500
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_cidr     = []
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+    }
+    internal {
+      # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
+}
+
 ```
