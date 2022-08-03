@@ -161,3 +161,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.2 - Publish To Terraform Registry.
 - v1.0.3 - Update docs.
 - v1.0.4 - Add standard workload type.
+- v1.0.5 - Add Org External Logging.
