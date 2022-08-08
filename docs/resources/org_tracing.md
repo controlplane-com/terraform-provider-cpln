@@ -5,7 +5,7 @@ description: |-
   
 ---
 
-# cpln_org_logging (Resource)
+# cpln_org_tracing (Resource)
 
 Manages an Org's tracing configuration.
 
