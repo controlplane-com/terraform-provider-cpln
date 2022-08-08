@@ -55,18 +55,6 @@ type Logging struct {
 	Logzio    *LogzioLogging    `json:"logzio,omitempty"`
 }
 
-// LightstepTracing - LightstepTracing
-type LightstepTracing struct {
-	Endpoint    *string `json:"endpoint,omitempty"`
-	Credentials *string `json:"credentials,omitempty"`
-}
-
-// Tracing - Tracing
-type Tracing struct {
-	Sampling  *int              `json:"sampling,omitempty"`
-	Lightstep *LightstepTracing `json:"lightstep,omitempty"`
-}
-
 // OrgSpec - Organization Spec
 type OrgSpec struct {
 	Logging *Logging `json:"logging,omitempty"`
@@ -104,12 +92,33 @@ type ReplaceLogging struct {
 	Logging *Logging `json:"$replace/logging"`
 }
 
-// UpdateOrg - Update an existing Org
+type ReplaceTracing struct {
+	Tracing *Tracing `json:"$replace/tracing"`
+}
+
+// UpdateOrgLogging - Update an existing Org Logging
 func (c *Client) UpdateOrgLogging(log *Logging) (*Org, int, error) {
 
 	spec := UpdateSpec{
 		Spec: ReplaceLogging{
 			Logging: log,
+		},
+	}
+
+	code, err := c.UpdateResource("", spec)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return c.GetOrg()
+}
+
+// UpdateOrgLogging - Update an existing Org Tracing
+func (c *Client) UpdateOrgTracing(tracing *Tracing) (*Org, int, error) {
+
+	spec := UpdateSpec{
+		Spec: ReplaceTracing{
+			Tracing: tracing,
 		},
 	}
 

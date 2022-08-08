@@ -25,6 +25,7 @@ type GvcSpec struct {
 	StaticPlacement *StaticPlacement `json:"staticPlacement,omitempty"`
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain,omitempty"`
+	Tracing         *Tracing         `json:"tracing,omitempty"`
 	Update          bool             `json:"-"`
 }
 
@@ -32,6 +33,7 @@ type GvcSpecUpdate struct {
 	StaticPlacement *StaticPlacement `json:"staticPlacement,omitempty"`
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain"`
+	Tracing         *Tracing         `json:"tracing,omitempty"`
 }
 
 func (g GvcSpec) MarshalJSON() ([]byte, error) {

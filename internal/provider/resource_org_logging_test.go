@@ -12,7 +12,7 @@ import (
 func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "ORG") },
+		PreCheck:     func() { testAccPreCheck(t, "ORG_LOGGING") },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckControlPlaneOrgCheckDestroy,
 		Steps: []resource.TestStep{
@@ -101,7 +101,7 @@ func testAccControlPlaneOrgCoralogix() string {
 		coralogix_logging {
 
 			// Valid clusters
-			// coralogix.com, coralogix.us, app.coralogix.in, app.eu2.coralogix.com, app.coralogixsg.com,
+			// coralogix.com, coralogix.us, app.coralogix.in, app.eu2.coralogix.com, app.coralogixsg.com
 			cluster = "coralogix.com"
 
 			// Opaque Secret Only
@@ -182,7 +182,7 @@ func testAccControlPlaneOrgLogzio() string {
 
 		logzio_logging {
 
-			// Valid Host
+			// Valid Listener Hosts
 			// listener.logz.io, listener-nl.logz.io 
 			listener_host = "listener.logz.io"
 
@@ -220,7 +220,7 @@ func testAccControlPlaneOrgLogzio1() string {
 
 		logzio_logging {
 
-			// Valid Host
+			// Valid Hosts
 			// listener.logz.io, listener-nl.logz.io 
 			listener_host = "listener-nl.logz.io"
 

@@ -70,6 +70,7 @@ func resourceGvc() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"lightstep_tracing": client.LightstepSchema(),
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -94,6 +95,16 @@ func resourceGvcCreate(ctx context.Context, d *schema.ResourceData, m interface{
 
 	buildLocations(c.Org, d.Get("locations"), &gvc)
 	buildPullSecrets(c.Org, d.Get("pull_secrets"), &gvc)
+
+	traceArray := d.Get("lightstep_tracing").([]interface{})
+	if len(traceArray) == 1 {
+
+		if gvc.Spec == nil {
+			gvc.Spec = &client.GvcSpec{}
+		}
+
+		gvc.Spec.Tracing = buildLightStepTracing(traceArray)
+	}
 
 	newGvc, code, err := c.CreateGvc(gvc)
 
@@ -197,6 +208,14 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		return diag.FromErr(err)
 	}
 
+	if gvc.Spec != nil && gvc.Spec.Tracing != nil {
+		if gvc.Spec.Tracing.Lightstep != nil {
+			if err := d.Set("lightstep_tracing", flattenLightstepTracing(gvc.Spec.Tracing)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -247,7 +266,7 @@ func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "tags", "domain", "pull_secrets") {
+	if d.HasChanges("description", "locations", "tags", "domain", "pull_secrets", "lightstep_tracing") {
 
 		c := m.(*client.Client)
 
@@ -274,6 +293,19 @@ func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 
 		if d.HasChange("tags") {
 			gvcToUpdate.Tags = GetTagChanges(d)
+		}
+
+		if d.HasChange("lightstep_tracing") {
+			traceArray := d.Get("lightstep_tracing").([]interface{})
+
+			if len(traceArray) == 1 {
+
+				if gvcToUpdate.Spec == nil {
+					gvcToUpdate.Spec = &client.GvcSpec{}
+				}
+
+				gvcToUpdate.Spec.Tracing = buildLightStepTracing(traceArray)
+			}
 		}
 
 		updatedGvc, _, err := c.UpdateGvc(gvcToUpdate)
