@@ -26,7 +26,7 @@ At least one of the following tracing blocks are required:
 Required:
 
 - **sampling** (Int) Sampling percentage.
-- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internale endpoint. 
+- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint. 
 
 Optional:
 

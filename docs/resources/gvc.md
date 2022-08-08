@@ -32,7 +32,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 Required:
 
 - **sampling** (Int) Sampling percentage.
-- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internale endpoint. 
+- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint. 
 
 Optional:
 
