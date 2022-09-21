@@ -163,3 +163,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.4 - Add standard workload type.
 - v1.0.5 - Add Org External Logging.
 - v1.0.7 - Add Org/Gvc Tracing (lightstep).
+- v1.0.8 - Add Gvc Data Source.
