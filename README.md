@@ -20,6 +20,9 @@ git clone https://github.com/controlplane-com/terraform-provider-cpln.git
 cd terraform-provider
 make install
 
+For macOS (Apple Silicion):
+make install OS_ARCH=darwin_arm64
+
 For macOS:
 make install OS_ARCH=darwin_amd64
  ```
@@ -135,6 +138,11 @@ $ make testacc
 macOS
 ```
 tar -cvzf terraform-provider-cpln_1.0.0_darwin_amd64.tgz terraform-provider-cpln_1.0.0_darwin_amd64
+```
+
+macOS (Apple Silicon)
+```
+tar -cvzf terraform-provider-cpln_1.0.0_darwin_amd64.tgz terraform-provider-cpln_1.0.0_darwin_arm64
 ```
 
 Linux

@@ -28,13 +28,14 @@ func dataSourceGvc() *schema.Resource {
 				Computed: true,
 			},
 			"domain": {
+				Type:       schema.TypeString,
+				Computed:   true,
+				Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
+			},
+			"alias": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			// "alias": {
-			// 	Type:     schema.TypeString,
-			// 	Computed: true,
-			// },
 			"pull_secrets": {
 				Type:     schema.TypeSet,
 				Computed: true,
