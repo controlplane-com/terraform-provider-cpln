@@ -36,14 +36,14 @@ func resourceGvc() *schema.Resource {
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"domain": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:       schema.TypeString,
+				Optional:   true,
+				Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
 			},
-			// "alias": {
-			// 	Type:     schema.TypeString,
-			// 	Optional: true,
-			// 	Computed: true,
-			// },
+			"alias": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"pull_secrets": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -76,7 +76,7 @@ func resourceGvc() *schema.Resource {
 	}
 }
 
-func resourceGvcCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcCreate")
 
@@ -157,7 +157,7 @@ func buildPullSecrets(org string, pullSecrets interface{}, gvc *client.Gvc) {
 	gvc.Spec.PullSecretLinks = &l
 }
 
-func resourceGvcRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcRead")
 
@@ -200,9 +200,9 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		return diag.FromErr(err)
 	}
 
-	// if err := d.Set("alias", gvc.Alias); err != nil {
-	// 	return diag.FromErr(err)
-	// }
+	if err := d.Set("alias", gvc.Alias); err != nil {
+		return diag.FromErr(err)
+	}
 
 	if err := SetSelfLink(gvc.Links, d); err != nil {
 		return diag.FromErr(err)
@@ -262,7 +262,7 @@ func flattenPullSecrets(gvcSpec *client.GvcSpec, org string) []interface{} {
 	return make([]interface{}, 0)
 }
 
-func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
@@ -319,7 +319,7 @@ func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return nil
 }
 
-func resourceGvcDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcDelete(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcDelete")
 

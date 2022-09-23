@@ -11,7 +11,6 @@ type Base struct {
 	Created      *string                 `json:"created,omitempty"`
 	LastModified *string                 `json:"lastModified,omitempty"`
 	Links        *[]Link                 `json:"links,omitempty"`
-	// Alias        string                 `json:"alias,omitempty"`
 }
 
 // Link - Link

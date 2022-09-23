@@ -17,7 +17,8 @@ type Gvcs struct {
 // Gvc - Global Virtual Cloud
 type Gvc struct {
 	Base
-	Spec *GvcSpec `json:"spec,omitempty"`
+	Spec  *GvcSpec `json:"spec,omitempty"`
+	Alias *string  `json:"alias,omitempty"`
 }
 
 // GvcSpec - GVC Spec

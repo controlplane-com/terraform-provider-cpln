@@ -54,7 +54,8 @@ func Provider() *schema.Provider {
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
-			// "cpln_gvc": dataSourceGvcs(),
+			// "cpln_gvcs": dataSourceGvcs(),
+			"cpln_gvc": dataSourceGvc(),
 			"cpln_org": dataSourceOrg(),
 		},
 
@@ -62,7 +63,7 @@ func Provider() *schema.Provider {
 	}
 }
 
-func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+func providerConfigure(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 
 	org := d.Get("org").(string)
 	host := d.Get("endpoint").(string)
@@ -71,11 +72,11 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	var diags diag.Diagnostics
 
-	client, err := client.NewClient(&org, &host, &profile, &token)
+	httpClient, err := client.NewClient(&org, &host, &profile, &token)
 
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
 
-	return client, diags
+	return httpClient, diags
 }

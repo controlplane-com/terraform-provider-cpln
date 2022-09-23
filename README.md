@@ -20,6 +20,9 @@ git clone https://github.com/controlplane-com/terraform-provider-cpln.git
 cd terraform-provider
 make install
 
+For macOS (Apple Silicion):
+make install OS_ARCH=darwin_arm64
+
 For macOS:
 make install OS_ARCH=darwin_amd64
  ```
@@ -137,6 +140,11 @@ macOS
 tar -cvzf terraform-provider-cpln_1.0.0_darwin_amd64.tgz terraform-provider-cpln_1.0.0_darwin_amd64
 ```
 
+macOS (Apple Silicon)
+```
+tar -cvzf terraform-provider-cpln_1.0.0_darwin_amd64.tgz terraform-provider-cpln_1.0.0_darwin_arm64
+```
+
 Linux
 ```
 tar -cvzf terraform-provider-cpln_1.0.0_linux_amd64.tgz terraform-provider-cpln_1.0.0_linux_amd64
@@ -163,3 +171,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.4 - Add standard workload type.
 - v1.0.5 - Add Org External Logging.
 - v1.0.7 - Add Org/Gvc Tracing (lightstep).
+- v1.0.8 - Add Gvc Data Source.
