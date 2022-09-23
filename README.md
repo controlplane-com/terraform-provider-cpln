@@ -157,6 +157,8 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 ## Terraform Registry Publishing
 
 - https://www.terraform.io/registry/providers/publishing
+- git tag vX.X.X
+- git push origin vX.X.X
 
 ## Notes
 
