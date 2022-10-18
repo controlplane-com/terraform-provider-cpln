@@ -31,8 +31,8 @@ func SetBase(d *schema.ResourceData, base client.Base) error {
 
 	for k, v := range *base.Tags {
 
-		// Remove server side generated tags
-		if strings.HasPrefix(k, "cpln/") {
+		// Remove certain server side generated tags
+		if strings.HasPrefix(k, "cpln/deployTimestamp") {
 			continue
 		}
 
