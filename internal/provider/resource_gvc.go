@@ -214,6 +214,10 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 				return diag.FromErr(err)
 			}
 		}
+	} else {
+		if err := d.Set("lightstep_tracing", nil); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return nil

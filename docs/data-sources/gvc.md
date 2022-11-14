@@ -8,6 +8,10 @@ description: |-
 
 Use this data source to access information about an existing [Global Virtual Cloud (GVC)](https://docs.controlplane.com/reference/gvc) within Control Plane. 
 
+## Required
+
+- **name** (String) Name of the GVC.
+
 ## Outputs
 
 The following attributes are exported:
@@ -35,10 +39,10 @@ The following attributes are exported:
 data "cpln_gvc" "gvc" {}
 
 output "gvc_id" {
-  value = data.cpln_gvc.id
+  value = data.cpln_gvc.gvc.id
 }
 
 output "gvc_locations" {
-  value = data.cpln_gvc.locations
+  value = data.cpln_gvc.gvc.locations
 }
 ```

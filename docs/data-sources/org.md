@@ -21,10 +21,10 @@ The following attributes are exported:
 data "cpln_org" "org" {}
 
 output "org_id" {
-  value = data.cpln_org.id
+  value = data.cpln_org.org.id
 }
 
 output "org_name" {
-  value = data.cpln_org.name
+  value = data.cpln_org.org.name
 }
 ```
