@@ -66,6 +66,13 @@ func resourceGvc() *schema.Resource {
 				},
 				ValidateFunc: TagValidator,
 			},
+			"env": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"self_link": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -89,6 +96,28 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 	if d.Get("domain") != nil {
 		gvc.Spec = &client.GvcSpec{}
 		gvc.Spec.Domain = GetString(d.Get("domain"))
+	}
+
+	gvcEnv := []client.NameValue{}
+	keys, envMap := MapSortHelper(d.Get("env"))
+
+	for _, k := range keys {
+		envName := k
+		envValue := envMap[envName].(string)
+
+		localEnv := client.NameValue{
+			Name:  &envName,
+			Value: &envValue,
+		}
+
+		gvcEnv = append(gvcEnv, localEnv)
+	}
+
+	if len(keys) > 0 {
+		if gvc.Spec == nil {
+			gvc.Spec = &client.GvcSpec{}
+		}
+		gvc.Spec.Env = &gvcEnv
 	}
 
 	c := m.(*client.Client)
@@ -208,6 +237,36 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		return diag.FromErr(err)
 	}
 
+	// TODO we don't have tags here?
+
+	if gvc.Spec != nil && gvc.Spec.Env != nil {
+		if len(*gvc.Spec.Env) > 0 {
+
+			envMap := make(map[string]interface{}, len(*gvc.Spec.Env))
+
+			for _, envObj := range *gvc.Spec.Env {
+				key := envObj.Name
+				value := envObj.Name
+				envMap[*key] = value
+			}
+
+			if err := d.Set("env", envMap); err != nil {
+				return diag.FromErr(err)
+			}
+
+		} else {
+			emptyEnvMap := make(map[string]interface{}, 0)
+			if err := d.Set("env", emptyEnvMap); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	} else {
+		emptyEnvMap := make(map[string]interface{}, 0)
+		if err := d.Set("env", emptyEnvMap); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	if gvc.Spec != nil && gvc.Spec.Tracing != nil {
 		if gvc.Spec.Tracing.Lightstep != nil {
 			if err := d.Set("lightstep_tracing", flattenLightstepTracing(gvc.Spec.Tracing)); err != nil {
@@ -270,7 +329,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "tags", "domain", "pull_secrets", "lightstep_tracing") {
+	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing") {
 
 		c := m.(*client.Client)
 
@@ -297,6 +356,13 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 		if d.HasChange("tags") {
 			gvcToUpdate.Tags = GetTagChanges(d)
+		}
+
+		if d.HasChange("env") {
+			if gvcToUpdate.Spec == nil {
+				gvcToUpdate.Spec = &client.GvcSpec{}
+			}
+			gvcToUpdate.Spec.Env = GetGVCEnvChanges(d)
 		}
 
 		if d.HasChange("lightstep_tracing") {
