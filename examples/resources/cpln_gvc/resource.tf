@@ -12,4 +12,9 @@ resource "cpln_gvc" "example" {
     terraform_generated = "true"
     example             = "true"
   }
+
+  env = {
+    "name_first" : "value_first",
+    "name_second" : "value_second"
+  }
 }
