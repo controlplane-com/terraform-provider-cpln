@@ -183,7 +183,7 @@ func resourceWorkload() *schema.Resource {
 								return
 							},
 						},
-						"inheritEnv": {
+						"inherit_env": {
 							Type:     schema.TypeBool,
 							Optional: true,
 						},
@@ -827,7 +827,7 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 			Memory:           GetString(c["memory"].(string)),
 			CPU:              GetString(c["cpu"].(string)),
 			Command:          GetString(c["command"].(string)),
-			InheritEnv:       GetBool(c["inheritEnv"].(bool)),
+			InheritEnv:       GetBool(c["inherit_env"].(bool)),
 			WorkingDirectory: GetString(c["working_directory"].(string)),
 		}
 
@@ -1557,7 +1557,7 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 			}
 
 			if container.InheritEnv != nil {
-				c["inheritEnv"] = *container.InheritEnv
+				c["inherit_env"] = *container.InheritEnv
 			}
 
 			if container.WorkingDirectory != nil {
