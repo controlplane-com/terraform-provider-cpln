@@ -74,6 +74,7 @@ type ContainerSpec struct {
 	Volumes          *[]VolumeSpec    `json:"volumes,omitempty"`
 	Metrics          *Metrics         `json:"metrics,omitempty"`
 	Command          *string          `json:"command,omitempty"`
+	InheritEnv       *bool            `json:"inheritEnv,omitempty"`
 	WorkingDirectory *string          `json:"workingDir,omitempty"`
 }
 

@@ -59,7 +59,8 @@ Containers which attempt to use these ports will not be able to bind:
 
 - **args** (List of String) Command line arguments passed to the container at runtime.
 - **env** (Map of String) Name-Value list of environment variables.
-- **command** (String) Override the entry point. 
+- **command** (String) Override the entry point.
+- **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
 - **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
 - **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
   

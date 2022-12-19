@@ -42,6 +42,7 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		Memory:           GetString("128Mi"),
 		CPU:              GetString("50m"),
 		Command:          GetString("override-command"),
+		InheritEnv:       GetBool(false),
 		WorkingDirectory: GetString("/usr"),
 	}
 

@@ -43,6 +43,7 @@ resource "cpln_workload" "new" {
     port   = 8080
     memory = "128Mi"
     cpu    = "50m"
+    inheritEnv = false
 
     env = {
       env-name-01 = "env-value-01",
