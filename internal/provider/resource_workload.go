@@ -277,13 +277,13 @@ func resourceWorkload() *schema.Resource {
 							MaxItems: 1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
-									"postStart": {
+									"post_start": {
 										Type:     schema.TypeList,
 										Optional: true,
 										MaxItems: 1,
 										Elem:     lifeCycleSpec(),
 									},
-									"preStop": {
+									"pre_stop": {
 										Type:     schema.TypeList,
 										Optional: true,
 										MaxItems: 1,
@@ -1130,8 +1130,8 @@ func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
 	lc := lifecycle[0].(map[string]interface{})
 
 	// Set struct fields
-	if lc["postStart"] != nil {
-		commands := getInnerLifeCycleCommands(lc["postStart"].([]interface{}))
+	if lc["post_start"] != nil {
+		commands := getInnerLifeCycleCommands(lc["post_start"].([]interface{}))
 		if len(commands) > 0 {
 			output.PostStart = &client.LifeCycleInner{}
 			output.PostStart.Exec = &client.Exec{}
@@ -1139,8 +1139,8 @@ func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
 		}
 	}
 
-	if lc["preStop"] != nil {
-		commands := getInnerLifeCycleCommands(lc["preStop"].([]interface{}))
+	if lc["pre_stop"] != nil {
+		commands := getInnerLifeCycleCommands(lc["pre_stop"].([]interface{}))
 		if len(commands) > 0 {
 			output.PreStop = &client.LifeCycleInner{}
 			output.PreStop.Exec = &client.Exec{}
@@ -2042,7 +2042,7 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 		exec["command"] = *spec.PostStart.Exec.Command
 		postStart := make(map[string]interface{})
 		postStart["exec"] = []interface{}{exec}
-		lc["postStart"] = []interface{}{postStart}
+		lc["post_start"] = []interface{}{postStart}
 	}
 
 	if spec.PreStop != nil && len(*spec.PreStop.Exec.Command) > 0 {
@@ -2050,7 +2050,7 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 		exec["command"] = *spec.PreStop.Exec.Command
 		preStop := make(map[string]interface{})
 		preStop["exec"] = []interface{}{exec}
-		lc["postStart"] = []interface{}{preStop}
+		lc["pre_stop"] = []interface{}{preStop}
 	}
 
 	return []interface{}{lc}
