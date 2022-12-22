@@ -38,12 +38,12 @@ resource "cpln_workload" "new" {
   identity_link = cpln_identity.example.self_link
 
   container {
-    name   = "container-01"
-    image  = "gcr.io/knative-samples/helloworld-go"
-    port   = 8080
-    memory = "128Mi"
-    cpu    = "50m"
-    inheritEnv = false
+    name        = "container-01"
+    image       = "gcr.io/knative-samples/helloworld-go"
+    port        = 8080
+    memory      = "128Mi"
+    cpu         = "50m"
+    inherit_env = false
 
     env = {
       env-name-01 = "env-value-01",
