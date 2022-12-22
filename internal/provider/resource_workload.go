@@ -271,6 +271,27 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
+						"lifecycle": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"postStart": {
+										Type:     schema.TypeList,
+										Optional: true,
+										MaxItems: 1,
+										Elem:     lifeCycleSpec(),
+									},
+									"preStop": {
+										Type:     schema.TypeList,
+										Optional: true,
+										MaxItems: 1,
+										Elem:     lifeCycleSpec(),
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -750,6 +771,28 @@ func healthCheckSpec() *schema.Resource {
 	}
 }
 
+func lifeCycleSpec() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"exec": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"command": {
+							Type:     schema.TypeString,
+							Required: true,
+							MinItems: 1,
+							Elem:     StringSchema(),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceWorkloadCreate")
@@ -880,6 +923,10 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 
 		if c["metrics"] != nil {
 			newContainer.Metrics = buildMetrics(c["metrics"].([]interface{}))
+		}
+
+		if c["lifecycle"] != nil {
+			newContainer.LifeCycle = buildLifeCycleSpec(c["lifecycle"].([]interface{}))
 		}
 
 		newContainers = append(newContainers, newContainer)
@@ -1070,6 +1117,36 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 	return nil
 }
 
+func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
+	if len(lifecycle) == 0 {
+		return nil
+	}
+
+	output := client.LifeCycleSpec{}
+	lc := lifecycle[0].(map[string]interface{})
+
+	// Set struct fields
+	if lc["postStart"] != nil {
+		commands := getInnerLifeCycleCommands(lc["postStart"].([]interface{}))
+		if len(commands) > 0 {
+			output.PostStart = &client.LifeCycleInner{}
+			output.PostStart.Exec = &client.Exec{}
+			output.PostStart.Exec.Command = &commands
+		}
+	}
+
+	if lc["preStop"] != nil {
+		commands := getInnerLifeCycleCommands(lc["preStop"].([]interface{}))
+		if len(commands) > 0 {
+			output.PreStop = &client.LifeCycleInner{}
+			output.PreStop.Exec = &client.Exec{}
+			output.PreStop.Exec.Command = &commands
+		}
+	}
+
+	return &output
+}
+
 func buildOptions(options []interface{}, workload *client.Workload, localOptions bool, org string) {
 
 	output := []client.Options{}
@@ -1210,6 +1287,33 @@ func buildFirewallSpec(specs []interface{}, workload *client.Workload, update bo
 
 		workload.Spec.FirewallConfig = &newSpec
 	}
+}
+
+func getInnerLifeCycleCommands(property []interface{}) []string {
+	if len(property) == 0 {
+		return []string{}
+	}
+	propertySafe := property[0].(map[string]interface{})
+	return buildExec(propertySafe["exec"].([]interface{}))
+}
+
+func buildExec(exec []interface{}) []string {
+	if len(exec) > 0 && exec[0] != nil {
+		return []string{}
+	}
+
+	commands := []string{}
+	e := exec[0].(map[string]interface{})
+
+	for _, k := range e["command"].([]interface{}) {
+		if k != nil {
+			commands = append(commands, k.(string))
+		} else {
+			commands = append(commands, "")
+		}
+	}
+
+	return commands
 }
 
 func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -1593,6 +1697,10 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 				c["metrics"] = flattenMetrics(container.Metrics)
 			}
 
+			if container.LifeCycle != nil {
+				c["lifecycle"] = flattenLifeCycle(container.LifeCycle)
+			}
+
 			cs[i] = c
 		}
 
@@ -1852,4 +1960,30 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	lc := map[string]interface{}{}
+
+	if spec.PostStart != nil && len(*spec.PostStart.Exec.Command) > 0 {
+		exec := make(map[string]interface{})
+		exec["command"] = *spec.PostStart.Exec.Command
+		postStart := make(map[string]interface{})
+		postStart["exec"] = []interface{}{exec}
+		lc["postStart"] = []interface{}{postStart}
+	}
+
+	if spec.PreStop != nil && len(*spec.PreStop.Exec.Command) > 0 {
+		exec := make(map[string]interface{})
+		exec["command"] = *spec.PreStop.Exec.Command
+		preStop := make(map[string]interface{})
+		preStop["exec"] = []interface{}{exec}
+		lc["postStart"] = []interface{}{preStop}
+	}
+
+	return []interface{}{lc}
 }
