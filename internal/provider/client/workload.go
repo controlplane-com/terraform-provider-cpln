@@ -76,6 +76,7 @@ type ContainerSpec struct {
 	Command          *string          `json:"command,omitempty"`
 	InheritEnv       *bool            `json:"inheritEnv,omitempty"`
 	WorkingDirectory *string          `json:"workingDir,omitempty"`
+	LifeCycle        *LifeCycleSpec   `json:"lifecycle,omitempty"`
 }
 
 // NameValue - Name/Value Struct
@@ -232,6 +233,17 @@ type HTTPGet struct {
 	Port        *int         `json:"port,omitempty"`
 	HTTPHeaders *[]NameValue `json:"httpHeaders,omitempty"`
 	Scheme      *string      `json:"scheme,omitempty"`
+}
+
+// LifeCycle
+type LifeCycleSpec struct {
+	PostStart *LifeCycleInner `json:"postStart,omitempty"`
+	PreStop   *LifeCycleInner `json:"preStop,omitempty"`
+}
+
+// LifeCycle - Inner
+type LifeCycleInner struct {
+	Exec *Exec `json:"exec,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {
