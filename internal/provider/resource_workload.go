@@ -781,7 +781,7 @@ func lifeCycleSpec() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"command": {
-							Type:     schema.TypeString,
+							Type:     schema.TypeList,
 							Required: true,
 							MinItems: 1,
 							Elem:     StringSchema(),
@@ -1294,7 +1294,11 @@ func getInnerLifeCycleCommands(property []interface{}) []string {
 		return []string{}
 	}
 	propertySafe := property[0].(map[string]interface{})
-	return buildExec(propertySafe["exec"].([]interface{}))
+	exec, ok := propertySafe["exec"].([]interface{})
+	if ok {
+		return buildExec(exec)
+	}
+	return []string{}
 }
 
 func buildExec(exec []interface{}) []string {
