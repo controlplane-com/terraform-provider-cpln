@@ -27,12 +27,21 @@ func SetBase(d *schema.ResourceData, base client.Base) error {
 		return err
 	}
 
+	if err := d.Set("tags", GetTags(base.Tags)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetTags(tags *map[string]interface{}) map[string]interface{} {
+
 	stringTypes := make(map[string]interface{})
 
-	for k, v := range *base.Tags {
+	for k, v := range *tags {
 
-		// Remove server side generated tags
-		if strings.HasPrefix(k, "cpln/") {
+		// Remove certain server side generated tags
+		if strings.HasPrefix(k, "cpln/deployTimestamp") {
 			continue
 		}
 
@@ -45,11 +54,7 @@ func SetBase(d *schema.ResourceData, base client.Base) error {
 		}
 	}
 
-	if err := d.Set("tags", stringTypes); err != nil {
-		return err
-	}
-
-	return nil
+	return stringTypes
 }
 
 func GetTagChanges(d *schema.ResourceData) *map[string]interface{} {
@@ -633,6 +638,15 @@ func ResourceExistsHelper() diag.Diagnostics {
 
 func SetSelfLink(links *[]client.Link, d *schema.ResourceData) error {
 
+	if err := d.Set("self_link", GetSelfLink(links)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetSelfLink(links *[]client.Link) string {
+
 	selfLink := ""
 
 	if links != nil && len(*links) > 0 {
@@ -644,15 +658,55 @@ func SetSelfLink(links *[]client.Link, d *schema.ResourceData) error {
 		}
 	}
 
-	if err := d.Set("self_link", selfLink); err != nil {
-		return err
-	}
-
-	return nil
+	return selfLink
 }
 
 func StringSchema() *schema.Schema {
 	return &schema.Schema{
 		Type: schema.TypeString,
 	}
+}
+
+func WorkloadTypeValidator(val interface{}, key string) (warns []string, errs []error) {
+
+	workloadType := val.(string)
+
+	workloadTypes := []string{
+		"serverless",
+		"standard",
+		"cron",
+		"stateful",
+	}
+
+	for _, v := range workloadTypes {
+		if v == workloadType {
+			return
+		}
+	}
+
+	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, workloadType))
+
+	return
+}
+
+func PortProtocolValidator(val interface{}, key string) (warns []string, errs []error) {
+
+	portProtocol := val.(string)
+
+	portProtocols := []string{
+		"http",
+		"http2",
+		"grpc",
+		"tcp",
+	}
+
+	for _, v := range portProtocols {
+		if v == portProtocol {
+			return
+		}
+	}
+
+	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, portProtocol))
+
+	return
 }

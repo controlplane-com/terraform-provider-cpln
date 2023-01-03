@@ -31,7 +31,7 @@ func dataSourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{
 
 	var diags diag.Diagnostics
 
-	org, err := c.GetOrg(c.Org)
+	org, _, err := c.GetOrg()
 	if err != nil {
 		return diag.FromErr(err)
 	}

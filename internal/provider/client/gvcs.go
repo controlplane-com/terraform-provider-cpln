@@ -17,7 +17,8 @@ type Gvcs struct {
 // Gvc - Global Virtual Cloud
 type Gvc struct {
 	Base
-	Spec *GvcSpec `json:"spec,omitempty"`
+	Spec  *GvcSpec `json:"spec,omitempty"`
+	Alias *string  `json:"alias,omitempty"`
 }
 
 // GvcSpec - GVC Spec
@@ -25,6 +26,7 @@ type GvcSpec struct {
 	StaticPlacement *StaticPlacement `json:"staticPlacement,omitempty"`
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain,omitempty"`
+	Tracing         *Tracing         `json:"tracing,omitempty"`
 	Update          bool             `json:"-"`
 }
 
@@ -32,6 +34,7 @@ type GvcSpecUpdate struct {
 	StaticPlacement *StaticPlacement `json:"staticPlacement,omitempty"`
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain"`
+	Tracing         *Tracing         `json:"tracing,omitempty"`
 }
 
 func (g GvcSpec) MarshalJSON() ([]byte, error) {

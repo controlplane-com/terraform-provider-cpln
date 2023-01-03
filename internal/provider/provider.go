@@ -44,6 +44,8 @@ func Provider() *schema.Provider {
 			"cpln_group":               resourceGroup(),
 			"cpln_gvc":                 resourceGvc(),
 			"cpln_identity":            resourceIdentity(),
+			"cpln_org_logging":         resourceOrgLogging(),
+			"cpln_org_tracing":         resourceOrgTracing(),
 			"cpln_policy":              resourcePolicy(),
 			"cpln_secret":              resourceSecret(),
 			"cpln_service_account":     resourceServiceAccount(),
@@ -52,15 +54,18 @@ func Provider() *schema.Provider {
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{
-			// "cpln_gvc": dataSourceGvcs(),
-			"cpln_org": dataSourceOrg(),
+			// "cpln_gvcs": dataSourceGvcs(),
+			"cpln_gvc":       dataSourceGvc(),
+			"cpln_location":  dataSourceLocation(),
+			"cpln_locations": dataSourceLocations(),
+			"cpln_org":       dataSourceOrg(),
 		},
 
 		ConfigureContextFunc: providerConfigure,
 	}
 }
 
-func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+func providerConfigure(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 
 	org := d.Get("org").(string)
 	host := d.Get("endpoint").(string)
@@ -69,11 +74,11 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	var diags diag.Diagnostics
 
-	client, err := client.NewClient(&org, &host, &profile, &token)
+	httpClient, err := client.NewClient(&org, &host, &profile, &token)
 
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
 
-	return client, diags
+	return httpClient, diags
 }

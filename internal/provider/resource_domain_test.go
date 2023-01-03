@@ -12,6 +12,7 @@ import (
 
 func TestAccControlPlaneDomain_basic(t *testing.T) {
 
+	aName := "globalvirtualcloud.com"
 	dName := "domain-testacc.globalvirtualcloud.com"
 	zone := "cpln-test"
 
@@ -31,14 +32,14 @@ func TestAccControlPlaneDomain_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneDomainDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneDomain(dName, "Domain created using Terraform", zone),
+				Config: testAccControlPlaneDomain(aName, dName, "Domain created using Terraform", zone),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("cpln_domain.new", "name", dName),
 					resource.TestCheckResourceAttr("cpln_domain.new", "description", "Domain created using Terraform"),
 				),
 			},
 			{
-				Config: testAccControlPlaneDomain(dName, "Domain created using Terraform - Updated", zone),
+				Config: testAccControlPlaneDomain(aName, dName, "Domain created using Terraform - Updated", zone),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("cpln_domain.new", "name", dName),
 					resource.TestCheckResourceAttr("cpln_domain.new", "description", "Domain created using Terraform - Updated"),
@@ -75,9 +76,15 @@ func testAccCheckControlPlaneDomainDestroy(s *terraform.State) error {
 	return nil
 }
 
-func testAccControlPlaneDomain(domain, description, managedZone string) string {
+func testAccControlPlaneDomain(apex, domain, description, managedZone string) string {
 
 	variables := fmt.Sprintf(`
+
+		variable domain_name_apex {
+			type = string
+			default = "%s"
+		}
+
 		variable domain_name {
 			type = string
 			default = "%s"
@@ -92,7 +99,7 @@ func testAccControlPlaneDomain(domain, description, managedZone string) string {
 			type = string
 			default = "%s"
 		}
-		`, domain, managedZone, description)
+		`, apex, domain, managedZone, description)
 
 	domainSetup := `
 	
@@ -133,8 +140,21 @@ func testAccControlPlaneDomain(domain, description, managedZone string) string {
 	`
 
 	cplnDomainSetup := `
+
+	    resource "cpln_domain" "new_apex" {
+			
+			name = var.domain_name_apex	
+		
+			tags = {
+			  terraform_generated = "true"
+			  acceptance_test = "true"
+			}
+	    }
+
 		resource "cpln_domain" "new" {
 			
+			depends_on = [cpln_domain.new_apex]
+
 			name        = var.domain_name	
 			description = var.description
 		

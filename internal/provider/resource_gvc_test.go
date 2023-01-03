@@ -139,14 +139,21 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGvc(random, rName, "GVC created using terraform for acceptance tests"),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests"),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
+				),
+			},
+			{
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
@@ -185,7 +192,7 @@ func testAccCheckControlPlaneGvcDestroy(s *terraform.State) error {
 	return nil
 }
 
-func testAccControlPlaneGvc(random, name, description string) string {
+func testAccControlPlaneGvc(random, random2, name, description, sampling string) string {
 
 	return fmt.Sprintf(`
 
@@ -200,6 +207,22 @@ func testAccControlPlaneGvc(random, name, description string) string {
 		} 
 			
 		docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
+	}
+
+	resource "cpln_secret" "opaque" {
+		name = "opaque-random-tbd-%s"
+		description = "description opaque-random-tbd" 
+				
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		} 
+		
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
 	}
 
 	resource "time_sleep" "wait_30_seconds" {
@@ -222,7 +245,18 @@ func testAccControlPlaneGvc(random, name, description string) string {
 		  terraform_generated = "true"
 		  acceptance_test = "true"
 		}
-	  }`, random, name, description)
+
+		lightstep_tracing {
+
+			sampling = %s
+			endpoint = "test.cpln.local:8080"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque.self_link
+		}	
+
+
+	  }`, random, random2, name, description, sampling)
 }
 
 func testAccCheckControlPlaneGvcExists(resourceName, gvcName string) resource.TestCheckFunc {

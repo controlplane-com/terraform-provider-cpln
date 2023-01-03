@@ -23,7 +23,22 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **domain** (String) Custom domain name used by associated workloads.
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **tags** (Map of String) Key-value map of resource tags.
+- **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 
+<a id="nestedblock--lightstep_tracing"></a>
+ ### `lightstep_tracing`
+
+
+Required:
+
+- **sampling** (Int) Sampling percentage.
+- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint. 
+
+Optional:
+
+- **credentials** (String) Full link to referenced Opaque Secret. 
+
+~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to  `true`.
 
   
 ## Outputs
@@ -47,6 +62,23 @@ resource "cpln_secret" "docker" {
 			
 	docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
 }
+
+resource "cpln_secret" "opaque" {
+
+	name = "opaque-random-tbd"
+	description = "description opaque-random-tbd" 
+				
+	tags = {
+		terraform_generated = "true"
+		acceptance_test = "true"
+		secret_type = "opaque"
+	} 
+		
+	opaque {
+		payload = "opaque_secret_payload"
+		encoding = "plain"
+	}
+}
   
 resource "cpln_gvc" "example" {
 
@@ -63,5 +95,14 @@ resource "cpln_gvc" "example" {
     terraform_generated = "true"
     example             = "true"
   }
+
+  lightstep_tracing {
+
+		sampling = 50
+		endpoint = "test.cpln.local:8080"
+
+		// Opaque Secret Only
+		credentials = cpln_secret.opaque.self_link
+	}	
 }
 ```

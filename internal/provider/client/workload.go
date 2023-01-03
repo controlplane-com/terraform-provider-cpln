@@ -23,6 +23,7 @@ type Workload struct {
 
 // WorkloadSpec - Workload Specifications
 type WorkloadSpec struct {
+	Type           *string          `json:"type,omitempty"`
 	IdentityLink   *string          `json:"identityLink,omitempty"`
 	Containers     *[]ContainerSpec `json:"containers,omitempty"`
 	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
@@ -33,6 +34,7 @@ type WorkloadSpec struct {
 
 // WorkloadSpecUpdate - Workload Specifications
 type WorkloadSpecUpdate struct {
+	Type           *string          `json:"type,omitempty"`
 	IdentityLink   *string          `json:"identityLink"`
 	Containers     *[]ContainerSpec `json:"containers,omitempty"`
 	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
@@ -46,6 +48,7 @@ func (p WorkloadSpec) MarshalJSON() ([]byte, error) {
 
 	if p.Update && (p.IdentityLink == nil || *p.IdentityLink == "") {
 		return json.Marshal(WorkloadSpecUpdate{
+			Type:           p.Type,
 			IdentityLink:   p.IdentityLink,
 			Containers:     p.Containers,
 			FirewallConfig: p.FirewallConfig,
@@ -61,6 +64,7 @@ type ContainerSpec struct {
 	Name             *string          `json:"name,omitempty"`
 	Image            *string          `json:"image,omitempty"`
 	Port             *int             `json:"port,omitempty"`
+	Ports            *[]PortSpec      `json:"ports,omitempty"`
 	Memory           *string          `json:"memory,omitempty"`
 	ReadinessProbe   *HealthCheckSpec `json:"readinessProbe,omitempty"`
 	LivenessProbe    *HealthCheckSpec `json:"livenessProbe,omitempty"`
@@ -77,6 +81,12 @@ type ContainerSpec struct {
 type NameValue struct {
 	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
+}
+
+// PortSpec - Ports
+type PortSpec struct {
+	Protocol *string `json:"protocol,omitempty"`
+	Number   *int    `json:"number,omitempty"`
 }
 
 // Options - Options
@@ -162,10 +172,12 @@ func (p FirewallSpecInternal) MarshalJSON() ([]byte, error) {
 
 // WorkloadStatus - Workload Status
 type WorkloadStatus struct {
-	ParentID          *string            `json:"parentId,omitempty"`
-	CanonicalEndpoint *string            `json:"canonicalEndpoint,omitempty"`
-	Endpoint          *string            `json:"endpoint,omitempty"`
-	HealthCheck       *HealthCheckStatus `json:"healthCheck,omitempty"`
+	ParentID            *string            `json:"parentId,omitempty"`
+	CanonicalEndpoint   *string            `json:"canonicalEndpoint,omitempty"`
+	Endpoint            *string            `json:"endpoint,omitempty"`
+	InternalName        *string            `json:"internalName,omitempty"`
+	CurrentReplicaCount *int               `json:"currentReplicaCount,omitempty"`
+	HealthCheck         *HealthCheckStatus `json:"healthCheck,omitempty"`
 }
 
 // HealthCheckStatus - Health Check Status

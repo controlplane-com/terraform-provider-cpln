@@ -36,14 +36,14 @@ func resourceGvc() *schema.Resource {
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"domain": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:       schema.TypeString,
+				Optional:   true,
+				Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
 			},
-			// "alias": {
-			// 	Type:     schema.TypeString,
-			// 	Optional: true,
-			// 	Computed: true,
-			// },
+			"alias": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"pull_secrets": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -70,12 +70,13 @@ func resourceGvc() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"lightstep_tracing": client.LightstepSchema(),
 		},
 		Importer: &schema.ResourceImporter{},
 	}
 }
 
-func resourceGvcCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcCreate")
 
@@ -94,6 +95,16 @@ func resourceGvcCreate(ctx context.Context, d *schema.ResourceData, m interface{
 
 	buildLocations(c.Org, d.Get("locations"), &gvc)
 	buildPullSecrets(c.Org, d.Get("pull_secrets"), &gvc)
+
+	traceArray := d.Get("lightstep_tracing").([]interface{})
+	if len(traceArray) == 1 {
+
+		if gvc.Spec == nil {
+			gvc.Spec = &client.GvcSpec{}
+		}
+
+		gvc.Spec.Tracing = buildLightStepTracing(traceArray)
+	}
 
 	newGvc, code, err := c.CreateGvc(gvc)
 
@@ -146,7 +157,7 @@ func buildPullSecrets(org string, pullSecrets interface{}, gvc *client.Gvc) {
 	gvc.Spec.PullSecretLinks = &l
 }
 
-func resourceGvcRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcRead")
 
@@ -189,12 +200,24 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		return diag.FromErr(err)
 	}
 
-	// if err := d.Set("alias", gvc.Alias); err != nil {
-	// 	return diag.FromErr(err)
-	// }
+	if err := d.Set("alias", gvc.Alias); err != nil {
+		return diag.FromErr(err)
+	}
 
 	if err := SetSelfLink(gvc.Links, d); err != nil {
 		return diag.FromErr(err)
+	}
+
+	if gvc.Spec != nil && gvc.Spec.Tracing != nil {
+		if gvc.Spec.Tracing.Lightstep != nil {
+			if err := d.Set("lightstep_tracing", flattenLightstepTracing(gvc.Spec.Tracing)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	} else {
+		if err := d.Set("lightstep_tracing", nil); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return nil
@@ -243,11 +266,11 @@ func flattenPullSecrets(gvcSpec *client.GvcSpec, org string) []interface{} {
 	return make([]interface{}, 0)
 }
 
-func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "tags", "domain", "pull_secrets") {
+	if d.HasChanges("description", "locations", "tags", "domain", "pull_secrets", "lightstep_tracing") {
 
 		c := m.(*client.Client)
 
@@ -276,6 +299,19 @@ func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 			gvcToUpdate.Tags = GetTagChanges(d)
 		}
 
+		if d.HasChange("lightstep_tracing") {
+			traceArray := d.Get("lightstep_tracing").([]interface{})
+
+			if len(traceArray) == 1 {
+
+				if gvcToUpdate.Spec == nil {
+					gvcToUpdate.Spec = &client.GvcSpec{}
+				}
+
+				gvcToUpdate.Spec.Tracing = buildLightStepTracing(traceArray)
+			}
+		}
+
 		updatedGvc, _, err := c.UpdateGvc(gvcToUpdate)
 		if err != nil {
 			return diag.FromErr(err)
@@ -287,7 +323,7 @@ func resourceGvcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return nil
 }
 
-func resourceGvcDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceGvcDelete(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceGvcDelete")
 
