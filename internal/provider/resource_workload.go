@@ -186,6 +186,7 @@ func resourceWorkload() *schema.Resource {
 						"inherit_env": {
 							Type:     schema.TypeBool,
 							Optional: true,
+							Default:  false,
 						},
 						"args": {
 							Type:     schema.TypeList,
