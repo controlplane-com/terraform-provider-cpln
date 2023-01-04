@@ -41,7 +41,7 @@ func GetTags(tags *map[string]interface{}) map[string]interface{} {
 	for k, v := range *tags {
 
 		// Remove certain server side generated tags
-		if strings.HasPrefix(k, "cpln/deployTimestamp") {
+		if strings.HasPrefix(k, "cpln/deployTimestamp") || strings.HasPrefix(k, "cpln/aws") {
 			continue
 		}
 
