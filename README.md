@@ -66,6 +66,10 @@ calculate lock file checksums locally for the following providers:
    - controlplane.com/com/cpln
 ```
 
+### Debugging
+
+When debugging, create the file at `.vscode/launch.json` by copying and editing it from the `launch.json.example` file.
+
 ## Examples
 
 See the [HCL](https://www.terraform.io/docs/configuration/syntax.html) examples within the `/examples` directory.

@@ -1,3 +1,5 @@
+.vscode/launch.json
+
 .DS_Store
 terraform-provider-cpln
 
