@@ -1306,7 +1306,7 @@ func getInnerLifeCycleCommands(property []interface{}) []string {
 }
 
 func buildExec(exec []interface{}) []string {
-	if len(exec) > 0 && exec[0] != nil {
+	if len(exec) > 0 && exec[0] == nil {
 		return []string{}
 	}
 

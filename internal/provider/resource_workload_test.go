@@ -658,39 +658,53 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 
 		  readiness_probe {
 
-			tcp_socket {
-			  port = 8181
-			}
+				tcp_socket {
+					port = 8181
+				}
 
 			// exec {
 			// 	command = ["test1", "test2"]
 			// }
 	  
-			period_seconds       = 11
-			timeout_seconds      = 2
-			failure_threshold    = 4
-			success_threshold    = 2
-			initial_delay_seconds = 1
+				period_seconds       = 11
+				timeout_seconds      = 2
+				failure_threshold    = 4
+				success_threshold    = 2
+				initial_delay_seconds = 1
 		  }
 
 		  liveness_probe {
 
-			http_get {
-				path = "/path"
-				port = 8282
-				scheme = "HTTPS"
-				http_headers = {
-					header-name-01 = "header-value-01"
-					header-name-02 = "header-value-02"
+				http_get {
+					path = "/path"
+					port = 8282
+					scheme = "HTTPS"
+					http_headers = {
+						header-name-01 = "header-value-01"
+						header-name-02 = "header-value-02"
+					}
+				}
+	  
+				period_seconds       = 10
+				timeout_seconds      = 3
+				failure_threshold    = 5
+				success_threshold    = 1
+				initial_delay_seconds = 2
+		  }
+			
+			lifecycle {
+				pre_stop {
+					exec {
+						command = ["lc_pre_1", "lc_pre_2", "lc_pre_3"]
+					}
+				}
+	
+				post_start {
+					exec {
+						command = ["lc_post_1", "lc_post_2", "lc_post_3"]
+					}
 				}
 			}
-	  
-			period_seconds       = 10
-			timeout_seconds      = 3
-			failure_threshold    = 5
-			success_threshold    = 1
-			initial_delay_seconds = 2
-		  }
 		}
 
 		// container {
