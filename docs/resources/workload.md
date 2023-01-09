@@ -71,6 +71,7 @@ Containers which attempt to use these ports will not be able to bind:
   
 - **volume** (Block List) ([see below](#nestedblock--container--volume)) [Reference Page](https://docs.controlplane.com/reference/workload#volumes).
 - **working_directory** (String) Override the working directory. Must be an absolute path.
+- **lifecycle** (Block List, Max: 1) LifeCycle ([see below](#nestedblock--container--lifecycle)) [Reference Page](https://docs.controlplane.com/reference/workload#lifecycle).
 
 <a id="nestedblock--container--ports"></a>
  ### `container.ports`
@@ -79,8 +80,6 @@ Required:
 
 - **protocol** (String) Protocol. Choice of: `http`, `http2`, or `grpc`.
 - **number** (String) Port to expose.
-
-<a id="nestedblock--container--ports"></a>
 
 
 <a id="nestedblock--container--liveness_probe"></a>
@@ -176,13 +175,35 @@ Required:
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
-<a id="nestedblock--container--volume"></a>
+<a id="nestedblock--container--metrics"></a>
  ### `container.metrics`
 
 Required:
 
 - **path** (String) Path from container emitting custom metrics
 - **port** (Number) Port from container emitting custom metrics
+
+<a id="nestedblock--container--lifecycle"></a>
+ ### `container.lifecycle`
+
+Optional:
+
+- **postStart** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
+- **preStop** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
+
+<a id="nestedblock--container--lifecycle--spec"></a>
+ ### `container.lifecycle.spec`
+
+Optional:
+
+- **exec** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec--exec)).
+
+<a id="nestedblock--container--lifecycle--spec--exec"></a>
+ ### `container.lifecycle.spec.exec`
+
+Required:
+
+- **command** (List of Strings, Min: 1) List of commands to execute.
 
 
 
@@ -340,6 +361,8 @@ resource "cpln_workload" "new" {
     command = "override-command"
 		working_directory = "/usr"
 
+    inherit_env = false
+
     env = {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
@@ -382,6 +405,20 @@ resource "cpln_workload" "new" {
     volume {
       uri  = "s3://bucket"
       path = "/s3"
+    }
+
+    lifecycle {
+      pre_stop {
+        exec {
+          command = ["command_1", "command_2", "command_3"]
+        }
+      }
+
+      post_start {
+        exec {
+          command = ["command_1", "command_2", "command_3"]
+        }
+      }
     }
   }
  
