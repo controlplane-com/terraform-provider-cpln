@@ -18,9 +18,9 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 ### Optional
 
 - **description** (String) Description of the GVC.
+- **tags** (Map of String) Key-value map of resource tags.
 - **domain** (String) Custom domain name used by associated workloads.
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
-- **tags** (Map of String) Key-value map of resource tags.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 

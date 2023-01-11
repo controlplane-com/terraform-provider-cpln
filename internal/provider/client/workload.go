@@ -96,7 +96,6 @@ type Options struct {
 	AutoScaling    *AutoScaling `json:"autoscaling,omitempty"`
 	CapacityAI     *bool        `json:"capacityAI,omitempty"`
 	TimeoutSeconds *int         `json:"timeoutSeconds,omitempty"`
-	Spot           *bool        `json:"spot,omitempty"`
 	Debug          *bool        `json:"debug,omitempty"`
 	Location       *string      `json:"location,omitempty"`
 }
