@@ -87,7 +87,6 @@ resource "cpln_workload" "new" {
 
   options {
     capacity_ai     = false
-    spot            = true
     timeout_seconds = 30
 
     autoscaling {

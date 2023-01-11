@@ -301,7 +301,6 @@ func generateTestOptions(workloadType string) *client.Options {
 	if workloadType == "standard" {
 		return &client.Options{
 			CapacityAI:     GetBool(false),
-			Spot:           GetBool(true),
 			TimeoutSeconds: GetInt(30),
 			Debug:          GetBool(false),
 
@@ -318,7 +317,6 @@ func generateTestOptions(workloadType string) *client.Options {
 
 	return &client.Options{
 		CapacityAI:     GetBool(true),
-		Spot:           GetBool(true),
 		TimeoutSeconds: GetInt(30),
 		Debug:          GetBool(false),
 
@@ -350,7 +348,6 @@ func generateFlatTestOptions() []interface{} {
 
 	o := map[string]interface{}{
 		"capacity_ai":     true,
-		"spot":            true,
 		"timeout_seconds": 30,
 		"autoscaling":     asi,
 		"debug":           false,
@@ -699,7 +696,6 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		 	  	  
 		options {
 		  capacity_ai = true
-		  spot = true
 		  timeout_seconds = 30
 	  
 		  autoscaling {
@@ -717,7 +713,6 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		local_options {
 			location = "aws-eu-central-1"
 			capacity_ai = true
-			spot = true
 			timeout_seconds = 30
 		
 			autoscaling {
@@ -957,7 +952,6 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 	 	  	  
 		options {
 		  capacity_ai = false
-	      spot = true
 		  timeout_seconds = 30
 	  
 		  autoscaling {
@@ -975,7 +969,6 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		// local_options {
 		// 	location = "aws-eu-central-1"
 		// 	capacity_ai = true
-		// 	spot = true
 		// 	timeout_seconds = 30
 		
 		// 	autoscaling {

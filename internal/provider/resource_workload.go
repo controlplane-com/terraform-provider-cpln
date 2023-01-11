@@ -307,11 +307,6 @@ func resourceWorkload() *schema.Resource {
 							Optional: true,
 							Default:  true,
 						},
-						"spot": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  true,
-						},
 						"debug": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -349,11 +344,6 @@ func resourceWorkload() *schema.Resource {
 							// ForceNew: true,
 						},
 						"capacity_ai": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  true,
-						},
-						"spot": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -1165,7 +1155,6 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 			}
 
 			newOptions.CapacityAI = GetBool(option["capacity_ai"])
-			newOptions.Spot = GetBool(option["spot"])
 			newOptions.TimeoutSeconds = GetInt(option["timeout_seconds"])
 			newOptions.Debug = GetBool(option["debug"])
 
@@ -1851,7 +1840,6 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 			}
 
 			option["capacity_ai"] = *o.CapacityAI
-			option["spot"] = *o.Spot
 			option["timeout_seconds"] = *o.TimeoutSeconds
 			option["debug"] = *o.Debug
 
