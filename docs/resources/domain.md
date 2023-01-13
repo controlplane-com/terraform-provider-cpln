@@ -27,6 +27,98 @@ not exist, the Terraform script will fail.
 
 - **description** (String) Description for the domain name.
 - **tags** (Map of String) Key-value map of resource tags.
+- **spec** (Block List, Max: 1) ([see below](#nestedblock--spec))
+- **status** (Block List, Max: 1) ([see below](#nestedblock--status))
+
+<a id="nestedblock--spec"></a>
+### `spec`
+
+Optional:
+
+-- **dns_mode** (String) In 'cname' dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently 'cname' dnsMode requires that a tls.serverCertificate is configured when subdomain based routing is used. In 'ns' dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure an NS record to forward DNS requests to the Control Plane managed DNS servers.
+-- **gvc_link** (String) One of gvcLink and routes may be provided. When gvcLink is configured each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}
+-- **accept_all_hosts** (Boolean)
+-- **ports** (Block List) ([see below](#nestedblock--spec-ports))
+
+<a id="nestedblock--spec-ports"></a>
+### `spec.ports`
+
+Optional:
+
+-- **number** (Number)
+-- **protocol** (String)
+-- **routes** (Block List) ([see below](#nestedblock--spec--ports--routes))
+-- **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
+-- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
+
+<a id="nestedblock--spec--ports--routes"></a>
+### `spec.ports.routes`
+
+Optional:
+
+-- **prefix** (String)
+-- **replace_prefix** (String)
+-- **workload_link** (String)
+-- **port** (Number)
+
+<a id="nestedblock--spec--ports--cors"></a>
+### `spec.ports.cors`
+
+Optional:
+
+-- **allow_origins** (Block List) ([see below](#nestedblock--spec--ports--cors--allow_origins))
+-- **allow_methods** (List of Strings)
+-- **allow_headers** (List of Strings)
+-- **max_age** (String)
+-- **allow_credentials** (Boolean)
+
+<a id="nestedblock--spec--ports--cors--allow_origins"></a>
+### `spec.ports.cors.allow_origins`
+
+Optional:
+
+-- **exact** (String)
+
+<a id="nestedblock--spec--ports--tls"></a>
+### `spec.ports.tls`
+
+-- **min_protocol_version** (String)
+-- **cipher_suites** (String)
+-- **client_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
+-- **server_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
+
+<a id="nestedblock--spec--ports--tls--certificate"></a>
+### `spec.ports.tls.certificate`
+
+Optional:
+-- **secret_link** (String)
+
+<a id="nestedblock--status"></a>
+### `status`
+
+Optional
+
+-- **end_points** (Block List) ([see below](#nestedblock--status--end_points))
+-- **status** (String)
+-- **warning** (String)
+-- **locations** (Block List) ([see below](#nestedblock--status--locations))
+-- **fingerprint** (String)
+
+<a id="nestedblock--status--end_points"></a>
+### `status.end_points`
+
+Optional:
+
+-- **url** (String)
+-- **workload_link** (String)
+
+<a id="nestedblock--status--locations"></a>
+### `status.locations`
+
+Optionals:
+
+-- **name** (String)
+-- **certificate_status** (String)
 
 ## Outputs
 
@@ -46,6 +138,64 @@ resource "cpln_domain" "example" {
     terraform_generated = "true"
     example             = "true"
   }
+  
+  spec {
+    dns_mode         = "string"
+    gvc_link         = "string"
+    accept_all_hosts = "true"
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      routes {
+        prefix         = "string"
+        replace_prefix = "string"
+        workload_link  = "string"
+        port           = 80
+      }
+
+      cors {
+        allow_origins {
+          exact = "string"
+        }
+
+        allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+        allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "string"
+        cipher_suites        = "string"
+
+        client_certificate {
+          secret_link = "string"
+        }
+
+        server_certificate {
+          secret_link = "string"
+        }
+      }
+    }
+
+    status {
+      end_points {
+        url           = "string"
+        workload_link = "string"
+      }
+
+      status  = "string"
+      warning = "string"
+
+      locations {
+        name               = "string"
+        certificate_status = "string"
+      }
+
+      fingerprint = "string"
+    }
+  }
 }
 ```
-
