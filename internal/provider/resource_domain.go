@@ -180,56 +180,8 @@ func resourceDomain() *schema.Resource {
 			},
 			"status": {
 				Type:     schema.TypeList,
-				Optional: true,
 				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"end_points": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"url": {
-										Type:     schema.TypeString,
-										Optional: true,
-									},
-									"workload_link": {
-										Type:     schema.TypeString,
-										Optional: true,
-									},
-								},
-							},
-						},
-						"status": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"warning": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"locations": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"name": {
-										Type:     schema.TypeString,
-										Optional: true,
-									},
-									"certificate_status": {
-										Type:     schema.TypeString,
-										Optional: true,
-									},
-								},
-							},
-						},
-						"fingerprint": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-					},
-				},
+				Computed: true,
 			},
 		},
 		Importer: &schema.ResourceImporter{},
@@ -243,7 +195,6 @@ func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		Description: GetString(d.Get("description").(string)),
 		Tags:        GetStringMap(d.Get("tags")),
 		Spec:        buildDomainSpec(d.Get("spec").([]interface{})),
-		Status:      buildDomainStatus(d.Get("status").([]interface{})),
 	}
 
 	c := m.(*client.Client)
@@ -307,7 +258,7 @@ func resourceDomainRead(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "spec", "status") {
+	if d.HasChanges("description", "tags", "spec") {
 
 		domainToUpdate := client.Domain{
 			Name: GetString(d.Get("name")),
@@ -327,13 +278,6 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 				domainToUpdate.Spec = &client.DomainSpec{}
 			}
 			domainToUpdate.Spec = buildDomainSpec(d.Get("spec").([]interface{}))
-		}
-
-		if d.HasChange("status") {
-			if domainToUpdate.Status == nil {
-				domainToUpdate.Status = &client.DomainStatus{}
-			}
-			domainToUpdate.Status = buildDomainStatus(d.Get("status").([]interface{}))
 		}
 
 		// Apply update
@@ -482,56 +426,6 @@ func buildCertificate(specs []interface{}) *client.DomainCertificate {
 	return &client.DomainCertificate{
 		SecretLink: GetString(spec["secret_link"].(string)),
 	}
-}
-
-// Status Related //
-func buildDomainStatus(specs []interface{}) *client.DomainStatus {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	return &client.DomainStatus{
-		EndPoints:   buildEndPoints(spec["end_points"].([]interface{})),
-		Status:      GetString(spec["status"].(string)),
-		Warning:     GetString(spec["warning"].(string)),
-		Locations:   buildStatusLocations(spec["locations"].([]interface{})),
-		Fingerprint: GetString(spec["fingerprint"].(string)),
-	}
-}
-
-func buildEndPoints(specs []interface{}) *[]client.DomainEndPoint {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	collection := []client.DomainEndPoint{}
-	for _, item := range specs {
-		endPoint := item.(map[string]interface{})
-		collection = append(collection, client.DomainEndPoint{
-			URL:          GetString(endPoint["url"].(string)),
-			WorkloadLink: GetString(endPoint["workload_link"].(string)),
-		})
-	}
-
-	return &collection
-}
-
-func buildStatusLocations(specs []interface{}) *[]client.DomainStatusLocation {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	collection := []client.DomainStatusLocation{}
-	for _, item := range specs {
-		location := item.(map[string]interface{})
-		collection = append(collection, client.DomainStatusLocation{
-			Name:              GetString(location["name"].(string)),
-			CertificateStatus: GetString(location["certificate_status"].(string)),
-		})
-	}
-
-	return &collection
 }
 
 /*** Flatten Functions ***/
@@ -694,80 +588,6 @@ func flattenCertificate(certificate *client.DomainCertificate) []interface{} {
 	}
 }
 
-// Status Related //
-func flattenDomainStatus(domainStatus *client.DomainStatus) []interface{} {
-	if domainStatus == nil {
-		return nil
-	}
-
-	status := make(map[string]interface{})
-	status["end_points"] = flattenEndPoints(domainStatus.EndPoints)
-
-	if domainStatus.Status != nil {
-		status["status"] = *domainStatus.Status
-	}
-
-	if domainStatus.Warning != nil {
-		status["warning"] = *domainStatus.Warning
-	}
-
-	status["locations"] = flattenStatusLocations(domainStatus.Locations)
-
-	if domainStatus.Fingerprint != nil {
-		status["fingerprint"] = *domainStatus.Fingerprint
-	}
-
-	return []interface{}{
-		status,
-	}
-}
-
-func flattenEndPoints(endPoints *[]client.DomainEndPoint) []interface{} {
-	if endPoints == nil || len(*endPoints) == 0 {
-		return nil
-	}
-
-	collection := make([]interface{}, len(*endPoints))
-	for i, item := range *endPoints {
-
-		endPoint := make(map[string]interface{})
-		if item.URL != nil {
-			endPoint["url"] = *item.URL
-		}
-
-		if item.WorkloadLink != nil {
-			endPoint["workload_link"] = *item.WorkloadLink
-		}
-
-		collection[i] = endPoint
-	}
-
-	return collection
-}
-
-func flattenStatusLocations(locations *[]client.DomainStatusLocation) []interface{} {
-	if locations == nil || len(*locations) == 0 {
-		return nil
-	}
-
-	collection := make([]interface{}, len(*locations))
-	for i, item := range *locations {
-
-		location := make(map[string]interface{})
-		if item.Name != nil {
-			location["name"] = *item.Name
-		}
-
-		if item.CertificateStatus != nil {
-			location["certificate_status"] = *item.CertificateStatus
-		}
-
-		collection[i] = location
-	}
-
-	return collection
-}
-
 /*** Helper Functions ***/
 func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
 
@@ -795,10 +615,6 @@ func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
 	}
 
 	if err := d.Set("spec", flattenDomainSpec(domain.Spec)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("status", flattenDomainStatus(domain.Status)); err != nil {
 		return diag.FromErr(err)
 	}
 

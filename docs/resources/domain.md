@@ -98,14 +98,14 @@ Optional:
 
 Optional
 
--- **end_points** (Block List) ([see below](#nestedblock--status--end_points))
+-- **endpoints** (Block List) ([see below](#nestedblock--status--endpoints))
 -- **status** (String)
 -- **warning** (String)
 -- **locations** (Block List) ([see below](#nestedblock--status--locations))
 -- **fingerprint** (String)
 
-<a id="nestedblock--status--end_points"></a>
-### `status.end_points`
+<a id="nestedblock--status--endpoints"></a>
+### `status.endpoints`
 
 Optional:
 
@@ -181,7 +181,7 @@ resource "cpln_domain" "example" {
     }
 
     status {
-      end_points {
+      endpoints {
         url           = "string"
         workload_link = "string"
       }
