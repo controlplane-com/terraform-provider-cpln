@@ -48,22 +48,5 @@ resource "cpln_domain" "example" {
         }
       }
     }
-
-    status {
-      end_points {
-        url           = "string"
-        workload_link = "string"
-      }
-
-      status  = "string"
-      warning = "string"
-
-      locations {
-        name               = "string"
-        certificate_status = "string"
-      }
-
-      fingerprint = "string"
-    }
   }
 }
