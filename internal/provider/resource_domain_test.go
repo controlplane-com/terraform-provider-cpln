@@ -2,172 +2,159 @@ package cpln
 
 import (
 	"fmt"
-	"os"
 	client "terraform-provider-cpln/internal/provider/client"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestAccControlPlaneDomain_basic(t *testing.T) {
 
-	aName := "globalvirtualcloud.com"
-	dName := "domain-testacc.globalvirtualcloud.com"
-	zone := "cpln-test"
+	var testDomain client.Domain
 
-	ep := resource.ExternalProvider{
-		Source:            "google",
-		VersionConstraint: "3.72.0",
-	}
-
-	eps := map[string]resource.ExternalProvider{
-		"google": ep,
-	}
+	dName := "cors2.cplntest.com"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheckGoogle(t, "DOMAIN") },
-		Providers:         testAccProviders,
-		ExternalProviders: eps,
-		CheckDestroy:      testAccCheckControlPlaneDomainDestroy,
+		PreCheck:     func() { testAccPreCheck(t, "DOMAIN") },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckControlPlaneDomainCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneDomain(aName, dName, "Domain created using Terraform", zone),
+				Config: testAccControlPlaneDomain(dName),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_domain.new", "name", dName),
-					resource.TestCheckResourceAttr("cpln_domain.new", "description", "Domain created using Terraform"),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomain(aName, dName, "Domain created using Terraform - Updated", zone),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_domain.new", "name", dName),
-					resource.TestCheckResourceAttr("cpln_domain.new", "description", "Domain created using Terraform - Updated"),
+					testAccCheckControlPlaneDomainExists(dName, &testDomain),
 				),
 			},
 		},
 	})
 }
 
-func testAccCheckControlPlaneDomainDestroy(s *terraform.State) error {
+func testAccControlPlaneDomain(domainName string) string {
 
-	// TODO: Test that DNS records have been removed
+	TestLogger.Printf("Inside testAccControlPlaneDomain")
+
+	return fmt.Sprintf(`
+
+	resource "cpln_domain" "example" {
+
+		name        = "%s"
+		description = "Test hakan"
+	
+		tags = {
+			terraform_generated = "true"
+			example             = "true"
+		}
+	
+		spec {
+			dns_mode         = "ns"
+			accept_all_hosts = "true"
+	
+			ports {
+				number   = 443
+				protocol = "http"
+	
+				routes {
+					prefix        = "/log"
+					workload_link = "/org/efe/gvc/kadir/workload/a-log"
+					port          = 8080
+				}
+	
+				routes {
+					prefix        = "/canary"
+					workload_link = "/org/efe/gvc/kadir/workload/canary"
+					port          = 8080
+				}
+			}
+		}
+	}	
+	`, domainName)
+}
+
+func testAccCheckControlPlaneDomainExists(domainName string, domain *client.Domain) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadExists. Resources Length: %d", len(s.RootModule().Resources))
+
+		rs, ok := s.RootModule().Resources[domainName]
+
+		if !ok {
+			return fmt.Errorf("Not found: %s", s)
+		}
+
+		if rs.Primary.ID != domainName {
+			return fmt.Errorf("Workload name does not match")
+		}
+
+		client := testAccProvider.Meta().(*client.Client)
+
+		d, _, err := client.GetDomain(domainName)
+
+		if err != nil {
+			return err
+		}
+
+		if *d.Name != domainName {
+			return fmt.Errorf("Workload name does not match")
+		}
+
+		*domain = *d
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneDomainCheckDestroy(s *terraform.State) error {
+
+	TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy. Resources Length: %d", len(s.RootModule().Resources))
 
 	if len(s.RootModule().Resources) == 0 {
 		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
-	for _, rs := range s.RootModule().Resources {
-
-		if rs.Type != "cpln_domain" {
-			continue
-		}
-
-		domainName := rs.Primary.ID
-
-		domain, _, _ := c.GetDomain(domainName)
-		if domain != nil {
-			return fmt.Errorf("Domain still exists. Name: %s", *domain.Name)
-		}
-	}
-
 	return nil
 }
 
-func testAccControlPlaneDomain(apex, domain, description, managedZone string) string {
+// Unit Tests
 
-	variables := fmt.Sprintf(`
+// Certificate With Secret
+func TestControlPlane_BuildCertificate(t *testing.T) {
+	secret := "/org/myorg/secret/mysecret"
+	cert := buildCertificate(generateFlatTestCertificate(secret))
 
-		variable domain_name_apex {
-			type = string
-			default = "%s"
-		}
+	expectedCert := client.DomainCertificate{SecretLink: &secret}
 
-		variable domain_name {
-			type = string
-			default = "%s"
-		}
-
-		variable managed_zone {
-			type = string
-			default = "%s"
-		}
-
-		variable description {
-			type = string
-			default = "%s"
-		}
-		`, apex, domain, managedZone, description)
-
-	domainSetup := `
-	
-	data "cpln_org" "org" {}
-	 
-	resource "google_dns_record_set" "ns" {
-
-		name         = "${var.domain_name}."
-		managed_zone = var.managed_zone
-		type         = "NS"
-		ttl          = 1800
-	  
-		rrdatas = ["ns1.cpln.io.", "ns2.cpln.io.", "ns3.cpln.io.", "ns4.cpln.io."]
+	// TODO move expectedCert to a function, can be array of items too for different cases
+	if diff := deep.Equal(cert, &expectedCert); diff != nil {
+		t.Errorf("Domain Certificate was not built correctly. Diff: %s", diff)
 	}
-	  
-	resource "google_dns_record_set" "txt" {
+}
 
-		name         = "_cpln-${google_dns_record_set.ns.name}"
-		managed_zone = var.managed_zone
-		type         = "TXT"
-		ttl          = 600
-	  
-		rrdatas = [data.cpln_org.org.id]
+func generateFlatTestCertificate(secretLink string) []interface{} {
+	spec := map[string]interface{}{
+		"secret_link": secretLink,
 	}
 
-	resource "cpln_domain" "new" {
-
-		depends_on = [google_dns_record_set.ns, google_dns_record_set.txt]
-		
-		name        = var.domain_name	
-		description = var.description
-	
-		tags = {
-		terraform_generated = "true"
-		acceptance_test = "true"
-		}
+	return []interface{}{
+		spec,
 	}
-	`
+}
 
-	cplnDomainSetup := `
+// Certificate Without Secret
+func TestControlPlane_BuildCertificate_WithoutSecret(t *testing.T) {
+	cert := buildCertificate(generateFlatTestCertificateWithoutSecret())
+	certTest := client.DomainCertificate{}
 
-	    resource "cpln_domain" "new_apex" {
-			
-			name = var.domain_name_apex	
-		
-			tags = {
-			  terraform_generated = "true"
-			  acceptance_test = "true"
-			}
-	    }
-
-		resource "cpln_domain" "new" {
-			
-			depends_on = [cpln_domain.new_apex]
-
-			name        = var.domain_name	
-			description = var.description
-		
-			tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			}
-		}
-	`
-
-	if validateDomains := os.Getenv("VALIDATE_DOMAINS"); validateDomains == "false" {
-		return fmt.Sprintf("%s %s", variables, cplnDomainSetup)
+	if diff := deep.Equal(cert, &certTest); diff != nil {
+		t.Errorf("Domain Certificate was not built correctly. Diff: %s", diff)
 	}
+}
 
-	return fmt.Sprintf("%s %s", variables, domainSetup)
+func generateFlatTestCertificateWithoutSecret() []interface{} {
+	spec := map[string]interface{}{}
+
+	return []interface{}{
+		spec,
+	}
 }
