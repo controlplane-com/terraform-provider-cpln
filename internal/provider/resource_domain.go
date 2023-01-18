@@ -311,7 +311,8 @@ func certificateResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"secret_link": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 		},
 	}

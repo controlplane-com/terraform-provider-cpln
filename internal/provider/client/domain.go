@@ -31,7 +31,7 @@ type DomainStatus struct {
 
 /*** Spec Related ***/
 type DomainSpecPort struct {
-	Number   *int           `json:"number,omitempty"`   // Maybe it should be a float because it is type number?
+	Number   *int           `json:"number,omitempty"`
 	Protocol *string        `json:"protocol,omitempty"` // Enum: "http", "http2"
 	Routes   *[]DomainRoute `json:"routes,omitempty"`
 	Cors     *DomainCors    `json:"cors,omitempty"`
