@@ -326,12 +326,25 @@ func buildDomainSpec(specs []interface{}) *client.DomainSpec {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	return &client.DomainSpec{
-		DnsMode:        GetString(spec["dns_mode"].(string)),
-		GvcLink:        GetString(spec["gvc_link"].(string)),
-		AcceptAllHosts: GetBool(spec["accept_all_hosts"].(bool)),
-		Ports:          buildSpecPorts(spec["ports"].([]interface{})),
+	result := &client.DomainSpec{}
+
+	if spec["dns_mode"] != nil {
+		result.DnsMode = GetString(spec["dns_mode"].(string))
 	}
+
+	if spec["gvc_link"] != nil {
+		result.GvcLink = GetString(spec["gvc_link"].(string))
+	}
+
+	if spec["accept_all_hosts"] != nil {
+		result.AcceptAllHosts = GetBool(spec["accept_all_hosts"].(bool))
+	}
+
+	if spec["ports"] != nil {
+		result.Ports = buildSpecPorts(spec["ports"].([]interface{}))
+	}
+
+	return result
 }
 
 func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
@@ -342,13 +355,29 @@ func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
 	collection := []client.DomainSpecPort{}
 	for _, item := range specs {
 		port := item.(map[string]interface{})
-		collection = append(collection, client.DomainSpecPort{
-			Number:   GetInt(port["number"].(int)),
-			Protocol: GetString(port["protocol"].(string)),
-			Routes:   buildRoutes(port["routes"].([]interface{})),
-			Cors:     buildCors(port["cors"].([]interface{})),
-			TLS:      buildTLS(port["tls"].([]interface{})),
-		})
+		newPort := client.DomainSpecPort{}
+
+		if port["number"] != nil {
+			newPort.Number = GetInt(port["number"].(int))
+		}
+
+		if port["protocol"] != nil {
+			newPort.Protocol = GetString(port["protocol"].(string))
+		}
+
+		if port["routes"] != nil {
+			newPort.Routes = buildRoutes(port["routes"].([]interface{}))
+		}
+
+		if port["cors"] != nil {
+			newPort.Cors = buildCors(port["cors"].([]interface{}))
+		}
+
+		if port["tls"] != nil {
+			newPort.TLS = buildTLS(port["tls"].([]interface{}))
+		}
+
+		collection = append(collection, newPort)
 	}
 
 	return &collection
@@ -362,12 +391,25 @@ func buildRoutes(specs []interface{}) *[]client.DomainRoute {
 	collection := []client.DomainRoute{}
 	for _, item := range specs {
 		route := item.(map[string]interface{})
-		collection = append(collection, client.DomainRoute{
-			Prefix:        GetString(route["prefix"].(string)),
-			ReplacePrefix: GetString(route["replace_prefix"].(string)),
-			WorkloadLink:  GetString(route["workload_link"].(string)),
-			Port:          GetInt(route["port"].(int)),
-		})
+		newRoute := client.DomainRoute{}
+
+		if route["prefix"] != nil {
+			newRoute.Prefix = GetString(route["prefix"].(string))
+		}
+
+		if route["replace_prefix"] != nil {
+			newRoute.ReplacePrefix = GetString(route["replace_prefix"].(string))
+		}
+
+		if route["workload_link"] != nil {
+			newRoute.WorkloadLink = GetString(route["workload_link"].(string))
+		}
+
+		if route["port"] != nil {
+			newRoute.Port = GetInt(route["port"].(int))
+		}
+
+		collection = append(collection, newRoute)
 	}
 
 	return &collection
@@ -379,13 +421,29 @@ func buildCors(specs []interface{}) *client.DomainCors {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	return &client.DomainCors{
-		AllowOrigins:     buildAllowOrigins(spec["allow_origins"].([]interface{})),
-		AllowMethods:     buildStringArray(spec["allow_methods"].([]interface{})),
-		AllowHeaders:     buildStringArray(spec["allow_headers"].([]interface{})),
-		MaxAge:           GetString(spec["max_age"].(string)),
-		AllowCredentials: GetBool(spec["allow_credentials"].(bool)),
+	result := &client.DomainCors{}
+
+	if spec["allow_origins"] != nil {
+		result.AllowOrigins = buildAllowOrigins(spec["allow_origins"].([]interface{}))
 	}
+
+	if spec["allow_methods"] != nil {
+		result.AllowMethods = buildStringArray(spec["allow_methods"].([]interface{}))
+	}
+
+	if spec["allow_headers"] != nil {
+		result.AllowHeaders = buildStringArray(spec["allow_headers"].([]interface{}))
+	}
+
+	if spec["max_age"] != nil {
+		result.MaxAge = GetString(spec["max_age"].(string))
+	}
+
+	if spec["allow_credentials"] != nil {
+		result.AllowCredentials = GetBool(spec["allow_credentials"].(bool))
+	}
+
+	return result
 }
 
 func buildTLS(specs []interface{}) *client.DomainTLS {
@@ -394,12 +452,25 @@ func buildTLS(specs []interface{}) *client.DomainTLS {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	return &client.DomainTLS{
-		MinProtocolVersion: GetString(spec["min_protocol_version"].(string)),
-		CipherSuites:       buildStringArray(spec["cipher_suites"].([]interface{})),
-		ClientCertificate:  buildCertificate(spec["client_certificate"].([]interface{})),
-		ServerCertificate:  buildCertificate(spec["server_certificate"].([]interface{})),
+	result := &client.DomainTLS{}
+
+	if spec["min_protocol_version"] != nil {
+		result.MinProtocolVersion = GetString(spec["min_protocol_version"].(string))
 	}
+
+	if spec["cipher_suites"] != nil {
+		result.CipherSuites = buildStringArray(spec["cipher_suites"].([]interface{}))
+	}
+
+	if spec["client_certificate"] != nil {
+		result.ClientCertificate = buildCertificate(spec["client_certificate"].([]interface{}))
+	}
+
+	if spec["server_certificate"] != nil {
+		result.ServerCertificate = buildCertificate(spec["server_certificate"].([]interface{}))
+	}
+
+	return result
 }
 
 func buildAllowOrigins(specs []interface{}) *[]client.DomainAllowOrigin {
@@ -644,7 +715,7 @@ func buildStringArray(specs []interface{}) *[]string {
 
 // Flatten //
 func flattenStringsArray(strings *[]string) []interface{} {
-	if strings != nil || len(*strings) == 0 {
+	if strings == nil || len(*strings) == 0 {
 		return nil
 	}
 
