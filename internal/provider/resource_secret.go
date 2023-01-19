@@ -1,7 +1,9 @@
 package cpln
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	client "terraform-provider-cpln/internal/provider/client"
 
@@ -101,11 +103,12 @@ func resourceSecret() *schema.Resource {
 				},
 			},
 			"gcp": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Sensitive:    true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				Type:             schema.TypeString,
+				Optional:         true,
+				Sensitive:        true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				DiffSuppressFunc: diffSuppressJSON,
 			},
 			"aws": {
 				Type:         schema.TypeList,
@@ -172,11 +175,12 @@ func resourceSecret() *schema.Resource {
 				},
 			},
 			"docker": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Sensitive:    true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				Type:             schema.TypeString,
+				Optional:         true,
+				Sensitive:        true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				DiffSuppressFunc: diffSuppressJSON,
 			},
 			"userpass": {
 				Type:         schema.TypeList,
@@ -234,11 +238,12 @@ func resourceSecret() *schema.Resource {
 				},
 			},
 			"azure_sdk": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Sensitive:    true,
-				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				Type:             schema.TypeString,
+				Optional:         true,
+				Sensitive:        true,
+				ForceNew:         true,
+				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				DiffSuppressFunc: diffSuppressJSON,
 			},
 			"azure_connector": {
 				Type:         schema.TypeList,
@@ -264,6 +269,19 @@ func resourceSecret() *schema.Resource {
 		},
 		Importer: &schema.ResourceImporter{},
 	}
+}
+
+func diffSuppressJSON(k, old, new string, d *schema.ResourceData) bool {
+
+	if old != "" && new != "" {
+
+		bo, _ := json.Marshal(json.RawMessage(old))
+		bn, _ := json.Marshal(json.RawMessage(new))
+
+		return bytes.Equal(bo, bn)
+	}
+
+	return old == new
 }
 
 func resourceSecretCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
