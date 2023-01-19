@@ -116,8 +116,44 @@ func testAccCheckControlPlaneDomainCheckDestroy(s *terraform.State) error {
 	return nil
 }
 
-// Unit Tests
+/*** Unit Tests ***/
+// Build TLS Unit Test //
+func TestControlPlane_BuildTLS(t *testing.T) {
 
+}
+
+// Build Allow Origins Unit Test //
+func TestControlPlane_BuildAllowOrigins(t *testing.T) {
+	exact := "example.com"
+	collection := buildAllowOrigins(generateFlatTestAllowOrigins(exact))
+	expectedCollection := []client.DomainAllowOrigin{{Exact: &exact}}
+
+	if len(*collection) == 0 {
+		t.Errorf("Allow Origins was not built correctly. The collection was empty.")
+		return
+	}
+
+	for i, item := range *collection {
+		if diff := deep.Equal(item.Exact, expectedCollection[i].Exact); diff != nil {
+			t.Errorf("Allow Origins was not built correctly. Diff: %s", diff)
+			break
+		}
+	}
+}
+
+func TestControlPlane_BuildAllowOrigins_WithoutExact(t *testing.T) {
+	collection := buildAllowOrigins(generateFlatTestAllowOrigins_WithoutExact())
+	expectedCollection := []client.DomainAllowOrigin{{}}
+
+	for i, item := range *collection {
+		if diff := deep.Equal(item, expectedCollection[i]); diff != nil {
+			t.Errorf("Allow Origins was not built correctly. Diff: %s", diff)
+			break
+		}
+	}
+}
+
+// Build Certificate Unit Test //
 // Certificate With Secret
 func TestControlPlane_BuildCertificate(t *testing.T) {
 	secret := "/org/myorg/secret/mysecret"
@@ -131,16 +167,6 @@ func TestControlPlane_BuildCertificate(t *testing.T) {
 	}
 }
 
-func generateFlatTestCertificate(secretLink string) []interface{} {
-	spec := map[string]interface{}{
-		"secret_link": secretLink,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
 // Certificate Without Secret
 func TestControlPlane_BuildCertificate_WithoutSecret(t *testing.T) {
 	cert := buildCertificate(generateFlatTestCertificateWithoutSecret())
@@ -151,6 +177,49 @@ func TestControlPlane_BuildCertificate_WithoutSecret(t *testing.T) {
 	}
 }
 
+/*** Flatten Generation ***/
+// TLS //
+func generateFlatTestTLS(minProtocolVersion string, cipherSuites []interface{}, clientCertificate []interface{}, serverCertificate []interface{}) []interface{} {
+	spec := map[string]interface{}{
+		"min_protocol_version": minProtocolVersion,
+		"cipher_suites":        cipherSuites,
+		"client_certificate":   clientCertificate,
+		"server_certificate":   serverCertificate,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+// Allow Origins //
+func generateFlatTestAllowOrigins(exact string) []interface{} {
+	spec := map[string]interface{}{
+		"exact": exact,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+func generateFlatTestAllowOrigins_WithoutExact() []interface{} {
+	spec := map[string]interface{}{}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+// Certificate //
+func generateFlatTestCertificate(secretLink string) []interface{} {
+	spec := map[string]interface{}{
+		"secret_link": secretLink,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
 func generateFlatTestCertificateWithoutSecret() []interface{} {
 	spec := map[string]interface{}{}
 
