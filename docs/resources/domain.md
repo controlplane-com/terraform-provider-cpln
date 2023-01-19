@@ -129,7 +129,7 @@ The following attributes are exported:
 ## Example Usage
 
 ```terraform
-resource "cpln_domain" "example" {
+resource "cpln_domain" "example_ns_subdomain" {
 
   name        = "app.example.com"
   description = "Custom domain that can be set on a GVC and used by associated workloads"
@@ -138,26 +138,19 @@ resource "cpln_domain" "example" {
     terraform_generated = "true"
     example             = "true"
   }
-  
+
   spec {
-    dns_mode         = "string"
-    gvc_link         = "string"
+    dns_mode         = "ns"
+    gvc_link         = "/org/myorg/gvc/mygvc"
     accept_all_hosts = "true"
 
     ports {
       number   = 443
       protocol = "http"
 
-      routes {
-        prefix         = "string"
-        replace_prefix = "string"
-        workload_link  = "string"
-        port           = 80
-      }
-
       cors {
         allow_origins {
-          exact = "string"
+          exact = "example.com"
         }
 
         allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
@@ -167,34 +160,82 @@ resource "cpln_domain" "example" {
       }
 
       tls {
-        min_protocol_version = "string"
-        cipher_suites        = "string"
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
 
-        client_certificate {
-          secret_link = "string"
-        }
-
-        server_certificate {
-          secret_link = "string"
-        }
+        client_certificate {}
       }
     }
+  }
+}
 
-    status {
-      endpoints {
-        url           = "string"
-        workload_link = "string"
+resource "cpln_domain" "example_cname_routes" {
+
+  name        = "app.example.com"
+  description = "Custom domain that can be set on a GVC and used by associated workloads"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = "true"
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      routes {
+        prefix         = "/"
+        replace_prefix = "/replace"
+        workload_link  = "/org/myorg/gvc/mygvc/workload_one"
+        port           = 80
       }
 
-      status  = "string"
-      warning = "string"
-
-      locations {
-        name               = "string"
-        certificate_status = "string"
+      routes {
+        prefix         = "/app"
+        replace_prefix = "/replaceApp"
+        workload_link  = "/org/myorg/gvc/mygvc/workload_two"
+        port           = 8080
       }
 
-      fingerprint = "string"
+      cors {
+        allow_origins {
+          exact = "example.com"
+        }
+
+        allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+        allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
+
+        client_certificate {}
+      }
     }
   }
 }
