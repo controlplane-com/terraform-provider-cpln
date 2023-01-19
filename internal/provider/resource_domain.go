@@ -410,9 +410,11 @@ func buildAllowOrigins(specs []interface{}) *[]client.DomainAllowOrigin {
 	collection := []client.DomainAllowOrigin{}
 	for _, item := range specs {
 		allowOrigin := item.(map[string]interface{})
-		collection = append(collection, client.DomainAllowOrigin{
-			Exact: GetString(allowOrigin["exact"].(string)),
-		})
+		newAllowOrigin := client.DomainAllowOrigin{}
+		if allowOrigin["exact"] != nil {
+			newAllowOrigin.Exact = GetString(allowOrigin["exact"].(string))
+		}
+		collection = append(collection, newAllowOrigin)
 	}
 
 	return &collection
@@ -424,9 +426,13 @@ func buildCertificate(specs []interface{}) *client.DomainCertificate {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	return &client.DomainCertificate{
-		SecretLink: GetString(spec["secret_link"].(string)),
+	result := client.DomainCertificate{}
+
+	if spec["secret_link"] != nil {
+		result.SecretLink = GetString(spec["secret_link"].(string))
 	}
+
+	return &result
 }
 
 /*** Flatten Functions ***/
