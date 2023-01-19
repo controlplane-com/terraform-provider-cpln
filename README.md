@@ -177,5 +177,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.9 - Only remove certain `cpln/*` server generated tags. Increase max containers.
 - v1.0.10 - Add Location / Locations Data Source.
 - v1.0.11 - Fix issue with secrets having json types. Remove built-in server generated secret tags.
+- v1.0.12 - Update GitHub Action.
 
 
