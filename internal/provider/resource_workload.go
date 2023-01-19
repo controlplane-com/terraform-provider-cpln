@@ -215,10 +215,10 @@ func resourceWorkload() *schema.Resource {
 
 											v := val.(string)
 
-											re := regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln):\/\/.+`)
+											re := regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln|scratch):\/\/.+`)
 
 											if !re.MatchString(v) {
-												errs = append(errs, fmt.Errorf("%q must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, got: %s", key, v))
+												errs = append(errs, fmt.Errorf("%q must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, scratch://, got: %s", key, v))
 											}
 
 											return
@@ -297,8 +297,8 @@ func resourceWorkload() *schema.Resource {
 							Default:  5,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 								v := val.(int)
-								if v < 1 || v > 600 {
-									errs = append(errs, fmt.Errorf("%q must be between 1 and 600 inclusive, got: %d", key, v))
+								if v < 1 || v > 3600 {
+									errs = append(errs, fmt.Errorf("%q must be between 1 and 3600 inclusive, got: %d", key, v))
 								}
 								return
 							},
@@ -343,8 +343,8 @@ func resourceWorkload() *schema.Resource {
 							Default:  5,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 								v := val.(int)
-								if v < 1 || v > 600 {
-									errs = append(errs, fmt.Errorf("%q must be between 1 and 600 inclusive, got: %d", key, v))
+								if v < 1 || v > 3600 {
+									errs = append(errs, fmt.Errorf("%q must be between 1 and 3600 inclusive, got: %d", key, v))
 								}
 								return
 							},
@@ -456,13 +456,27 @@ func AutoScalingResource() *schema.Resource {
 			"metric": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "concurrency",
+				// Default:  "concurrency",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
 
-					if v != "concurrency" && v != "cpu" && v != "rps" {
-						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', or 'rps', got: %s", key, v))
+					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" {
+						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'latency' or 'rps', got: %s", key, v))
+					}
+
+					return
+				},
+			},
+			"metric_percentile": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+
+					v := val.(string)
+
+					if v != "p50" && v != "p75" && v != "p99" {
+						errs = append(errs, fmt.Errorf("%q must be 'p50', 'p75' or 'p99', got: %s", key, v))
 					}
 
 					return
@@ -510,8 +524,8 @@ func AutoScalingResource() *schema.Resource {
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 0 || v > 1000 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 1000 inclusive, got: %d", key, v))
+					if v < 0 || v > 30000 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 30000 inclusive, got: %d", key, v))
 					}
 					return
 				},
@@ -522,8 +536,8 @@ func AutoScalingResource() *schema.Resource {
 				Default:  300,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 30 || v > 1000 {
-						errs = append(errs, fmt.Errorf("%q must be between 30 and 1000 inclusive, got: %d", key, v))
+					if v < 30 || v > 3600 {
+						errs = append(errs, fmt.Errorf("%q must be between 30 and 3600 inclusive, got: %d", key, v))
 					}
 					return
 				},
@@ -612,8 +626,8 @@ func healthCheckSpec() *schema.Resource {
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 0 || v > 120 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 120 inclusive, got: %d", key, v))
+					if v < 0 || v > 600 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 600 inclusive, got: %d", key, v))
 					}
 
 					return
@@ -1095,6 +1109,7 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 				cas := client.AutoScaling{
 
 					Metric:           GetString(as["metric"]),
+					MetricPercentile: GetString(as["metric_percentile"]),
 					Target:           GetInt(as["target"]),
 					MaxScale:         GetInt(as["max_scale"]),
 					MinScale:         GetInt(as["min_scale"]),
@@ -1737,6 +1752,7 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 
 			if o.AutoScaling != nil {
 				as["metric"] = *o.AutoScaling.Metric
+				as["metric_percentile"] = *o.AutoScaling.MetricPercentile
 				as["target"] = *o.AutoScaling.Target
 				as["max_scale"] = *o.AutoScaling.MaxScale
 				as["min_scale"] = *o.AutoScaling.MinScale
