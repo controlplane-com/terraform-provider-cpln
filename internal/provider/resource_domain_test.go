@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-test/deep"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
@@ -150,6 +151,14 @@ func testAccCheckControlPlaneDomainExists(domainName string, domain *client.Doma
 			return fmt.Errorf("Workload name does not match")
 		}
 
+		if d.Spec.DnsMode != domain.Spec.DnsMode {
+			return fmt.Errorf("DnsMode does not match")
+		}
+
+		if d.Spec.GvcLink != domain.Spec.GvcLink {
+			return fmt.Errorf("GvcLink does not match")
+		}
+
 		*domain = *d
 
 		return nil
@@ -242,7 +251,30 @@ func TestControlPlane_BuildRoutes_Empty(t *testing.T) {
 
 // Build Cors //
 func TestControlPlane_BuildCors(t *testing.T) {
-	cors, expectedCors, _ := generateCors()
+	allowMethods := &[]string{"1", "2", "3"}
+	allowHeaders := &[]string{"2"}
+	exposeHeaders := &[]string{"3"}
+	maxAge := "24h"
+	allowCredentials := true
+
+	stringFunc := schema.HashSchema(StringSchema())
+
+	_, expectedAllowOrigins, flattenedAllowOrigins := generateAllowOrigins()
+	flattened := generateFlatTestCors(flattenedAllowOrigins,
+		schema.NewSet(stringFunc, flattenStringsArray(allowMethods)),
+		schema.NewSet(stringFunc, flattenStringsArray(allowHeaders)),
+		schema.NewSet(stringFunc, flattenStringsArray(exposeHeaders)), maxAge, allowCredentials)
+
+	cors := buildCors(flattened)
+	expectedCors := client.DomainCors{
+		AllowOrigins:     &expectedAllowOrigins,
+		AllowMethods:     allowMethods,
+		AllowHeaders:     allowHeaders,
+		ExposeHeaders:    exposeHeaders,
+		MaxAge:           &maxAge,
+		AllowCredentials: &allowCredentials,
+	}
+
 	if diff := deep.Equal(cors, &expectedCors); diff != nil {
 		t.Errorf("Cors was not built correctly. Diff: %s", diff)
 	}
@@ -286,7 +318,7 @@ func TestControlPlane_BuildAllowOrigins_WithoutExact(t *testing.T) {
 	collection := buildAllowOrigins(generateEmptyInterfaceArray())
 	expectedCollection := []client.DomainAllowOrigin{{}}
 
-	if diff := deep.Equal(collection, expectedCollection); diff != nil {
+	if diff := deep.Equal(collection, &expectedCollection); diff != nil {
 		t.Errorf("Allow Origins was not built correctly. Diff: %s", diff)
 	}
 }
@@ -362,19 +394,26 @@ func generateRoutes() (*[]client.DomainRoute, []client.DomainRoute, []interface{
 }
 
 func generateCors() (*client.DomainCors, client.DomainCors, []interface{}) {
-	allowMethods := []string{"GET", "POST"}
-	allowHeaders := []string{"Content-Type", "Accept", "Authorization"}
+	allowMethods := []string{"1"}
+	allowHeaders := []string{"2"}
+	exposeHeaders := []string{"3"}
 	maxAge := "24h"
 	allowCredentials := true
 
+	stringFunc := schema.HashSchema(StringSchema())
+
 	_, expectedAllowOrigins, flattenedAllowOrigins := generateAllowOrigins()
-	flattened := generateFlatTestCors(flattenedAllowOrigins, flattenStringsArray(&allowMethods), flattenStringsArray(&allowHeaders), maxAge, allowCredentials)
+	flattened := generateFlatTestCors(flattenedAllowOrigins,
+		schema.NewSet(stringFunc, flattenStringsArray(&allowMethods)),
+		schema.NewSet(stringFunc, flattenStringsArray(&allowHeaders)),
+		schema.NewSet(stringFunc, flattenStringsArray(&exposeHeaders)), maxAge, allowCredentials)
 
 	cors := buildCors(flattened)
 	expectedCors := client.DomainCors{
 		AllowOrigins:     &expectedAllowOrigins,
 		AllowMethods:     &allowMethods,
 		AllowHeaders:     &allowHeaders,
+		ExposeHeaders:    &exposeHeaders,
 		MaxAge:           &maxAge,
 		AllowCredentials: &allowCredentials,
 	}
@@ -388,7 +427,8 @@ func generateTLS() (*client.DomainTLS, client.DomainTLS, []interface{}) {
 	clientSecret := "/org/myorg/secret/mysecret_client"
 	serverSecret := "/org/myorg/secret/mysecret_server"
 
-	cipherSuitesFlattened := flattenStringsArray(&cipherSuites)
+	stringFunc := schema.HashSchema(StringSchema())
+	cipherSuitesFlattened := schema.NewSet(stringFunc, flattenStringsArray(&cipherSuites))
 	clientCertificate := generateFlatTestCertificate(clientSecret)
 	serverCertificate := generateFlatTestCertificate(serverSecret)
 
@@ -448,11 +488,12 @@ func generateFlatTestRoute(prefix string, replacePrefix string, workloadLink str
 	}
 }
 
-func generateFlatTestCors(allowOrigins []interface{}, allowMethods []interface{}, allowHeaders []interface{}, maxAge string, allowCredentials bool) []interface{} {
+func generateFlatTestCors(allowOrigins []interface{}, allowMethods interface{}, allowHeaders interface{}, exposeHeaders interface{}, maxAge string, allowCredentials bool) []interface{} {
 	spec := map[string]interface{}{
 		"allow_origins":     allowOrigins,
 		"allow_methods":     allowMethods,
 		"allow_headers":     allowHeaders,
+		"expose_headers":    exposeHeaders,
 		"max_age":           maxAge,
 		"allow_credentials": allowCredentials,
 	}
@@ -462,7 +503,7 @@ func generateFlatTestCors(allowOrigins []interface{}, allowMethods []interface{}
 	}
 }
 
-func generateFlatTestTLS(minProtocolVersion string, cipherSuites []interface{}, clientCertificate []interface{}, serverCertificate []interface{}) []interface{} {
+func generateFlatTestTLS(minProtocolVersion string, cipherSuites interface{}, clientCertificate []interface{}, serverCertificate []interface{}) []interface{} {
 	spec := map[string]interface{}{
 		"min_protocol_version": minProtocolVersion,
 		"cipher_suites":        cipherSuites,
