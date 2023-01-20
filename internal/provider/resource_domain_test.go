@@ -39,7 +39,7 @@ func testAccControlPlaneDomain(domainName string) string {
 
 	resource "cpln_domain" "example_ns_subdomain" {
 
-		name        = %s
+		name        = "%s"
 		description = "Custom domain that can be set on a GVC and used by associated workloads"
 	  
 		tags = {
