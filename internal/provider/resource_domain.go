@@ -102,41 +102,44 @@ func resourceDomain() *schema.Resource {
 										Type:     schema.TypeList,
 										Optional: true,
 										MaxItems: 1,
-										Elem: map[string]*schema.Schema{
-											"allow_origins": {
-												Type:     schema.TypeList,
-												Optional: true,
-												Elem: &schema.Resource{
-													Schema: map[string]*schema.Schema{
-														"exact": {
-															Type: schema.TypeString,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"allow_origins": {
+													Type:     schema.TypeList,
+													Optional: true,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"exact": {
+																Type:     schema.TypeString,
+																Required: true,
+															},
 														},
 													},
 												},
-											},
-											"allow_methods": {
-												Type:     schema.TypeSet,
-												Optional: true,
-												Elem: &schema.Schema{
+												"allow_methods": {
+													Type:     schema.TypeSet,
+													Optional: true,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+														// Optional: true,
+													},
+												},
+												"allow_headers": {
+													Type:     schema.TypeSet,
+													Optional: true,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+														// Optional: true,
+													},
+												},
+												"max_age": {
 													Type:     schema.TypeString,
 													Optional: true,
 												},
-											},
-											"allow_headers": {
-												Type:     schema.TypeSet,
-												Optional: true,
-												Elem: &schema.Schema{
-													Type:     schema.TypeString,
+												"allow_credentials": {
+													Type:     schema.TypeBool,
 													Optional: true,
 												},
-											},
-											"max_age": {
-												Type:     schema.TypeString,
-												Optional: true,
-											},
-											"allow_credentials": {
-												Type:     schema.TypeBool,
-												Optional: true,
 											},
 										},
 									},
@@ -179,9 +182,12 @@ func resourceDomain() *schema.Resource {
 				},
 			},
 			"status": {
-				Type:     schema.TypeList,
-				MaxItems: 1,
+				Type: schema.TypeList,
+				// MaxItems: 1,
 				Computed: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
 			},
 		},
 		Importer: &schema.ResourceImporter{},
