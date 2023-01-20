@@ -49,6 +49,7 @@ type DomainCors struct {
 	AllowOrigins     *[]DomainAllowOrigin `json:"allowOrigins,omitempty"`
 	AllowMethods     *[]string            `json:"allowMethods,omitempty"`
 	AllowHeaders     *[]string            `json:"allowHeaders,omitempty"`
+	ExposeHeaders    *[]string            `json:"exposeHeaders,omitempty"`
 	MaxAge           *string              `json:"maxAge,omitempty"`
 	AllowCredentials *bool                `json:"allowCredentials,omitempty"`
 }

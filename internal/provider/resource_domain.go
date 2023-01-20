@@ -102,44 +102,46 @@ func resourceDomain() *schema.Resource {
 										Type:     schema.TypeList,
 										Optional: true,
 										MaxItems: 1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"allow_origins": {
-													Type:     schema.TypeList,
-													Optional: true,
-													Elem: &schema.Resource{
-														Schema: map[string]*schema.Schema{
-															"exact": {
-																Type:     schema.TypeString,
-																Required: true,
-															},
+										Elem: map[string]*schema.Schema{
+											"allow_origins": {
+												Type:     schema.TypeList,
+												Optional: true,
+												Elem: &schema.Resource{
+													Schema: map[string]*schema.Schema{
+														"exact": {
+															Type: schema.TypeString,
 														},
 													},
 												},
-												"allow_methods": {
-													Type:     schema.TypeSet,
-													Optional: true,
-													Elem: &schema.Schema{
-														Type: schema.TypeString,
-														// Optional: true,
-													},
+											},
+											"allow_methods": {
+												Type:     schema.TypeSet,
+												Optional: true,
+												Elem: &schema.Schema{
+													Type: schema.TypeString,
 												},
-												"allow_headers": {
-													Type:     schema.TypeSet,
-													Optional: true,
-													Elem: &schema.Schema{
-														Type: schema.TypeString,
-														// Optional: true,
-													},
+											},
+											"allow_headers": {
+												Type:     schema.TypeSet,
+												Optional: true,
+												Elem: &schema.Schema{
+													Type: schema.TypeString,
 												},
-												"max_age": {
-													Type:     schema.TypeString,
-													Optional: true,
+											},
+											"expose_headers": {
+												Type:     schema.TypeSet,
+												Optional: true,
+												Elem: &schema.Schema{
+													Type: schema.TypeString,
 												},
-												"allow_credentials": {
-													Type:     schema.TypeBool,
-													Optional: true,
-												},
+											},
+											"max_age": {
+												Type:     schema.TypeString,
+												Optional: true,
+											},
+											"allow_credentials": {
+												Type:     schema.TypeBool,
+												Optional: true,
 											},
 										},
 									},
@@ -182,12 +184,9 @@ func resourceDomain() *schema.Resource {
 				},
 			},
 			"status": {
-				Type: schema.TypeList,
-				// MaxItems: 1,
+				Type:     schema.TypeList,
+				MaxItems: 1,
 				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
 		},
 		Importer: &schema.ResourceImporter{},
@@ -434,11 +433,15 @@ func buildCors(specs []interface{}) *client.DomainCors {
 	}
 
 	if spec["allow_methods"] != nil {
-		result.AllowMethods = buildStringArray(spec["allow_methods"].([]interface{}))
+		result.AllowMethods = buildStringArray(spec["allow_methods"].(*schema.Set).List())
 	}
 
 	if spec["allow_headers"] != nil {
-		result.AllowHeaders = buildStringArray(spec["allow_headers"].([]interface{}))
+		result.AllowHeaders = buildStringArray(spec["allow_headers"].(*schema.Set).List())
+	}
+
+	if spec["expose_headers"] != nil {
+		result.ExposeHeaders = buildStringArray(spec["expose_headers"].(*schema.Set).List())
 	}
 
 	if spec["max_age"] != nil {
@@ -465,7 +468,7 @@ func buildTLS(specs []interface{}) *client.DomainTLS {
 	}
 
 	if spec["cipher_suites"] != nil {
-		result.CipherSuites = buildStringArray(spec["cipher_suites"].([]interface{}))
+		result.CipherSuites = buildStringArray(spec["cipher_suites"].(*schema.Set).List())
 	}
 
 	if spec["client_certificate"] != nil {
@@ -605,6 +608,7 @@ func flattenCors(cors *client.DomainCors) []interface{} {
 	result["allow_origins"] = flattenAllowOrigins(cors.AllowOrigins)
 	result["allow_methods"] = flattenStringsArray(cors.AllowMethods)
 	result["allow_headers"] = flattenStringsArray(cors.AllowHeaders)
+	result["expose_headers"] = flattenStringsArray(cors.ExposeHeaders)
 
 	if cors.MaxAge != nil {
 		result["max_age"] = *cors.MaxAge
