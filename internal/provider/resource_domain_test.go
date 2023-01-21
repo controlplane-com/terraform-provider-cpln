@@ -11,11 +11,44 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
+func getGVC() string {
+	gvc := "/org/terraform-test-org/gvc/domain-test-gvc"
+	return gvc
+}
+
+func getWorkloadOne() string {
+	workload := getGVC() + "/workload/wl1"
+	return workload
+}
+
+func getWorkloadTwo() string {
+	workload := getGVC() + "/workload/wl2"
+	return workload
+}
+
+func getDomainOne() string {
+	domain := "domain-test.erickotler.com"
+	return domain
+}
+
+func getDomainTwo() string {
+	domain := "example.erickotler.com"
+	return domain
+}
+
+func getDomainThree() string {
+	domain := "example2.erickotler.com"
+	return domain
+}
+
+func getDomainFour() string {
+	domain := "example3.erickotler.com"
+	return domain
+}
+
 func TestAccControlPlaneDomain_basic(t *testing.T) {
 
-	var testDomain client.Domain
-
-	dName := "cors2.cplntest.com"
+	var domain client.Domain
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t, "DOMAIN") },
@@ -23,23 +56,44 @@ func TestAccControlPlaneDomain_basic(t *testing.T) {
 		CheckDestroy: testAccCheckControlPlaneDomainCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneDomain(dName),
+				Config: testAccControlPlaneDomainNSSubdomain(getDomainOne()),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists(dName, &testDomain),
+					testAccCheckControlPlaneDomainExists("cpln_domain.ns_subdomain", getDomainOne(), &domain),
+					testAccCheckControlPlaneDomainNSSubdomain(&domain),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainNSPathBased(getDomainTwo()),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.ns_pathbased", getDomainTwo(), &domain),
+					testAccCheckControlPlaneDomainNSPathBased(&domain),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainCNameSubdomain(getDomainThree()),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.cname_subdomain", getDomainThree(), &domain),
+					testAccCheckControlPlaneDomainCNameSubdomain(&domain),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainCNamePathBased(getDomainFour()),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.cname_pathbased", getDomainFour(), &domain),
+					testAccCheckControlPlaneDomainCNamePathBased(&domain),
 				),
 			},
 		},
 	})
 }
 
-func testAccControlPlaneDomain(domainName string) string {
+func testAccControlPlaneDomainNSSubdomain(domainName string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
 	return fmt.Sprintf(`
 
-	resource "cpln_domain" "example_ns_subdomain" {
-
+	resource "cpln_domain" "ns_subdomain" {
 		name        = "%s"
 		description = "Custom domain that can be set on a GVC and used by associated workloads"
 	  
@@ -50,93 +104,199 @@ func testAccControlPlaneDomain(domainName string) string {
 	  
 		spec {
 		  dns_mode         = "ns"
-		  gvc_link         = "/org/myorg/gvc/mygvc"
+		  gvc_link         = "%s"
 		  accept_all_hosts = "true"
 	  
 		  ports {
-			number   = 443
-			protocol = "http"
+				number   = 443
+				protocol = "http"
+			
+				cors {
+					allow_origins {
+						exact = "example.com"
+					}
+			
+					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
+					max_age           = "24h"
+					allow_credentials = "true"
+				}
 	  
-			cors {
-			  allow_origins {
-				exact = "example.com"
-			  }
-	  
-			  allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
-			  allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-			  max_age           = "24h"
-			  //allow_credentials = "true"
+				tls {
+					min_protocol_version = "TLSV1_2"
+					cipher_suites = [
+						"ECDHE-ECDSA-AES256-GCM-SHA384",
+						"ECDHE-ECDSA-CHACHA20-POLY1305",
+						"ECDHE-ECDSA-AES128-GCM-SHA256",
+						"ECDHE-RSA-AES256-GCM-SHA384",
+						"ECDHE-RSA-CHACHA20-POLY1305",
+						"ECDHE-RSA-AES128-GCM-SHA256",
+						"AES256-GCM-SHA384",
+						"AES128-GCM-SHA256",
+					]
+				}
 			}
-	  
-			tls {
-			  min_protocol_version = "TLSV1_2"
-			  cipher_suites = [
-				"ECDHE-ECDSA-AES256-GCM-SHA384",
-				"ECDHE-ECDSA-CHACHA20-POLY1305",
-				"ECDHE-ECDSA-AES128-GCM-SHA256",
-				"ECDHE-RSA-AES256-GCM-SHA384",
-				"ECDHE-RSA-CHACHA20-POLY1305",
-				"ECDHE-RSA-AES128-GCM-SHA256",
-				"AES256-GCM-SHA384",
-				"AES128-GCM-SHA256",
-			  ]
-	  
-			  client_certificate {}
-			}
-		  }
 		}
-	  }
-	`, domainName)
-	/*return fmt.Sprintf(`
+	}`, domainName, getGVC())
+}
 
-	resource "cpln_domain" "example" {
+// TODO there is bug with empty clientCertificate {}
 
+func testAccControlPlaneDomainNSPathBased(domainName string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneDomain")
+
+	return fmt.Sprintf(`
+
+	resource "cpln_domain" "ns_pathbased" {
 		name        = "%s"
-		description = "Test hakan"
-
+		description = "Custom domain that can be set on a GVC and used by associated workloads"
+	  
 		tags = {
-			terraform_generated = "true"
-			example             = "true"
+		  terraform_generated = "true"
+		  example             = "true"
 		}
-
+	  
 		spec {
-			dns_mode         = "ns"
-			accept_all_hosts = "true"
+		  dns_mode         = "ns"
+		  accept_all_hosts = "true"
+	  
+		  ports {
+				number   = 443
+				protocol = "http"
+			
+				routes {
+					prefix = "/first"
+					workload_link = "%s"
+					port = 8080
+				}
+
+				routes {
+					prefix = "/second"
+					workload_link = "%s"
+					port = 8081
+				}
+
+				cors {
+					allow_origins {
+						exact = "example.com"
+					}
+			
+					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
+					max_age           = "24h"
+					allow_credentials = "true"
+				}
+	  
+				tls {
+					min_protocol_version = "TLSV1_2"
+					cipher_suites = [
+						"ECDHE-ECDSA-AES256-GCM-SHA384",
+						"ECDHE-ECDSA-CHACHA20-POLY1305",
+						"ECDHE-ECDSA-AES128-GCM-SHA256",
+						"ECDHE-RSA-AES256-GCM-SHA384",
+						"ECDHE-RSA-CHACHA20-POLY1305",
+						"ECDHE-RSA-AES128-GCM-SHA256",
+						"AES256-GCM-SHA384",
+						"AES128-GCM-SHA256",
+					]
+				}
+			}
+		}
+	}`, domainName, getWorkloadOne(), getWorkloadTwo())
+}
+
+func testAccControlPlaneDomainCNameSubdomain(domainName string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneDomain")
+
+	return fmt.Sprintf(`
+
+	resource "cpln_domain" "cname_subdomain" {
+		name        = "%s"
+		description = "Custom domain that can be set on a GVC and used by associated workloads"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  example             = "true"
+		}
+	  
+		spec {
+		  dns_mode         = "cname"
+		  accept_all_hosts = "true"
+			gvc_link = "%s"
 
 			ports {
 				number   = 443
 				protocol = "http"
-
-				routes {
-					prefix        = "/log"
-					workload_link = "/org/efe/gvc/kadir/workload/a-log"
-					port          = 8080
-				}
-
-				routes {
-					prefix        = "/canary"
-					workload_link = "/org/efe/gvc/kadir/workload/canary"
-					port          = 8080
+	  
+				tls {
+					server_certificate {
+						secret_link = "/org/terraform-test-org/secret/test"
+					}
 				}
 			}
 		}
-	}
-	`, domainName)*/
+
+
+	}`, domainName, getGVC())
 }
 
-func testAccCheckControlPlaneDomainExists(domainName string, domain *client.Domain) resource.TestCheckFunc {
+func testAccControlPlaneDomainCNamePathBased(domainName string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneDomain")
+
+	return fmt.Sprintf(`
+
+	resource "cpln_domain" "cname_pathbased" {
+		name        = "%s"
+		description = "Custom domain that can be set on a GVC and used by associated workloads"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  example             = "true"
+		}
+	  
+		spec {
+		  dns_mode         = "cname"
+		  accept_all_hosts = "true"
+	  
+		  ports {
+				number   = 443
+				protocol = "http"
+			
+				routes {
+					prefix = "/first"
+					workload_link = "%s"
+					port = 8080
+				}
+
+				routes {
+					prefix = "/second"
+					workload_link = "%s"
+					port = 8081
+				}
+			}
+		}
+	}`, domainName, getWorkloadOne(), getWorkloadTwo())
+}
+
+func testAccCheckControlPlaneDomainExists(resourceName string, domainName string, domain *client.Domain) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadExists. Resources Length: %d", len(s.RootModule().Resources))
 
-		rs, ok := s.RootModule().Resources[domainName]
+		resources := s.RootModule().Resources
+		rs, ok := resources[resourceName]
 
 		if !ok {
 			return fmt.Errorf("Not found: %s", s)
 		}
 
 		if rs.Primary.ID != domainName {
-			return fmt.Errorf("Workload name does not match")
+			return fmt.Errorf("Domain name does not match")
 		}
 
 		client := testAccProvider.Meta().(*client.Client)
@@ -148,18 +308,131 @@ func testAccCheckControlPlaneDomainExists(domainName string, domain *client.Doma
 		}
 
 		if *d.Name != domainName {
-			return fmt.Errorf("Workload name does not match")
-		}
-
-		if d.Spec.DnsMode != domain.Spec.DnsMode {
-			return fmt.Errorf("DnsMode does not match")
-		}
-
-		if d.Spec.GvcLink != domain.Spec.GvcLink {
-			return fmt.Errorf("GvcLink does not match")
+			return fmt.Errorf("Domain name does not match")
 		}
 
 		*domain = *d
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneDomainNSSubdomain(domain *client.Domain) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadNsSubdomain. Resources Length: %d", len(s.RootModule().Resources))
+
+		expectedDnsMode := "ns"
+		dnsMode := domain.Spec.DnsMode
+
+		if *dnsMode != expectedDnsMode {
+			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", *dnsMode, expectedDnsMode)
+		}
+
+		gvcLink := domain.Spec.GvcLink
+		if *gvcLink != getGVC() {
+			return fmt.Errorf("GvcLink does not match, value %v, expected: %v", *gvcLink, getGVC())
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadNsPathBased. Resources Length: %d", len(s.RootModule().Resources))
+
+		expectedDnsMode := "ns"
+		dnsMode := domain.Spec.DnsMode
+
+		if *dnsMode != expectedDnsMode {
+			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", dnsMode, expectedDnsMode)
+		}
+
+		prefix1 := "/first"
+		prefix2 := "/second"
+		wl1 := getWorkloadOne()
+		wl2 := getWorkloadTwo()
+		port1 := 8080
+		port2 := 8081
+		routes := []client.DomainRoute{
+			{
+				Prefix:       &prefix1,
+				WorkloadLink: &wl1,
+				Port:         &port1,
+			},
+			{
+				Prefix:       &prefix2,
+				WorkloadLink: &wl2,
+				Port:         &port2,
+			},
+		}
+
+		if diff := deep.Equal(&routes, (*domain.Spec.Ports)[0].Routes); diff != nil {
+			return fmt.Errorf("Domain spec port routes does not match. Diff: %s", diff)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneDomainCNameSubdomain(domain *client.Domain) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadCNameSubdomain. Resources Length: %d", len(s.RootModule().Resources))
+
+		expectedDnsMode := "cname"
+		dnsMode := domain.Spec.DnsMode
+
+		if *dnsMode != expectedDnsMode {
+			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", *dnsMode, expectedDnsMode)
+		}
+
+		expectedGVCLink := getGVC()
+		gvcLink := domain.Spec.GvcLink
+		if *gvcLink != expectedGVCLink {
+			return fmt.Errorf("GVCLink does not match, value: %v, expected: %v", *gvcLink, expectedGVCLink)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneDomainCNamePathBased(domain *client.Domain) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadCNamePathBased. Resources Length: %d", len(s.RootModule().Resources))
+
+		expectedDnsMode := "cname"
+		dnsMode := domain.Spec.DnsMode
+
+		if *dnsMode != expectedDnsMode {
+			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", *dnsMode, expectedDnsMode)
+		}
+
+		prefix1 := "/first"
+		prefix2 := "/second"
+		wl1 := getWorkloadOne()
+		wl2 := getWorkloadTwo()
+		port1 := 8080
+		port2 := 8081
+		routes := []client.DomainRoute{
+			{
+				Prefix:       &prefix1,
+				WorkloadLink: &wl1,
+				Port:         &port1,
+			},
+			{
+				Prefix:       &prefix2,
+				WorkloadLink: &wl2,
+				Port:         &port2,
+			},
+		}
+
+		if diff := deep.Equal(&routes, (*domain.Spec.Ports)[0].Routes); diff != nil {
+			return fmt.Errorf("Domain spec port routes does not match. Diff: %s", diff)
+		}
 
 		return nil
 	}
@@ -169,8 +442,24 @@ func testAccCheckControlPlaneDomainCheckDestroy(s *terraform.State) error {
 
 	TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy. Resources Length: %d", len(s.RootModule().Resources))
 
-	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+	c := testAccProvider.Meta().(*client.Client)
+
+	for _, rs := range s.RootModule().Resources {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy: rs.Type: %s", rs.Type)
+
+		if rs.Type != "cpln_domain" {
+			continue
+		}
+
+		domainName := rs.Primary.ID
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy: domainName: %s", domainName)
+
+		domain, _, _ := c.GetDomain(domainName)
+		if domain != nil {
+			return fmt.Errorf("Domain still exists. Name: %s.", *domain.Name)
+		}
 	}
 
 	return nil
@@ -180,7 +469,7 @@ func testAccCheckControlPlaneDomainCheckDestroy(s *terraform.State) error {
 // Build Domain Spec //
 func TestControlPlane_BuildDomainSpec(t *testing.T) {
 	dnsMode := "ns"
-	gvcLink := "/org/myorg/gvc/mygvc"
+	gvcLink := getGVC()
 	acceptAllHosts := true
 	_, expectedPorts, flattenedPorts := generatePorts()
 
@@ -199,7 +488,7 @@ func TestControlPlane_BuildDomainSpec(t *testing.T) {
 
 func TestControlPlane_BuildDomainSpec_NoPorts(t *testing.T) {
 	dnsMode := "ns"
-	gvcLink := "/org/myorg/gvc/mygvc"
+	gvcLink := getGVC()
 	acceptAllHosts := false
 
 	domainSpec := buildDomainSpec(generateFlatTestDomainSpec(dnsMode, gvcLink, acceptAllHosts, nil))
@@ -375,7 +664,7 @@ func generatePorts() (*[]client.DomainSpecPort, []client.DomainSpecPort, []inter
 func generateRoutes() (*[]client.DomainRoute, []client.DomainRoute, []interface{}) {
 	prefix := "/"
 	replacePrefix := "/replace"
-	workload_link := "/org/myorg/gvc/mygvc/workload_two"
+	workload_link := getWorkloadOne()
 	port := 8080
 
 	flattened := generateInterfaceArrayFromMapArray([]map[string]interface{}{
