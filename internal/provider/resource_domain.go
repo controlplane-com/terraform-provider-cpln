@@ -2,7 +2,6 @@ package cpln
 
 import (
 	"context"
-	"time"
 
 	client "terraform-provider-cpln/internal/provider/client"
 
@@ -23,7 +22,7 @@ func resourceDomain() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
-				//TODO: ValidateFunc: NameValidator,
+				// TODO validate domain name
 			},
 			"description": {
 				Type:             schema.TypeString,
@@ -43,6 +42,7 @@ func resourceDomain() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			// TODO update all default values
 			"spec": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -60,6 +60,7 @@ func resourceDomain() *schema.Resource {
 						"accept_all_hosts": {
 							Type:     schema.TypeBool,
 							Optional: true,
+							Default:  false,
 						},
 						"ports": {
 							Type:     schema.TypeList,
@@ -67,12 +68,14 @@ func resourceDomain() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"number": {
-										Type:     schema.TypeInt, // Float instead?
+										Type:     schema.TypeInt,
 										Optional: true,
+										Default:  443,
 									},
 									"protocol": {
 										Type:     schema.TypeString,
 										Optional: true,
+										Default:  "http2",
 									},
 									"routes": {
 										Type:     schema.TypeList,
@@ -102,58 +105,82 @@ func resourceDomain() *schema.Resource {
 										Type:     schema.TypeList,
 										Optional: true,
 										MaxItems: 1,
-										Elem: map[string]*schema.Schema{
-											"allow_origins": {
-												Type:     schema.TypeList,
-												Optional: true,
-												Elem: &schema.Resource{
-													Schema: map[string]*schema.Schema{
-														"exact": {
-															Type: schema.TypeString,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"allow_origins": {
+													Type:     schema.TypeList,
+													Optional: true,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"exact": {
+																Type:     schema.TypeString,
+																Required: true,
+															},
 														},
 													},
 												},
-											},
-											"allow_methods": {
-												Type:     schema.TypeSet,
-												Optional: true,
-												Elem: &schema.Schema{
-													Type: schema.TypeString,
+												"allow_methods": {
+													Type:     schema.TypeSet,
+													Optional: true,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+														// TODO Disregard uppercase lowercase
+													},
 												},
-											},
-											"allow_headers": {
-												Type:     schema.TypeSet,
-												Optional: true,
-												Elem: &schema.Schema{
-													Type: schema.TypeString,
+												"allow_headers": {
+													Type:     schema.TypeSet,
+													Optional: true,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+														// TODO Disregard uppercase lowercase
+													},
 												},
-											},
-											"expose_headers": {
-												Type:     schema.TypeSet,
-												Optional: true,
-												Elem: &schema.Schema{
-													Type: schema.TypeString,
+												"expose_headers": {
+													Type:     schema.TypeSet,
+													Optional: true,
+													Elem: &schema.Schema{
+														Type: schema.TypeString,
+														// TODO Disregard uppercase lowercase
+													},
 												},
-											},
-											"max_age": {
-												Type:     schema.TypeString,
-												Optional: true,
-											},
-											"allow_credentials": {
-												Type:     schema.TypeBool,
-												Optional: true,
+												"max_age": {
+													Type:     schema.TypeString,
+													Optional: true,
+													Default:  "24h",
+												},
+												"allow_credentials": {
+													Type:     schema.TypeBool,
+													Optional: true,
+													Default:  false,
+												},
 											},
 										},
 									},
 									"tls": {
 										Type:     schema.TypeList,
 										Optional: true,
+										// TODO Default value added from the server break diff logic
+										// Default: []map[string]interface{}{
+										// 	{
+										// 		"min_protocol_version": "TLSV1_2",
+										// 		"cipher_suites": []string{"AES128-GCM-SHA256",
+										// 			"AES256-GCM-SHA384",
+										// 			"ECDHE-ECDSA-AES128-GCM-SHA256",
+										// 			"ECDHE-ECDSA-AES256-GCM-SHA384",
+										// 			"ECDHE-ECDSA-CHACHA20-POLY1305",
+										// 			"ECDHE-RSA-AES128-GCM-SHA256",
+										// 			"ECDHE-RSA-AES256-GCM-SHA384",
+										// 			"ECDHE-RSA-CHACHA20-POLY1305",
+										// 		},
+										// 	},
+										// },
 										MaxItems: 1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"min_protocol_version": {
 													Type:     schema.TypeString,
 													Optional: true,
+													Default:  "TLSV1_2",
 												},
 												"cipher_suites": {
 													Type:     schema.TypeSet,
@@ -161,6 +188,15 @@ func resourceDomain() *schema.Resource {
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 													},
+													// TODO extract and use same data
+													// Default: []string{"AES128-GCM-SHA256",
+													// 	"AES256-GCM-SHA384",
+													// 	"ECDHE-ECDSA-AES128-GCM-SHA256",
+													// 	"ECDHE-ECDSA-AES256-GCM-SHA384",
+													// 	"ECDHE-ECDSA-CHACHA20-POLY1305",
+													// 	"ECDHE-RSA-AES128-GCM-SHA256",
+													// 	"ECDHE-RSA-AES256-GCM-SHA384",
+													// 	"ECDHE-RSA-CHACHA20-POLY1305"},
 												},
 												"client_certificate": {
 													Type:     schema.TypeList,
@@ -183,11 +219,12 @@ func resourceDomain() *schema.Resource {
 					},
 				},
 			},
-			"status": {
-				Type:     schema.TypeList,
-				MaxItems: 1,
-				Computed: true,
-			},
+			// TODO add status Elem
+			// "status": {
+			// 	Type:     schema.TypeList,
+			// 	MaxItems: 1,
+			// 	Computed: true,
+			// },
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -196,53 +233,56 @@ func resourceDomain() *schema.Resource {
 func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	domain := client.Domain{
-		Name:        GetString(d.Get("name").(string)),
-		Description: GetString(d.Get("description").(string)),
+		Name:        GetString(d.Get("name")),
+		Description: GetString(d.Get("description")),
 		Tags:        GetStringMap(d.Get("tags")),
 		Spec:        buildDomainSpec(d.Get("spec").([]interface{})),
 	}
 
 	c := m.(*client.Client)
-	count := 0
 
-	for {
+	// TODO do we need this still?
 
-		newDomain, code, err := c.CreateDomain(domain)
+	// count := 0
 
-		if code == 409 {
-			return ResourceExistsHelper()
-		}
+	// for {
 
-		if code != 400 {
+	newDomain, code, err := c.CreateDomain(domain)
 
-			if err != nil {
-				return diag.FromErr(err)
-			}
-
-			return setDomain(d, newDomain)
-		}
-
-		if count++; count > 16 {
-			// Exit loop after timeout
-
-			var diags diag.Diagnostics
-
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  err.Error(),
-			})
-
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to verify domain ownership",
-				Detail:   "Please review and run terraform apply again",
-			})
-
-			return diags
-		}
-
-		time.Sleep(15 * time.Second)
+	if code == 409 {
+		return ResourceExistsHelper()
 	}
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	return setDomain(d, newDomain)
+
+	// var diags diag.Diagnostics
+	// return diags
+
+	// 	if count++; count > 16 {
+	// 		// Exit loop after timeout
+
+	// 		var diags diag.Diagnostics
+
+	// 		diags = append(diags, diag.Diagnostic{
+	// 			Severity: diag.Error,
+	// 			Summary:  err.Error(),
+	// 		})
+
+	// 		diags = append(diags, diag.Diagnostic{
+	// 			Severity: diag.Error,
+	// 			Summary:  "Unable to verify domain ownership",
+	// 			Detail:   "Please review and run terraform apply again",
+	// 		})
+
+	// 		return diags
+	// 	}
+
+	// 	time.Sleep(15 * time.Second)
+	// }
 }
 
 func resourceDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -301,7 +341,8 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 func resourceDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	c := m.(*client.Client)
-	err := c.DeleteDomain(d.Id())
+	id := d.Id()
+	err := c.DeleteDomain(id)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -334,15 +375,15 @@ func buildDomainSpec(specs []interface{}) *client.DomainSpec {
 	result := &client.DomainSpec{}
 
 	if spec["dns_mode"] != nil {
-		result.DnsMode = GetString(spec["dns_mode"].(string))
+		result.DnsMode = GetString(spec["dns_mode"])
 	}
 
 	if spec["gvc_link"] != nil {
-		result.GvcLink = GetString(spec["gvc_link"].(string))
+		result.GvcLink = GetString(spec["gvc_link"])
 	}
 
 	if spec["accept_all_hosts"] != nil {
-		result.AcceptAllHosts = GetBool(spec["accept_all_hosts"].(bool))
+		result.AcceptAllHosts = GetBool(spec["accept_all_hosts"])
 	}
 
 	if spec["ports"] != nil {
@@ -363,11 +404,11 @@ func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
 		newPort := client.DomainSpecPort{}
 
 		if port["number"] != nil {
-			newPort.Number = GetInt(port["number"].(int))
+			newPort.Number = GetInt(port["number"])
 		}
 
 		if port["protocol"] != nil {
-			newPort.Protocol = GetString(port["protocol"].(string))
+			newPort.Protocol = GetString(port["protocol"])
 		}
 
 		if port["routes"] != nil {
@@ -399,19 +440,19 @@ func buildRoutes(specs []interface{}) *[]client.DomainRoute {
 		newRoute := client.DomainRoute{}
 
 		if route["prefix"] != nil {
-			newRoute.Prefix = GetString(route["prefix"].(string))
+			newRoute.Prefix = GetString(route["prefix"])
 		}
 
 		if route["replace_prefix"] != nil {
-			newRoute.ReplacePrefix = GetString(route["replace_prefix"].(string))
+			newRoute.ReplacePrefix = GetString(route["replace_prefix"])
 		}
 
 		if route["workload_link"] != nil {
-			newRoute.WorkloadLink = GetString(route["workload_link"].(string))
+			newRoute.WorkloadLink = GetString(route["workload_link"])
 		}
 
 		if route["port"] != nil {
-			newRoute.Port = GetInt(route["port"].(int))
+			newRoute.Port = GetInt(route["port"])
 		}
 
 		collection = append(collection, newRoute)
@@ -445,11 +486,11 @@ func buildCors(specs []interface{}) *client.DomainCors {
 	}
 
 	if spec["max_age"] != nil {
-		result.MaxAge = GetString(spec["max_age"].(string))
+		result.MaxAge = GetString(spec["max_age"])
 	}
 
 	if spec["allow_credentials"] != nil {
-		result.AllowCredentials = GetBool(spec["allow_credentials"].(bool))
+		result.AllowCredentials = GetBool(spec["allow_credentials"])
 	}
 
 	return result
@@ -464,7 +505,7 @@ func buildTLS(specs []interface{}) *client.DomainTLS {
 	result := &client.DomainTLS{}
 
 	if spec["min_protocol_version"] != nil {
-		result.MinProtocolVersion = GetString(spec["min_protocol_version"].(string))
+		result.MinProtocolVersion = GetString(spec["min_protocol_version"])
 	}
 
 	if spec["cipher_suites"] != nil {
