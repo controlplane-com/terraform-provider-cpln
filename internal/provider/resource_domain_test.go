@@ -135,13 +135,12 @@ func testAccControlPlaneDomainNSSubdomain(domainName string) string {
 						"AES256-GCM-SHA384",
 						"AES128-GCM-SHA256",
 					]
+					client_certificate {}
 				}
 			}
 		}
 	}`, domainName, getGVC())
 }
-
-// TODO there is bug with empty clientCertificate {}
 
 func testAccControlPlaneDomainNSPathBased(domainName string) string {
 
@@ -243,6 +242,8 @@ func testAccControlPlaneDomainCNameSubdomain(domainName string) string {
 
 	}`, domainName, getGVC())
 }
+
+// TODO fix TLS default values of cipher_suites array and min_protocol_version
 
 func testAccControlPlaneDomainCNamePathBased(domainName string) string {
 

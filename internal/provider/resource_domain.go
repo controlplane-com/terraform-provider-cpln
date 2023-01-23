@@ -542,15 +542,20 @@ func buildAllowOrigins(specs []interface{}) *[]client.DomainAllowOrigin {
 }
 
 func buildCertificate(specs []interface{}) *client.DomainCertificate {
-	if len(specs) == 0 || specs[0] == nil {
+	if len(specs) == 0 {
 		return nil
 	}
 
-	spec := specs[0].(map[string]interface{})
+	spec := specs[0]
 	result := client.DomainCertificate{}
 
-	if spec["secret_link"] != nil {
-		result.SecretLink = GetString(spec["secret_link"].(string))
+	if spec == nil {
+		return &result
+	}
+
+	specAsMap := spec.(map[string]interface{})
+	if specAsMap["secret_link"] != nil {
+		result.SecretLink = GetString(specAsMap["secret_link"].(string))
 	}
 
 	return &result
