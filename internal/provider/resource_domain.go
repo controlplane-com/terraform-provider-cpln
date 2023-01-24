@@ -159,21 +159,21 @@ func resourceDomain() *schema.Resource {
 									"tls": {
 										Type:     schema.TypeList,
 										Optional: true,
-										// TODO Default value added from the server break diff logic
-										// Default: []map[string]interface{}{
-										// 	{
-										// 		"min_protocol_version": "TLSV1_2",
-										// 		"cipher_suites": []string{"AES128-GCM-SHA256",
-										// 			"AES256-GCM-SHA384",
-										// 			"ECDHE-ECDSA-AES128-GCM-SHA256",
-										// 			"ECDHE-ECDSA-AES256-GCM-SHA384",
-										// 			"ECDHE-ECDSA-CHACHA20-POLY1305",
-										// 			"ECDHE-RSA-AES128-GCM-SHA256",
-										// 			"ECDHE-RSA-AES256-GCM-SHA384",
-										// 			"ECDHE-RSA-CHACHA20-POLY1305",
-										// 		},
-										// 	},
-										// },
+										Default: []map[string]interface{}{
+											{
+												"min_protocol_version": "TLSV1_2",
+												"cipher_suites": schema.NewSet(schema.HashString, []interface{}{
+													"AES128-GCM-SHA256",
+													"AES256-GCM-SHA384",
+													"ECDHE-ECDSA-AES128-GCM-SHA256",
+													"ECDHE-ECDSA-AES256-GCM-SHA384",
+													"ECDHE-ECDSA-CHACHA20-POLY1305",
+													"ECDHE-RSA-AES128-GCM-SHA256",
+													"ECDHE-RSA-AES256-GCM-SHA384",
+													"ECDHE-RSA-CHACHA20-POLY1305",
+												}),
+											},
+										},
 										MaxItems: 1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
@@ -188,15 +188,16 @@ func resourceDomain() *schema.Resource {
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 													},
-													// TODO extract and use same data
-													// Default: []string{"AES128-GCM-SHA256",
-													// 	"AES256-GCM-SHA384",
-													// 	"ECDHE-ECDSA-AES128-GCM-SHA256",
-													// 	"ECDHE-ECDSA-AES256-GCM-SHA384",
-													// 	"ECDHE-ECDSA-CHACHA20-POLY1305",
-													// 	"ECDHE-RSA-AES128-GCM-SHA256",
-													// 	"ECDHE-RSA-AES256-GCM-SHA384",
-													// 	"ECDHE-RSA-CHACHA20-POLY1305"},
+													Default: schema.NewSet(schema.HashString, []interface{}{
+														"AES128-GCM-SHA256",
+														"AES256-GCM-SHA384",
+														"ECDHE-ECDSA-AES128-GCM-SHA256",
+														"ECDHE-ECDSA-AES256-GCM-SHA384",
+														"ECDHE-ECDSA-CHACHA20-POLY1305",
+														"ECDHE-RSA-AES128-GCM-SHA256",
+														"ECDHE-RSA-AES256-GCM-SHA384",
+														"ECDHE-RSA-CHACHA20-POLY1305",
+													}),
 												},
 												"client_certificate": {
 													Type:     schema.TypeList,
