@@ -159,21 +159,6 @@ func resourceDomain() *schema.Resource {
 									"tls": {
 										Type:     schema.TypeList,
 										Optional: true,
-										/*Default: []map[string]interface{}{
-											{
-												"min_protocol_version": "TLSV1_2",
-												"cipher_suites": schema.NewSet(schema.HashString, []interface{}{
-													"AES128-GCM-SHA256",
-													"AES256-GCM-SHA384",
-													"ECDHE-ECDSA-AES128-GCM-SHA256",
-													"ECDHE-ECDSA-AES256-GCM-SHA384",
-													"ECDHE-ECDSA-CHACHA20-POLY1305",
-													"ECDHE-RSA-AES128-GCM-SHA256",
-													"ECDHE-RSA-AES256-GCM-SHA384",
-													"ECDHE-RSA-CHACHA20-POLY1305",
-												}),
-											},
-										},*/
 										DefaultFunc: func() (interface{}, error) {
 											return []map[string]interface{}{
 												{
