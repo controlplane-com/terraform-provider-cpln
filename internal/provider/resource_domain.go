@@ -159,7 +159,7 @@ func resourceDomain() *schema.Resource {
 									"tls": {
 										Type:     schema.TypeList,
 										Optional: true,
-										Default: []map[string]interface{}{
+										/*Default: []map[string]interface{}{
 											{
 												"min_protocol_version": "TLSV1_2",
 												"cipher_suites": schema.NewSet(schema.HashString, []interface{}{
@@ -173,6 +173,25 @@ func resourceDomain() *schema.Resource {
 													"ECDHE-RSA-CHACHA20-POLY1305",
 												}),
 											},
+										},*/
+										DefaultFunc: func() (interface{}, error) {
+											return []map[string]interface{}{
+												{
+													"min_protocol_version": "TLSV1_2",
+													"cipher_suites": func() (interface{}, error) {
+														return []string{
+															"AES128-GCM-SHA256",
+															"AES256-GCM-SHA384",
+															"ECDHE-ECDSA-AES128-GCM-SHA256",
+															"ECDHE-ECDSA-AES256-GCM-SHA384",
+															"ECDHE-ECDSA-CHACHA20-POLY1305",
+															"ECDHE-RSA-AES128-GCM-SHA256",
+															"ECDHE-RSA-AES256-GCM-SHA384",
+															"ECDHE-RSA-CHACHA20-POLY1305",
+														}, nil
+													},
+												},
+											}, nil
 										},
 										MaxItems: 1,
 										Elem: &schema.Resource{
@@ -188,16 +207,18 @@ func resourceDomain() *schema.Resource {
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 													},
-													Default: schema.NewSet(schema.HashString, []interface{}{
-														"AES128-GCM-SHA256",
-														"AES256-GCM-SHA384",
-														"ECDHE-ECDSA-AES128-GCM-SHA256",
-														"ECDHE-ECDSA-AES256-GCM-SHA384",
-														"ECDHE-ECDSA-CHACHA20-POLY1305",
-														"ECDHE-RSA-AES128-GCM-SHA256",
-														"ECDHE-RSA-AES256-GCM-SHA384",
-														"ECDHE-RSA-CHACHA20-POLY1305",
-													}),
+													DefaultFunc: func() (interface{}, error) {
+														return []string{
+															"AES128-GCM-SHA256",
+															"AES256-GCM-SHA384",
+															"ECDHE-ECDSA-AES128-GCM-SHA256",
+															"ECDHE-ECDSA-AES256-GCM-SHA384",
+															"ECDHE-ECDSA-CHACHA20-POLY1305",
+															"ECDHE-RSA-AES128-GCM-SHA256",
+															"ECDHE-RSA-AES256-GCM-SHA384",
+															"ECDHE-RSA-CHACHA20-POLY1305",
+														}, nil
+													},
 												},
 												"client_certificate": {
 													Type:     schema.TypeList,
