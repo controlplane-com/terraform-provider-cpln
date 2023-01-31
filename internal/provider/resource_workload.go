@@ -379,6 +379,39 @@ func resourceWorkload() *schema.Resource {
 					},
 				},
 			},
+			"job": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"schedule": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"concurrency_policy": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "Forbid",
+						},
+						"history_limit": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							// Validate the number to see if it is between 1 and 10?
+						},
+						"restart_policy": {
+							Type:     schema.TypeString,
+							Optional: true,
+							// Does it have a default value?
+						},
+						"active_deadline_seconds": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							// Does it have a default value?
+						},
+					},
+				},
+			},
 			"status": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -777,6 +810,7 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 	buildOptions(d.Get("options").([]interface{}), &workload, false, c.Org)
 	buildOptions(d.Get("local_options").([]interface{}), &workload, true, c.Org)
 	buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workload, false)
+	workload.Spec.Job = buildJobSpec(d.Get("job").([]interface{}))
 
 	if d.Get("type") != nil {
 
@@ -1222,6 +1256,37 @@ func buildFirewallSpec(specs []interface{}, workload *client.Workload, update bo
 	}
 }
 
+func buildJobSpec(specs []interface{}) *client.JobSpec {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	result := &client.JobSpec{}
+
+	if spec["schedule"] != nil {
+		result.Schedule = GetString(spec["schedule"].(string))
+	}
+
+	if spec["concurrency_policy"] != nil {
+		result.ConcurrencyPolicy = GetString(spec["concurrency_policy"].(string))
+	}
+
+	if spec["history_limit"] != nil {
+		result.HistoryLimit = GetInt(spec["history_limit"].(int))
+	}
+
+	if spec["restart_policy"] != nil {
+		result.RestartPolicy = GetString(spec["restart_policy"].(string))
+	}
+
+	if spec["active_deadline_seconds"] != nil {
+		result.ActiveDeadlineSeconds = GetInt(spec["active_deadline_seconds"].(int))
+	}
+
+	return result
+}
+
 func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceWorkloadRead")
@@ -1289,7 +1354,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link") {
 
 		c := m.(*client.Client)
 
@@ -1354,6 +1419,15 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 			}
 
 			buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workloadToUpdate, true)
+		}
+
+		if d.HasChange("job") {
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			workloadToUpdate.Spec.Job = buildJobSpec(d.Get("job").([]interface{}))
 		}
 
 		if d.Get("identity_link") != nil {
@@ -1440,6 +1514,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 		}
 
 		if err := d.Set("firewall_spec", flattenFirewallSpec(workload.Spec.FirewallConfig)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("job", flattenJobSpec(workload.Spec.Job)); err != nil {
 			return diag.FromErr(err)
 		}
 
@@ -1751,13 +1829,34 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 			as := make(map[string]interface{})
 
 			if o.AutoScaling != nil {
-				as["metric"] = *o.AutoScaling.Metric
-				as["metric_percentile"] = *o.AutoScaling.MetricPercentile
-				as["target"] = *o.AutoScaling.Target
-				as["max_scale"] = *o.AutoScaling.MaxScale
-				as["min_scale"] = *o.AutoScaling.MinScale
-				as["max_concurrency"] = *o.AutoScaling.MaxConcurrency
-				as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
+
+				if o.AutoScaling.Metric != nil {
+					as["metric"] = *o.AutoScaling.Metric
+				}
+
+				if o.AutoScaling.MetricPercentile != nil {
+					as["metric_percentile"] = *o.AutoScaling.MetricPercentile
+				}
+
+				if o.AutoScaling.Target != nil {
+					as["target"] = *o.AutoScaling.Target
+				}
+
+				if o.AutoScaling.MaxScale != nil {
+					as["max_scale"] = *o.AutoScaling.MaxScale
+				}
+
+				if o.AutoScaling.MinScale != nil {
+					as["min_scale"] = *o.AutoScaling.MinScale
+				}
+
+				if o.AutoScaling.MaxConcurrency != nil {
+					as["max_concurrency"] = *o.AutoScaling.MaxConcurrency
+				}
+
+				if o.AutoScaling.ScaleToZeroDelay != nil {
+					as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
+				}
 
 				autoScaling := make([]interface{}, 1)
 				autoScaling[0] = as
@@ -1859,4 +1958,36 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenJobSpec(spec *client.JobSpec) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+
+	if spec.Schedule != nil {
+		result["schedule"] = *spec.Schedule
+	}
+
+	if spec.ConcurrencyPolicy != nil {
+		result["concurrency_policy"] = *spec.ConcurrencyPolicy
+	}
+
+	if spec.HistoryLimit != nil {
+		result["history_limit"] = *spec.HistoryLimit
+	}
+
+	if spec.RestartPolicy != nil {
+		result["restart_policy"] = *spec.RestartPolicy
+	}
+
+	if spec.ActiveDeadlineSeconds != nil {
+		result["active_deadline_seconds"] = *spec.ActiveDeadlineSeconds
+	}
+
+	return []interface{}{
+		result,
+	}
 }

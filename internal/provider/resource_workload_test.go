@@ -100,42 +100,43 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		Port: GetInt(8181),
 	}
 
-	newContainer.ReadinessProbe = &client.HealthCheckSpec{
+	if workloadType != "cron" {
 
-		PeriodSeconds:       GetInt(11),
-		TimeoutSeconds:      GetInt(2),
-		FailureThreshold:    GetInt(4),
-		SuccessThreshold:    GetInt(2),
-		InitialDelaySeconds: GetInt(1),
+		newContainer.ReadinessProbe = &client.HealthCheckSpec{
+			PeriodSeconds:       GetInt(11),
+			TimeoutSeconds:      GetInt(2),
+			FailureThreshold:    GetInt(4),
+			SuccessThreshold:    GetInt(2),
+			InitialDelaySeconds: GetInt(1),
 
-		TCPSocket: &client.TCPSocket{
-			Port: GetInt(8181),
-		},
-	}
+			TCPSocket: &client.TCPSocket{
+				Port: GetInt(8181),
+			},
+		}
 
-	newContainer.LivenessProbe = &client.HealthCheckSpec{
+		newContainer.LivenessProbe = &client.HealthCheckSpec{
+			PeriodSeconds:       GetInt(10),
+			TimeoutSeconds:      GetInt(3),
+			FailureThreshold:    GetInt(5),
+			SuccessThreshold:    GetInt(1),
+			InitialDelaySeconds: GetInt(2),
 
-		PeriodSeconds:       GetInt(10),
-		TimeoutSeconds:      GetInt(3),
-		FailureThreshold:    GetInt(5),
-		SuccessThreshold:    GetInt(1),
-		InitialDelaySeconds: GetInt(2),
-
-		HTTPGet: &client.HTTPGet{
-			Path:   GetString("/path"),
-			Port:   GetInt(8282),
-			Scheme: GetString("HTTPS"),
-			HTTPHeaders: &[]client.NameValue{
-				{
-					Name:  GetString("header-name-01"),
-					Value: GetString("header-value-01"),
-				},
-				{
-					Name:  GetString("header-name-02"),
-					Value: GetString("header-value-02"),
+			HTTPGet: &client.HTTPGet{
+				Path:   GetString("/path"),
+				Port:   GetInt(8282),
+				Scheme: GetString("HTTPS"),
+				HTTPHeaders: &[]client.NameValue{
+					{
+						Name:  GetString("header-name-01"),
+						Value: GetString("header-value-01"),
+					},
+					{
+						Name:  GetString("header-name-02"),
+						Value: GetString("header-value-02"),
+					},
 				},
 			},
-		},
+		}
 	}
 
 	// newContainer2 := client.ContainerSpec{
@@ -342,6 +343,23 @@ func generateTestOptions(workloadType string) *client.Options {
 		}
 	}
 
+	if workloadType == "cron" {
+		return &client.Options{
+			CapacityAI:     GetBool(false),
+			Spot:           GetBool(true),
+			TimeoutSeconds: GetInt(5),
+			Debug:          GetBool(false),
+
+			AutoScaling: &client.AutoScaling{
+				Target:           GetInt(100),
+				MaxScale:         GetInt(1),
+				MinScale:         GetInt(1),
+				MaxConcurrency:   GetInt(0),
+				ScaleToZeroDelay: GetInt(300),
+			},
+		}
+	}
+
 	return &client.Options{
 		CapacityAI:     GetBool(true),
 		Spot:           GetBool(true),
@@ -450,6 +468,59 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	}
 }
 
+func TestControlPlane_BuildJobSpec(t *testing.T) {
+	jobSpec, expectedJobSpec, _ := generateTestJobSpec()
+
+	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
+		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildJobSpec_Empty(t *testing.T) {
+	jobSpec := buildJobSpec([]interface{}{
+		map[string]interface{}{},
+	})
+	expectedJobSpec := client.JobSpec{}
+
+	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
+		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
+	}
+}
+
+func generateTestJobSpec() (*client.JobSpec, client.JobSpec, []interface{}) {
+	schedule := "* * * * *"
+	concurrencyPolicy := "Forbid"
+	historyLimit := 5
+	restartPolicy := "Never"
+	activeDeadlineSeconds := 1200
+
+	flattened := generateFlatTestJobSpec(schedule, concurrencyPolicy, historyLimit, restartPolicy, activeDeadlineSeconds)
+	jobSpec := buildJobSpec(flattened)
+	expectedJobSpec := client.JobSpec{
+		Schedule:              &schedule,
+		ConcurrencyPolicy:     &concurrencyPolicy,
+		HistoryLimit:          &historyLimit,
+		RestartPolicy:         &restartPolicy,
+		ActiveDeadlineSeconds: &activeDeadlineSeconds,
+	}
+
+	return jobSpec, expectedJobSpec, flattened
+}
+
+func generateFlatTestJobSpec(schedule string, concurrencyPolicy string, historyLimit int, restartPolicy string, activeDeadlineSeconds int) []interface{} {
+	spec := map[string]interface{}{
+		"schedule":                schedule,
+		"concurrency_policy":      concurrencyPolicy,
+		"history_limit":           historyLimit,
+		"restart_policy":          restartPolicy,
+		"active_deadline_seconds": activeDeadlineSeconds,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
 	endpoint := "endpoint"
@@ -526,6 +597,16 @@ func TestControlPlane_FlattenFirewallSpec(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenJobSpec(t *testing.T) {
+	_, jobSpec, expectedFlattenedJobSpec := generateTestJobSpec()
+
+	flattenedJobSpec := flattenJobSpec(&jobSpec)
+
+	if diff := deep.Equal(flattenedJobSpec, expectedFlattenedJobSpec); diff != nil {
+		t.Errorf("JobSpec not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestAccControlPlaneWorkload_basic(t *testing.T) {
 
 	var testWorkload client.Workload
@@ -570,6 +651,14 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
 					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
+				),
+			},
+			{
+				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
 				),
 			},
 		},
@@ -636,37 +725,11 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		  command = "override-command"
 		  working_directory = "/usr"
 	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  volume {
-			uri  = "s3://bucket"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
 		  readiness_probe {
 
 			tcp_socket {
 			  port = 8181
 			}
-
-			// exec {
-			// 	command = ["test1", "test2"]
-			// }
 	  
 			period_seconds       = 11
 			timeout_seconds      = 2
@@ -693,6 +756,29 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 			success_threshold    = 1
 			initial_delay_seconds = 2
 		  }
+		  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  volume {
+			uri  = "s3://bucket"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+
 		}
 
 		// container {
@@ -820,6 +906,13 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 
 		if diff := deep.Equal(firewallSpec, workload.Spec.FirewallConfig); diff != nil {
 			return fmt.Errorf("FirewallSpec attributes does not match. Diff: %s", diff)
+		}
+
+		if workload.Spec.Job != nil {
+			jobSpec, _, _ := generateTestJobSpec()
+			if diff := deep.Equal(jobSpec, workload.Spec.Job); diff != nil {
+				return fmt.Errorf("Job attributes does not match. Diff: %s", diff)
+			}
 		}
 
 		return nil
@@ -1014,6 +1107,128 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		}
 	  }
 	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+}
+
+func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"	
+		description = "%s"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+	}
+	  
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		identity_link = cpln_identity.new.self_link
+
+		type = "cron"
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+		  memory = "128Mi"
+		  cpu = "50m"
+
+		  command = "override-command"
+		  working_directory = "/usr"
+	  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  volume {
+			uri  = "s3://bucket"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+		}
+		 	  	  
+		options {
+		  capacity_ai = false
+		  spot = true
+		  timeout_seconds = 5
+	  
+		  autoscaling {
+			target = 100
+			max_scale = 1
+			min_scale = 1
+			max_concurrency = 0
+			scale_to_zero_delay = 300
+		  }
+		}
+	  
+		firewall_spec {
+		  external {
+			inbound_allow_cidr =  ["0.0.0.0/0"]
+			// outbound_allow_cidr =  []
+			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+		  }
+		  internal { 
+			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+			inbound_allow_type = "none"
+			inbound_allow_workload = []
+		  }
+		}
+
+		job {
+            schedule = "* * * * *"
+            concurrency_policy = "Forbid"
+            history_limit = 5
+            restart_policy = "Never"
+            active_deadline_seconds = 1200
+        }
+	  }
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
 
 func testAccCheckControlPlaneWorkloadCheckDestroy(s *terraform.State) error {

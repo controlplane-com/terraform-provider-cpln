@@ -29,6 +29,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
+- **job** (Block List, Max: 1) ([see below](#nestedblock--job)).
 
 
 <a id="nestedblock--container"></a>
@@ -249,6 +250,18 @@ Optional:
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
 
 
+<a id="nestedblock--job"></a>
+ ### `job`
+
+Required:
+- **schedule** (String) A standard cron schedule expression used to determine when your job should execute.
+
+Optional:
+- **concurrency_policy** (String) Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`
+- **history_limit** (Number) The maximum number of completed job instances to display. This should be an integer between 1 and 10.
+- **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ]
+- **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.
+
 <a id="nestedatt--status"></a>
  ### `status`
 
@@ -426,6 +439,14 @@ resource "cpln_workload" "new" {
       inbound_allow_workload = []
     }
   }
+
+  job {
+    schedule = "minute"
+    concurrency_policy = "Forbid"
+    history_limit = 5
+    restart_policy = "Never"
+    active_deadline_seconds = 1200
+  }
 }
 ```
 
@@ -522,6 +543,122 @@ resource "cpln_workload" "new" {
       inbound_allow_type     = "none"
       inbound_allow_workload = []
     }
+  }
+}
+
+```
+
+
+## Example Usage - Cron
+
+```terraform
+
+resource "cpln_gvc" "example" {
+  name        = "gvc-example"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_identity" "example" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "identity-example"
+  description = "Example Identity"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "workload-example"
+  description = "Example Workload"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  type = "cron"
+	  
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+    memory = "128Mi"
+    cpu = "50m"
+
+    command = "override-command"
+    working_directory = "/usr"
+  
+    env = {
+    env-name-01 = "env-value-01",
+    env-name-02 = "env-value-02",
+    }
+  
+    args = ["arg-01", "arg-02"]
+
+    volume {
+    uri  = "s3://bucket"
+    path = "/testpath01"
+    }
+
+    volume {
+    uri  = "azureblob://storageAccount/container"
+    path = "/testpath02"
+    }
+
+    metrics {
+    path = "/metrics"
+    port = 8181
+    }
+  }
+          
+  options {
+    capacity_ai = false
+    spot = true
+    timeout_seconds = 5
+  
+    autoscaling {
+    target = 100
+    max_scale = 1
+    min_scale = 1
+    max_concurrency = 0
+    scale_to_zero_delay = 300
+    }
+  }
+  
+  firewall_spec {
+    external {
+    inbound_allow_cidr =  ["0.0.0.0/0"]
+    // outbound_allow_cidr =  []
+    outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+    }
+    internal { 
+    # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+    inbound_allow_type = "none"
+    inbound_allow_workload = []
+    }
+  }
+
+  job {
+    schedule = "* * * * *"
+    concurrency_policy = "Forbid"
+    history_limit = 5
+    restart_policy = "Never"
+    active_deadline_seconds = 1200
   }
 }
 

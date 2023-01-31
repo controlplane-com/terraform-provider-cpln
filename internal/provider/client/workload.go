@@ -29,6 +29,7 @@ type WorkloadSpec struct {
 	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
 	DefaultOptions *Options         `json:"defaultOptions,omitempty"`
 	LocalOptions   *[]Options       `json:"localOptions,omitempty"`
+	Job            *JobSpec         `json:"job,omitempty"`
 	Update         bool             `json:"-"`
 }
 
@@ -232,6 +233,15 @@ type HTTPGet struct {
 	Port        *int         `json:"port,omitempty"`
 	HTTPHeaders *[]NameValue `json:"httpHeaders,omitempty"`
 	Scheme      *string      `json:"scheme,omitempty"`
+}
+
+// JobSpec - Cronjob
+type JobSpec struct {
+	Schedule              *string `json:"schedule,omitempty"`
+	ConcurrencyPolicy     *string `json:"concurrencyPolicy,omitempty"` // Enum: [ Forbid, Replace ]
+	HistoryLimit          *int    `json:"historyLimit,omitempty"`
+	RestartPolicy         *string `json:"restartPolicy,omitempty"` // Enum: [ OnFailure, Never ]
+	ActiveDeadlineSeconds *int    `json:"activeDeadlineSeconds,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {
