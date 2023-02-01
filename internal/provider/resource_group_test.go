@@ -14,6 +14,8 @@ import (
 
 func TestAccControlPlaneGroup_basic(t *testing.T) {
 
+	var testGroup client.Group
+
 	randomName := "group-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	resource.Test(t, resource.TestCase{
@@ -22,8 +24,10 @@ func TestAccControlPlaneGroup_basic(t *testing.T) {
 		CheckDestroy: testAccCheckControlPlaneGroupCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGroupWithJSMEPATH(randomName),
+				Config: testAccControlPlaneGroupWithJMESPATH(randomName),
 				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneGroupExists("cpln_group.tf-group", randomName, &testGroup),
+					testAccCheckControlPlaneGroupAttributes(&testGroup, "language_jmespath"),
 					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName),
 					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName),
 				),
@@ -31,6 +35,8 @@ func TestAccControlPlaneGroup_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneGroupWithJavaScript(randomName + "-javascript"),
 				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneGroupExists("cpln_group.tf-group", randomName+"-javascript", &testGroup),
+					testAccCheckControlPlaneGroupAttributes(&testGroup, "language_javascript"),
 					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName+"-javascript"),
 					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName+"-javascript"),
 				),
@@ -39,7 +45,7 @@ func TestAccControlPlaneGroup_basic(t *testing.T) {
 	})
 }
 
-func testAccControlPlaneGroupWithJSMEPATH(name string) string {
+func testAccControlPlaneGroupWithJMESPATH(name string) string {
 
 	return fmt.Sprintf(`
 	
@@ -92,7 +98,7 @@ func testAccControlPlaneGroupWithJSMEPATH(name string) string {
 
 		identity_matcher {
 			expression = "groups"
-			// language default value is 'jsmepath'
+			// language default value is 'jmespath'
 		}
 	}
 	`, name)
@@ -157,6 +163,58 @@ func testAccControlPlaneGroupWithJavaScript(name string) string {
 	`, name)
 }
 
+func testAccCheckControlPlaneGroupExists(resourceName string, groupName string, group *client.Group) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneGroupExists. Resources Length: %d", len(s.RootModule().Resources))
+
+		rs, ok := s.RootModule().Resources[resourceName]
+
+		if !ok {
+			return fmt.Errorf("Not found: %s", s)
+		}
+
+		if rs.Primary.ID != groupName {
+			return fmt.Errorf("Group name does not match")
+		}
+
+		client := testAccProvider.Meta().(*client.Client)
+
+		wl, _, err := client.GetGroup(groupName)
+
+		if err != nil {
+			return err
+		}
+
+		if *wl.Name != groupName {
+			return fmt.Errorf("Group name does not match")
+		}
+
+		*group = *wl
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneGroupAttributes(group *client.Group, groupType string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		tags := *group.Tags
+
+		if tags["terraform_generated"] != "true" {
+			return fmt.Errorf("Tags - group terraform_generated attribute does not match")
+		}
+
+		identityMatcher, _, _ := generateTestIdentityMatcher(groupType)
+
+		if diff := deep.Equal(identityMatcher, group.IdentityMatcher); diff != nil {
+			return fmt.Errorf("Identity matcher attributes do not match. Diff: %s", diff)
+		}
+
+		return nil
+	}
+}
+
 func testAccCheckControlPlaneGroupCheckDestroy(s *terraform.State) error {
 
 	if len(s.RootModule().Resources) == 0 {
@@ -215,8 +273,8 @@ func TestControlPlane_BuildGroupQuery(t *testing.T) {
 	}
 }
 
-func TestControlPlane_BuildIdentityMatcher_WithJSMEPATH(t *testing.T) {
-	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("groups", "jsmepath")
+func TestControlPlane_BuildIdentityMatcher_WithJMESPATH(t *testing.T) {
+	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("language_jmespath")
 
 	if diff := deep.Equal(identityMatcher, &expectedIdentityMatcher); diff != nil {
 		t.Errorf("Identity Matcher was not built correctly. Diff: %s", diff)
@@ -224,7 +282,7 @@ func TestControlPlane_BuildIdentityMatcher_WithJSMEPATH(t *testing.T) {
 }
 
 func TestControlPlane_BuildIdentityMatcher_WithJavaScript(t *testing.T) {
-	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("if ($.includes('groups')) { const y = $.groups; }", "javascript")
+	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("language_javascript")
 
 	if diff := deep.Equal(identityMatcher, &expectedIdentityMatcher); diff != nil {
 		t.Errorf("Identity Matcher was not built correctly. Diff: %s", diff)
@@ -283,7 +341,15 @@ func generateTestGroupQuery() *client.Group {
 	return &testGroup
 }
 
-func generateTestIdentityMatcher(expression string, language string) (*client.IdentityMatcher, client.IdentityMatcher, []interface{}) {
+func generateTestIdentityMatcher(groupType string) (*client.IdentityMatcher, client.IdentityMatcher, []interface{}) {
+	expression := "groups"
+	language := "jmespath"
+
+	if groupType == "language_javascript" {
+		expression = "if ($.includes('groups')) { const y = $.groups; }"
+		language = "javascript"
+	}
+
 	flattened := generateFlatTestIdentityMatcher(expression, language)
 	identityMatcher := buildIdentityMatcher(flattened)
 	expectedIdentityMatcher := client.IdentityMatcher{

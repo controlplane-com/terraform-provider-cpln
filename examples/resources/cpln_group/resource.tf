@@ -43,7 +43,7 @@ resource "cpln_group" "example" {
   }
 }
 
-resource "cpln_group" "example_jsmepath" {
+resource "cpln_group" "example_jmespath" {
 
   name        = "group-example"
   description = "group description ${var.random-name}"
@@ -55,7 +55,7 @@ resource "cpln_group" "example_jsmepath" {
   
   identity_matcher {
     expression = "groups"
-    language = "jsmepath"
+    language = "jmespath"
   }
 }
 
