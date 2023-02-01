@@ -64,6 +64,9 @@ Optional:
 
 <a id="nestedblock--identity_matcher"></a>
 
+Executes the expression against the users' claims to decide whether a user belongs to this group.
+This method is useful for managing the grouping of users loggined with SAML providers.
+
 Required:
 
 - **expression** (String) //TODO: add description.
