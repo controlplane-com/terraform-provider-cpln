@@ -26,6 +26,7 @@ Groups membership can contain [users](https://docs.controlplane.com/reference/us
 - **user_ids_and_emails** (List of String) List of either the user ID or email address for a user that exists within the configured org. Group membership will fail if the user ID / email does not exist within the org.
 
 - **member_query** (Block List, Max: 1) ([see below](#nestedblock--member_query)).
+- **identity_matcher** (Block List, Max: 1) ([see below](#nestedblock--identity_matcher).
 
 
 <a id="nestedblock--member_query"></a>
@@ -59,6 +60,14 @@ Optional:
 - **tag** (String) Tag key to use for query evaluation.
   
 - **value** (String) Testing value for query evaluation.
+
+
+<a id="nestedblock--identity_matcher"></a>
+
+Required:
+
+- **expression** (String) //TODO: add description.
+- **language** (String) Default: `jmespath` //TODO: add description.
 
 ## Outputs
 
@@ -107,6 +116,38 @@ resource "cpln_group" "example" {
         value = "microsoft.com"
       }
     }
+  }
+}
+
+resource "cpln_group" "example_jsmepath" {
+
+  name        = "group-example"
+  description = "group description ${var.random-name}"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+  
+  identity_matcher {
+    expression = "groups"
+    language = "jsmepath"
+  }
+}
+
+resource "cpln_group" "example_javascript" {
+
+  name        = "group-example"
+  description = "group description ${var.random-name}"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+  
+  identity_matcher {
+    expression = "if ($.includes('groups')) { const y = $.groups; }"
+    language = "javascript"
   }
 }
 ```

@@ -36,4 +36,41 @@ resource "cpln_group" "example" {
       }
     }
   }
+
+  identity_matcher {
+    expression = "groups"
+    language = "jmespath"
+  }
+}
+
+resource "cpln_group" "example_jsmepath" {
+
+  name        = "group-example"
+  description = "group description ${var.random-name}"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+  
+  identity_matcher {
+    expression = "groups"
+    language = "jsmepath"
+  }
+}
+
+resource "cpln_group" "example_javascript" {
+
+  name        = "group-example"
+  description = "group description ${var.random-name}"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+  
+  identity_matcher {
+    expression = "if ($.includes('groups')) { const y = $.groups; }"
+    language = "javascript"
+  }
 }
