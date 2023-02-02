@@ -47,18 +47,53 @@ type LogzioLogging struct {
 	Credentials  *string `json:"credentials,omitempty"`
 }
 
+// ElasticLogging - ElasticLogging
+type ElasticLogging struct {
+	AWS          *AWSLogging          `json:"aws,omitempty"`
+	ElasticCloud *ElasticCloudLogging `json:"elasticCloud,omitempty"`
+}
+
+type AWSLogging struct {
+	Host        *string `json:"host,omitempty"`
+	Port        *int    `json:"port,omitempty"`
+	Index       *string `json:"index,omitempty"`
+	Type        *string `json:"type,omitempty"`
+	Credentials *string `json:"credentials,omitempty"`
+	Region      *string `json:"region,omitempty"`
+}
+
+type ElasticCloudLogging struct {
+	Index       *string `json:"index,omitempty"`
+	Type        *string `json:"type,omitempty"`
+	Credentials *string `json:"credentials,omitempty"`
+	CloudID     *string `json:"cloudId,omitempty"`
+}
+
 // Logging - Logging
 type Logging struct {
 	S3        *S3Logging        `json:"s3,omitempty"`
 	Coralogix *CoralogixLogging `json:"coralogix,omitempty"`
 	Datadog   *DatadogLogging   `json:"datadog,omitempty"`
 	Logzio    *LogzioLogging    `json:"logzio,omitempty"`
+	Elastic   *ElasticLogging   `json:"elastic,omitempty"`
 }
 
 // OrgSpec - Organization Spec
 type OrgSpec struct {
 	Logging *Logging `json:"logging,omitempty"`
 	Tracing *Tracing `json:"tracing,omitempty"`
+}
+
+type UpdateSpec struct {
+	Spec interface{} `json:"spec"`
+}
+
+type ReplaceLogging struct {
+	Logging *Logging `json:"$replace/logging"`
+}
+
+type ReplaceTracing struct {
+	Tracing *Tracing `json:"$replace/tracing"`
 }
 
 // GetOrg - Get Organziation By Name
@@ -82,18 +117,6 @@ func (c *Client) GetOrg() (*Org, int, error) {
 	}
 
 	return &org, code, nil
-}
-
-type UpdateSpec struct {
-	Spec interface{} `json:"spec"`
-}
-
-type ReplaceLogging struct {
-	Logging *Logging `json:"$replace/logging"`
-}
-
-type ReplaceTracing struct {
-	Tracing *Tracing `json:"$replace/tracing"`
 }
 
 // UpdateOrgLogging - Update an existing Org Logging

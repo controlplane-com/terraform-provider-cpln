@@ -40,7 +40,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging"},
+				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"bucket": {
@@ -67,7 +67,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging"},
+				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cluster": {
@@ -93,7 +93,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging"},
+				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"host": {
@@ -111,7 +111,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging"},
+				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"listener_host": {
@@ -121,6 +121,74 @@ func resourceOrgLogging() *schema.Resource {
 						"credentials": {
 							Type:     schema.TypeString,
 							Required: true,
+						},
+					},
+				},
+			},
+			"elastic_logging": {
+				Type:         schema.TypeList,
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"aws": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"host": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"port": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+									"index": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"type": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"credentials": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"region": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
+						},
+						"elastic_cloud": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"index": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"type": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"credentials": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"cloud_id": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
 						},
 					},
 				},
@@ -138,11 +206,11 @@ func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{
 
 	// org, _, err := c.GetOrg()
 	// if err != nil {
-	// 	return diag.FromErr(err)
+	//  return diag.FromErr(err)
 	// }
 
 	// if org.Spec == nil {
-	// 	org.Spec = &client.OrgSpec{}
+	//  org.Spec = &client.OrgSpec{}
 	// }
 
 	// // Clear out all logging
@@ -170,6 +238,11 @@ func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{
 		logCreate = buildLogzioLogging(logArray)
 	}
 
+	logArray = d.Get("elastic_logging").([]interface{})
+	if len(logArray) == 1 {
+		logCreate = buildElasticLogging(logArray)
+	}
+
 	org, _, err := c.UpdateOrgLogging(logCreate)
 	if err != nil {
 		return diag.FromErr(err)
@@ -192,125 +265,97 @@ func resourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return setOrg(d, org)
 }
 
-func setOrg(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
+func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if org == nil {
-		d.SetId("")
-		return nil
+	// log.Printf("[INFO] Method: resourceOrgUpdate")
+
+	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging") {
+
+		c := m.(*client.Client)
+
+		// org, _, err := c.GetOrg()
+		// if err != nil {
+		//  return diag.FromErr(err)
+		// }
+
+		// if org.Spec == nil {
+		//  org.Spec = &client.OrgSpec{}
+		// }
+
+		// // Clear out all logging
+		// org.Spec.Logging = nil
+
+		var logUpdate *client.Logging
+
+		if d.HasChange("s3_logging") {
+			logArray := d.Get("s3_logging").([]interface{})
+
+			if logArray != nil {
+				logUpdate = buildS3Logging(logArray)
+			}
+		}
+
+		if d.HasChange("coralogix_logging") {
+			logArray := d.Get("coralogix_logging").([]interface{})
+
+			if logArray != nil {
+				logUpdate = buildCoralogixLogging(logArray)
+			}
+		}
+
+		if d.HasChange("datadog_logging") {
+			logArray := d.Get("datadog_logging").([]interface{})
+
+			if logArray != nil {
+				logUpdate = buildDatadogLogging(logArray)
+			}
+		}
+
+		if d.HasChange("logzio_logging") {
+			logArray := d.Get("logzio_logging").([]interface{})
+
+			if logArray != nil {
+				logUpdate = buildLogzioLogging(logArray)
+			}
+		}
+
+		if d.HasChange("elastic_logging") {
+			logArray := d.Get("elastic_logging").([]interface{})
+
+			if logArray != nil {
+				logUpdate = buildElasticLogging(logArray)
+			}
+		}
+
+		org, _, err := c.UpdateOrgLogging(logUpdate)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		return setOrg(d, org)
 	}
 
-	d.SetId(*org.Name)
+	return nil
+}
 
-	if err := SetBase(d, org.Base); err != nil {
+func resourceOrgLoggingDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
+	// log.Printf("[INFO] Method: resourceOrgDelete")
+
+	c := m.(*client.Client)
+
+	_, _, err := c.UpdateOrgLogging(nil)
+
+	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if org.Spec != nil && org.Spec.Logging != nil {
-
-		if org.Spec.Logging.S3 != nil {
-			if err := d.Set("s3_logging", flattenS3Logging(org.Spec.Logging.S3)); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		if org.Spec.Logging.Coralogix != nil {
-			if err := d.Set("coralogix_logging", flattenCoralogixLogging(org.Spec.Logging.Coralogix)); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		if org.Spec.Logging.Datadog != nil {
-			if err := d.Set("datadog_logging", flattenDatadogLogging(org.Spec.Logging.Datadog)); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		if org.Spec.Logging.Logzio != nil {
-			if err := d.Set("logzio_logging", flattenLogzioLogging(org.Spec.Logging.Logzio)); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-	}
+	d.SetId("")
 
 	return nil
 }
 
-func flattenS3Logging(log *client.S3Logging) []interface{} {
-
-	if log != nil {
-
-		outputMap := make(map[string]interface{})
-
-		outputMap["bucket"] = *log.Bucket
-		outputMap["region"] = *log.Region
-		outputMap["prefix"] = *log.Prefix
-		outputMap["credentials"] = *log.Credentials
-
-		output := make([]interface{}, 1)
-		output[0] = outputMap
-
-		return output
-	}
-
-	return nil
-}
-
-func flattenCoralogixLogging(log *client.CoralogixLogging) []interface{} {
-
-	if log != nil {
-
-		outputMap := make(map[string]interface{})
-
-		outputMap["cluster"] = *log.Cluster
-		outputMap["credentials"] = *log.Credentials
-		outputMap["app"] = *log.App
-		outputMap["subsystem"] = *log.Subsystem
-
-		output := make([]interface{}, 1)
-		output[0] = outputMap
-
-		return output
-	}
-
-	return nil
-}
-
-func flattenDatadogLogging(log *client.DatadogLogging) []interface{} {
-
-	if log != nil {
-
-		outputMap := make(map[string]interface{})
-
-		outputMap["host"] = *log.Host
-		outputMap["credentials"] = *log.Credentials
-
-		output := make([]interface{}, 1)
-		output[0] = outputMap
-
-		return output
-	}
-
-	return nil
-}
-
-func flattenLogzioLogging(log *client.LogzioLogging) []interface{} {
-
-	if log != nil {
-
-		outputMap := make(map[string]interface{})
-
-		outputMap["listener_host"] = *log.ListenerHost
-		outputMap["credentials"] = *log.Credentials
-
-		output := make([]interface{}, 1)
-		output[0] = outputMap
-
-		return output
-	}
-
-	return nil
-}
-
+/*** Build Functions ***/
 func buildS3Logging(logging []interface{}) *client.Logging {
 
 	if len(logging) == 1 {
@@ -387,84 +432,244 @@ func buildLogzioLogging(logging []interface{}) *client.Logging {
 	return nil
 }
 
-func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func buildElasticLogging(logging []interface{}) *client.Logging {
+	if len(logging) == 0 || logging[0] == nil {
+		return nil
+	}
 
-	// log.Printf("[INFO] Method: resourceOrgUpdate")
+	log := logging[0].(map[string]interface{})
+	result := &client.ElasticLogging{}
 
-	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging") {
+	if log["aws"] != nil {
+		result.AWS = buildAWSLogging(log["aws"].([]interface{}))
+	}
 
-		c := m.(*client.Client)
+	if log["elastic_cloud"] != nil {
+		result.ElasticCloud = buildElasticCloudLogging(log["elastic_cloud"].([]interface{}))
+	}
 
-		// org, _, err := c.GetOrg()
-		// if err != nil {
-		// 	return diag.FromErr(err)
-		// }
+	return &client.Logging{
+		Elastic: result,
+	}
+}
 
-		// if org.Spec == nil {
-		// 	org.Spec = &client.OrgSpec{}
-		// }
+func buildAWSLogging(logging []interface{}) *client.AWSLogging {
+	if len(logging) == 0 || logging[0] == nil {
+		return nil
+	}
 
-		// // Clear out all logging
-		// org.Spec.Logging = nil
+	log := logging[0].(map[string]interface{})
 
-		var logUpdate *client.Logging
+	// Note: No need to check for nil because all of these fields are required.
+	result := &client.AWSLogging{
+		Host:        GetString(log["host"].(string)),
+		Port:        GetInt(log["port"].(int)),
+		Index:       GetString(log["index"].(string)),
+		Type:        GetString(log["type"].(string)),
+		Credentials: GetString(log["credentials"].(string)),
+		Region:      GetString(log["region"].(string)),
+	}
 
-		if d.HasChange("s3_logging") {
-			logArray := d.Get("s3_logging").([]interface{})
+	return result
+}
 
-			if logArray != nil {
-				logUpdate = buildS3Logging(logArray)
-			}
-		}
+func buildElasticCloudLogging(logging []interface{}) *client.ElasticCloudLogging {
+	if len(logging) == 0 || logging[0] == nil {
+		return nil
+	}
 
-		if d.HasChange("coralogix_logging") {
-			logArray := d.Get("coralogix_logging").([]interface{})
+	log := logging[0].(map[string]interface{})
 
-			if logArray != nil {
-				logUpdate = buildCoralogixLogging(logArray)
-			}
-		}
+	// Note: No need to check for nil because all of these fields are required.
+	result := &client.ElasticCloudLogging{
+		Index:       GetString(log["index"].(string)),
+		Type:        GetString(log["type"].(string)),
+		Credentials: GetString(log["credentials"].(string)),
+		CloudID:     GetString(log["cloud_id"].(string)),
+	}
 
-		if d.HasChange("datadog_logging") {
-			logArray := d.Get("datadog_logging").([]interface{})
+	return result
+}
 
-			if logArray != nil {
-				logUpdate = buildDatadogLogging(logArray)
-			}
-		}
+/*** Flatten Functions ***/
+func flattenS3Logging(log *client.S3Logging) []interface{} {
 
-		if d.HasChange("logzio_logging") {
-			logArray := d.Get("logzio_logging").([]interface{})
+	if log != nil {
 
-			if logArray != nil {
-				logUpdate = buildLogzioLogging(logArray)
-			}
-		}
+		outputMap := make(map[string]interface{})
 
-		org, _, err := c.UpdateOrgLogging(logUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
+		outputMap["bucket"] = *log.Bucket
+		outputMap["region"] = *log.Region
+		outputMap["prefix"] = *log.Prefix
+		outputMap["credentials"] = *log.Credentials
 
-		return setOrg(d, org)
+		output := make([]interface{}, 1)
+		output[0] = outputMap
+
+		return output
 	}
 
 	return nil
 }
 
-func resourceOrgLoggingDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func flattenCoralogixLogging(log *client.CoralogixLogging) []interface{} {
 
-	// log.Printf("[INFO] Method: resourceOrgDelete")
+	if log != nil {
 
-	c := m.(*client.Client)
+		outputMap := make(map[string]interface{})
 
-	_, _, err := c.UpdateOrgLogging(nil)
+		outputMap["cluster"] = *log.Cluster
+		outputMap["credentials"] = *log.Credentials
+		outputMap["app"] = *log.App
+		outputMap["subsystem"] = *log.Subsystem
 
-	if err != nil {
+		output := make([]interface{}, 1)
+		output[0] = outputMap
+
+		return output
+	}
+
+	return nil
+}
+
+func flattenDatadogLogging(log *client.DatadogLogging) []interface{} {
+
+	if log != nil {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["host"] = *log.Host
+		outputMap["credentials"] = *log.Credentials
+
+		output := make([]interface{}, 1)
+		output[0] = outputMap
+
+		return output
+	}
+
+	return nil
+}
+
+func flattenLogzioLogging(log *client.LogzioLogging) []interface{} {
+
+	if log != nil {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["listener_host"] = *log.ListenerHost
+		outputMap["credentials"] = *log.Credentials
+
+		output := make([]interface{}, 1)
+		output[0] = outputMap
+
+		return output
+	}
+
+	return nil
+}
+
+func flattenElasticLogging(log *client.ElasticLogging) []interface{} {
+	if log == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+
+	if log.AWS != nil {
+		result["aws"] = flattenAWSLogging(log.AWS)
+	}
+
+	if log.ElasticCloud != nil {
+		result["elastic_cloud"] = flattenElasticCloudLogging(log.ElasticCloud)
+	}
+
+	return []interface{}{
+		result,
+	}
+}
+
+func flattenAWSLogging(log *client.AWSLogging) []interface{} {
+	if log == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+
+	result["host"] = log.Host
+	result["port"] = log.Port
+	result["index"] = log.Index
+	result["type"] = log.Type
+	result["credentials"] = log.Credentials
+	result["region"] = log.Region
+
+	return []interface{}{
+		result,
+	}
+}
+
+func flattenElasticCloudLogging(log *client.ElasticCloudLogging) []interface{} {
+	if log == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+
+	result["index"] = log.Index
+	result["type"] = log.Type
+	result["credentials"] = log.Credentials
+	result["cloud_id"] = log.CloudID
+
+	return []interface{}{
+		result,
+	}
+}
+
+/*** Helper Functions ***/
+func setOrg(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
+
+	if org == nil {
+		d.SetId("")
+		return nil
+	}
+
+	d.SetId(*org.Name)
+
+	if err := SetBase(d, org.Base); err != nil {
 		return diag.FromErr(err)
 	}
 
-	d.SetId("")
+	if org.Spec != nil && org.Spec.Logging != nil {
+
+		if org.Spec.Logging.S3 != nil {
+			if err := d.Set("s3_logging", flattenS3Logging(org.Spec.Logging.S3)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		if org.Spec.Logging.Coralogix != nil {
+			if err := d.Set("coralogix_logging", flattenCoralogixLogging(org.Spec.Logging.Coralogix)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		if org.Spec.Logging.Datadog != nil {
+			if err := d.Set("datadog_logging", flattenDatadogLogging(org.Spec.Logging.Datadog)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		if org.Spec.Logging.Logzio != nil {
+			if err := d.Set("logzio_logging", flattenLogzioLogging(org.Spec.Logging.Logzio)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		if org.Spec.Logging.Elastic != nil {
+			if err := d.Set("elastic_logging", flattenElasticLogging(org.Spec.Logging.Elastic)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
 
 	return nil
 }
