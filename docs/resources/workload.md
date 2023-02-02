@@ -230,7 +230,6 @@ Optional:
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling)).
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
 - **debug** (Boolean) Debug mode. Default: `false`
-- **spot** (Boolean) Spot instance. Default; `true`.
 - **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 
 - **location** (String) Valid only for `local_options`. Local options override for a specific location.
@@ -386,7 +385,6 @@ resource "cpln_workload" "new" {
  
   options {
     capacity_ai     = false
-    spot            = true
     timeout_seconds = 30
 
     autoscaling {
@@ -402,7 +400,6 @@ resource "cpln_workload" "new" {
 
     location        = "aws-us-west-2"
     capacity_ai     = false
-    spot            = true
     timeout_seconds = 30
 
     autoscaling {
@@ -499,7 +496,6 @@ resource "cpln_workload" "new" {
  
   options {
     capacity_ai     = false
-    spot            = true
     timeout_seconds = 30
 
     autoscaling {
