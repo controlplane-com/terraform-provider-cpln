@@ -76,7 +76,7 @@ func TestAccControlPlaneDomain_basic(t *testing.T) {
 				Config: testAccControlPlaneDomainNSPathBased(randomName, domainName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneDomainExists("cpln_domain.ns_pathbased", domainName, &domain, &org),
-					testAccCheckControlPlaneDomainNSPathBased(&domain, randomName),
+					testAccCheckControlPlaneDomainNSPathBased(&domain, &org, randomName),
 				),
 			},
 			// {
@@ -240,18 +240,6 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 		  ports {
 				number   = 443
 				protocol = "http"
-			
-				routes {
-					prefix = "/first"
-					workload_link = cpln_workload.new.self_link
-					port = 8080
-				}
-
-				routes {
-					prefix = "/second"
-					workload_link = cpln_workload.new.self_link
-					port = 8081
-				}
 
 				cors {
 					allow_origins {
@@ -280,7 +268,25 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 				}
 			}
 		}
-	}`, random, domainName)
+	}
+	
+	domain_route {
+		domain_name = %s
+		prefix = "/first"
+		workload_link = cpln_workload.new.self_link
+		port = 8080
+	}
+
+	domain_route {
+		domain_name = %s
+		prefix = "/second"
+		replace_prefix = "/second"
+		workload_link = cpln_workload.new.self_link
+		port = 8081
+	}
+	resource "cpln_domain" "ns_pathbased" {
+	
+	`, random, domainName, domainName, domainName)
 }
 
 func testAccControlPlaneDomainCNameSubdomain(random, domainName string) string {
@@ -457,7 +463,7 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *clien
 		prefix1 := "/first"
 		prefix2 := "/second"
 
-		wl1 := "/org/" + *org.Name + "/gvc/" + gvc
+		wl1 := "/org/" + *org.Name + "/gvc/" + getGVC()
 
 		port1 := 8080
 		port2 := 8081
@@ -626,23 +632,6 @@ func TestControlPlane_BuildPorts_Empty(t *testing.T) {
 	}
 }
 
-// Build Routes //
-func TestControlPlane_BuildRoutes(t *testing.T) {
-	routes, expectedRoutes, _ := generateRoutes()
-	if diff := deep.Equal(routes, &expectedRoutes); diff != nil {
-		t.Errorf("Routes were not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildRoutes_Empty(t *testing.T) {
-	routes := buildRoutes(generateEmptyInterfaceArray())
-	expectedRoutes := []client.DomainRoute{{}}
-
-	if diff := deep.Equal(routes, &expectedRoutes); diff != nil {
-		t.Errorf("Routes were not built correctly. Diff: %s", diff)
-	}
-}
-
 // Build Cors //
 func TestControlPlane_BuildCors(t *testing.T) {
 	allowMethods := &[]string{"1", "2", "3"}
@@ -744,12 +733,11 @@ func generatePorts() (*[]client.DomainSpecPort, []client.DomainSpecPort, []inter
 	number := 443
 	protocol := "http"
 
-	_, expectedRoutes, flattenedRoutes := generateRoutes()
 	_, expectedCors, flattenedCors := generateCors()
 	_, expectedTLS, flattenedTLS := generateTLS()
 
 	flattenGeneration := generateInterfaceArrayFromMapArray([]map[string]interface{}{
-		generateFlatTestPort(number, protocol, flattenedRoutes, flattenedCors, flattenedTLS),
+		generateFlatTestPort(number, protocol, flattenedCors, flattenedTLS),
 	})
 
 	ports := buildSpecPorts(flattenGeneration)
@@ -757,34 +745,12 @@ func generatePorts() (*[]client.DomainSpecPort, []client.DomainSpecPort, []inter
 		{
 			Number:   &number,
 			Protocol: &protocol,
-			Routes:   &expectedRoutes,
 			Cors:     &expectedCors,
 			TLS:      &expectedTLS,
 		},
 	}
 
 	return ports, expectedPorts, flattenGeneration
-}
-
-func generateRoutes() (*[]client.DomainRoute, []client.DomainRoute, []interface{}) {
-	prefix := "/"
-	replacePrefix := "/replace"
-	workload_link := getWorkloadOne()
-	port := 8080
-
-	flattened := generateInterfaceArrayFromMapArray([]map[string]interface{}{
-		generateFlatTestRoute(prefix, replacePrefix, workload_link, port),
-	})
-
-	routes := buildRoutes(flattened)
-	expectedRoutes := []client.DomainRoute{{
-		Prefix:        &prefix,
-		ReplacePrefix: &replacePrefix,
-		WorkloadLink:  &workload_link,
-		Port:          &port,
-	}}
-
-	return routes, expectedRoutes, flattened
 }
 
 func generateCors() (*client.DomainCors, client.DomainCors, []interface{}) {
@@ -863,11 +829,10 @@ func generateFlatTestDomainSpec(dnsMode string, gvcLink string, acceptAllHosts b
 	}
 }
 
-func generateFlatTestPort(number int, protocol string, routes []interface{}, cors []interface{}, tls []interface{}) map[string]interface{} {
+func generateFlatTestPort(number int, protocol string, cors []interface{}, tls []interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"number":   number,
 		"protocol": protocol,
-		"routes":   routes,
 		"cors":     cors,
 		"tls":      tls,
 	}

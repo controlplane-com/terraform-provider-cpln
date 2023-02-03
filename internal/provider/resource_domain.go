@@ -77,30 +77,6 @@ func resourceDomain() *schema.Resource {
 										Optional: true,
 										Default:  "http2",
 									},
-									"routes": {
-										Type:     schema.TypeList,
-										Optional: true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"prefix": {
-													Type:    schema.TypeString,
-													Default: "/",
-												},
-												"replace_prefix": {
-													Type:     schema.TypeString,
-													Optional: true,
-												},
-												"workload_link": {
-													Type:     schema.TypeString,
-													Required: true,
-												},
-												"port": {
-													Type:     schema.TypeInt,
-													Optional: true,
-												},
-											},
-										},
-									},
 									"cors": {
 										Type:     schema.TypeList,
 										Optional: true,
@@ -418,10 +394,6 @@ func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
 			newPort.Protocol = GetString(port["protocol"])
 		}
 
-		if port["routes"] != nil {
-			newPort.Routes = buildRoutes(port["routes"].([]interface{}))
-		}
-
 		if port["cors"] != nil {
 			newPort.Cors = buildCors(port["cors"].([]interface{}))
 		}
@@ -431,38 +403,6 @@ func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
 		}
 
 		collection = append(collection, newPort)
-	}
-
-	return &collection
-}
-
-func buildRoutes(specs []interface{}) *[]client.DomainRoute {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	collection := []client.DomainRoute{}
-	for _, item := range specs {
-		route := item.(map[string]interface{})
-		newRoute := client.DomainRoute{}
-
-		if route["prefix"] != nil {
-			newRoute.Prefix = GetString(route["prefix"])
-		}
-
-		if route["replace_prefix"] != nil {
-			newRoute.ReplacePrefix = GetString(route["replace_prefix"])
-		}
-
-		if route["workload_link"] != nil {
-			newRoute.WorkloadLink = GetString(route["workload_link"])
-		}
-
-		if route["port"] != nil {
-			newRoute.Port = GetInt(route["port"])
-		}
-
-		collection = append(collection, newRoute)
 	}
 
 	return &collection
@@ -611,42 +551,10 @@ func flattenSpecPorts(ports *[]client.DomainSpecPort) []interface{} {
 			port["protocol"] = *item.Protocol
 		}
 
-		port["routes"] = flattenRoutes(item.Routes)
 		port["cors"] = flattenCors(item.Cors)
 		port["tls"] = flattenTLS(item.TLS)
 
 		collection[i] = port
-	}
-
-	return collection
-}
-
-func flattenRoutes(routes *[]client.DomainRoute) []interface{} {
-	if routes == nil || len(*routes) == 0 {
-		return nil
-	}
-
-	collection := make([]interface{}, len(*routes))
-	for i, item := range *routes {
-
-		route := make(map[string]interface{})
-		if item.Prefix != nil {
-			route["prefix"] = *item.Prefix
-		}
-
-		if item.ReplacePrefix != nil {
-			route["replace_prefix"] = *item.ReplacePrefix
-		}
-
-		if item.WorkloadLink != nil {
-			route["workload_link"] = *item.WorkloadLink
-		}
-
-		if item.Port != nil {
-			route["port"] = *item.Port
-		}
-
-		collection[i] = route
 	}
 
 	return collection

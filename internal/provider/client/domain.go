@@ -120,11 +120,103 @@ func (c *Client) DeleteDomain(name string) error {
 }
 
 /*** Domain Route ***/
-func (c *Client) AddDomainRoute(domainName string, route DomainRoute) (*DomainRoute, error) {
+func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainRoute) (*DomainRoute, error) {
+	domain, _, err := c.GetDomain(domainName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// append new route to the domain's correct port
+	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
+		for _, port := range *domain.Spec.Ports {
+			if port.Number != &domainPort {
+				continue
+			}
+
+			if port.Routes == nil {
+				port.Routes = &[]DomainRoute{}
+			}
+
+			*port.Routes = append(*port.Routes, route)
+		}
+	}
+
+	_, err = c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+	if err != nil {
+		return nil, err
+	}
 
 	return &route, nil
 }
 
-func (c *Client) RemoveDomainRoute() error {
-	return nil
+func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route DomainRoute) (*DomainRoute, error) {
+	domain, _, err := c.GetDomain(domainName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// update the values of the route in place
+	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
+		for _, port := range *domain.Spec.Ports {
+			if port.Number != &domainPort {
+				continue
+			}
+
+			for _, _route := range *port.Routes {
+				if _route.Prefix != route.Prefix {
+					continue
+				}
+
+				_route.Port = route.Port
+				_route.Prefix = route.Prefix
+				_route.ReplacePrefix = route.ReplacePrefix
+				_route.WorkloadLink = route.WorkloadLink
+			}
+		}
+	}
+
+	_, err = c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+	if err != nil {
+		return nil, err
+	}
+
+	return &route, nil
+}
+
+func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix string) (bool, error) {
+	domain, _, err := c.GetDomain(domainName)
+
+	if err != nil {
+		return false, err
+	}
+
+	// update the values of the route in place
+	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
+		for _, port := range *domain.Spec.Ports {
+			if port.Number != &domainPort {
+				continue
+			}
+
+			routeIndex := -1
+
+			for idx, _route := range *port.Routes {
+				if _route.Prefix != &prefix {
+					continue
+				}
+
+				routeIndex = idx
+			}
+
+			*port.Routes = append((*port.Routes)[:routeIndex], (*port.Routes)[routeIndex+1:]...)
+		}
+	}
+
+	_, err = c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
