@@ -179,5 +179,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.11 - Fix issue with secrets having json types. Remove built-in server generated secret tags.
 - v1.0.12 - Update GitHub Action.
 - v1.0.121 - HotFix for removal of workload option spot property.
-
+- v1.0.122 - HotFix for new and missing workload properties.
 

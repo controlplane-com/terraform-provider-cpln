@@ -1607,8 +1607,13 @@ func flattenVolumeSpec(volumes *[]client.VolumeSpec) []interface{} {
 
 			v := map[string]interface{}{}
 
-			v["uri"] = *volume.Uri
-			v["path"] = *volume.Path
+			if volume.Uri != nil {
+				v["uri"] = *volume.Uri
+			}
+
+			if volume.Path != nil {
+				v["path"] = *volume.Path
+			}
 
 			output = append(output, v)
 		}
@@ -1629,8 +1634,13 @@ func flattenPortSpec(ports *[]client.PortSpec) []interface{} {
 
 			v := map[string]interface{}{}
 
-			v["protocol"] = *port.Protocol
-			v["number"] = *port.Number
+			if port.Protocol != nil {
+				v["protocol"] = *port.Protocol
+			}
+
+			if port.Number != nil {
+				v["number"] = *port.Number
+			}
 
 			output = append(output, v)
 		}
@@ -1649,8 +1659,13 @@ func flattenMetrics(metrics *client.Metrics) []interface{} {
 
 		m := map[string]interface{}{}
 
-		m["path"] = *metrics.Path
-		m["port"] = *metrics.Port
+		if metrics.Path != nil {
+			m["path"] = *metrics.Path
+		}
+
+		if metrics.Port != nil {
+			m["port"] = *metrics.Port
+		}
 
 		output = append(output, m)
 
@@ -1666,11 +1681,25 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 
 		hc := map[string]interface{}{}
 
-		hc["initial_delay_seconds"] = *healthCheck.InitialDelaySeconds
-		hc["period_seconds"] = *healthCheck.PeriodSeconds
-		hc["timeout_seconds"] = *healthCheck.TimeoutSeconds
-		hc["success_threshold"] = *healthCheck.SuccessThreshold
-		hc["failure_threshold"] = *healthCheck.FailureThreshold
+		if healthCheck.InitialDelaySeconds != nil {
+			hc["initial_delay_seconds"] = *healthCheck.InitialDelaySeconds
+		}
+
+		if healthCheck.PeriodSeconds != nil {
+			hc["period_seconds"] = *healthCheck.PeriodSeconds
+		}
+
+		if healthCheck.TimeoutSeconds != nil {
+			hc["timeout_seconds"] = *healthCheck.TimeoutSeconds
+		}
+
+		if healthCheck.SuccessThreshold != nil {
+			hc["success_threshold"] = *healthCheck.SuccessThreshold
+		}
+
+		if healthCheck.FailureThreshold != nil {
+			hc["failure_threshold"] = *healthCheck.FailureThreshold
+		}
 
 		if healthCheck.Exec != nil && len(*healthCheck.Exec.Command) > 0 {
 			e := make(map[string]interface{})
@@ -1697,13 +1726,19 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 				h["port"] = *healthCheck.HTTPGet.Port
 			}
 
-			h["scheme"] = *healthCheck.HTTPGet.Scheme
+			if healthCheck.HTTPGet.Scheme != nil {
+				h["scheme"] = *healthCheck.HTTPGet.Scheme
+			}
 
 			headers := make(map[string]interface{})
 
 			if healthCheck.HTTPGet.HTTPHeaders != nil {
 				for _, header := range *healthCheck.HTTPGet.HTTPHeaders {
-					headers[*header.Name] = *header.Value
+					if header.Value != nil {
+						headers[*header.Name] = *header.Value
+					} else {
+						headers[*header.Name] = ""
+					}
 				}
 			}
 
@@ -1728,25 +1763,53 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 
 			option := make(map[string]interface{})
 
-			if localOptions {
+			if localOptions && o.Location != nil {
 				option["location"] = strings.TrimPrefix(*o.Location, fmt.Sprintf("/org/%s/location/", org))
 			}
 
-			option["capacity_ai"] = *o.CapacityAI
-			option["timeout_seconds"] = *o.TimeoutSeconds
-			option["debug"] = *o.Debug
+			if o.CapacityAI != nil {
+				option["capacity_ai"] = *o.CapacityAI
+			}
+
+			if o.TimeoutSeconds != nil {
+				option["timeout_seconds"] = *o.TimeoutSeconds
+			}
+
+			if o.Debug != nil {
+				option["debug"] = *o.Debug
+			}
 
 			as := make(map[string]interface{})
 
 			if o.AutoScaling != nil {
-				as["metric"] = *o.AutoScaling.Metric
-				as["metric_percentile"] = *o.AutoScaling.MetricPercentile
-				as["target"] = *o.AutoScaling.Target
-				as["max_scale"] = *o.AutoScaling.MaxScale
-				as["min_scale"] = *o.AutoScaling.MinScale
-				as["max_concurrency"] = *o.AutoScaling.MaxConcurrency
-				as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
 
+				if o.AutoScaling.Metric != nil {
+					as["metric"] = *o.AutoScaling.Metric
+				}
+
+				if o.AutoScaling.MetricPercentile != nil {
+					as["metric_percentile"] = *o.AutoScaling.MetricPercentile
+				}
+
+				if o.AutoScaling.Target != nil {
+					as["target"] = *o.AutoScaling.Target
+				}
+
+				if o.AutoScaling.MaxScale != nil {
+					as["max_scale"] = *o.AutoScaling.MaxScale
+				}
+
+				if o.AutoScaling.MinScale != nil {
+					as["min_scale"] = *o.AutoScaling.MinScale
+				}
+
+				if o.AutoScaling.MaxConcurrency != nil {
+					as["max_concurrency"] = *o.AutoScaling.MaxConcurrency
+				}
+
+				if o.AutoScaling.ScaleToZeroDelay != nil {
+					as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
+				}
 				autoScaling := make([]interface{}, 1)
 				autoScaling[0] = as
 				option["autoscaling"] = autoScaling
