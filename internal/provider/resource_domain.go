@@ -83,8 +83,8 @@ func resourceDomain() *schema.Resource {
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"prefix": {
-													Type:     schema.TypeString,
-													Optional: true,
+													Type:    schema.TypeString,
+													Default: "/",
 												},
 												"replace_prefix": {
 													Type:     schema.TypeString,
@@ -92,7 +92,7 @@ func resourceDomain() *schema.Resource {
 												},
 												"workload_link": {
 													Type:     schema.TypeString,
-													Optional: true,
+													Required: true,
 												},
 												"port": {
 													Type:     schema.TypeInt,

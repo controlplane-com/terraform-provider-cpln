@@ -118,3 +118,13 @@ func (c *Client) UpdateDomain(domain Domain) (*Domain, int, error) {
 func (c *Client) DeleteDomain(name string) error {
 	return c.DeleteResource(fmt.Sprintf("domain/%s", name))
 }
+
+/*** Domain Route ***/
+func (c *Client) AddDomainRoute(domainName string, route DomainRoute) (*DomainRoute, error) {
+
+	return &route, nil
+}
+
+func (c *Client) RemoveDomainRoute() error {
+	return nil
+}
