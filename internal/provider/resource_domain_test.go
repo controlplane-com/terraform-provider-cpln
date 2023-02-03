@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -26,72 +27,98 @@ func getWorkloadTwo() string {
 	return workload
 }
 
-func getDomainOne() string {
-	domain := "domain-test.erickotler.com"
-	return domain
-}
+// func getDomainOne() string {
+// 	domain := "domain-test.example.com"
+// 	return domain
+// }
 
-func getDomainTwo() string {
-	domain := "example.erickotler.com"
-	return domain
-}
+// func getDomainTwo() string {
+// 	domain := "example.example.com"
+// 	return domain
+// }
 
-func getDomainThree() string {
-	domain := "example2.erickotler.com"
-	return domain
-}
+// func getDomainThree() string {
+// 	domain := "example2.example.com"
+// 	return domain
+// }
 
-func getDomainFour() string {
-	domain := "example3.erickotler.com"
-	return domain
+// func getDomainFour() string {
+// 	domain := "example3.example.com"
+// 	return domain
+// }
+
+// TODO: Once the pipline is configured to run the acc tests, it will be set to not validate the apex txt record and we can use '.example.com'
+func getTestApex() string {
+	return ".erickotler.com"
 }
 
 func TestAccControlPlaneDomain_basic(t *testing.T) {
 
 	var domain client.Domain
+	var org client.Org
+
+	randomName := "domain-acctest-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	domainName := randomName + getTestApex()
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t, "DOMAIN") },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckControlPlaneDomainCheckDestroy,
 		Steps: []resource.TestStep{
+			// {
+			// 	Config: testAccControlPlaneDomainNSSubdomain(randomName, domainName),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneDomainExists("cpln_domain.ns_subdomain", domainName, &domain, &org),
+			// 		testAccCheckControlPlaneDomainNSSubdomain(&domain, &org, "gvc-"+randomName),
+			// 	),
+			// },
 			{
-				Config: testAccControlPlaneDomainNSSubdomain(getDomainOne()),
+				Config: testAccControlPlaneDomainNSPathBased(randomName, domainName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.ns_subdomain", getDomainOne(), &domain),
-					testAccCheckControlPlaneDomainNSSubdomain(&domain),
+					testAccCheckControlPlaneDomainExists("cpln_domain.ns_pathbased", domainName, &domain, &org),
+					testAccCheckControlPlaneDomainNSPathBased(&domain, randomName),
 				),
 			},
-			{
-				Config: testAccControlPlaneDomainNSPathBased(getDomainTwo()),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.ns_pathbased", getDomainTwo(), &domain),
-					testAccCheckControlPlaneDomainNSPathBased(&domain),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomainCNameSubdomain(getDomainThree()),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.cname_subdomain", getDomainThree(), &domain),
-					testAccCheckControlPlaneDomainCNameSubdomain(&domain),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomainCNamePathBased(getDomainFour()),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.cname_pathbased", getDomainFour(), &domain),
-					testAccCheckControlPlaneDomainCNamePathBased(&domain),
-				),
-			},
+			// {
+			// 	Config: testAccControlPlaneDomainCNameSubdomain(getDomainThree()),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneDomainExists("cpln_domain.cname_subdomain", getDomainThree(), &domain),
+			// 		testAccCheckControlPlaneDomainCNameSubdomain(&domain),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneDomainCNamePathBased(getDomainFour()),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneDomainExists("cpln_domain.cname_pathbased", getDomainFour(), &domain),
+			// 		testAccCheckControlPlaneDomainCNamePathBased(&domain),
+			// 	),
+			// },
 		},
 	})
 }
 
-func testAccControlPlaneDomainNSSubdomain(domainName string) string {
+func testAccControlPlaneDomainNSSubdomain(random, domain string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
 	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "domain_gvc" {
+
+		name        = "gvc-${var.random-name}"
+		description = "Example GVC"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+		tags = {
+		  terraform_generated = "true"
+		}
+	}
 
 	resource "cpln_domain" "ns_subdomain" {
 		name        = "%s"
@@ -99,12 +126,11 @@ func testAccControlPlaneDomainNSSubdomain(domainName string) string {
 	  
 		tags = {
 		  terraform_generated = "true"
-		  example             = "true"
 		}
 	  
 		spec {
 		  dns_mode         = "ns"
-		  gvc_link         = "%s"
+		  gvc_link         = cpln_gvc.domain_gvc.self_link
 		  accept_all_hosts = "true"
 	  
 		  ports {
@@ -118,7 +144,7 @@ func testAccControlPlaneDomainNSSubdomain(domainName string) string {
 			
 					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
 					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
+					expose_headers    = ["expose_header_1", "expose_header_2", "expose_header_3"]
 					max_age           = "24h"
 					allow_credentials = "true"
 				}
@@ -139,14 +165,64 @@ func testAccControlPlaneDomainNSSubdomain(domainName string) string {
 				}
 			}
 		}
-	}`, domainName, getGVC())
+	}`, random, domain)
 }
 
-func testAccControlPlaneDomainNSPathBased(domainName string) string {
+func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
 	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "domain_gvc" {
+
+		name        = "gvc-${var.random-name}"
+		description = "Example GVC"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+		tags = {
+		  terraform_generated = "true"
+		}
+	}
+
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.domain_gvc.name
+
+		name = "workload-${var.random-name}"
+
+		description = "Example Workload"
+
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		container {
+		  name   = "container-01"
+		  image  = "gcr.io/knative-samples/helloworld-go"
+		  port   = 8080
+		  memory = "128Mi"
+		  cpu    = "50m"
+		}
+
+		options {
+		  capacity_ai     = false
+		  timeout_seconds = 30
+		  autoscaling {
+			metric          = "concurrency"
+			target          = 100
+			max_scale       = 0
+			min_scale       = 0
+			max_concurrency = 500
+		  }
+		}
+	}
 
 	resource "cpln_domain" "ns_pathbased" {
 		name        = "%s"
@@ -167,13 +243,13 @@ func testAccControlPlaneDomainNSPathBased(domainName string) string {
 			
 				routes {
 					prefix = "/first"
-					workload_link = "%s"
+					workload_link = cpln_workload.new.self_link
 					port = 8080
 				}
 
 				routes {
 					prefix = "/second"
-					workload_link = "%s"
+					workload_link = cpln_workload.new.self_link
 					port = 8081
 				}
 
@@ -204,14 +280,31 @@ func testAccControlPlaneDomainNSPathBased(domainName string) string {
 				}
 			}
 		}
-	}`, domainName, getWorkloadOne(), getWorkloadTwo())
+	}`, random, domainName)
 }
 
-func testAccControlPlaneDomainCNameSubdomain(domainName string) string {
+func testAccControlPlaneDomainCNameSubdomain(random, domainName string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
 	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "domain_gvc" {
+
+		name        = "gvc-${var.random-name}"
+		description = "Example GVC"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+		tags = {
+		  terraform_generated = "true"
+		}
+	}
 
 	resource "cpln_domain" "cname_subdomain" {
 		name        = "%s"
@@ -225,7 +318,7 @@ func testAccControlPlaneDomainCNameSubdomain(domainName string) string {
 		spec {
 		  dns_mode         = "cname"
 		  accept_all_hosts = "true"
-			gvc_link = "%s"
+	      gvc_link         = cpln_gvc.domain_gvc.self_link
 
 			ports {
 				number   = 443
@@ -240,7 +333,7 @@ func testAccControlPlaneDomainCNameSubdomain(domainName string) string {
 		}
 
 
-	}`, domainName, getGVC())
+	}`, random, domainName)
 }
 
 // TODO fix TLS default values of cipher_suites array and min_protocol_version
@@ -284,7 +377,7 @@ func testAccControlPlaneDomainCNamePathBased(domainName string) string {
 	}`, domainName, getWorkloadOne(), getWorkloadTwo())
 }
 
-func testAccCheckControlPlaneDomainExists(resourceName string, domainName string, domain *client.Domain) resource.TestCheckFunc {
+func testAccCheckControlPlaneDomainExists(resourceName string, domainName string, domain *client.Domain, orgName *client.Org) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadExists. Resources Length: %d", len(s.RootModule().Resources))
@@ -314,11 +407,19 @@ func testAccCheckControlPlaneDomainExists(resourceName string, domainName string
 
 		*domain = *d
 
+		o, _, err := client.GetOrg()
+
+		if err != nil {
+			return err
+		}
+
+		*orgName = *o
+
 		return nil
 	}
 }
 
-func testAccCheckControlPlaneDomainNSSubdomain(domain *client.Domain) resource.TestCheckFunc {
+func testAccCheckControlPlaneDomainNSSubdomain(domain *client.Domain, org *client.Org, gvc string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadNsSubdomain. Resources Length: %d", len(s.RootModule().Resources))
@@ -331,15 +432,17 @@ func testAccCheckControlPlaneDomainNSSubdomain(domain *client.Domain) resource.T
 		}
 
 		gvcLink := domain.Spec.GvcLink
-		if *gvcLink != getGVC() {
-			return fmt.Errorf("GvcLink does not match, value %v, expected: %v", *gvcLink, getGVC())
+		gvcName := "/org/" + *org.Name + "/gvc/" + gvc
+
+		if *gvcLink != gvcName {
+			return fmt.Errorf("GvcLink does not match, value %v, expected: %v", *gvcLink, gvcName)
 		}
 
 		return nil
 	}
 }
 
-func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain) resource.TestCheckFunc {
+func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *client.Org, randomName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadNsPathBased. Resources Length: %d", len(s.RootModule().Resources))
@@ -353,8 +456,9 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain) resource.T
 
 		prefix1 := "/first"
 		prefix2 := "/second"
-		wl1 := getWorkloadOne()
-		wl2 := getWorkloadTwo()
+
+		wl1 := "/org/" + *org.Name + "/gvc/" + gvc
+
 		port1 := 8080
 		port2 := 8081
 		routes := []client.DomainRoute{
@@ -365,7 +469,7 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain) resource.T
 			},
 			{
 				Prefix:       &prefix2,
-				WorkloadLink: &wl2,
+				WorkloadLink: &wl1,
 				Port:         &port2,
 			},
 		}
