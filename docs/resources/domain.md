@@ -47,19 +47,8 @@ Optional:
 
 -- **number** (Number)
 -- **protocol** (String)
--- **routes** (Block List) ([see below](#nestedblock--spec--ports--routes))
 -- **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
 -- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
-
-<a id="nestedblock--spec--ports--routes"></a>
-### `spec.ports.routes`
-
-Optional:
-
--- **prefix** (String)
--- **replace_prefix** (String)
--- **workload_link** (String)
--- **port** (Number)
 
 <a id="nestedblock--spec--ports--cors"></a>
 ### `spec.ports.cors`
@@ -177,7 +166,11 @@ resource "cpln_domain" "example_ns_subdomain" {
     }
   }
 }
+```
 
+## Routes Usage
+
+```terraform
 resource "cpln_domain" "example_cname_routes" {
 
   name        = "app.example.com"
@@ -195,20 +188,6 @@ resource "cpln_domain" "example_cname_routes" {
     ports {
       number   = 443
       protocol = "http"
-
-      routes {
-        prefix         = "/"
-        replace_prefix = "/replace"
-        workload_link  = "/org/myorg/gvc/mygvc/workload_one"
-        port           = 80
-      }
-
-      routes {
-        prefix         = "/app"
-        replace_prefix = "/replaceApp"
-        workload_link  = "/org/myorg/gvc/mygvc/workload_two"
-        port           = 8080
-      }
 
       cors {
         allow_origins {
@@ -238,5 +217,16 @@ resource "cpln_domain" "example_cname_routes" {
       }
     }
   }
+}
+
+resource "cpln_domain_route" "first_route" {
+  depends_on = [cpln_domain.example_cname_routes]
+  domain_name = "app.example.com"
+  domain_port = 443
+
+  prefix         = "/app"
+  replace_prefix = "/replaceApp"
+  workload_link  = "/org/myorg/gvc/mygvc/workload_two"
+  port           = 80
 }
 ```

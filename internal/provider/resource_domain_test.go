@@ -234,10 +234,10 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 		}
 	  
 		spec {
-		  dns_mode         = "ns"
-		  accept_all_hosts = "true"
-	  
-		  ports {
+			dns_mode         = "ns"
+			accept_all_hosts = "true"
+			
+			ports {
 				number   = 443
 				protocol = "http"
 
@@ -270,21 +270,25 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 		}
 	}
 	
-	domain_route {
-		domain_name = %s
+	resource "cpln_domain_route" "route_first" {
+		depends_on = [cpln_domain.ns_pathbased]
+		domain_name = "%s"
+		domain_port = 443
+
 		prefix = "/first"
 		workload_link = cpln_workload.new.self_link
-		port = 8080
+		port = 80
 	}
 
-	domain_route {
-		domain_name = %s
+	resource "cpln_domain_route" "route_second" {
+		depends_on = [cpln_domain_route.route_first]
+		domain_name = "%s"
+		domain_port = 443
+
 		prefix = "/second"
-		replace_prefix = "/second"
 		workload_link = cpln_workload.new.self_link
-		port = 8081
+		port = 443
 	}
-	resource "cpln_domain" "ns_pathbased" {
 	
 	`, random, domainName, domainName, domainName)
 }
@@ -460,22 +464,23 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *clien
 			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", dnsMode, expectedDnsMode)
 		}
 
+		port1 := 80
 		prefix1 := "/first"
+
+		port2 := 443
 		prefix2 := "/second"
 
-		wl1 := "/org/" + *org.Name + "/gvc/" + getGVC()
+		wl := "/org/" + *org.Name + "/gvc/gvc-" + randomName + "/workload/workload-" + randomName
 
-		port1 := 8080
-		port2 := 8081
 		routes := []client.DomainRoute{
 			{
 				Prefix:       &prefix1,
-				WorkloadLink: &wl1,
+				WorkloadLink: &wl,
 				Port:         &port1,
 			},
 			{
 				Prefix:       &prefix2,
-				WorkloadLink: &wl1,
+				WorkloadLink: &wl,
 				Port:         &port2,
 			},
 		}

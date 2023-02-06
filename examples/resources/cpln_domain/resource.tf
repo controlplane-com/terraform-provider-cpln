@@ -65,20 +65,6 @@ resource "cpln_domain" "example_cname_routes" {
       number   = 443
       protocol = "http"
 
-      routes {
-        prefix         = "/"
-        replace_prefix = "/replace"
-        workload_link  = "/org/myorg/gvc/mygvc/workload_one"
-        port           = 80
-      }
-
-      routes {
-        prefix         = "/app"
-        replace_prefix = "/replaceApp"
-        workload_link  = "/org/myorg/gvc/mygvc/workload_two"
-        port           = 8080
-      }
-
       cors {
         allow_origins {
           exact = "example.com"
@@ -107,4 +93,15 @@ resource "cpln_domain" "example_cname_routes" {
       }
     }
   }
+}
+
+resource "cpln_domain_route" "first_route" {
+  depends_on = [cpln_domain.example_cname_routes]
+  domain_name = "app.example.com"
+  domain_port = 443
+
+  prefix         = "/app"
+  replace_prefix = "/replaceApp"
+  workload_link  = "/org/myorg/gvc/mygvc/workload_two"
+  port           = 80
 }

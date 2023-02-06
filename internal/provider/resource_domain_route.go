@@ -17,14 +17,15 @@ func resourceDomainRoute() *schema.Resource {
 		DeleteContext: resourceDomainRouteDelete,
 		Schema: map[string]*schema.Schema{
 			"domain_name": {
-				Type:         schema.TypeString,
-				ForceNew:     true,
-				Required:     true,
-				ValidateFunc: NameValidator,
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Required: true,
+				// TODO validate domain name
 			},
 			"domain_port": {
-				Type:    schema.TypeInt,
-				Default: 443,
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  443,
 			},
 			"prefix": {
 				Type:     schema.TypeString,
@@ -58,8 +59,8 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	c := m.(*client.Client)
-
 	newRoute, err := c.AddDomainRoute(domainName, domainPort, route)
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -69,20 +70,20 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 
 func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	domainName := d.Id()
+	domainPort := d.Get("domain_port").(int)
+	prefix := d.Get("prefix").(string)
+
 	c := m.(*client.Client)
 	domain, code, err := c.GetDomain(domainName)
 
 	// TODO fix this logic for all resources, we don't need to set gvc to nil when a domain is not found, unrelated
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		return setDomainRoute(d, domainName, domainPort, nil)
 	}
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	domainPort := d.Get("domain_port").(int)
-	prefix := d.Get("prefix").(string)
 
 	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
 		for _, port := range *domain.Spec.Ports {
@@ -110,7 +111,7 @@ func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m inte
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	domainName := d.Get("domain_name").(string)
 	domainPort := d.Get("domain_port").(int)
-	route := client.DomainRoute{
+	route := &client.DomainRoute{
 		Prefix:        GetString(d.Get("prefix")),
 		ReplacePrefix: GetString(d.Get("replace_prefix")),
 		WorkloadLink:  GetString(d.Get("workload_link")),
