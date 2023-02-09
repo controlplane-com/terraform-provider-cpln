@@ -46,3 +46,20 @@ resource "cpln_cloud_account" "gcp" {
     project_id = "cpln_gcp_project_1234"
   }
 }
+
+# NGS Cloud Account
+resource "cpln_cloud_account" "ngs" {
+
+  name        = "cloud-account-ngs"
+  description = "NGS cloud account "
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  ngs {
+    // Use full link
+    secret_link = "/org/ORG_NAME/secret/NGS_SECRET"
+  }
+}
