@@ -11,7 +11,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var secretDataObjectsNames = []string{
+	"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr",
+	"gcp", "keypair", "opaque", "tls", "userpass", "nats_account",
+}
+
 func resourceSecret() *schema.Resource {
+
 	return &schema.Resource{
 		CreateContext: resourceSecretCreate,
 		ReadContext:   resourceSecretRead,
@@ -50,7 +56,7 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeMap,
 				Optional:     true,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -60,7 +66,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"payload": {
@@ -82,7 +88,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"key": {
@@ -107,7 +113,7 @@ func resourceSecret() *schema.Resource {
 				Optional:         true,
 				Sensitive:        true,
 				ForceNew:         true,
-				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf:     secretDataObjectsNames,
 				DiffSuppressFunc: diffSuppressJSON,
 			},
 			"aws": {
@@ -115,7 +121,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"secret_key": {
@@ -143,7 +149,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"secret_key": {
@@ -179,7 +185,7 @@ func resourceSecret() *schema.Resource {
 				Optional:         true,
 				Sensitive:        true,
 				ForceNew:         true,
-				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf:     secretDataObjectsNames,
 				DiffSuppressFunc: diffSuppressJSON,
 			},
 			"userpass": {
@@ -187,7 +193,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"username": {
@@ -215,7 +221,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"secret_key": {
@@ -242,7 +248,7 @@ func resourceSecret() *schema.Resource {
 				Optional:         true,
 				Sensitive:        true,
 				ForceNew:         true,
-				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf:     secretDataObjectsNames,
 				DiffSuppressFunc: diffSuppressJSON,
 			},
 			"azure_connector": {
@@ -250,7 +256,7 @@ func resourceSecret() *schema.Resource {
 				Optional:     true,
 				MaxItems:     1,
 				ForceNew:     true,
-				ExactlyOneOf: []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "opaque", "tls", "userpass"},
+				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"url": {
@@ -259,6 +265,26 @@ func resourceSecret() *schema.Resource {
 							Sensitive: true,
 						},
 						"code": {
+							Type:      schema.TypeString,
+							Required:  true,
+							Sensitive: true,
+						},
+					},
+				},
+			},
+			"nats_account": {
+				Type:         schema.TypeList,
+				Optional:     true,
+				MaxItems:     1,
+				ForceNew:     true,
+				ExactlyOneOf: secretDataObjectsNames,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"account_id": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"private_key": {
 							Type:      schema.TypeString,
 							Required:  true,
 							Sensitive: true,
@@ -310,6 +336,10 @@ func resourceSecretCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		*secret.Type = "azure-connector"
 	}
 
+	if *secret.Type == "nats_account" {
+		*secret.Type = "nats-account"
+	}
+
 	c := m.(*client.Client)
 	newSecret, code, err := c.CreateSecret(secret)
 
@@ -326,11 +356,7 @@ func resourceSecretCreate(ctx context.Context, d *schema.ResourceData, m interfa
 
 func getSecretType(d *schema.ResourceData) *string {
 
-	secrets := []string{
-		"opaque", "tls", "gcp", "aws", "docker", "userpass", "keypair", "azure_sdk", "dictionary", "ecr", "azure_connector",
-	}
-
-	for _, s := range secrets {
+	for _, s := range secretDataObjectsNames {
 		if _, v := d.GetOk(s); v {
 			return &s
 		}
@@ -438,6 +464,20 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 
 				secret.Data = &output[0]
 
+			} else if secretType == "nats_account" {
+
+				secretData := dataArray[0].(map[string]interface{})
+
+				dataMap := make(map[string]interface{})
+				dataMap["accountId"] = secretData["account_id"]
+				dataMap["privateKey"] = secretData["private_key"]
+
+				output := []interface{}{
+					dataMap,
+				}
+
+				secret.Data = &output[0]
+
 			} else if secretType == "tls" {
 
 				secretData := dataArray[0].(map[string]interface{})
@@ -505,7 +545,7 @@ func resourceSecretRead(ctx context.Context, d *schema.ResourceData, m interface
 
 func resourceSecretUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "opaque", "tls", "gcp", "aws", "docker", "userpass", "keypair", "azure_sdk", "dictionary", "ecr", "azure_connector") {
+	if d.HasChanges("description", "tags", "opaque", "tls", "gcp", "aws", "docker", "userpass", "keypair", "azure_sdk", "dictionary", "ecr", "azure_connector", "nats_account") {
 
 		secretToUpdate := client.Secret{}
 		secretToUpdate.Name = GetString(d.Get("name"))
@@ -554,6 +594,10 @@ func resourceSecretUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		if d.HasChange("userpass") {
 			changedSecret = append(changedSecret, "userpass")
+		}
+
+		if d.HasChange("nats_account") {
+			changedSecret = append(changedSecret, "nats_account")
 		}
 
 		if d.HasChange("description") {
@@ -610,6 +654,10 @@ func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
 		*secret.Type = "azure_connector"
 	}
 
+	if *secret.Type == "nats-account" {
+		*secret.Type = "nats_account"
+	}
+
 	if secret.Data != nil {
 
 		data := *secret.Data
@@ -653,6 +701,15 @@ func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
 				}
 
 				setData[0] = bData
+
+			} else if *secret.Type == "nats_account" {
+				secretData := data.(map[string]interface{})
+				natsData := make(map[string]interface{})
+
+				natsData["account_id"] = secretData["accountId"]
+				natsData["private_key"] = secretData["privateKey"]
+
+				setData[0] = natsData
 
 			} else {
 				setData[0] = secret.Data

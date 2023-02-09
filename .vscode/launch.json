@@ -24,7 +24,7 @@
             },
             "args": [
                 "-test.run",
-                "TestAccControlPlaneOrgLogging_basic",
+                "TestAccControlPlaneSecret_basic",
                 "-test.v"
             ]
         }

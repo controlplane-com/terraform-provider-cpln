@@ -30,7 +30,7 @@ wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
 5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
 YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
 u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
+-----END CERTIFICATE-----   
 EOT
 }
 
@@ -356,5 +356,22 @@ resource "cpln_secret" "userpass" {
     # Optional
     # Can use USERPASS_ENCODING Environment Variable
     encoding = "plain"
+  }
+}
+
+# Nats Account Secret
+resource "cpln_secret" "nats_account" {
+  name = "natsaccount-${var.random}"
+  description = "natsaccount description ${var.random}" 
+  
+  tags = {
+    terraform_generated = "true"
+    acceptance_test = "true"
+    secret_type = "nats-account"
+  }
+
+  nats_account {
+    account_id = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+    private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
   }
 }

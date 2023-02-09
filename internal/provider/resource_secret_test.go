@@ -95,6 +95,8 @@ func TestAccControlPlaneSecret_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
 				),
 			},
 			{
@@ -120,12 +122,14 @@ func TestAccControlPlaneSecret_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
 				),
 			},
 			// {
-			// 	Config: testAccControlPlaneSecretAzure(random),
+			//  Config: testAccControlPlaneSecretAzure(random),
 			// }, {
-			// 	Config: testAccControlPlaneSecretAzureToUserPass(random),
+			//  Config: testAccControlPlaneSecretAzureToUserPass(random),
 			// },
 		},
 	})
@@ -134,14 +138,14 @@ func TestAccControlPlaneSecret_basic(t *testing.T) {
 func testAccControlPlaneSecret(random string) string {
 
 	return fmt.Sprintf(`
-	variable "random" {
-		type = string
-		default = "%s"
-	}
+    variable "random" {
+        type = string
+        default = "%s"
+    }
 
-	variable "testcert" {
-		type = string
-		default = <<EOT
+    variable "testcert" {
+        type = string
+        default = <<EOT
 -----BEGIN CERTIFICATE-----
 MIID+zCCAuOgAwIBAgIUEwBv3WQkP7dIiEIxyj+Wi1STz7QwDQYJKoZIhvcNAQEL
 BQAwgYwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRQwEgYDVQQH
@@ -165,13 +169,13 @@ wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
 5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
 YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
 u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
+-----END CERTIFICATE-----       
 EOT
-	}
+    }
 
-	variable "testcertprivate" {
-		type = string
-		default = <<EOT
+    variable "testcertprivate" {
+        type = string
+        default = <<EOT
 -----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDBzN2jRf9ouoF4
 XG0eUxcc4f1sP8vhW1fQXjun3cl0RsN4jRdOyTKWcls1yAxlOkwFod8d6HND9OvN
@@ -201,11 +205,11 @@ gFc9N/jz8OL6qLrJtX2Axyv7Vv8H/gbDg4olLR+Io38M0S1WwEHsaIJLIvJ6msjl
 S1hFKnRRcrVqA+HjWnZ//BGi
 -----END PRIVATE KEY-----
 EOT
-	}
+    }
 
-	variable "test-secret-key" {
-		type = string
-		default = <<EOT
+    variable "test-secret-key" {
+        type = string
+        default = <<EOT
 -----BEGIN RSA PRIVATE KEY-----
 Proc-Type: 4,ENCRYPTED
 DEK-Info: DES-EDE3-CBC,9A26BB15304B18E7
@@ -237,11 +241,11 @@ hWFADMUF7uaBbo5EZ9sE+dFPzWPJLhu2j67a1iHmByqEvFY64lzq7VwwU/GE8JdA
 85oEkhg1ZEPJp3OYTQfPI/CC/2fc93Exf6wmaXuss8AHehuGcKQniOZmFOKOBprv
 -----END RSA PRIVATE KEY-----
 EOT
-	}
+    }
 
-	variable "test-public-key" {
-		type = string
-		default = <<EOT
+    variable "test-public-key" {
+        type = string
+        default = <<EOT
 -----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwrVyExI0uvRmwCAKFHiv
 baAcPMcKJDa6f6TtaVo2p8jyfEhVwDTmR3FUrDDZAjh0Q8G/Up8Ob3+IJafNymCO
@@ -252,237 +256,253 @@ NxBPkcIJZeh3Z+QzfJ5U+bB5fP/aOsEk5bPbtLzylj2KnOOM/ZxXJtOcu0xtJLd3
 XwIDAQAB
 -----END PUBLIC KEY-----
 EOT
-	}
+    }
 
-	resource "cpln_secret" "aws" {
-		name = "aws-${var.random}"
-		description = "aws description ${var.random}" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "aws"
-		} 
-		
-		aws {
-			secret_key = "AKIAIOSFODNN7EXAMPLE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey" 
-		}
-	}
+    resource "cpln_secret" "aws" {
+        name = "aws-${var.random}"
+        description = "aws description ${var.random}" 
+                
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "aws"
+        } 
+        
+        aws {
+            secret_key = "AKIAIOSFODNN7EXAMPLE"
+            access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            role_arn = "arn:awskey" 
+        }
+    }
 
-	resource "cpln_secret" "azure_sdk" {
-		name = "azuresdk-${var.random}"
-		description = "azuresdk description ${var.random}" 
-			
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "azure-sdk"
-		} 
-	
-		azure_sdk = "    {\"subscriptionId\":   \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
-	}
+    resource "cpln_secret" "azure_sdk" {
+        name = "azuresdk-${var.random}"
+        description = "azuresdk description ${var.random}" 
+            
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "azure-sdk"
+        } 
+    
+        azure_sdk = "    {\"subscriptionId\":   \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
+    }
 
-	resource "cpln_secret" "docker" {
-		name = "docker-${var.random}"
-		description = "docker description ${var.random}" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "docker"
-		} 
-			
-		docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}  }  }"
-	}
+    resource "cpln_secret" "docker" {
+        name = "docker-${var.random}"
+        description = "docker description ${var.random}" 
+                    
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "docker"
+        } 
+            
+        docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}  }  }"
+    }
 
-	resource "cpln_secret" "ecr" {
-		name = "ecr-${var.random}"
-		description = "ecr description ${var.random}" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "ecr"
-		} 
-		
-		ecr {
-			secret_key = "AKIAIOSFODNN7EXAMPLE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey" 
+    resource "cpln_secret" "ecr" {
+        name = "ecr-${var.random}"
+        description = "ecr description ${var.random}" 
+                
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "ecr"
+        } 
+        
+        ecr {
+            secret_key = "AKIAIOSFODNN7EXAMPLE"
+            access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+            role_arn = "arn:awskey" 
 
-			repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"]
-		}
-	}
+            repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"]
+        }
+    }
 
-	resource "cpln_secret" "dictionary" {
-		name = "dictionary-${var.random}"
-		description = "dictionary description ${var.random}" 
-						
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "dictionary"
-		} 
-				
-		dictionary = {
-			key01 = "value-01"
-			key02 = "value-02"
-		}	
-	}
+    resource "cpln_secret" "dictionary" {
+        name = "dictionary-${var.random}"
+        description = "dictionary description ${var.random}" 
+                        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "dictionary"
+        } 
+                
+        dictionary = {
+            key01 = "value-01"
+            key02 = "value-02"
+        }   
+    }
 
-	resource "cpln_secret" "gcp" {
-		name = "gcp-${var.random}"
-		description = "gcp description ${var.random}" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "gcp"
-		} 
-		
-		gcp = "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
-	}
+    resource "cpln_secret" "gcp" {
+        name = "gcp-${var.random}"
+        description = "gcp description ${var.random}" 
+                
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "gcp"
+        } 
+        
+        gcp = "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
+    }
 
-	resource "cpln_secret" "keypair" {
-			
-		name = "keypair-${var.random}"
-		description = "keypair description ${var.random}" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "keypair"
-			}
-			
-		keypair {
-			secret_key = var.test-secret-key	
-			public_key = var.test-public-key
-			passphrase = "cpln"
-		}
-	}
+    resource "cpln_secret" "keypair" {
+            
+        name = "keypair-${var.random}"
+        description = "keypair description ${var.random}" 
+                    
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "keypair"
+            }
+            
+        keypair {
+            secret_key = var.test-secret-key    
+            public_key = var.test-public-key
+            passphrase = "cpln"
+        }
+    }
 
-	resource "cpln_secret" "opaque" {
-			name = "opaque-${var.random}"
-			description = "opaque description ${var.random}" 
-			
-			tags = {
-				terraform_generated = "true"
-				acceptance_test = "true"
-				secret_type = "opaque"
-			}
-	
-			opaque {
-				payload = "opaque_secret_payload"
-				encoding = "plain"
-			}
-		}
+    resource "cpln_secret" "opaque" {
+            name = "opaque-${var.random}"
+            description = "opaque description ${var.random}" 
+            
+            tags = {
+                terraform_generated = "true"
+                acceptance_test = "true"
+                secret_type = "opaque"
+            }
+    
+            opaque {
+                payload = "opaque_secret_payload"
+                encoding = "plain"
+            }
+        }
 
 
-	resource "cpln_secret" "tls" {
-		name = "tls-${var.random}"
-		description = "tls description ${var.random}" 
-		
-		tags = { 
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "tls"
-		} 
+    resource "cpln_secret" "tls" {
+        name = "tls-${var.random}"
+        description = "tls description ${var.random}" 
+        
+        tags = { 
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "tls"
+        } 
 
-		tls {
-			key = var.testcertprivate
-			cert = var.testcert
-			chain = var.testcert 
-		}
-	}
+        tls {
+            key = var.testcertprivate
+            cert = var.testcert
+            chain = var.testcert 
+        }
+    }
 
-	resource "cpln_secret" "userpass" {
-		name = "userpass-${var.random}"
-		description = "userpass description ${var.random}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "userpass"
-		}
+    resource "cpln_secret" "userpass" {
+        name = "userpass-${var.random}"
+        description = "userpass description ${var.random}" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "userpass"
+        }
 
-		userpass {
-			username = "cpln_username"
-			password = "cpln_password"
-			encoding = "plain"
-		}
-	}
+        userpass {
+            username = "cpln_username"
+            password = "cpln_password"
+            encoding = "plain"
+        }
+    }
 
-	resource "cpln_secret" "azure_connector" {
-		name = "azureconnector-${var.random}"
-		description = "azureconnector description ${var.random}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "azure-connector"
-		}
+    resource "cpln_secret" "azure_connector" {
+        name = "azureconnector-${var.random}"
+        description = "azureconnector description ${var.random}" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "azure-connector"
+        }
 
-		azure_connector {
-			url  = "https://example.azurewebsites.net/api/iam-broker"
-			code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
-		}
-	}
-	`, random)
+        azure_connector {
+            url  = "https://example.azurewebsites.net/api/iam-broker"
+            code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
+        }
+    }
+
+    resource "cpln_secret" "nats_account" {
+        name = "natsaccount-${var.random}"
+        description = "natsaccount description ${var.random}" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "nats-account"
+        }
+
+        nats_account {
+            account_id = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+            private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+        }
+    }
+    `, random)
 }
 
 // func testAccControlPlaneSecretAzure(random string) string {
 
-// 	return fmt.Sprintf(`
-// 	variable "random" {
-// 		type = string
-// 		default = "%s"
-// 	}
+//  return fmt.Sprintf(`
+//  variable "random" {
+//      type = string
+//      default = "%s"
+//  }
 
-// 	resource "cpln_secret" "azure_sdk" {
-// 		name = "azuresdk${var.random}"
-// 		description = "azuresdk description ${var.random}"
+//  resource "cpln_secret" "azure_sdk" {
+//      name = "azuresdk${var.random}"
+//      description = "azuresdk description ${var.random}"
 
-// 		tags = {
-// 			terraform_generated = "true"
-// 			acceptance_test = "true"
-// 			secret_type = "azure-sdk"
-// 		}
+//      tags = {
+//          terraform_generated = "true"
+//          acceptance_test = "true"
+//          secret_type = "azure-sdk"
+//      }
 
-// 		azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
-// 	}
-// 	`, random)
+//      azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
+//  }
+//  `, random)
 // }
 
 // func testAccControlPlaneSecretAzureToUserPass(random string) string {
 
-// 	return fmt.Sprintf(`
-// 	variable "random" {
-// 		type = string
-// 		default = "%s"
-// 	}
+//  return fmt.Sprintf(`
+//  variable "random" {
+//      type = string
+//      default = "%s"
+//  }
 
-// 	resource "cpln_secret" "azure_sdk" {
-// 		name = "azuresdk${var.random}"
-// 		description = "azuresdk description ${var.random}"
+//  resource "cpln_secret" "azure_sdk" {
+//      name = "azuresdk${var.random}"
+//      description = "azuresdk description ${var.random}"
 
-// 		tags = {
-// 			terraform_generated = "true"
-// 			acceptance_test = "true"
-// 			secret_type = "azure-sdk"
-// 		}
+//      tags = {
+//          terraform_generated = "true"
+//          acceptance_test = "true"
+//          secret_type = "azure-sdk"
+//      }
 
-// 		// azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
+//      // azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
 
-// 		userpass {
-// 			username = "cpln_username"
-// 			password = "cpln_password"
-// 			encoding = "plain"
-// 		}
+//      userpass {
+//          username = "cpln_username"
+//          password = "cpln_password"
+//          encoding = "plain"
+//      }
 
-// 	}
-// 	`, random)
+//  }
+//  `, random)
 // }
 
 func testAccCheckControlPlaneSecretCheckDestroy(s *terraform.State) error {

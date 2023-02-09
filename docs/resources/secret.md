@@ -36,7 +36,8 @@ Terraform state can contain sensitive data. Please review [Terraform's recommend
 - **keypair** (Block List, Max: 1) ([see below](#nestedblock--keypair)) [Reference Page](https://docs.controlplane.com/reference/secret#keypair).
 - **opaque** (Block List, Max: 1) ([see below](#nestedblock--opaque)) [Reference Page](https://docs.controlplane.com/reference/secret#opaque).
 - **tls** (Block List, Max: 1) ([see below](#nestedblock--tls)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
-- **userpass** (Block List, Max: 1) ([see below](#nestedblock--userpass)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
+- **userpass** (Block List, Max: 1) ([see below](#nestedblock--userpass)) [Reference Page](https://docs.controlplane.com/reference/secret#username).
+- **nats_account** (Block List, Max: 1) ([see below](#nestedblock--nats_account)) [Reference Page](https://docs.controlplane.com/reference/secret#).
 
 
 <a id="nestedblock--aws"></a>
@@ -109,6 +110,14 @@ Optional:
 - **password** (String, Sensitive) Password. 
 - **username** (String) Username. 
 
+<a id="nestedblock--nats_account"></a>
+ ### `nats_account`
+
+Optional:
+
+- **account_id** (String) 
+- **private_key** (String)
+
 
 ## Outputs
 
@@ -154,7 +163,7 @@ wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
 5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
 YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
 u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
+-----END CERTIFICATE-----   
 EOT
 }
 
@@ -481,6 +490,23 @@ resource "cpln_secret" "userpass" {
 
     # Optional
     encoding = "plain"
+  }
+}
+
+# Nats Account Secret
+resource "cpln_secret" "nats_account" {
+  name = "natsaccount-${var.random}"
+  description = "natsaccount description ${var.random}" 
+  
+  tags = {
+    terraform_generated = "true"
+    acceptance_test = "true"
+    secret_type = "nats-account"
+  }
+
+  nats_account {
+    account_id = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+    private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
   }
 }
 ```
