@@ -194,7 +194,8 @@ func resourceCloudAccountRead(ctx context.Context, d *schema.ResourceData, m int
 	ca, code, err := c.GetCloudAccount(d.Id())
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {

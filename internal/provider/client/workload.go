@@ -273,7 +273,7 @@ func (c *Client) GetWorkloads(gvcName string) (*[]Workload, int, error) {
 
 	body, code, err := c.doRequest(req, "")
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	workloads := Workloads{}
@@ -290,7 +290,7 @@ func (c *Client) GetWorkload(name, gvcName string) (*Workload, int, error) {
 
 	workload, code, err := c.GetResource(fmt.Sprintf("gvc/%s/workload/%s", gvcName, name), new(Workload))
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	workload.(*Workload).RemoveEmptySlices()

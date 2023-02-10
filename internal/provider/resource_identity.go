@@ -730,7 +730,8 @@ func resourceIdentityRead(ctx context.Context, d *schema.ResourceData, m interfa
 	identity, code, err := c.GetIdentity(d.Id(), gvcName)
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {
