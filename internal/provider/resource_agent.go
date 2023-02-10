@@ -98,7 +98,8 @@ func resourceAgentRead(ctx context.Context, d *schema.ResourceData, m interface{
 	agent, code, err := c.GetAgent(d.Id())
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {

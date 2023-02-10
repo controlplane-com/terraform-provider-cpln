@@ -1222,7 +1222,8 @@ func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interfa
 	workload, code, err := c.GetWorkload(workloadName, gvcName)
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {

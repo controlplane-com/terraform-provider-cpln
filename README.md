@@ -180,4 +180,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.12 - Update GitHub Action.
 - v1.0.121 - HotFix for removal of workload option spot property.
 - v1.0.122 - HotFix for new and missing workload properties.
+- v1.0.123 - Updates for -refresh-only flag.
 

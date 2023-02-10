@@ -73,7 +73,7 @@ func (c *Client) GetIdentity(name, gvcName string) (*Identity, int, error) {
 
 	identity, code, err := c.GetResource(fmt.Sprintf("gvc/%s/identity/%s", gvcName, name), new(Identity))
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	return identity.(*Identity), code, err
