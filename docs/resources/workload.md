@@ -59,7 +59,8 @@ Containers which attempt to use these ports will not be able to bind:
 
 - **args** (List of String) Command line arguments passed to the container at runtime.
 - **env** (Map of String) Name-Value list of environment variables.
-- **command** (String) Override the entry point. 
+- **command** (String) Override the entry point.
+- **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
 - **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
 - **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
   
@@ -70,6 +71,7 @@ Containers which attempt to use these ports will not be able to bind:
   
 - **volume** (Block List) ([see below](#nestedblock--container--volume)) [Reference Page](https://docs.controlplane.com/reference/workload#volumes).
 - **working_directory** (String) Override the working directory. Must be an absolute path.
+- **lifecycle** (Block List, Max: 1) LifeCycle ([see below](#nestedblock--container--lifecycle)) [Reference Page](https://docs.controlplane.com/reference/workload#lifecycle).
 
 <a id="nestedblock--container--ports"></a>
  ### `container.ports`
@@ -78,8 +80,6 @@ Required:
 
 - **protocol** (String) Protocol. Choice of: `http`, `http2`, or `grpc`.
 - **number** (String) Port to expose.
-
-<a id="nestedblock--container--ports"></a>
 
 
 <a id="nestedblock--container--liveness_probe"></a>
@@ -175,13 +175,35 @@ Required:
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
-<a id="nestedblock--container--volume"></a>
+<a id="nestedblock--container--metrics"></a>
  ### `container.metrics`
 
 Required:
 
 - **path** (String) Path from container emitting custom metrics
 - **port** (Number) Port from container emitting custom metrics
+
+<a id="nestedblock--container--lifecycle"></a>
+ ### `container.lifecycle`
+
+Optional:
+
+- **postStart** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
+- **preStop** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
+
+<a id="nestedblock--container--lifecycle--spec"></a>
+ ### `container.lifecycle.spec`
+
+Optional:
+
+- **exec** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec--exec)).
+
+<a id="nestedblock--container--lifecycle--spec--exec"></a>
+ ### `container.lifecycle.spec.exec`
+
+Required:
+
+- **command** (List of Strings, Min: 1) List of commands to execute.
 
 
 
@@ -230,6 +252,7 @@ Optional:
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling)).
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
 - **debug** (Boolean) Debug mode. Default: `false`
+- **suspend** (Boolean) Workload suspend. Default: `false`
 - **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 
 - **location** (String) Valid only for `local_options`. Local options override for a specific location.
@@ -338,6 +361,8 @@ resource "cpln_workload" "new" {
     command = "override-command"
 		working_directory = "/usr"
 
+    inherit_env = false
+
     env = {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
@@ -381,11 +406,26 @@ resource "cpln_workload" "new" {
       uri  = "s3://bucket"
       path = "/s3"
     }
+
+    lifecycle {
+      pre_stop {
+        exec {
+          command = ["command_1", "command_2", "command_3"]
+        }
+      }
+
+      post_start {
+        exec {
+          command = ["command_1", "command_2", "command_3"]
+        }
+      }
+    }
   }
  
   options {
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "concurrency"
@@ -401,6 +441,7 @@ resource "cpln_workload" "new" {
     location        = "aws-us-west-2"
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "concurrency"
@@ -492,11 +533,26 @@ resource "cpln_workload" "new" {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
+
+    lifecycle {
+      pre_stop {
+        exec {
+          command = ["command_1", "arg_1", "arg_2"]
+        }
+      }
+
+      post_start {
+        exec {
+          command = ["command_1", "arg_1", "arg_2"]
+        }
+      }
+    }
   }
  
   options {
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "cpu"

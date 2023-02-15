@@ -27,6 +27,7 @@ type GvcSpec struct {
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain,omitempty"`
 	Tracing         *Tracing         `json:"tracing,omitempty"`
+	Env             *[]NameValue     `json:"env,omitempty"`
 	Update          bool             `json:"-"`
 }
 

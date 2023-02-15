@@ -183,6 +183,11 @@ func resourceWorkload() *schema.Resource {
 								return
 							},
 						},
+						"inherit_env": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
 						"args": {
 							Type:     schema.TypeList,
 							Optional: true,
@@ -267,6 +272,27 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
+						"lifecycle": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"post_start": {
+										Type:     schema.TypeList,
+										Optional: true,
+										MaxItems: 1,
+										Elem:     lifeCycleSpec(),
+									},
+									"pre_stop": {
+										Type:     schema.TypeList,
+										Optional: true,
+										MaxItems: 1,
+										Elem:     lifeCycleSpec(),
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -282,6 +308,11 @@ func resourceWorkload() *schema.Resource {
 							Default:  true,
 						},
 						"debug": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"suspend": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  false,
@@ -323,6 +354,11 @@ func resourceWorkload() *schema.Resource {
 							Default:  true,
 						},
 						"debug": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"suspend": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  false,
@@ -750,6 +786,28 @@ func healthCheckSpec() *schema.Resource {
 	}
 }
 
+func lifeCycleSpec() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"exec": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"command": {
+							Type:     schema.TypeList,
+							Required: true,
+							MinItems: 1,
+							Elem:     StringSchema(),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceWorkloadCreate")
@@ -823,6 +881,7 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 			Memory:           GetString(c["memory"].(string)),
 			CPU:              GetString(c["cpu"].(string)),
 			Command:          GetString(c["command"].(string)),
+			InheritEnv:       GetBool(c["inherit_env"].(bool)),
 			WorkingDirectory: GetString(c["working_directory"].(string)),
 		}
 
@@ -879,6 +938,10 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 
 		if c["metrics"] != nil {
 			newContainer.Metrics = buildMetrics(c["metrics"].([]interface{}))
+		}
+
+		if c["lifecycle"] != nil {
+			newContainer.LifeCycle = buildLifeCycleSpec(c["lifecycle"].([]interface{}))
 		}
 
 		newContainers = append(newContainers, newContainer)
@@ -1069,6 +1132,36 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 	return nil
 }
 
+func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
+	if len(lifecycle) == 0 {
+		return nil
+	}
+
+	output := client.LifeCycleSpec{}
+	lc := lifecycle[0].(map[string]interface{})
+
+	// Set struct fields
+	if lc["post_start"] != nil {
+		commands := getInnerLifeCycleCommands(lc["post_start"].([]interface{}))
+		if len(commands) > 0 {
+			output.PostStart = &client.LifeCycleInner{}
+			output.PostStart.Exec = &client.Exec{}
+			output.PostStart.Exec.Command = &commands
+		}
+	}
+
+	if lc["pre_stop"] != nil {
+		commands := getInnerLifeCycleCommands(lc["pre_stop"].([]interface{}))
+		if len(commands) > 0 {
+			output.PreStop = &client.LifeCycleInner{}
+			output.PreStop.Exec = &client.Exec{}
+			output.PreStop.Exec.Command = &commands
+		}
+	}
+
+	return &output
+}
+
 func buildOptions(options []interface{}, workload *client.Workload, localOptions bool, org string) {
 
 	output := []client.Options{}
@@ -1088,6 +1181,7 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 			newOptions.CapacityAI = GetBool(option["capacity_ai"])
 			newOptions.TimeoutSeconds = GetInt(option["timeout_seconds"])
 			newOptions.Debug = GetBool(option["debug"])
+			newOptions.Suspend = GetBool(option["suspend"])
 
 			autoScaling := option["autoscaling"].([]interface{})
 
@@ -1209,6 +1303,37 @@ func buildFirewallSpec(specs []interface{}, workload *client.Workload, update bo
 
 		workload.Spec.FirewallConfig = &newSpec
 	}
+}
+
+func getInnerLifeCycleCommands(property []interface{}) []string {
+	if len(property) == 0 {
+		return []string{}
+	}
+	propertySafe := property[0].(map[string]interface{})
+	exec, ok := propertySafe["exec"].([]interface{})
+	if ok {
+		return buildExec(exec)
+	}
+	return []string{}
+}
+
+func buildExec(exec []interface{}) []string {
+	if len(exec) > 0 && exec[0] == nil {
+		return []string{}
+	}
+
+	commands := []string{}
+	e := exec[0].(map[string]interface{})
+
+	for _, k := range e["command"].([]interface{}) {
+		if k != nil {
+			commands = append(commands, k.(string))
+		} else {
+			commands = append(commands, "")
+		}
+	}
+
+	return commands
 }
 
 func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -1551,6 +1676,10 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 				c["command"] = *container.Command
 			}
 
+			if container.InheritEnv != nil {
+				c["inherit_env"] = *container.InheritEnv
+			}
+
 			if container.WorkingDirectory != nil {
 				c["working_directory"] = *container.WorkingDirectory
 			}
@@ -1587,6 +1716,10 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 
 			if container.Metrics != nil {
 				c["metrics"] = flattenMetrics(container.Metrics)
+			}
+
+			if container.LifeCycle != nil {
+				c["lifecycle"] = flattenLifeCycle(container.LifeCycle)
 			}
 
 			cs[i] = c
@@ -1780,6 +1913,10 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 				option["debug"] = *o.Debug
 			}
 
+			if o.Suspend != nil {
+				option["suspend"] = *o.Suspend
+			}
+
 			as := make(map[string]interface{})
 
 			if o.AutoScaling != nil {
@@ -1911,4 +2048,30 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	lc := map[string]interface{}{}
+
+	if spec.PostStart != nil && len(*spec.PostStart.Exec.Command) > 0 {
+		exec := make(map[string]interface{})
+		exec["command"] = *spec.PostStart.Exec.Command
+		postStart := make(map[string]interface{})
+		postStart["exec"] = []interface{}{exec}
+		lc["post_start"] = []interface{}{postStart}
+	}
+
+	if spec.PreStop != nil && len(*spec.PreStop.Exec.Command) > 0 {
+		exec := make(map[string]interface{})
+		exec["command"] = *spec.PreStop.Exec.Command
+		preStop := make(map[string]interface{})
+		preStop["exec"] = []interface{}{exec}
+		lc["pre_stop"] = []interface{}{preStop}
+	}
+
+	return []interface{}{lc}
 }

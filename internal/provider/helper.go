@@ -83,6 +83,25 @@ func GetTagChanges(d *schema.ResourceData) *map[string]interface{} {
 	return &oldMap
 }
 
+func GetGVCEnvChanges(d *schema.ResourceData) *[]client.NameValue {
+	_, new := d.GetChange("env")
+
+	envArr := []client.NameValue{}
+	for k, v := range new.(map[string]interface{}) {
+		if v != nil {
+			keyString := strings.Clone(k)
+			valueString := v.(string)
+			localEnvObj := client.NameValue{
+				Name:  &keyString,
+				Value: &valueString,
+			}
+			envArr = append(envArr, localEnvObj)
+		}
+	}
+
+	return &envArr
+}
+
 func GetString(s interface{}) *string {
 
 	if s == nil {

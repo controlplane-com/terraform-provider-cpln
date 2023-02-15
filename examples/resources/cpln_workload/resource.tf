@@ -38,11 +38,12 @@ resource "cpln_workload" "new" {
   identity_link = cpln_identity.example.self_link
 
   container {
-    name   = "container-01"
-    image  = "gcr.io/knative-samples/helloworld-go"
-    port   = 8080
-    memory = "128Mi"
-    cpu    = "50m"
+    name        = "container-01"
+    image       = "gcr.io/knative-samples/helloworld-go"
+    port        = 8080
+    memory      = "128Mi"
+    cpu         = "50m"
+    inherit_env = false
 
     env = {
       env-name-01 = "env-value-01",
@@ -87,6 +88,7 @@ resource "cpln_workload" "new" {
   options {
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "concurrency"

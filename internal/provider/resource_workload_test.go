@@ -36,12 +36,12 @@ func TestControlPlane_BuildContainersStandard(t *testing.T) {
 func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	newContainer := client.ContainerSpec{
-		Name:  GetString("container-01"),
-		Image: GetString("gcr.io/knative-samples/helloworld-go"),
-		// Port:             GetInt(8080),
+		Name:             GetString("container-01"),
+		Image:            GetString("gcr.io/knative-samples/helloworld-go"),
 		Memory:           GetString("128Mi"),
 		CPU:              GetString("50m"),
 		Command:          GetString("override-command"),
+		InheritEnv:       GetBool(false),
 		WorkingDirectory: GetString("/usr"),
 	}
 
@@ -102,11 +102,11 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	newContainer.ReadinessProbe = &client.HealthCheckSpec{
 
+		InitialDelaySeconds: GetInt(1),
 		PeriodSeconds:       GetInt(11),
 		TimeoutSeconds:      GetInt(2),
-		FailureThreshold:    GetInt(4),
 		SuccessThreshold:    GetInt(2),
-		InitialDelaySeconds: GetInt(1),
+		FailureThreshold:    GetInt(4),
 
 		TCPSocket: &client.TCPSocket{
 			Port: GetInt(8181),
@@ -115,11 +115,11 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	newContainer.LivenessProbe = &client.HealthCheckSpec{
 
+		InitialDelaySeconds: GetInt(2),
 		PeriodSeconds:       GetInt(10),
 		TimeoutSeconds:      GetInt(3),
-		FailureThreshold:    GetInt(5),
 		SuccessThreshold:    GetInt(1),
-		InitialDelaySeconds: GetInt(2),
+		FailureThreshold:    GetInt(5),
 
 		HTTPGet: &client.HTTPGet{
 			Path:   GetString("/path"),
@@ -138,33 +138,27 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		},
 	}
 
-	// newContainer2 := client.ContainerSpec{
-	// 	Name:   "container-02",
-	// 	Image:  "gcr.io/knative-samples/helloworld-go",
-	// 	Memory: "128Mi",
-	// 	CPU:    "50m",
-	// }
+	newContainer.LifeCycle = &client.LifeCycleSpec{
 
-	// newContainer2.Args = []string{
-	// 	"arg-01",
-	// 	"arg-02",
-	// }
+		PreStop: &client.LifeCycleInner{
+			Exec: &client.Exec{
+				Command: &[]string{
+					"lc_pre_1", "lc_pre_2", "lc_pre_3",
+				},
+			},
+		},
 
-	// newContainer2.Env = []client.NameValue{
-	// 	{
-	// 		Name:  "env-name-01",
-	// 		Value: "env-value-01",
-	// 	},
-	// 	{
-	// 		Name:  "env-name-02",
-	// 		Value: "env-value-02",
-	// 	},
-	// }
+		PostStart: &client.LifeCycleInner{
+			Exec: &client.Exec{
+				Command: &[]string{
+					"lc_post_1", "lc_post_2", "lc_post_3",
+				},
+			},
+		},
+	}
 
-	// testContainers := make([]client.ContainerSpec, 2, 2)
 	testContainers := make([]client.ContainerSpec, 1)
 	testContainers[0] = newContainer
-	// testContainers[1] = newContainer2
 
 	return &testContainers
 }
@@ -179,6 +173,35 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 		"cpu":               "50m",
 		"command":           "override-command",
 		"working_directory": "/usr",
+		"inherit_env":       false,
+	}
+
+	if workloadType == "serverless" {
+		c["port"] = 8080
+	} else if workloadType == "standard" {
+
+		port_01 := make(map[string]interface{})
+		port_01["protocol"] = "http"
+		port_01["number"] = 80
+
+		port_02 := make(map[string]interface{})
+		port_02["protocol"] = "http2"
+		port_02["number"] = 8080
+
+		port_03 := make(map[string]interface{})
+		port_03["protocol"] = "grpc"
+		port_03["number"] = 3000
+
+		port_04 := make(map[string]interface{})
+		port_04["protocol"] = "tcp"
+		port_04["number"] = 3001
+
+		c["ports"] = []interface{}{
+			port_01,
+			port_02,
+			port_03,
+			port_04,
+		}
 	}
 
 	c["args"] = []interface{}{
@@ -210,35 +233,6 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	metrics["path"] = "/metrics"
 	metrics["port"] = 8181
 
-	if workloadType == "serverless" {
-		c["port"] = 8080
-	} else if workloadType == "standard" {
-
-		port_01 := make(map[string]interface{})
-		port_01["protocol"] = "http"
-		port_01["number"] = 80
-
-		port_02 := make(map[string]interface{})
-		port_02["protocol"] = "http2"
-		port_02["number"] = 8080
-
-		port_03 := make(map[string]interface{})
-		port_03["protocol"] = "grpc"
-		port_03["number"] = 3000
-
-		port_04 := make(map[string]interface{})
-		port_04["protocol"] = "tcp"
-		port_04["number"] = 3001
-
-		c["ports"] = []interface{}{
-			port_01,
-			port_02,
-			port_03,
-			port_04,
-		}
-
-	}
-
 	c["metrics"] = []interface{}{
 		metrics,
 	}
@@ -251,11 +245,11 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	readiness["success_threshold"] = 2
 	readiness["failure_threshold"] = 4
 
-	t := make(map[string]interface{})
-	t["port"] = 8181
+	tcpSocket := make(map[string]interface{})
+	tcpSocket["port"] = 8181
 
-	ti := []interface{}{t}
-	readiness["tcp_socket"] = ti
+	tcpSocketAsInterface := []interface{}{tcpSocket}
+	readiness["tcp_socket"] = tcpSocketAsInterface
 
 	c["readiness_probe"] = []interface{}{readiness}
 
@@ -284,28 +278,8 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 
 	c["liveness_probe"] = []interface{}{liveness}
 
-	// c1 := map[string]interface{}{
-	// 	"name":   "container-02",
-	// 	"image":  "gcr.io/knative-samples/helloworld-go",
-	// 	"memory": "128Mi",
-	// 	"cpu":    "50m",
-	// }
-
-	// c1["args"] = []interface{}{
-	// 	"arg-01",
-	// 	"arg-02",
-	// }
-
-	// envs1 := map[string]interface{}{
-	// 	"env-name-01": "env-value-01",
-	// 	"env-name-02": "env-value-02",
-	// }
-
-	// c1["env"] = envs1
-
 	localContainers := []interface{}{
 		c,
-		// c1,
 	}
 
 	return localContainers
@@ -329,6 +303,7 @@ func generateTestOptions(workloadType string) *client.Options {
 			CapacityAI:     GetBool(false),
 			TimeoutSeconds: GetInt(30),
 			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
 
 			AutoScaling: &client.AutoScaling{
 				Metric:           GetString("cpu"),
@@ -345,6 +320,7 @@ func generateTestOptions(workloadType string) *client.Options {
 		CapacityAI:     GetBool(true),
 		TimeoutSeconds: GetInt(30),
 		Debug:          GetBool(false),
+		Suspend:        GetBool(false),
 
 		AutoScaling: &client.AutoScaling{
 			Metric:           GetString("concurrency"),
@@ -377,6 +353,7 @@ func generateFlatTestOptions() []interface{} {
 		"timeout_seconds": 30,
 		"autoscaling":     asi,
 		"debug":           false,
+		"suspend":         false,
 	}
 
 	return []interface{}{
@@ -418,7 +395,7 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	if useSet {
 		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
 	} else {
-		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
+		e["inbound_allow_cidr"] = []string{"0.0.0.0/0"}
 	}
 
 	// e["outbound_allow_cidr"] = []interface{}{}
@@ -657,39 +634,53 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 
 		  readiness_probe {
 
-			tcp_socket {
-			  port = 8181
-			}
+				tcp_socket {
+					port = 8181
+				}
 
 			// exec {
 			// 	command = ["test1", "test2"]
 			// }
 	  
-			period_seconds       = 11
-			timeout_seconds      = 2
-			failure_threshold    = 4
-			success_threshold    = 2
-			initial_delay_seconds = 1
+				period_seconds       = 11
+				timeout_seconds      = 2
+				failure_threshold    = 4
+				success_threshold    = 2
+				initial_delay_seconds = 1
 		  }
 
 		  liveness_probe {
 
-			http_get {
-				path = "/path"
-				port = 8282
-				scheme = "HTTPS"
-				http_headers = {
-					header-name-01 = "header-value-01"
-					header-name-02 = "header-value-02"
+				http_get {
+					path = "/path"
+					port = 8282
+					scheme = "HTTPS"
+					http_headers = {
+						header-name-01 = "header-value-01"
+						header-name-02 = "header-value-02"
+					}
+				}
+	  
+				period_seconds       = 10
+				timeout_seconds      = 3
+				failure_threshold    = 5
+				success_threshold    = 1
+				initial_delay_seconds = 2
+		  }
+
+			lifecycle {
+				pre_stop {
+					exec {
+						command = ["lc_pre_1", "lc_pre_2", "lc_pre_3"]
+					}
+				}
+	
+				post_start {
+					exec {
+						command = ["lc_post_1", "lc_post_2", "lc_post_3"]
+					}
 				}
 			}
-	  
-			period_seconds       = 10
-			timeout_seconds      = 3
-			failure_threshold    = 5
-			success_threshold    = 1
-			initial_delay_seconds = 2
-		  }
 		}
 
 		// container {
@@ -709,6 +700,7 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		options {
 		  capacity_ai = true
 		  timeout_seconds = 30
+		  suspend = false
 	  
 		  autoscaling {
 			metric = "concurrency"
@@ -726,6 +718,7 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 			location = "aws-eu-central-1"
 			capacity_ai = true
 			timeout_seconds = 30
+			suspend = false
 		
 			autoscaling {
 			  metric = "concurrency"
@@ -910,6 +903,21 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 	  
 		  args = ["arg-01", "arg-02"]
 
+		  lifecycle {
+
+			pre_stop {
+				exec {
+					command = ["lc_pre_1", "lc_pre_2", "lc_pre_3"]
+				}
+			}
+
+			post_start {
+				exec {
+					command = ["lc_post_1", "lc_post_2", "lc_post_3"]
+				}
+			}
+		  }
+
 		  volume {
 			uri  = "s3://bucket"
 			path = "/testpath01"
@@ -965,6 +973,7 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		options {
 		  capacity_ai = false
 		  timeout_seconds = 30
+		  suspend = false
 	  
 		  autoscaling {
 			metric = "cpu"
