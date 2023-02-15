@@ -24,7 +24,7 @@
             },
             "args": [
                 "-test.run",
-                "TestAccControlPlaneOrgTracing_basic",
+                "TestAccControlPlaneWorkload_basic",
                 "-test.v"
             ]
         }

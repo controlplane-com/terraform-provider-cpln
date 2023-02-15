@@ -93,6 +93,8 @@ Login to test environment:
 
 cpln profile update default --login --endpoint https://api.test.cpln.io
 
+Note: In provider section, the endpoint for test is `https://api.test.cpln.io`.
+
 ```
 
 Initialize Terraform
@@ -214,6 +216,23 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 
 - CLI Config File: https://www.terraform.io/docs/cli/config/config-file.html
 
+## Notes for Developing New Features
+
+- Update item schema under internal/provider/client/<item>.go (Needs to follow data-service api structure)
+- Update item's Terraform resource schema under "internal/provider/resource\_<item>.go"
+- Update ResourceCreate Context
+- Update ResourceRead Context
+- Update ResourceUpdate Context
+- Update ResourceDelete Context (If needed)
+- Update/Add Terraform resource test
+- Update dataSource of the item
+- Update resource example
+- Update resource documentation
+
+### Notes
+
+- Flatten methods transform api object to terraform resource
+
 ## Version Info
 
 - v1.0.2 - Publish To Terraform Registry.
@@ -229,19 +248,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.121 - HotFix for removal of workload option spot property.
 - v1.0.122 - HotFix for new and missing workload properties.
 - v1.0.123 - Updates for -refresh-only flag.
-## Notes for Developing New Features
-
-- Update item schema under internal/provider/client/<item>.go (Needs to follow data-service api structure)
-- Update item's Terraform resource schema under "internal/provider/resource\_<item>.go"
-- Update ResourceCreate Context
-- Update ResourceRead Context
-- Update ResourceUpdate Context
-- Update ResourceDelete Context (If needed)
-- Update/Add Terraform resource test
-- Update dataSource of the item
-- Update resource example
-- Update resource documentation
-
-### Note
-
-Flatten methods transform api object to terraform resource
+- v1.0.13 - Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.

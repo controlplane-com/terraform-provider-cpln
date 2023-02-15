@@ -247,7 +247,7 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 
 			for _, envObj := range *gvc.Spec.Env {
 				key := envObj.Name
-				value := envObj.Name
+				value := envObj.Value
 				envMap[*key] = value
 			}
 
@@ -256,13 +256,17 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 			}
 
 		} else {
+
 			emptyEnvMap := make(map[string]interface{}, 0)
+
 			if err := d.Set("env", emptyEnvMap); err != nil {
 				return diag.FromErr(err)
 			}
 		}
 	} else {
+
 		emptyEnvMap := make(map[string]interface{}, 0)
+
 		if err := d.Set("env", emptyEnvMap); err != nil {
 			return diag.FromErr(err)
 		}

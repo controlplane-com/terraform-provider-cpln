@@ -246,7 +246,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string)
 		  acceptance_test = "true"
 		}
 
-		env {
+		env = {
 			env-name-01 = "env-value-01",
 			env-name-02 = "env-value-02",
 		}

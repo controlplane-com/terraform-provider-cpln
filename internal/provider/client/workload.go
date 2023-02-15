@@ -97,6 +97,7 @@ type Options struct {
 	CapacityAI     *bool        `json:"capacityAI,omitempty"`
 	TimeoutSeconds *int         `json:"timeoutSeconds,omitempty"`
 	Debug          *bool        `json:"debug,omitempty"`
+	Suspend        *bool        `json:"suspend,omitempty"`
 	Location       *string      `json:"location,omitempty"`
 }
 

@@ -312,6 +312,11 @@ func resourceWorkload() *schema.Resource {
 							Optional: true,
 							Default:  false,
 						},
+						"suspend": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
 						"timeout_seconds": {
 							Type:     schema.TypeInt,
 							Optional: true,
@@ -349,6 +354,11 @@ func resourceWorkload() *schema.Resource {
 							Default:  true,
 						},
 						"debug": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"suspend": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  false,
@@ -1171,6 +1181,7 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 			newOptions.CapacityAI = GetBool(option["capacity_ai"])
 			newOptions.TimeoutSeconds = GetInt(option["timeout_seconds"])
 			newOptions.Debug = GetBool(option["debug"])
+			newOptions.Suspend = GetBool(option["suspend"])
 
 			autoScaling := option["autoscaling"].([]interface{})
 
@@ -1900,6 +1911,10 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 
 			if o.Debug != nil {
 				option["debug"] = *o.Debug
+			}
+
+			if o.Suspend != nil {
+				option["suspend"] = *o.Suspend
 			}
 
 			as := make(map[string]interface{})

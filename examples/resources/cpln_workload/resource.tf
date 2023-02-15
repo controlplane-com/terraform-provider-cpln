@@ -88,6 +88,7 @@ resource "cpln_workload" "new" {
   options {
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "concurrency"

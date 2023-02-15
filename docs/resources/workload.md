@@ -252,6 +252,7 @@ Optional:
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling)).
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
 - **debug** (Boolean) Debug mode. Default: `false`
+- **suspend** (Boolean) Workload suspend. Default: `false`
 - **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 
 - **location** (String) Valid only for `local_options`. Local options override for a specific location.
@@ -424,6 +425,7 @@ resource "cpln_workload" "new" {
   options {
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "concurrency"
@@ -439,6 +441,7 @@ resource "cpln_workload" "new" {
     location        = "aws-us-west-2"
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "concurrency"
@@ -530,11 +533,26 @@ resource "cpln_workload" "new" {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
+
+    lifecycle {
+      pre_stop {
+        exec {
+          command = ["command_1", "arg_1", "arg_2"]
+        }
+      }
+
+      post_start {
+        exec {
+          command = ["command_1", "arg_1", "arg_2"]
+        }
+      }
+    }
   }
  
   options {
     capacity_ai     = false
     timeout_seconds = 30
+    suspend         = false
 
     autoscaling {
       metric          = "cpu"
