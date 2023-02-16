@@ -689,6 +689,12 @@ func StringSchema() *schema.Schema {
 	}
 }
 
+func IntSchema() *schema.Schema {
+	return &schema.Schema{
+		Type: schema.TypeInt,
+	}
+}
+
 func WorkloadTypeValidator(val interface{}, key string) (warns []string, errs []error) {
 
 	workloadType := val.(string)

@@ -100,6 +100,55 @@ func resourceIdentity() *schema.Resource {
 					},
 				},
 			},
+			"native_network_resource": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"fqdn": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"ports": {
+							Type:     schema.TypeSet,
+							Required: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeInt,
+							},
+						},
+						"aws_private_link": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"endpoint_service_name": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
+						},
+						"gcp_service_connect": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"target_service": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			"aws_access_policy": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -289,6 +338,7 @@ func resourceIdentityCreate(ctx context.Context, d *schema.ResourceData, m inter
 	buildAwsIdentity(d.Get("aws_access_policy").([]interface{}), &identity, false)
 	buildAzureIdentity(d.Get("azure_access_policy").([]interface{}), &identity, false)
 	buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identity, false)
+	identity.NativeNetworkResources = buildNativeNetworkResources(d.Get("native_network_resource").([]interface{}))
 
 	c := m.(*client.Client)
 	newIdentity, code, err := c.CreateIdentity(identity, gvcName)
@@ -348,6 +398,68 @@ func buildNetworkResources(networkResources []interface{}, identity *client.Iden
 	}
 
 	identity.NetworkResources = &newNetworkResources
+}
+
+func buildNativeNetworkResources(specs []interface{}) *[]client.NativeNetworkResource {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	collection := []client.NativeNetworkResource{}
+	for _, item := range specs {
+		collection = append(collection, buildNativeNetworkResource(item))
+	}
+
+	return &collection
+}
+
+func buildNativeNetworkResource(spec interface{}) client.NativeNetworkResource {
+	resource := spec.(map[string]interface{})
+	newResource := client.NativeNetworkResource{
+		Name: GetString(resource["name"].(string)),
+		FQDN: GetString(resource["fqdn"].(string)),
+	}
+
+	newResource.Ports = &[]int{}
+	for _, value := range resource["ports"].(*schema.Set).List() {
+		*newResource.Ports = append(*newResource.Ports, value.(int))
+	}
+
+	if resource["aws_private_link"] != nil {
+		newResource.AWSPrivateLink = buildAWSPrivateLink(resource["aws_private_link"].([]interface{}))
+	}
+
+	if resource["gcp_service_connect"] != nil {
+		newResource.GCPServiceConnect = buildGCPServiceConnect(resource["gcp_service_connect"].([]interface{}))
+	}
+
+	return newResource
+}
+
+func buildAWSPrivateLink(specs []interface{}) *client.AWSPrivateLink {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	result := client.AWSPrivateLink{
+		EndpointServiceName: GetString(spec["endpoint_service_name"].(string)),
+	}
+
+	return &result
+}
+
+func buildGCPServiceConnect(specs []interface{}) *client.GCPServiceConnect {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	result := client.GCPServiceConnect{
+		TargetService: GetString(spec["target_service"].(string)),
+	}
+
+	return &result
 }
 
 func buildAwsIdentity(awsIdentities []interface{}, identity *client.Identity, update bool) {
@@ -593,6 +705,58 @@ func flattenNetworkResources(networkResources *[]client.NetworkResource) []inter
 	return make([]interface{}, 0)
 }
 
+func flattenNativeNetworkResources(nativeNetworkResources *[]client.NativeNetworkResource) []interface{} {
+	if nativeNetworkResources == nil || len(*nativeNetworkResources) == 0 {
+		return nil
+	}
+
+	collection := make([]interface{}, len(*nativeNetworkResources))
+	for i, item := range *nativeNetworkResources {
+
+		resource := make(map[string]interface{})
+		resource["name"] = *item.Name
+		resource["fqdn"] = *item.FQDN
+		resource["ports"] = []interface{}{}
+
+		for _, port := range *item.Ports {
+			resource["ports"] = append(resource["ports"].([]interface{}), port)
+		}
+
+		resource["aws_private_link"] = flattenAWSPrivateLink(item.AWSPrivateLink)
+		resource["gcp_service_connect"] = flattenGCPServiceConnect(item.GCPServiceConnect)
+
+		collection[i] = resource
+	}
+
+	return collection
+}
+
+func flattenAWSPrivateLink(awsPrivateLink *client.AWSPrivateLink) []interface{} {
+	if awsPrivateLink == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+	result["endpoint_service_name"] = awsPrivateLink.EndpointServiceName
+
+	return []interface{}{
+		result,
+	}
+}
+
+func flattenGCPServiceConnect(gcpServiceConnect *client.GCPServiceConnect) []interface{} {
+	if gcpServiceConnect == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+	result["target_service"] = gcpServiceConnect.TargetService
+
+	return []interface{}{
+		result,
+	}
+}
+
 func flattenAwsIdentity(awsIdentity *client.AwsIdentity) []interface{} {
 
 	if awsIdentity != nil {
@@ -762,6 +926,10 @@ func setIdentity(d *schema.ResourceData, identity *client.Identity, gvcName stri
 		return diag.FromErr(err)
 	}
 
+	if err := d.Set("native_network_resource", flattenNativeNetworkResources(identity.NativeNetworkResources)); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if err := d.Set("aws_access_policy", flattenAwsIdentity(identity.Aws)); err != nil {
 		return diag.FromErr(err)
 	}
@@ -796,7 +964,7 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceIdentityUpdate")
 
-	if d.HasChanges("description", "tags", "network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy") {
+	if d.HasChanges("description", "tags", "network_resource", "native_network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy") {
 
 		gvcName := d.Get("gvc").(string)
 
@@ -813,6 +981,10 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 		if d.HasChange("network_resource") {
 			buildNetworkResources(d.Get("network_resource").([]interface{}), &identityToUpdate)
+		}
+
+		if d.HasChange("native_network_resource") {
+			identityToUpdate.NativeNetworkResources = buildNativeNetworkResources(d.Get("native_network_resource").([]interface{}))
 		}
 
 		if d.HasChange("aws_access_policy") {

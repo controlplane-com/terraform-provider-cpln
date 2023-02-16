@@ -6,8 +6,10 @@ import (
 	client "terraform-provider-cpln/internal/provider/client"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
@@ -166,6 +168,26 @@ func testAccControlPlaneIdentity(orgName, randomName, gvcName, gvcDescription, a
 			ports = [3099, 7890]
 		}
 
+		native_network_resource {
+			name = "test-native-network-resource"
+			fqdn = "test.com"
+			ports = [12345, 54321]
+
+			aws_private_link {
+				endpoint_service_name = "com.amazonaws.vpce.us-west-2.vpce-svc-01af6c4c9260ac550"
+			}
+		}
+
+		/*native_network_resource {
+			name = "test-native-network-resource"
+			fqdn = "test.com"
+			ports = [12345, 54321]
+
+			gcp_service_connect {
+				target_service = "no-target-service-found-for-testing"
+			}
+		}*/
+
 		aws_access_policy {
 			cloud_account_link = cpln_cloud_account.test_aws_cloud_account.self_link
 			
@@ -277,6 +299,175 @@ func testAccCheckControlPlaneIdentityCheckDestroy(s *terraform.State) error {
 	}
 
 	return nil
+}
+
+/*** Unit Tests ***/
+// Build Native Network Resources //
+func TestControlPlane_BuildNativeNetworkResources(t *testing.T) {
+	nativeNetworkResources, expectedNativeNetworkResources, _ := generateNativeNetworkResources()
+	if diff := deep.Equal(nativeNetworkResources, &expectedNativeNetworkResources); diff != nil {
+		t.Errorf("Native Network Resources was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildNativeNetwork_WithAWS(t *testing.T) {
+	nativeNetworkResource, expectedNativeNetworkResource, _ := generateNativeNetworkResource_WithAWS()
+	if diff := deep.Equal(nativeNetworkResource, &expectedNativeNetworkResource); diff != nil {
+		t.Errorf("Native Network Resource With AWS was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildNativeNetwork_WithGCP(t *testing.T) {
+	nativeNetworkResource, expectedNativeNetworkResource, _ := generateNativeNetworkResource_WithGCP()
+	if diff := deep.Equal(nativeNetworkResource, &expectedNativeNetworkResource); diff != nil {
+		t.Errorf("Native Network Resource With GCP was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildAWSPrivateLink(t *testing.T) {
+	awsPrivateLink, expectedAWSPrivateLink, _ := generateAWSPrivateLink()
+	if diff := deep.Equal(awsPrivateLink, &expectedAWSPrivateLink); diff != nil {
+		t.Errorf("AWS Private Link was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildGCPServiceConnect(t *testing.T) {
+	gcpServiceConnect, expectedGCPServiceConnect, _ := generateGCPServiceConnect()
+	if diff := deep.Equal(gcpServiceConnect, &expectedGCPServiceConnect); diff != nil {
+		t.Errorf("GCP Service Connect was not built correctly. Diff: %s", diff)
+	}
+}
+
+/*** Generate ***/
+func generateNativeNetworkResources() (*[]client.NativeNetworkResource, []client.NativeNetworkResource, []interface{}) {
+	_, expectedAWS, flattenedAWS := generateNativeNetworkResource_WithAWS()
+	_, expectedGCP, flattenedGCP := generateNativeNetworkResource_WithGCP()
+
+	flattened := []interface{}{flattenedAWS, flattenedGCP}
+	nativeNetworkResources := buildNativeNetworkResources(flattened)
+	expectedNativeNetworkResources := []client.NativeNetworkResource{}
+
+	expectedNativeNetworkResources = append(expectedNativeNetworkResources, expectedAWS)
+	expectedNativeNetworkResources = append(expectedNativeNetworkResources, expectedGCP)
+
+	return nativeNetworkResources, expectedNativeNetworkResources, flattened
+}
+
+func generateNativeNetworkResource_WithAWS() (*client.NativeNetworkResource, client.NativeNetworkResource, interface{}) {
+	name := "test"
+	fqdn := "test.com"
+	ports := []int{80, 443}
+
+	portsFlattened := schema.NewSet(schema.HashSchema(IntSchema()), generateFlatTestIntArray(ports))
+	_, expectedAWSPrivateLink, flattenedAWSPrivateLink := generateAWSPrivateLink()
+
+	flattened := generateFlatTestNativeNetworkResource_WithAWS(name, fqdn, portsFlattened, flattenedAWSPrivateLink)
+	nativeNetworkResource := buildNativeNetworkResource(flattened)
+	expectedNativeNetworkResource := client.NativeNetworkResource{
+		Name:           &name,
+		FQDN:           &fqdn,
+		Ports:          &ports,
+		AWSPrivateLink: &expectedAWSPrivateLink,
+	}
+
+	return &nativeNetworkResource, expectedNativeNetworkResource, flattened
+}
+
+func generateNativeNetworkResource_WithGCP() (*client.NativeNetworkResource, client.NativeNetworkResource, interface{}) {
+	name := "test"
+	fqdn := "test.com"
+	ports := []int{80, 443}
+
+	portsFlattened := schema.NewSet(schema.HashSchema(IntSchema()), generateFlatTestIntArray(ports))
+	_, expectedGCPServiceConnect, flattenedGCPServiceConnect := generateGCPServiceConnect()
+
+	flattened := generateFlatTestNativeNetworkResource_WithGCP(name, fqdn, portsFlattened, flattenedGCPServiceConnect)
+	nativeNetworkResource := buildNativeNetworkResource(flattened)
+	expectedNativeNetworkResource := client.NativeNetworkResource{
+		Name:              &name,
+		FQDN:              &fqdn,
+		Ports:             &ports,
+		GCPServiceConnect: &expectedGCPServiceConnect,
+	}
+
+	return &nativeNetworkResource, expectedNativeNetworkResource, flattened
+}
+
+func generateAWSPrivateLink() (*client.AWSPrivateLink, client.AWSPrivateLink, []interface{}) {
+	endpointServiceName := "com.amazonaws.vpce.us-west-2.vpce-svc-01af6c4c9260ac550"
+
+	flattened := generateFlatTestAWSPrivateLink(endpointServiceName)
+	awsPrivateLink := buildAWSPrivateLink(flattened)
+	expectedAWSPrivateLink := client.AWSPrivateLink{
+		EndpointServiceName: &endpointServiceName,
+	}
+
+	return awsPrivateLink, expectedAWSPrivateLink, flattened
+}
+
+func generateGCPServiceConnect() (*client.GCPServiceConnect, client.GCPServiceConnect, []interface{}) {
+	targetService := "test-target-service"
+
+	flattened := generateFlatTestGCPServiceConnect(targetService)
+	gcpServiceConnect := buildGCPServiceConnect(flattened)
+	expectedGCPServiceConnect := client.GCPServiceConnect{
+		TargetService: &targetService,
+	}
+
+	return gcpServiceConnect, expectedGCPServiceConnect, flattened
+}
+
+/*** Flatten ***/
+func generateFlatTestNativeNetworkResource_WithAWS(name string, fqdn string, ports *schema.Set, awsPrivateLink []interface{}) interface{} {
+	spec := map[string]interface{}{
+		"name":             name,
+		"fqdn":             fqdn,
+		"ports":            ports,
+		"aws_private_link": awsPrivateLink,
+	}
+
+	return spec
+}
+
+func generateFlatTestNativeNetworkResource_WithGCP(name string, fqdn string, ports *schema.Set, gcpServiceConnect []interface{}) interface{} {
+	spec := map[string]interface{}{
+		"name":                name,
+		"fqdn":                fqdn,
+		"ports":               ports,
+		"gcp_service_connect": gcpServiceConnect,
+	}
+
+	return spec
+}
+
+func generateFlatTestAWSPrivateLink(endpointServiceName string) []interface{} {
+	spec := map[string]interface{}{
+		"endpoint_service_name": endpointServiceName,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestGCPServiceConnect(targetService string) []interface{} {
+	spec := map[string]interface{}{
+		"target_service": targetService,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+// General //
+func generateFlatTestIntArray(arr []int) []interface{} {
+	collection := make([]interface{}, len(arr))
+	for i, spec := range arr {
+		collection[i] = spec
+	}
+
+	return collection
 }
 
 // func TestControlPlane_FlattenIdentityStatus(t *testing.T) {

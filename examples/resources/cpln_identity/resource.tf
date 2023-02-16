@@ -100,6 +100,28 @@ resource "cpln_identity" "example" {
     ports      = [3099, 7890]
   }
 
+  # Native Network Resource with AWS Private Link
+  native_network_resource {
+			name = "test-native-network-resource"
+			fqdn = "test.com"
+			ports = [80, 443]
+
+			aws_private_link {
+				endpoint_service_name = "" // TODO: Add endpoint service name as an example
+			}
+		}
+
+  # Native Network Resource with GCP Service Connect
+  /*native_network_resource {
+    name = "test-native-network-resource"
+    fqdn = "test.com"
+    ports = [80]
+
+    gcp_service_connect {
+      target_service = "" // TODO: Add target service as an example
+    }
+  }*/
+
   aws_identity {
 
     cloud_account_link = cpln_cloud_account.example_aws.self_link

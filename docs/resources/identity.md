@@ -27,6 +27,7 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 - **gcp_access_policy** (Block List, Max: 1) ([see below](#nestedblock--gcp_access_policy)).
 
 - **network_resource** (Block List) ([see below](#nestedblock--network_resource)).
+- **native_network_resource** (Block List) ([see below](#nestedblock--native_network_resource)
 
 
 <a id="nestedblock--aws_access_policy"></a>
@@ -105,6 +106,33 @@ Optional:
 - **ips** (Set of String) List of IP addresses.
 
 - **ports** (Set of Number) Ports to expose.
+
+
+<a id="nestedblock--native_network_resource"></a>
+### `native_network_resource`
+
+Required:
+-- **name** (String) Name of the Native Network Resource.
+-- **fqln** (String)  // TODO: Missing description
+-- **ports** (Set of Number) Ports to expose. At least one is required.
+
+Optional:
+
+Exactly one of:
+-- **aws_private_link** (Block List) ([see below](#nestedblock--native_network_resource--aws_private_link))
+-- **gcp_service_connect**  (Block List) ([see below](#nestedblock--native_network_resource--gcp_service_connect))
+
+<a id="nestedblock--native_network_resource--aws_private_link"></a>
+### `aws_private_link`
+
+Required:
+-- **endpoint_service_name** (String)  // TODO: Missing description
+
+<a id="nestedblock--native_network_resource--gcp_service_connect"></a>
+### `gcp_service_connect`
+
+Required:
+-- **target_service** (String) // TODO: Missing description
 
 ## Outputs
 
@@ -218,6 +246,28 @@ resource "cpln_identity" "example" {
     ips        = ["192.168.1.1", "192.168.1.250"]
     ports      = [3099, 7890]
   }
+
+  # Native Network Resource with AWS Private Link
+  native_network_resource {
+			name = "test-native-network-resource"
+			fqdn = "test.com"
+			ports = [12345, 54321]
+
+			aws_private_link {
+				endpoint_service_name = "" // TODO: Add endpoint service name as an example
+			}
+		}
+
+  # Native Network Resource with GCP Service Connect
+  /*native_network_resource {
+    name = "test-native-network-resource"
+    fqdn = "test.com"
+    ports = [12345, 54321]
+
+    gcp_service_connect {
+      target_service = "" // TODO: Add target service as an example
+    }
+  }*/
 
   aws_access_policy {
 

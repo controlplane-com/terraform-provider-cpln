@@ -7,15 +7,16 @@ import (
 // Identity - Identity
 type Identity struct {
 	Base
-	Aws              *AwsIdentity       `json:"aws,omitempty"`
-	AwsReplace       *AwsIdentity       `json:"$replace/aws,omitempty"`
-	Gcp              *GcpIdentity       `json:"gcp,omitempty"`
-	GcpReplace       *GcpIdentity       `json:"$replace/gcp,omitempty"`
-	Azure            *AzureIdentity     `json:"azure,omitempty"`
-	AzureReplace     *AzureIdentity     `json:"$replace/azure,omitempty"`
-	NetworkResources *[]NetworkResource `json:"networkResources,omitempty"`
-	Status           *IdentityStatus    `json:"status,omitempty"`
-	Drop             *[]string          `json:"$drop,omitempty"`
+	Aws                    *AwsIdentity             `json:"aws,omitempty"`
+	AwsReplace             *AwsIdentity             `json:"$replace/aws,omitempty"`
+	Gcp                    *GcpIdentity             `json:"gcp,omitempty"`
+	GcpReplace             *GcpIdentity             `json:"$replace/gcp,omitempty"`
+	Azure                  *AzureIdentity           `json:"azure,omitempty"`
+	AzureReplace           *AzureIdentity           `json:"$replace/azure,omitempty"`
+	NetworkResources       *[]NetworkResource       `json:"networkResources,omitempty"`
+	NativeNetworkResources *[]NativeNetworkResource `json:"nativeNetworkResources,omitempty"`
+	Status                 *IdentityStatus          `json:"status,omitempty"`
+	Drop                   *[]string                `json:"$drop,omitempty"`
 }
 
 type IdentityStatus struct {
@@ -30,6 +31,25 @@ type NetworkResource struct {
 	FQDN       *string   `json:"FQDN,omitempty"`
 	ResolverIP *string   `json:"resolverIP,omitempty"`
 	Ports      *[]int    `json:"ports,omitempty"`
+}
+
+// NativeNetowrkResource - NativeNetowrkResource
+type NativeNetworkResource struct {
+	Name              *string            `json:"name,omitempty"`
+	FQDN              *string            `json:"FQDN,omitempty"`
+	Ports             *[]int             `json:"ports,omitempty"`
+	AWSPrivateLink    *AWSPrivateLink    `json:"awsPrivateLink,omitempty"`
+	GCPServiceConnect *GCPServiceConnect `json:"gcpServiceConnect,omitempty"`
+}
+
+// AWSPrivateLink - AWSPrivateLink
+type AWSPrivateLink struct {
+	EndpointServiceName *string `json:"endpointServiceName,omitempty"`
+}
+
+// GCPServiceConnect - GCPServiceConnect
+type GCPServiceConnect struct {
+	TargetService *string `json:"targetService,omitempty"`
 }
 
 // AwsIdentity - AwsIdentity
