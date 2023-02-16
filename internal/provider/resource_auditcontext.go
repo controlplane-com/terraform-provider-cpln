@@ -114,16 +114,7 @@ func resourceAuditContextUpdate(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceAuditContextDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-	err := c.DeleteAuditContext(d.Id())
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
 	d.SetId("")
-
 	return nil
 }
 

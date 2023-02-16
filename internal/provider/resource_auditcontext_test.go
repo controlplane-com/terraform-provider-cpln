@@ -35,26 +35,6 @@ func TestAccControlPlaneAuditContext_basic(t *testing.T) {
 
 func testAccControlPlaneAuditContextCheckDestroy(s *terraform.State) error {
 
-	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
-	}
-
-	c := testAccProvider.Meta().(*client.Client)
-
-	for _, rs := range s.RootModule().Resources {
-
-		if rs.Type != "cpln_audit_context" {
-			continue
-		}
-
-		auditCtxName := rs.Primary.ID
-		auditCtx, _, _ := c.GetAuditContext(auditCtxName)
-
-		if auditCtx != nil {
-			return fmt.Errorf("Audit Context still exists. Name: %s", *auditCtx.Name)
-		}
-	}
-
 	return nil
 }
 

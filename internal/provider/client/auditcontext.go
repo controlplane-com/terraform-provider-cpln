@@ -40,8 +40,3 @@ func (c *Client) UpdateAuditContext(auditCtx AuditContext) (*AuditContext, int, 
 
 	return c.GetAuditContext(*auditCtx.Name)
 }
-
-// DeleteAuditContext - Delete an Audit Context by name
-func (c *Client) DeleteAuditContext(name string) error {
-	return c.DeleteResource(fmt.Sprintf("auditctx/%s", name))
-}
