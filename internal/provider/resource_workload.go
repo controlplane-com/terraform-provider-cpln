@@ -1133,6 +1133,7 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 }
 
 func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
+
 	if len(lifecycle) == 0 {
 		return nil
 	}
@@ -2059,7 +2060,15 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 
 	if spec.PostStart != nil && len(*spec.PostStart.Exec.Command) > 0 {
 		exec := make(map[string]interface{})
-		exec["command"] = *spec.PostStart.Exec.Command
+
+		if spec.PostStart.Exec.Command != nil && len(*spec.PostStart.Exec.Command) > 0 {
+			exec["command"] = []interface{}{}
+
+			for _, command := range *spec.PostStart.Exec.Command {
+				exec["command"] = append(exec["command"].([]interface{}), command)
+			}
+		}
+
 		postStart := make(map[string]interface{})
 		postStart["exec"] = []interface{}{exec}
 		lc["post_start"] = []interface{}{postStart}
@@ -2067,7 +2076,15 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 
 	if spec.PreStop != nil && len(*spec.PreStop.Exec.Command) > 0 {
 		exec := make(map[string]interface{})
-		exec["command"] = *spec.PreStop.Exec.Command
+
+		if spec.PreStop.Exec.Command != nil && len(*spec.PreStop.Exec.Command) > 0 {
+			exec["command"] = []interface{}{}
+
+			for _, command := range *spec.PreStop.Exec.Command {
+				exec["command"] = append(exec["command"].([]interface{}), command)
+			}
+		}
+
 		preStop := make(map[string]interface{})
 		preStop["exec"] = []interface{}{exec}
 		lc["pre_stop"] = []interface{}{preStop}

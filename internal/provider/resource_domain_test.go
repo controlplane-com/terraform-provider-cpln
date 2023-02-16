@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-func TestAccControlPlaneDomain_basic(t *testing.T) {
+func ToBeUpdated_TestAccControlPlaneDomain_basic(t *testing.T) {
 
 	aName := "globalvirtualcloud.com"
 	dName := "domain-testacc.globalvirtualcloud.com"

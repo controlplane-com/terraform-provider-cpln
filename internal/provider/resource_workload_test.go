@@ -237,6 +237,38 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 		metrics,
 	}
 
+	postStartExec := make(map[string]interface{})
+	postStartExec["command"] = []interface{}{
+		"lc_post_1", "lc_post_2", "lc_post_3",
+	}
+	postStart := make(map[string]interface{})
+	postStart["exec"] = []interface{}{
+		postStartExec,
+	}
+
+	preStopExec := make(map[string]interface{})
+	preStopExec["command"] = []interface{}{
+		"lc_pre_1", "lc_pre_2", "lc_pre_3",
+	}
+	preStop := make(map[string]interface{})
+	preStop["exec"] = []interface{}{
+		preStopExec,
+	}
+
+	lifecycle := make(map[string]interface{})
+
+	lifecycle["post_start"] = []interface{}{
+		postStart,
+	}
+
+	lifecycle["pre_stop"] = []interface{}{
+		preStop,
+	}
+
+	c["lifecycle"] = []interface{}{
+		lifecycle,
+	}
+
 	readiness := make(map[string]interface{})
 
 	readiness["initial_delay_seconds"] = 1
@@ -395,7 +427,7 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	if useSet {
 		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
 	} else {
-		e["inbound_allow_cidr"] = []string{"0.0.0.0/0"}
+		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
 	}
 
 	// e["outbound_allow_cidr"] = []interface{}{}
