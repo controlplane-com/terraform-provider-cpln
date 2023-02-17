@@ -116,6 +116,7 @@ func resourceIdentity() *schema.Resource {
 						"ports": {
 							Type:     schema.TypeSet,
 							Required: true,
+							MinItems: 1,
 							Elem: &schema.Schema{
 								Type: schema.TypeInt,
 							},
