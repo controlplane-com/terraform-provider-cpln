@@ -232,6 +232,29 @@ func testAccControlPlaneIdentity(orgName, randomName, gvcName, gvcDescription, a
 				roles = ["roles/editor", "roles/iam.serviceAccountUser"]
 			}
 		}
+
+		ngs_access_policy {
+			cloud_account_link = "/org/terraform-test-org/cloudaccount/test-ngs"
+
+			pub {
+				allow = ["allow_1", "allow_2"]
+				deny = ["deny_1", "deny_2"]
+			}
+
+			sub {
+				allow = ["allow_3", "allow_4"]
+				deny = ["deny_3", "deny_4"]
+			}
+
+			resp {
+				max = 10
+				ttl = "500ms"
+			}
+
+			subs = -1
+			data = -1
+			payload = -1
+		}
 	}
 	
 	`, orgName, randomName, gvcName, gvcDescription, agentName, identityName, identityDescription)
@@ -302,6 +325,21 @@ func testAccCheckControlPlaneIdentityCheckDestroy(s *terraform.State) error {
 }
 
 /*** Unit Tests ***/
+// Build NGS Identity //
+func TestControlPlane_BuildNgsIdentity_Complete(t *testing.T) {
+	ngsIdentity, expectedNgsIdentity, _ := generateNgsIdentity_Complete()
+	if diff := deep.Equal(ngsIdentity, &expectedNgsIdentity); diff != nil {
+		t.Errorf("Ngs Identity Complete was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildNgsIdentity_WithCloudAccountLink(t *testing.T) {
+	ngsIdentity, expectedNgsIdentity, _ := generateNgsIdentity_WithCloudAccountLink()
+	if diff := deep.Equal(ngsIdentity, &expectedNgsIdentity); diff != nil {
+		t.Errorf("Ngs Identity With Cloud Account Link was not built correctly. Diff: %s", diff)
+	}
+}
+
 // Build Native Network Resources //
 func TestControlPlane_BuildNativeNetworkResources(t *testing.T) {
 	nativeNetworkResources, expectedNativeNetworkResources, _ := generateNativeNetworkResources()
@@ -339,6 +377,75 @@ func TestControlPlane_BuildGCPServiceConnect(t *testing.T) {
 }
 
 /*** Generate ***/
+func generateNgsIdentity_WithCloudAccountLink() (*client.NgsIdentity, client.NgsIdentity, []interface{}) {
+	cloudAccountLink := "link"
+
+	flattened := generateFlatTestNgsIdentity_WithCloudAccountLink(cloudAccountLink)
+	ngsIdentity := buildNgsIdentity(flattened)
+	expectedNgsIdentity := client.NgsIdentity{
+		CloudAccountLink: &cloudAccountLink,
+	}
+
+	return ngsIdentity, expectedNgsIdentity, flattened
+
+}
+
+func generateNgsIdentity_Complete() (*client.NgsIdentity, client.NgsIdentity, []interface{}) {
+	cloudAccountLink := "link"
+	_, expectedPub, flattenedPub := generateNgsPermissionSet()
+	_, expectedSub, flattenedSub := generateNgsPermissionSet()
+	_, expectedResp, flattenedResp := generateNgsResp()
+	subs := -1
+	data := -1
+	payload := -1
+
+	flattened := generateFlatTestNgsIdentity_Complete(cloudAccountLink, flattenedPub, flattenedSub, flattenedResp, subs, data, payload)
+	ngsIdentity := buildNgsIdentity(flattened)
+	expectedNgsIdentity := client.NgsIdentity{
+		CloudAccountLink: &cloudAccountLink,
+		Pub:              &expectedPub,
+		Sub:              &expectedSub,
+		Resp:             &expectedResp,
+		Subs:             &subs,
+		Data:             &data,
+		Payload:          &payload,
+	}
+
+	return ngsIdentity, expectedNgsIdentity, flattened
+}
+
+func generateNgsPermissionSet() (*client.NgsPermissionSet, client.NgsPermissionSet, []interface{}) {
+	allow := []string{"allow_1"}
+	deny := []string{"deny_1"}
+
+	stringFunc := schema.HashSchema(StringSchema())
+	allowSet := schema.NewSet(stringFunc, generateFlatTestStringArray(allow))
+	denySet := schema.NewSet(stringFunc, generateFlatTestStringArray(deny))
+
+	flattened := generateFlatTestNgsPermissionSet(allowSet, denySet)
+	permissionSet := buildNgsPermissionSet(flattened)
+	expectedPermissionSet := client.NgsPermissionSet{
+		Allow: &allow,
+		Deny:  &deny,
+	}
+
+	return permissionSet, expectedPermissionSet, flattened
+}
+
+func generateNgsResp() (*client.NgsResp, client.NgsResp, []interface{}) {
+	max := -1
+	ttl := "-1"
+
+	flattened := generateFlatTestNgsResp(max, ttl)
+	resp := buildNgsResp(flattened)
+	expectedResp := client.NgsResp{
+		Max: &max,
+		TTL: &ttl,
+	}
+
+	return resp, expectedResp, flattened
+}
+
 func generateNativeNetworkResources() (*[]client.NativeNetworkResource, []client.NativeNetworkResource, []interface{}) {
 	_, expectedAWS, flattenedAWS := generateNativeNetworkResource_WithAWS()
 	_, expectedGCP, flattenedGCP := generateNativeNetworkResource_WithGCP()
@@ -418,6 +525,54 @@ func generateGCPServiceConnect() (*client.GCPServiceConnect, client.GCPServiceCo
 }
 
 /*** Flatten ***/
+func generateFlatTestNgsIdentity_Complete(cloudAccountLink string, pub []interface{}, sub []interface{}, resp []interface{}, subs int, data int, payload int) []interface{} {
+	spec := map[string]interface{}{
+		"cloud_account_link": cloudAccountLink,
+		"pub":                pub,
+		"sub":                sub,
+		"resp":               resp,
+		"subs":               subs,
+		"data":               data,
+		"payload":            payload,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestNgsIdentity_WithCloudAccountLink(cloudAccountLink string) []interface{} {
+	spec := map[string]interface{}{
+		"cloud_account_link": cloudAccountLink,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestNgsPermissionSet(allow *schema.Set, deny *schema.Set) []interface{} {
+	spec := map[string]interface{}{
+		"allow": allow,
+		"deny":  deny,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestNgsResp(max int, ttl string) []interface{} {
+	spec := map[string]interface{}{
+		"max": max,
+		"ttl": ttl,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func generateFlatTestNativeNetworkResource_WithAWS(name string, fqdn string, ports *schema.Set, awsPrivateLink []interface{}) interface{} {
 	spec := map[string]interface{}{
 		"name":             name,
@@ -462,6 +617,15 @@ func generateFlatTestGCPServiceConnect(targetService string) []interface{} {
 
 // General //
 func generateFlatTestIntArray(arr []int) []interface{} {
+	collection := make([]interface{}, len(arr))
+	for i, spec := range arr {
+		collection[i] = spec
+	}
+
+	return collection
+}
+
+func generateFlatTestStringArray(arr []string) []interface{} {
 	collection := make([]interface{}, len(arr))
 	for i, spec := range arr {
 		collection[i] = spec

@@ -167,4 +167,27 @@ resource "cpln_identity" "example" {
       roles    = ["roles/editor", "roles/iam.serviceAccountUser"]
     }
   }
+
+  ngs_access_policy {
+    cloud_account_link = "/org/{org_name}/cloudaccount/{nats_account_secret}"
+
+    pub {
+      allow = ["allow_1", "allow_2"]
+      deny = ["deny_1", "deny_2"]
+    }
+
+    sub {
+      allow = ["allow_3", "allow_4"]
+      deny = ["deny_3", "deny_4"]
+    }
+
+    resp {
+      max = 10
+      ttl = "500ms"
+    }
+
+    subs = -1
+    data = -1
+    payload = -1
+  }
 }

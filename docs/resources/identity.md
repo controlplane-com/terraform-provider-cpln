@@ -25,6 +25,7 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 - **aws_access_policy** (Block List, Max: 1) ([see below](#nestedblock--aws_access_policy)).
 - **azure_access_policy** (Block List, Max: 1) ([see below](#nestedblock--azure_access_policy)).
 - **gcp_access_policy** (Block List, Max: 1) ([see below](#nestedblock--gcp_access_policy)).
+- **ngs_access_policy** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy)).
 
 - **network_resource** (Block List) ([see below](#nestedblock--network_resource)).
 - **native_network_resource** (Block List) ([see below](#nestedblock--native_network_resource)
@@ -84,6 +85,37 @@ Optional:
 - **roles** (List of String) List of allowed roles.
 
 
+<a id="nestedblock--ngs_access_policy"></a>
+ ### `ngs_access_policy`
+
+ Required:
+
+- **cloud_account_link** (String) Full link to referenced Cloud Account.
+
+Optional:
+
+- **pub** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy--premissions_set)).
+- **sub** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy--premissions_set)).
+- **resp** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy--resp)).
+- **subs** (Number) Max number of subscriptions per connection.
+- **data** (Number) Max number of bytes a connection can send.
+- **payload** (Number) Max message payload.
+
+<a id="nestedblock--ngs_access_policy--premissions_set"></a>
+### `ngs_access_policy.premissions_set`
+
+Optional:
+
+- **allow** (Set of String) // TODO: missing description.
+- **deny** (Set of String) // TODO: missing description.
+
+<a id="nestedblock--ngs_access_policy--resp"></a>
+ ### `ngs_access_policy.resp`
+
+Optional:
+
+- **max** (Number) Number of responses allowed on the replyTo subject, -1 means no limit.
+- **ttl** (String) Deadline to send replies on the replyTo subject [#ms(millis) | #s(econds) | m(inutes) | h(ours)]. -1 means no restriction.
 
 <a id="nestedblock--network_resource"></a>
  ### `network_resource`
@@ -313,6 +345,29 @@ resource "cpln_identity" "example" {
       resource = "//iam.googleapis.com/projects/cpln-test/serviceAccounts/cpln-tf@cpln-test.iam.gserviceaccount.com"
       roles    = ["roles/editor", "roles/iam.serviceAccountUser"]
     }
+  }
+
+  ngs_access_policy {
+    cloud_account_link = "/org/{org_name}/cloudaccount/{nats_account_secret}"
+
+    pub {
+      allow = ["allow_1", "allow_2"]
+      deny = ["deny_1", "deny_2"]
+    }
+
+    sub {
+      allow = ["allow_3", "allow_4"]
+      deny = ["deny_3", "deny_4"]
+    }
+
+    resp {
+      max = 10
+      ttl = "500ms"
+    }
+
+    subs = -1
+    data = -1
+    payload = -1
   }
 }
 ```

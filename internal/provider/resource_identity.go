@@ -303,6 +303,65 @@ func resourceIdentity() *schema.Resource {
 					},
 				},
 			},
+			"ngs_access_policy": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"cloud_account_link": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: LinkValidator,
+						},
+						"pub": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem:     permissionSetResource(),
+						},
+						"sub": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem:     permissionSetResource(),
+						},
+						"resp": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"max": {
+										Type:     schema.TypeInt,
+										Optional: true,
+										Default:  1,
+									},
+									"ttl": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+						"subs": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  -1,
+						},
+						"data": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  -1,
+						},
+						"payload": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  -1,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateIdentity,
@@ -324,6 +383,27 @@ func importStateIdentity(ctx context.Context, d *schema.ResourceData, meta inter
 	return []*schema.ResourceData{d}, nil
 }
 
+func permissionSetResource() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"allow": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"deny": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+		},
+	}
+}
+
 func resourceIdentityCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceIdentityCreate")
@@ -340,6 +420,7 @@ func resourceIdentityCreate(ctx context.Context, d *schema.ResourceData, m inter
 	buildAzureIdentity(d.Get("azure_access_policy").([]interface{}), &identity, false)
 	buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identity, false)
 	identity.NativeNetworkResources = buildNativeNetworkResources(d.Get("native_network_resource").([]interface{}))
+	identity.Ngs = buildNgsIdentity(d.Get("ngs_access_policy").([]interface{}))
 
 	c := m.(*client.Client)
 	newIdentity, code, err := c.CreateIdentity(identity, gvcName)
@@ -660,6 +741,62 @@ func buildGcpIdentity(gcpIdentities []interface{}, identity *client.Identity, up
 	}
 }
 
+func buildNgsIdentity(specs []interface{}) *client.NgsIdentity {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	result := client.NgsIdentity{
+		CloudAccountLink: GetString(spec["cloud_account_link"]),
+		Subs:             GetInt(spec["subs"]),
+		Data:             GetInt(spec["data"]),
+		Payload:          GetInt(spec["payload"]),
+	}
+
+	if spec["pub"] != nil {
+		result.Pub = buildNgsPermissionSet(spec["pub"].([]interface{}))
+	}
+
+	if spec["sub"] != nil {
+		result.Sub = buildNgsPermissionSet(spec["sub"].([]interface{}))
+	}
+
+	if spec["resp"] != nil {
+		result.Resp = buildNgsResp(spec["resp"].([]interface{}))
+	}
+
+	return &result
+}
+
+func buildNgsPermissionSet(specs []interface{}) *client.NgsPermissionSet {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	result := client.NgsPermissionSet{
+		Allow: GetStringsArrayFromSet(spec["allow"]),
+		Deny:  GetStringsArrayFromSet(spec["deny"]),
+	}
+
+	return &result
+}
+
+func buildNgsResp(specs []interface{}) *client.NgsResp {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	result := client.NgsResp{
+		Max: GetInt(spec["max"]),
+		TTL: GetString(spec["ttl"]),
+	}
+
+	return &result
+}
+
 func flattenNetworkResources(networkResources *[]client.NetworkResource) []interface{} {
 
 	if networkResources != nil && len(*networkResources) > 0 {
@@ -885,6 +1022,83 @@ func flattenGcpIdentity(gcpIdentity *client.GcpIdentity) []interface{} {
 	return nil
 }
 
+func flattenNgsIdentity(ngsIdentity *client.NgsIdentity) []interface{} {
+	if ngsIdentity == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+	result["cloud_account_link"] = *ngsIdentity.CloudAccountLink
+
+	if ngsIdentity.Pub != nil {
+		result["pub"] = flattenNgsPermissionSet(ngsIdentity.Pub)
+	}
+
+	if ngsIdentity.Sub != nil {
+		result["sub"] = flattenNgsPermissionSet(ngsIdentity.Sub)
+	}
+
+	if ngsIdentity.Resp != nil {
+		result["resp"] = flattenNgsResp(ngsIdentity.Resp)
+	}
+
+	if ngsIdentity.Subs != nil {
+		result["subs"] = *ngsIdentity.Subs
+	}
+
+	if ngsIdentity.Data != nil {
+		result["data"] = *ngsIdentity.Data
+	}
+
+	if ngsIdentity.Payload != nil {
+		result["payload"] = *ngsIdentity.Payload
+	}
+
+	return []interface{}{
+		result,
+	}
+}
+
+func flattenNgsPermissionSet(permissionSet *client.NgsPermissionSet) []interface{} {
+	if permissionSet == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+
+	if permissionSet.Allow != nil && len(*permissionSet.Allow) != 0 {
+		result["allow"] = flattenReferencedStringsArray(permissionSet.Allow)
+	}
+
+	if permissionSet.Deny != nil && len(*permissionSet.Deny) != 0 {
+		result["deny"] = flattenReferencedStringsArray(permissionSet.Deny)
+	}
+
+	return []interface{}{
+		result,
+	}
+}
+
+func flattenNgsResp(resp *client.NgsResp) []interface{} {
+	if resp == nil {
+		return nil
+	}
+
+	result := make(map[string]interface{})
+
+	if resp.Max != nil {
+		result["max"] = *resp.Max
+	}
+
+	if resp.TTL != nil {
+		result["ttl"] = *resp.TTL
+	}
+
+	return []interface{}{
+		result,
+	}
+}
+
 func resourceIdentityRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceIdentityRead")
@@ -943,6 +1157,10 @@ func setIdentity(d *schema.ResourceData, identity *client.Identity, gvcName stri
 		return diag.FromErr(err)
 	}
 
+	if err := d.Set("ngs_access_policy", flattenNgsIdentity(identity.Ngs)); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if err := SetSelfLink(identity.Links, d); err != nil {
 		return diag.FromErr(err)
 	}
@@ -965,7 +1183,7 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceIdentityUpdate")
 
-	if d.HasChanges("description", "tags", "network_resource", "native_network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy") {
+	if d.HasChanges("description", "tags", "network_resource", "native_network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy", "ngs_access_policy") {
 
 		gvcName := d.Get("gvc").(string)
 
@@ -1000,6 +1218,20 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 			buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identityToUpdate, true)
 		}
 
+		if d.HasChange("ngs_access_policy") {
+			ngsIdentity := buildNgsIdentity(d.Get("ngs_access_policy").([]interface{}))
+			if ngsIdentity != nil {
+				identityToUpdate.NgsReplace = ngsIdentity
+			} else {
+				if identityToUpdate.Drop == nil {
+					identityToUpdate.Drop = &[]string{}
+				}
+
+				list := *identityToUpdate.Drop
+				newList := append(list, "ngs")
+				identityToUpdate.Drop = &newList
+			}
+		}
 		c := m.(*client.Client)
 		updatedIdentity, _, err := c.UpdateIdentity(identityToUpdate, gvcName)
 		if err != nil {
