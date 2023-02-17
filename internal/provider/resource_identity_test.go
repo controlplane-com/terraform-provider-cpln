@@ -169,8 +169,8 @@ func testAccControlPlaneIdentity(orgName, randomName, gvcName, gvcDescription, a
 		}
 
 		native_network_resource {
-			name = "test-native-network-resource"
-			fqdn = "test.com"
+			name = "test-native-network-resource-aws-${var.random_name}"
+			fqdn = "test-${var.random_name}.com"
 			ports = [12345, 54321]
 
 			aws_private_link {
@@ -178,15 +178,15 @@ func testAccControlPlaneIdentity(orgName, randomName, gvcName, gvcDescription, a
 			}
 		}
 
-		/*native_network_resource {
-			name = "test-native-network-resource"
-			fqdn = "test.com"
-			ports = [12345, 54321]
+		native_network_resource {
+			name = "test-native-network-resource-gcp-${var.random_name}"
+			fqdn = "test-2-${var.random_name}.com"
+			ports = [80, 443]
 
 			gcp_service_connect {
-				target_service = "no-target-service-found-for-testing"
+				target_service = "projects/asd/regions/qwe/serviceAttachments/gcp-${var.random_name}"
 			}
-		}*/
+		}
 
 		aws_access_policy {
 			cloud_account_link = cpln_cloud_account.test_aws_cloud_account.self_link
