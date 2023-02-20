@@ -397,17 +397,16 @@ func resourceWorkload() *schema.Resource {
 						"history_limit": {
 							Type:     schema.TypeInt,
 							Optional: true,
-							// Validate the number to see if it is between 1 and 10?
+							Default:  5,
 						},
 						"restart_policy": {
 							Type:     schema.TypeString,
 							Optional: true,
-							// Does it have a default value?
+							Default:  "Never",
 						},
 						"active_deadline_seconds": {
 							Type:     schema.TypeInt,
 							Optional: true,
-							// Does it have a default value?
 						},
 					},
 				},
