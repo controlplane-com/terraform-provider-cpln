@@ -729,3 +729,8 @@ func PortProtocolValidator(val interface{}, key string) (warns []string, errs []
 
 	return
 }
+
+func GetNameFromSelfLink(selfLink string) string {
+	parts := strings.Split(selfLink, "/")
+	return parts[len(parts)-1]
+}

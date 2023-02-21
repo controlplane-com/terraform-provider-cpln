@@ -4,8 +4,11 @@ import (
 	"fmt"
 )
 
+const MAX_ATTEMPTS = 10
+
 // Domain - Org Defined Domain Name
 type Domain struct {
+	Base
 	Name        *string                 `json:"name,omitempty"`
 	Description *string                 `json:"description,omitempty"`
 	Tags        *map[string]interface{} `json:"tags,omitempty"`
@@ -120,138 +123,143 @@ func (c *Client) DeleteDomain(name string) error {
 }
 
 /*** Domain Route ***/
-func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainRoute) (*DomainRoute, error) {
-	domain, _, err := c.GetDomain(domainName)
+func (c *Client) AddDomainRoute(domainName string, route DomainRoute) (*DomainRoute, error) {
 
-	if err != nil {
-		return nil, err
-	}
+	for {
+		domain, _, err := c.GetDomain(domainName)
 
-	// append new route to the domain's correct port
-	found := false
-
-	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
-
-		for i, port := range *domain.Spec.Ports {
-			if *port.Number != domainPort {
-				continue
-			}
-
-			found = true
-
-			if (*domain.Spec.Ports)[i].Routes == nil {
-				(*domain.Spec.Ports)[i].Routes = &[]DomainRoute{}
-			}
-
-			*(*domain.Spec.Ports)[i].Routes = append(*(*domain.Spec.Ports)[i].Routes, route)
-			break
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	if !found {
-		return nil, fmt.Errorf("Domain port was not found")
-	}
+		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+			return nil, fmt.Errorf("Domain is not configured correctly, ports are not set")
+		}
 
-	_, err = c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-	if err != nil {
-		return nil, err
+		// Append a new route
+		if (*domain.Spec.Ports)[0].Routes == nil {
+			(*domain.Spec.Ports)[0].Routes = &[]DomainRoute{}
+		}
+
+		*(*domain.Spec.Ports)[0].Routes = append(*(*domain.Spec.Ports)[0].Routes, route)
+
+		// Update resource
+		code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+		if code == 409 {
+			continue
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		break
 	}
 
 	return &route, nil
 }
 
-func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *DomainRoute) (*DomainRoute, error) {
-	domain, _, err := c.GetDomain(domainName)
+func (c *Client) UpdateDomainRoute(domainName string, route *DomainRoute) (*DomainRoute, error) {
 
-	if err != nil {
-		return nil, err
-	}
+	for {
+		domain, _, err := c.GetDomain(domainName)
 
-	// update the values of the route in place
-	found := false
+		if err != nil {
+			return nil, err
+		}
 
-	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
-		for i, port := range *domain.Spec.Ports {
-			if *port.Number != domainPort {
+		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+			return nil, fmt.Errorf("Domain is not configured correctly, ports are not set")
+		}
+
+		found := false
+
+		// Update given route
+		for j, _route := range *(*domain.Spec.Ports)[0].Routes {
+			if *_route.Prefix != *route.Prefix {
 				continue
 			}
 
-			for j, _route := range *port.Routes {
-				if *_route.Prefix != *route.Prefix {
-					continue
-				}
+			*(*(*domain.Spec.Ports)[0].Routes)[j].Prefix = *route.Prefix
+			*(*(*domain.Spec.Ports)[0].Routes)[j].WorkloadLink = *route.WorkloadLink
 
-				*(*(*domain.Spec.Ports)[i].Routes)[j].Prefix = *route.Prefix
-
-				if route.ReplacePrefix != nil {
-					*(*(*domain.Spec.Ports)[i].Routes)[j].ReplacePrefix = *route.ReplacePrefix
-				}
-
-				*(*(*domain.Spec.Ports)[i].Routes)[j].WorkloadLink = *route.WorkloadLink
-
-				if route.Port != nil {
-					*(*(*domain.Spec.Ports)[i].Routes)[j].Port = *route.Port
-				}
-
-				found = true
-				break
+			if route.ReplacePrefix != nil {
+				*(*(*domain.Spec.Ports)[0].Routes)[j].ReplacePrefix = *route.ReplacePrefix
 			}
 
-			if found {
-				break
+			if route.Port != nil {
+				*(*(*domain.Spec.Ports)[0].Routes)[j].Port = *route.Port
 			}
+
+			found = true
+			break
 		}
-	}
 
-	if !found {
-		return nil, fmt.Errorf("Domain route to update was not found")
-	}
+		if !found {
+			return nil, fmt.Errorf("Domain route specified was not found")
+		}
 
-	_, err = c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-	if err != nil {
-		return nil, err
+		// Update resource
+		code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+		if code == 409 {
+			continue
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		break
 	}
 
 	return route, nil
 }
 
-func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix string) (bool, error) {
-	domain, _, err := c.GetDomain(domainName)
+func (c *Client) RemoveDomainRoute(domainName string, prefix string) (bool, error) {
 
-	if err != nil {
-		return false, err
-	}
+	for {
+		domain, _, err := c.GetDomain(domainName)
 
-	// update the values of the route in place
-	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
-		for i, port := range *domain.Spec.Ports {
-			if *port.Number != domainPort {
+		if err != nil {
+			return false, err
+		}
+
+		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+			return false, fmt.Errorf("Domain is not configured correctly, ports are not set")
+		}
+
+		// Remove route
+		routeIndex := -1
+
+		for j, _route := range *(*domain.Spec.Ports)[0].Routes {
+			if *_route.Prefix != prefix {
 				continue
 			}
 
-			routeIndex := -1
-
-			for j, _route := range *port.Routes {
-				if *_route.Prefix != prefix {
-					continue
-				}
-
-				routeIndex = j
-				break
-			}
-
-			if routeIndex == -1 {
-				continue
-			}
-
-			*(*domain.Spec.Ports)[i].Routes = append((*(*domain.Spec.Ports)[i].Routes)[:routeIndex], (*(*domain.Spec.Ports)[i].Routes)[routeIndex+1:]...)
+			routeIndex = j
 			break
 		}
-	}
 
-	_, err = c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-	if err != nil {
-		return false, err
+		if routeIndex == -1 {
+			continue
+		}
+
+		*(*domain.Spec.Ports)[0].Routes = append((*(*domain.Spec.Ports)[0].Routes)[:routeIndex], (*(*domain.Spec.Ports)[0].Routes)[routeIndex+1:]...)
+
+		// Update resource
+		code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+		if code == 409 {
+			continue
+		}
+
+		if err != nil {
+			return false, err
+		}
+
+		break
 	}
 
 	return true, nil

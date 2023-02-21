@@ -16,16 +16,10 @@ func resourceDomainRoute() *schema.Resource {
 		UpdateContext: resourceDomainRouteUpdate,
 		DeleteContext: resourceDomainRouteDelete,
 		Schema: map[string]*schema.Schema{
-			"domain_name": {
+			"domain_link": {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Required: true,
-				// TODO validate domain name
-			},
-			"domain_port": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  443,
 			},
 			"prefix": {
 				Type:     schema.TypeString,
@@ -49,8 +43,7 @@ func resourceDomainRoute() *schema.Resource {
 }
 
 func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	domainName := d.Get("domain_name").(string)
-	domainPort := d.Get("domain_port").(int)
+	domainLink := d.Get("domain_link").(string)
 	route := client.DomainRoute{
 		Prefix:        GetString(d.Get("prefix")),
 		ReplacePrefix: GetString(d.Get("replace_prefix")),
@@ -59,58 +52,43 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	c := m.(*client.Client)
-	newRoute, err := c.AddDomainRoute(domainName, domainPort, route)
+	newRoute, err := c.AddDomainRoute(GetNameFromSelfLink(domainLink), route)
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	return setDomainRoute(d, domainName, domainPort, newRoute)
+	return setDomainRoute(d, domainLink, newRoute)
 }
 
 func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	domainName := d.Id()
-	domainPort := d.Get("domain_port").(int)
+	domainLink := d.Id()
 	prefix := d.Get("prefix").(string)
 
 	c := m.(*client.Client)
-	domain, code, err := c.GetDomain(domainName)
+	domain, code, err := c.GetDomain(GetNameFromSelfLink(domainLink))
 
-	// TODO fix this logic for all resources, we don't need to set gvc to nil when a domain is not found, unrelated
 	if code == 404 {
-		return setDomainRoute(d, domainName, domainPort, nil)
+		return setDomainRoute(d, domainLink, nil)
 	}
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	if domain.Spec.Ports != nil && len(*domain.Spec.Ports) > 0 {
-		for _, port := range *domain.Spec.Ports {
-			if port.Number != &domainPort {
-				continue
-			}
-
-			if port.Routes == nil || len(*port.Routes) == 0 {
-				continue
-			}
-
-			for _, route := range *port.Routes {
-				if route.Prefix != &prefix {
-					continue
-				}
-
-				return setDomainRoute(d, domainName, domainPort, &route)
-			}
+	for _, route := range *(*domain.Spec.Ports)[0].Routes {
+		if route.Prefix != &prefix {
+			continue
 		}
+
+		return setDomainRoute(d, domainLink, &route)
 	}
 
 	return nil
 }
 
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	domainName := d.Get("domain_name").(string)
-	domainPort := d.Get("domain_port").(int)
+	domainLink := d.Get("domain_link").(string)
 	route := &client.DomainRoute{
 		Prefix:        GetString(d.Get("prefix")),
 		ReplacePrefix: GetString(d.Get("replace_prefix")),
@@ -120,22 +98,21 @@ func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m in
 
 	c := m.(*client.Client)
 
-	newRoute, err := c.UpdateDomainRoute(domainName, domainPort, route)
+	newRoute, err := c.UpdateDomainRoute(GetNameFromSelfLink(domainLink), route)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	return setDomainRoute(d, domainName, domainPort, newRoute)
+	return setDomainRoute(d, domainLink, newRoute)
 }
 
 func resourceDomainRouteDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	domainName := d.Get("domain_name").(string)
-	domainPort := d.Get("domain_port").(int)
+	domainLink := d.Get("domain_link").(string)
 	prefix := d.Get("prefix").(string)
 
 	c := m.(*client.Client)
 
-	_, err := c.RemoveDomainRoute(domainName, domainPort, prefix)
+	_, err := c.RemoveDomainRoute(GetNameFromSelfLink(domainLink), prefix)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -145,19 +122,15 @@ func resourceDomainRouteDelete(ctx context.Context, d *schema.ResourceData, m in
 	return nil
 }
 
-func setDomainRoute(d *schema.ResourceData, domainName string, domainPort int, route *client.DomainRoute) diag.Diagnostics {
+func setDomainRoute(d *schema.ResourceData, domainLink string, route *client.DomainRoute) diag.Diagnostics {
 	if route == nil {
 		d.SetId("")
 		return nil
 	}
 
-	d.SetId(domainName)
+	d.SetId(domainLink)
 
-	if err := d.Set("domain_name", domainName); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("domain_port", domainPort); err != nil {
+	if err := d.Set("domain_link", domainLink); err != nil {
 		return diag.FromErr(err)
 	}
 
