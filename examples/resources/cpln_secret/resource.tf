@@ -371,7 +371,7 @@ resource "cpln_secret" "nats_account" {
   }
 
   nats_account {
-    account_id = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
-    private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+    account_id = ${var.nats_account-account_id}
+    private_key = ${var.nats_account-private_key}
   }
 }
