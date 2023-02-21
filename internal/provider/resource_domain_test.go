@@ -278,13 +278,13 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 		port = 80
 	}
 
-	resource "cpln_domain_route" "route_second" {
+	/*resource "cpln_domain_route" "route_second" {
 		domain_link = cpln_domain.ns_pathbased.self_link
 
 		prefix = "/second"
 		workload_link = cpln_workload.new.self_link
 		port = 443
-	}
+	}*/
 	
 	`, random, domainName)
 }
@@ -458,6 +458,22 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *clien
 
 		if *dnsMode != expectedDnsMode {
 			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", dnsMode, expectedDnsMode)
+		}
+
+		port1 := 80
+		prefix1 := "/first"
+		wl := "/org/" + *org.Name + "/gvc/gvc-" + randomName + "/workload/workload-" + randomName
+
+		routes := []client.DomainRoute{
+			{
+				Prefix:       &prefix1,
+				WorkloadLink: &wl,
+				Port:         &port1,
+			},
+		}
+
+		if diff := deep.Equal(&routes, (*domain.Spec.Ports)[0].Routes); diff != nil {
+			return fmt.Errorf("Domain spec port routes does not match. Diff: %s", diff)
 		}
 
 		return nil
