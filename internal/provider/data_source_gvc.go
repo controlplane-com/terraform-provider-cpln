@@ -13,56 +13,7 @@ func dataSourceGvc() *schema.Resource {
 
 	return &schema.Resource{
 		ReadContext: dataSourceGvcRead,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"domain": {
-				Type:       schema.TypeString,
-				Computed:   true,
-				Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
-			},
-			"alias": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"pull_secrets": {
-				Type:     schema.TypeSet,
-				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"locations": {
-				Type:     schema.TypeSet,
-				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"tags": {
-				Type:     schema.TypeMap,
-				Computed: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"lightstep_tracing": client.LightstepSchema(),
-		},
+		Schema:      GvcSchema(),
 	}
 }
 
