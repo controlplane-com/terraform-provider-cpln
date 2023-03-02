@@ -46,10 +46,10 @@ func resourcePolicy() *schema.Resource {
 				Computed: true,
 			},
 			"target_kind": {
-				Type:         schema.TypeString,
-				ForceNew:     true,
-				Required:     true,
-				ValidateFunc: KindValidator,
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Required: true,
+				// ValidateFunc: KindValidator,
 			},
 			"target_links": {
 				Type:     schema.TypeSet,
