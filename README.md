@@ -249,4 +249,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.0.122 - HotFix for new and missing workload properties.
 - v1.0.123 - Updates for -refresh-only flag.
 - v1.0.13 - Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.
-- v1.1.1 - Update to Go 1.1.8 and Terraform SDK 2.25.0. Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.
+- v1.1.0 - Update to Go 1.1.8 and Terraform SDK 2.25.0. Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.
+- v1.1.1 - Add identity manager to group.
