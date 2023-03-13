@@ -69,8 +69,8 @@ This method is useful for managing the grouping of users loggined with SAML prov
 
 Required:
 
-- **expression** (String) //TODO: add description.
-- **language** (String) Default: `jmespath` //TODO: add description.
+- **expression** (String) Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged in with SAML providers.
+- **language** (String) Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`. 
 
 ## Outputs
 
