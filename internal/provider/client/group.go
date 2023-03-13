@@ -7,9 +7,15 @@ import (
 // Group - Control Plane Group
 type Group struct {
 	Base
-	MemberLinks *[]string `json:"memberLinks,omitempty"`
-	MemberQuery *Query    `json:"memberQuery,omitempty"`
-	Origin      *string   `json:"origin,omitempty"`
+	MemberLinks     *[]string        `json:"memberLinks,omitempty"`
+	MemberQuery     *Query           `json:"memberQuery,omitempty"`
+	IdentityMatcher *IdentityMatcher `json:"identityMatcher,omitempty"`
+	Origin          *string          `json:"origin,omitempty"`
+}
+
+type IdentityMatcher struct {
+	Expression *string `json:"expression,omitempty"`
+	Language   *string `json:"language,omitempty"` // Enum: [ jmespath, javascript ]
 }
 
 // GetGroup - Get Group by name
