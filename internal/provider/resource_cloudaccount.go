@@ -16,112 +16,127 @@ func resourceCloudAccount() *schema.Resource {
 		ReadContext:   resourceCloudAccountRead,
 		UpdateContext: resourceCloudAccountUpdate,
 		DeleteContext: resourceCloudAccountDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+		Schema:        CloudAccountSchema(),
+		Importer:      &schema.ResourceImporter{},
+	}
+}
+
+func CloudAccountSchema() map[string]*schema.Schema {
+	return map[string]*schema.Schema{
+		"cpln_id": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"name": {
+			Type:         schema.TypeString,
+			Required:     true,
+			ForceNew:     true,
+			ValidateFunc: NameValidator,
+		},
+		"description": {
+			Type:             schema.TypeString,
+			Optional:         true,
+			ValidateFunc:     DescriptionValidator,
+			DiffSuppressFunc: DiffSuppressDescription,
+		},
+		"tags": {
+			Type:     schema.TypeMap,
+			Optional: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
 			},
-			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-				ValidateFunc: TagValidator,
-			},
-			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"aws": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
-				ConflictsWith: []string{"azure", "gcp"},
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"role_arn": {
-							Type:     schema.TypeString,
-							Required: true,
-							ForceNew: true,
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+			ValidateFunc: TagValidator,
+		},
+		"self_link": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"aws": {
+			Type:          schema.TypeList,
+			Optional:      true,
+			MaxItems:      1,
+			ConflictsWith: []string{"azure", "gcp"},
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"role_arn": {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
-								v := val.(string)
+							v := val.(string)
 
-								re := regexp.MustCompile(`^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]+:role\/.+`)
+							re := regexp.MustCompile(`^arn:(aws|aws-us-gov|aws-cn):iam::[0-9]+:role\/.+`)
 
-								if !re.MatchString(v) {
-									errs = append(errs, fmt.Errorf("%q is invalid, got: '%s'", key, v))
-								}
+							if !re.MatchString(v) {
+								errs = append(errs, fmt.Errorf("%q is invalid, got: '%s'", key, v))
+							}
 
-								return
-							},
-						},
-					},
-				},
-			},
-			"azure": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
-				ConflictsWith: []string{"aws", "gcp"},
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"secret_link": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ForceNew:     true,
-							ValidateFunc: LinkValidator,
-						},
-					},
-				},
-			},
-			"gcp": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
-				ConflictsWith: []string{"aws", "azure"},
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"project_id": {
-							Type:     schema.TypeString,
-							Required: true,
-							ForceNew: true,
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-								v := val.(string)
-
-								re := regexp.MustCompile(`[a-z]([a-z]|-|[0-9])+`)
-
-								if !re.MatchString(v) {
-									errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
-									return
-								}
-
-								if len(v) < 6 || len(v) > 30 {
-									errs = append(errs, fmt.Errorf("%q length must be between 6 and 30 characters, got: %d", key, len(v)))
-								}
-
-								return
-							},
+							return
 						},
 					},
 				},
 			},
 		},
-		Importer: &schema.ResourceImporter{},
+		"azure": {
+			Type:          schema.TypeList,
+			Optional:      true,
+			MaxItems:      1,
+			ConflictsWith: []string{"aws", "gcp"},
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"secret_link": {
+						Type:         schema.TypeString,
+						Required:     true,
+						ForceNew:     true,
+						ValidateFunc: LinkValidator,
+					},
+				},
+			},
+		},
+		"gcp": {
+			Type:          schema.TypeList,
+			Optional:      true,
+			MaxItems:      1,
+			ConflictsWith: []string{"aws", "azure"},
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"project_id": {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+
+							v := val.(string)
+
+							re := regexp.MustCompile(`[a-z]([a-z]|-|[0-9])+`)
+
+							if !re.MatchString(v) {
+								errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
+								return
+							}
+
+							if len(v) < 6 || len(v) > 30 {
+								errs = append(errs, fmt.Errorf("%q length must be between 6 and 30 characters, got: %d", key, len(v)))
+							}
+
+							return
+						},
+					},
+				},
+			},
+		},
+		"service_account_name": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"roles": {
+			Type:     schema.TypeSet,
+			Computed: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
+			},
+		},
 	}
 }
 
@@ -185,7 +200,7 @@ func resourceCloudAccountCreate(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(err)
 	}
 
-	return setCloudAccount(d, newCa)
+	return setCloudAccount(d, newCa, c.Org)
 }
 
 func resourceCloudAccountRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -202,10 +217,10 @@ func resourceCloudAccountRead(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
-	return setCloudAccount(d, ca)
+	return setCloudAccount(d, ca, c.Org)
 }
 
-func setCloudAccount(d *schema.ResourceData, ca *client.CloudAccount) diag.Diagnostics {
+func setCloudAccount(d *schema.ResourceData, ca *client.CloudAccount, orgName string) diag.Diagnostics {
 
 	if ca == nil {
 		d.SetId("")
@@ -276,6 +291,16 @@ func setCloudAccount(d *schema.ResourceData, ca *client.CloudAccount) diag.Diagn
 		return diag.FromErr(err)
 	}
 
+	serviceAccountName := "cpln-" + orgName + "@cpln-prod01.iam.gserviceaccount.com"
+	if err := d.Set("service_account_name", serviceAccountName); err != nil {
+		return diag.FromErr(err)
+	}
+
+	roles := []interface{}{"roles/viewer", "roles/iam.serviceAccountAdmin", "roles/iam.serviceAccountTokenCreator"}
+	if err := d.Set("roles", roles); err != nil {
+		return diag.FromErr(err)
+	}
+
 	return nil
 }
 
@@ -300,7 +325,7 @@ func resourceCloudAccountUpdate(ctx context.Context, d *schema.ResourceData, m i
 			return diag.FromErr(err)
 		}
 
-		return setCloudAccount(d, updatedCa)
+		return setCloudAccount(d, updatedCa, c.Org)
 	}
 
 	return nil
