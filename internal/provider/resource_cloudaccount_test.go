@@ -13,7 +13,7 @@ import (
 
 func TestAccControlPlaneCloudAccount_basic(t *testing.T) {
 
-	var testCloudAccountAws, testCloudAccountAzure, testCloudAccountGcp client.CloudAccount
+	var testCloudAccountAws, testCloudAccountAzure, testCloudAccountGcp, testCloudAccountNgs client.CloudAccount
 
 	randomName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	updateRole := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
@@ -30,9 +30,11 @@ func TestAccControlPlaneCloudAccount_basic(t *testing.T) {
 					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-aws", "tf-ca-aws-"+randomName, &testCloudAccountAws),
 					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-azure", "tf-ca-azure-"+randomName, &testCloudAccountAzure),
 					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-gcp", "tf-ca-gcp-"+randomName, &testCloudAccountGcp),
+					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-ngs", "tf-ca-ngs-"+randomName, &testCloudAccountNgs),
 					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-aws", "name", "tf-ca-aws-"+randomName),
 					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-azure", "name", "tf-ca-azure-"+randomName),
 					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-gcp", "name", "tf-ca-gcp-"+randomName),
+					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-ngs", "name", "tf-ca-ngs-"+randomName),
 				),
 			},
 			{
@@ -41,9 +43,11 @@ func TestAccControlPlaneCloudAccount_basic(t *testing.T) {
 					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-aws", "tf-ca-aws-"+randomName, &testCloudAccountAws),
 					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-azure", "tf-ca-azure-"+randomName, &testCloudAccountAzure),
 					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-gcp", "tf-ca-gcp-"+randomName, &testCloudAccountGcp),
+					testAccCheckControlPlaneCloudAccountExists("cpln_cloud_account.tf-ca-ngs", "tf-ca-ngs-"+randomName, &testCloudAccountNgs),
 					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-aws", "name", "tf-ca-aws-"+randomName),
 					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-azure", "name", "tf-ca-azure-"+randomName),
 					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-gcp", "name", "tf-ca-gcp-"+randomName),
+					resource.TestCheckResourceAttr("cpln_cloud_account.tf-ca-ngs", "name", "tf-ca-ngs-"+randomName),
 				),
 			},
 		},
@@ -115,6 +119,23 @@ func testAccControlPlaneCloudAccount(orgName, name, update string) string {
 			project_id = "cpln_gcp_project_${var.update_name}"
 		}
 	}
+
+	resource "cpln_cloud_account" "tf-ca-ngs" {
+
+		name = "tf-ca-ngs-${var.random_name}"
+		description = "cloud account description tf-ca-ngs-${var.update_name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+
+		ngs {
+			// secret_link = cpln_secret.nats_account.self_link
+			secret_link = "/org/${var.org_name}/secret/tf_secret_nats${var.update_name}"
+		}
+	}
+	
 	
 	`, orgName, name, update)
 }

@@ -2,13 +2,11 @@
 page_title: "cpln_identity Resource - terraform-provider-cpln"
 subcategory: "Identity"
 description: |-
-  
 ---
 
 # cpln_identity (Resource)
 
 Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
-
 
 ## Declaration
 
@@ -21,20 +19,20 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 
 - **description** (String) Description of the Identity.
 - **tags** (Map of String) Key-value map of resource tags.
-  
 - **aws_access_policy** (Block List, Max: 1) ([see below](#nestedblock--aws_access_policy)).
 - **azure_access_policy** (Block List, Max: 1) ([see below](#nestedblock--azure_access_policy)).
 - **gcp_access_policy** (Block List, Max: 1) ([see below](#nestedblock--gcp_access_policy)).
+- **ngs_access_policy** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy)).
 
 - **network_resource** (Block List) ([see below](#nestedblock--network_resource)).
 
-
 <a id="nestedblock--aws_access_policy"></a>
- ### `aws_access_policy`
+
+### `aws_access_policy`
 
 Required:
 
-- **cloud_account_link** (String) Full link to referenced cloud account. 
+- **cloud_account_link** (String) Full link to referenced cloud account.
 
 Optional:
 
@@ -43,39 +41,46 @@ Optional:
 - **policy_refs** (List of String) List of policies.
 - **role_name** (String) Role name.
 
-
 <a id="nestedblock--azure_access_policy"></a>
- ### `azure_access_policy`
+
+### `azure_access_policy`
+
+Required:
+
+- **cloud_account_link** (String) Full link to referenced cloud account.
 
 Optional:
 
-- **cloud_account_link** (String) Full link to referenced cloud account. 
 - **role_assignment** (Block List) ([see below](#nestedblock--azure_access_policy--role_assignment)).
 
 <a id="nestedblock--azure_access_policy--role_assignment"></a>
- ### `azure_access_policy.role_assignment`
+
+### `azure_access_policy.role_assignment`
 
 Optional:
 
 - **roles** (List of String) List of assigned roles.
 - **scope** (String) Scope of roles.
 
-
-
 <a id="nestedblock--gcp_access_policy"></a>
- ### `gcp_access_policy`
+
+### `gcp_access_policy`
 
 ~> **Note** The GCP access policy can either contain an existing service_account or multiple bindings.
 
-- **cloud_account_link** (String) Full link to referenced Cloud Account. 
+Required:
+
+- **cloud_account_link** (String) Full link to referenced cloud account.
+
+Optional:
+
 - **scopes** (String) Comma delimited list of GCP scope URLs.
-
 - **service_account** (String) Name of existing GCP service account.
-
 - **binding** (Block List) ([see below](#nestedblock--gcp_access_policy--binding)).
 
 <a id="nestedblock--gcp_access_policy--binding"></a>
- ### `gcp_access_policy.binding`
+
+### `gcp_access_policy.binding`
 
 Optional:
 
@@ -83,11 +88,47 @@ Optional:
 - **roles** (List of String) List of allowed roles.
 
 
+<a id="nestedblock--ngs_access_policy"></a>
+
+### `ngs_access_policy`
+
+Required:
+
+- **cloud_account_link** (String) Full link to referenced cloud account.
+
+Optional:
+
+- **pub** (Block List) Pub Permission. ([see below](#nestedblock--ngs_access_policy--perm)).
+- **sub** (Block List) Sub Permission. ([see below](#nestedblock--ngs_access_policy--perm)).
+- **resp** (Block List) Reponses. ([see below](#nestedblock--ngs_access_policy--resp)).
+- **subs** (Number) Max number of subscriptions per connection. Default: -1
+- **data** (Number) Max number of bytes a connection can send. Default: -1
+- **payload** (Number) Max message payload. Default: -1
+
+<a id="nestedblock--ngs_access_policy--perm"></a>
+
+### `ngs_access_policy.pub` / `ngs_access_policy.sub`
+
+Optional:
+
+- **allow** (List of String) List of allow subjects.
+- **deny** (List of String) List of deny subjects.
+
+<a id="nestedblock--ngs_access_policy--resp"></a>
+
+### `ngs_access_policy.resp`
+
+Optional:
+
+- **max** (Number) Number of responses allowed on the replyTo subject, -1 means no limit. Default: -1
+- **ttl** (String) Deadline to send replies on the replyTo subject [#ms(millis) | #s(econds) | m(inutes) | h(ours)]. -1 means no restriction.
 
 <a id="nestedblock--network_resource"></a>
- ### `network_resource`
+
+### `network_resource`
 
 A network resource can be configured with:
+
 - A fully qualified domain name (FQDN) and ports.
 - An FQDN, resolver IP, and ports.
 - IP's and ports.
@@ -96,7 +137,6 @@ Required:
 
 - **name** (String) Name of the Network Resource.
 - **agent_link** (String) Full link to referenced Agent.
-
 
 Optional:
 
@@ -112,7 +152,6 @@ The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Identity.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
-
 
 ## Example Usage
 
@@ -181,6 +220,23 @@ resource "cpln_cloud_account" "example-gcp" {
     project_id = "cpln_gcp_project_1234"
   }
 }
+
+	resource "cpln_cloud_account" "example-ngs" {
+
+		name = "ngs-example"
+		description = "Example NGS Cloud Account" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+
+		ngs {
+			// Use the full link for now
+			// secret_link = "//secret/tf_secret_nats_account"
+			secret_link = "/org/ORG_NAME/secret/NATS_ACCOUNT_SECRET"
+		}
+	}
 
 resource "cpln_identity" "example" {
 
@@ -264,5 +320,29 @@ resource "cpln_identity" "example" {
       roles    = ["roles/editor", "roles/iam.serviceAccountUser"]
     }
   }
+ 
+  ngs_access_policy {
+			
+			cloud_account_link = cpln_cloud_account.example_ngs.self_link
+
+			pub {
+				allow = ["pa1", "pa2"]
+				deny  = ["pd1", "pd2"]
+			}
+
+			sub {
+				allow = ["sa1", "sa2"]
+				deny  = ["sd1", "sd2"]
+			}
+
+			resp {
+				max = 1
+				ttl = "5m"
+			}
+
+			subs = 1
+			data = 2
+			payload = 3
+		}
 }
 ```

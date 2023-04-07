@@ -10,6 +10,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var cloudProvidersNames = []string{
+	"aws", "azure", "gcp", "ngs",
+}
+
 func resourceCloudAccount() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceCloudAccountCreate,
@@ -46,10 +50,10 @@ func resourceCloudAccount() *schema.Resource {
 				Computed: true,
 			},
 			"aws": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
-				ConflictsWith: []string{"azure", "gcp"},
+				Type:         schema.TypeList,
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: cloudProvidersNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"role_arn": {
@@ -73,10 +77,10 @@ func resourceCloudAccount() *schema.Resource {
 				},
 			},
 			"azure": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
-				ConflictsWith: []string{"aws", "gcp"},
+				Type:         schema.TypeList,
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: cloudProvidersNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"secret_link": {
@@ -89,10 +93,10 @@ func resourceCloudAccount() *schema.Resource {
 				},
 			},
 			"gcp": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
-				ConflictsWith: []string{"aws", "azure"},
+				Type:         schema.TypeList,
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: cloudProvidersNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"project_id": {
@@ -120,6 +124,22 @@ func resourceCloudAccount() *schema.Resource {
 					},
 				},
 			},
+			"ngs": {
+				Type:         schema.TypeList,
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: cloudProvidersNames,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"secret_link": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ForceNew:     true,
+							ValidateFunc: LinkValidator,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -127,11 +147,7 @@ func resourceCloudAccount() *schema.Resource {
 
 func getProvider(d *schema.ResourceData) *string {
 
-	secrets := []string{
-		"aws", "azure", "gcp",
-	}
-
-	for _, s := range secrets {
+	for _, s := range cloudProvidersNames {
 		if _, v := d.GetOk(s); v {
 			return &s
 		}
@@ -148,14 +164,15 @@ func resourceCloudAccountCreate(ctx context.Context, d *schema.ResourceData, m i
 	ca.Tags = GetStringMap(d.Get("tags"))
 
 	if ca.Provider = getProvider(d); ca.Provider == nil {
-		return diag.FromErr(fmt.Errorf("missing or unable to extract provider. must be 'aws', 'azure', or 'gcp'"))
+		return diag.FromErr(fmt.Errorf("missing or unable to extract provider. must be 'aws', 'azure', 'gcp' or 'ngs'"))
 	}
 
 	aws := d.Get("aws").([]interface{})
 	azure := d.Get("azure").([]interface{})
 	gcp := d.Get("gcp").([]interface{})
+	ngs := d.Get("ngs").([]interface{})
 
-	if aws != nil || azure != nil || gcp != nil {
+	if aws != nil || azure != nil || gcp != nil || ngs != nil {
 		ca.Data = &client.CloudAccountConfig{}
 	}
 
@@ -172,6 +189,11 @@ func resourceCloudAccountCreate(ctx context.Context, d *schema.ResourceData, m i
 	if len(gcp) > 0 {
 		gcp_project_id := gcp[0].(map[string]interface{})
 		ca.Data.ProjectId = GetString(gcp_project_id["project_id"])
+	}
+
+	if len(ngs) > 0 {
+		ngs_secret_link := ngs[0].(map[string]interface{})
+		ca.Data.SecretLink = GetString(ngs_secret_link["secret_link"])
 	}
 
 	c := m.(*client.Client)
@@ -218,57 +240,48 @@ func setCloudAccount(d *schema.ResourceData, ca *client.CloudAccount) diag.Diagn
 		return diag.FromErr(err)
 	}
 
-	if ca.Data != nil && ca.Data.RoleArn != nil {
+	if ca.Data != nil {
 
-		aws_role_arn := make(map[string]interface{})
-		aws_role_arn["role_arn"] = ca.Data.RoleArn
+		if ca.Data.RoleArn != nil {
 
-		aws := []interface{}{
-			aws_role_arn,
+			aws_role_arn := make(map[string]interface{})
+			aws_role_arn["role_arn"] = ca.Data.RoleArn
+
+			aws := []interface{}{
+				aws_role_arn,
+			}
+
+			if err := d.Set("aws", aws); err != nil {
+				return diag.FromErr(err)
+			}
 		}
 
-		if err := d.Set("aws", aws); err != nil {
-			return diag.FromErr(err)
-		}
-	} else {
-		if err := d.Set("aws", nil); err != nil {
-			return diag.FromErr(err)
-		}
-	}
+		if ca.Data.SecretLink != nil {
 
-	if ca.Data != nil && ca.Data.SecretLink != nil {
+			provider_secret_link := make(map[string]interface{})
+			provider_secret_link["secret_link"] = ca.Data.SecretLink
 
-		azure_secret_link := make(map[string]interface{})
-		azure_secret_link["secret_link"] = ca.Data.SecretLink
+			provider := []interface{}{
+				provider_secret_link,
+			}
 
-		azure := []interface{}{
-			azure_secret_link,
+			if err := d.Set(*ca.Provider, provider); err != nil {
+				return diag.FromErr(err)
+			}
 		}
 
-		if err := d.Set("azure", azure); err != nil {
-			return diag.FromErr(err)
-		}
-	} else {
-		if err := d.Set("azure", nil); err != nil {
-			return diag.FromErr(err)
-		}
-	}
+		if ca.Data.ProjectId != nil {
 
-	if ca.Data != nil && ca.Data.ProjectId != nil {
+			gcp_project_id := make(map[string]interface{})
+			gcp_project_id["project_id"] = ca.Data.ProjectId
 
-		gcp_project_id := make(map[string]interface{})
-		gcp_project_id["project_id"] = ca.Data.ProjectId
+			gcp := []interface{}{
+				gcp_project_id,
+			}
 
-		gcp := []interface{}{
-			gcp_project_id,
-		}
-
-		if err := d.Set("gcp", gcp); err != nil {
-			return diag.FromErr(err)
-		}
-	} else {
-		if err := d.Set("gcp", nil); err != nil {
-			return diag.FromErr(err)
+			if err := d.Set("gcp", gcp); err != nil {
+				return diag.FromErr(err)
+			}
 		}
 	}
 

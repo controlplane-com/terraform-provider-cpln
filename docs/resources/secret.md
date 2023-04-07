@@ -34,9 +34,10 @@ Terraform state can contain sensitive data. Please review [Terraform's recommend
 - **ecr** (Block List, Max: 1) ([see below](#nestedblock--ecr)).
 - **gcp** (String, Sensitive) JSON string containing the GCP secret. [Reference Page](https://docs.controlplane.com/reference/secret#gcp)
 - **keypair** (Block List, Max: 1) ([see below](#nestedblock--keypair)) [Reference Page](https://docs.controlplane.com/reference/secret#keypair).
+- **nats_account** (Block List, Max: 1) ([see below](#nestedblock--nats-account)) [Reference Page](https://docs.controlplane.com/reference/secret#nats-account).
 - **opaque** (Block List, Max: 1) ([see below](#nestedblock--opaque)) [Reference Page](https://docs.controlplane.com/reference/secret#opaque).
 - **tls** (Block List, Max: 1) ([see below](#nestedblock--tls)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
-- **userpass** (Block List, Max: 1) ([see below](#nestedblock--userpass)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
+- **userpass** (Block List, Max: 1) ([see below](#nestedblock--userpass)) [Reference Page](https://docs.controlplane.com/reference/secret#username).
 
 
 <a id="nestedblock--aws"></a>
@@ -80,6 +81,13 @@ Optional:
 - **public_key** (String) Public Key. 
 - **secret_key** (String, Sensitive) Secret/Private Key. 
 
+<a id="nestedblock--nats-account"></a>
+ ### `nats_account`
+
+Required:
+
+- **account_id** (String) Account ID. 
+- **private_key** (String) Private Key. 
 
 <a id="nestedblock--opaque"></a>
  ### `opaque`
@@ -409,6 +417,28 @@ resource "cpln_secret" "keypair" {
     # Optional
     passphrase = "cpln"
   }
+}
+
+# NATS Account Secret
+resource "cpln_secret" "nats_account" {
+
+  name        = "natsaccount-${var.random}"
+  description = "natsaccount description ${var.random}"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+    secret_type         = "nats_account"
+  }
+
+  nats_account {
+
+    # Required
+		account_id  = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+
+    # Required
+		private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+	}
 }
 
 # Opaque Secret

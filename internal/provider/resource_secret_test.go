@@ -95,6 +95,8 @@ func TestAccControlPlaneSecret_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
 				),
 			},
 			{
@@ -120,6 +122,8 @@ func TestAccControlPlaneSecret_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
 				),
 			},
 			// {
@@ -429,6 +433,22 @@ EOT
 			code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
 		}
 	}
+
+	resource "cpln_secret" "nats_account" {
+		name = "natsaccount-${var.random}"
+		description = "natsaccount description ${var.random}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "nats-account"
+		}
+
+		nats_account {
+			account_id  = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+			private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+		}
+	}	
 	`, random)
 }
 
