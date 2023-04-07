@@ -18,68 +18,8 @@ func resourceGvc() *schema.Resource {
 		ReadContext:   resourceGvcRead,
 		UpdateContext: resourceGvcUpdate,
 		DeleteContext: resourceGvcDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"domain": {
-				Type:       schema.TypeString,
-				Optional:   true,
-				Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
-			},
-			"alias": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"pull_secrets": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"locations": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-				ValidateFunc: TagValidator,
-			},
-			"env": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"lightstep_tracing": client.LightstepSchema(),
-		},
-		Importer: &schema.ResourceImporter{},
+		Schema:        GvcSchema(),
+		Importer:      &schema.ResourceImporter{},
 	}
 }
 
@@ -407,4 +347,69 @@ func resourceGvcDelete(_ context.Context, d *schema.ResourceData, m interface{})
 	d.SetId("")
 
 	return nil
+}
+
+func GvcSchema() map[string]*schema.Schema {
+	return map[string]*schema.Schema{
+
+		"cpln_id": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"name": {
+			Type:         schema.TypeString,
+			Required:     true,
+			ForceNew:     true,
+			ValidateFunc: NameValidator,
+		},
+		"description": {
+			Type:             schema.TypeString,
+			Optional:         true,
+			ValidateFunc:     DescriptionValidator,
+			DiffSuppressFunc: DiffSuppressDescription,
+		},
+		"domain": {
+			Type:       schema.TypeString,
+			Optional:   true,
+			Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
+		},
+		"alias": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"pull_secrets": {
+			Type:     schema.TypeSet,
+			Optional: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
+			},
+		},
+		"locations": {
+			Type:     schema.TypeSet,
+			Optional: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
+			},
+		},
+		"tags": {
+			Type:     schema.TypeMap,
+			Optional: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
+			},
+			ValidateFunc: TagValidator,
+		},
+		"env": {
+			Type:     schema.TypeMap,
+			Optional: true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
+			},
+		},
+		"self_link": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+		"lightstep_tracing": client.LightstepSchema(),
+	}
 }

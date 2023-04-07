@@ -38,6 +38,12 @@ type GvcSpecUpdate struct {
 	Tracing         *Tracing         `json:"tracing,omitempty"`
 }
 
+// StaticPlacement - Static Placement
+type StaticPlacement struct {
+	LocationLinks *[]string `json:"locationLinks,omitempty"`
+	LocationQuery *Query    `json:"locationQuery,omitempty"`
+}
+
 func (g GvcSpec) MarshalJSON() ([]byte, error) {
 
 	type localGvcSpec GvcSpec
@@ -50,12 +56,6 @@ func (g GvcSpec) MarshalJSON() ([]byte, error) {
 		})
 	}
 	return json.Marshal(localGvcSpec(g))
-}
-
-// StaticPlacement - Static Placement
-type StaticPlacement struct {
-	LocationLinks *[]string `json:"locationLinks,omitempty"`
-	LocationQuery *Query    `json:"locationQuery,omitempty"`
 }
 
 // GetGvcs - Get All Gvcs
