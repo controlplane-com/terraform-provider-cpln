@@ -63,6 +63,23 @@ resource "cpln_cloud_account" "example-gcp" {
   }
 }
 
+resource "cpln_cloud_account" "test_ngs_cloud_account" {
+
+  name        = "tf-ca-ngs-${var.random_name}"
+  description = "cloud account description tf-ca-ngs"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  ngs {
+    // Use the full link for now
+    // secret_link = "//secret/tf_secret_nats_account"
+    secret_link = "/org/${var.org_name}/secret/tf_secret_nats_account"
+  }
+}
+
 resource "cpln_identity" "example" {
 
   gvc = cpln_gvc.example.name
@@ -144,5 +161,29 @@ resource "cpln_identity" "example" {
       resource = "//iam.googleapis.com/projects/cpln-test/serviceAccounts/cpln-tf@cpln-test.iam.gserviceaccount.com"
       roles    = ["roles/editor", "roles/iam.serviceAccountUser"]
     }
+  }
+
+  ngs_access_policy {
+
+    cloud_account_link = cpln_cloud_account.test_ngs_cloud_account.self_link
+
+    pub {
+      allow = ["pa1", "pa2"]
+      deny  = ["pd1", "pd2"]
+    }
+
+    sub {
+      allow = ["sa1", "sa2"]
+      deny  = ["sd1", "sd2"]
+    }
+
+    resp {
+      max = 1
+      ttl = "5m"
+    }
+
+    subs    = 1
+    data    = 2
+    payload = 3
   }
 }

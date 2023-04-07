@@ -253,9 +253,89 @@ func resourceIdentity() *schema.Resource {
 					},
 				},
 			},
+			"ngs_access_policy": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"cloud_account_link": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: LinkValidator,
+						},
+						"pub": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem:     permResource(),
+						},
+						"sub": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem:     permResource(),
+						},
+						"resp": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"max": {
+										Type:     schema.TypeInt,
+										Optional: true,
+										Default:  1,
+									},
+									"ttl": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+						"subs": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  -1,
+						},
+						"data": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  -1,
+						},
+						"payload": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  -1,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateIdentity,
+		},
+	}
+}
+
+func permResource() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"allow": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"deny": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 		},
 	}
 }
@@ -289,6 +369,7 @@ func resourceIdentityCreate(ctx context.Context, d *schema.ResourceData, m inter
 	buildAwsIdentity(d.Get("aws_access_policy").([]interface{}), &identity, false)
 	buildAzureIdentity(d.Get("azure_access_policy").([]interface{}), &identity, false)
 	buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identity, false)
+	buildNgsIdentity(d.Get("ngs_access_policy").([]interface{}), &identity, false)
 
 	c := m.(*client.Client)
 	newIdentity, code, err := c.CreateIdentity(identity, gvcName)
@@ -422,24 +503,27 @@ func buildAzureIdentity(azureIdentities []interface{}, identity *client.Identity
 
 				for _, r := range ra {
 
-					localRa := client.AzureRoleAssignment{}
+					if r != nil {
 
-					rm := r.(map[string]interface{})
+						localRa := client.AzureRoleAssignment{}
 
-					localRa.Scope = GetString(rm["scope"].(string))
+						rm := r.(map[string]interface{})
 
-					if rm["roles"] != nil && len(rm["roles"].(*schema.Set).List()) > 0 {
+						localRa.Scope = GetString(rm["scope"].(string))
 
-						localRoles := []string{}
+						if rm["roles"] != nil && len(rm["roles"].(*schema.Set).List()) > 0 {
 
-						for _, sr := range rm["roles"].(*schema.Set).List() {
-							localRoles = append(localRoles, sr.(string))
+							localRoles := []string{}
+
+							for _, sr := range rm["roles"].(*schema.Set).List() {
+								localRoles = append(localRoles, sr.(string))
+							}
+
+							localRa.Roles = &localRoles
 						}
 
-						localRa.Roles = &localRoles
+						localRoleAssignments = append(localRoleAssignments, localRa)
 					}
-
-					localRoleAssignments = append(localRoleAssignments, localRa)
 				}
 
 				newAzureIdentity.RoleAssignments = &localRoleAssignments
@@ -504,24 +588,27 @@ func buildGcpIdentity(gcpIdentities []interface{}, identity *client.Identity, up
 
 				for _, b := range bs {
 
-					localBs := client.GcpBinding{}
+					if b != nil {
 
-					rm := b.(map[string]interface{})
+						localBs := client.GcpBinding{}
 
-					localBs.Resource = GetString(rm["resource"].(string))
+						rm := b.(map[string]interface{})
 
-					if rm["roles"] != nil && len(rm["roles"].(*schema.Set).List()) > 0 {
+						localBs.Resource = GetString(rm["resource"].(string))
 
-						localRoles := []string{}
+						if rm["roles"] != nil && len(rm["roles"].(*schema.Set).List()) > 0 {
 
-						for _, sr := range rm["roles"].(*schema.Set).List() {
-							localRoles = append(localRoles, sr.(string))
+							localRoles := []string{}
+
+							for _, sr := range rm["roles"].(*schema.Set).List() {
+								localRoles = append(localRoles, sr.(string))
+							}
+
+							localBs.Roles = &localRoles
 						}
 
-						localBs.Roles = &localRoles
+						localBindings = append(localBindings, localBs)
 					}
-
-					localBindings = append(localBindings, localBs)
 				}
 
 				newGcpIdentity.Bindings = &localBindings
@@ -542,6 +629,121 @@ func buildGcpIdentity(gcpIdentities []interface{}, identity *client.Identity, up
 
 			list := *identity.Drop
 			newList := append(list, "gcp")
+			identity.Drop = &newList
+		}
+	}
+}
+
+func buildPerm(perm []interface{}) *client.NgsPerm {
+
+	if len(perm) > 0 {
+
+		localPub := client.NgsPerm{}
+
+		for _, p := range perm {
+
+			if p != nil {
+
+				rm := p.(map[string]interface{})
+
+				if rm["allow"] != nil && len(rm["allow"].(*schema.Set).List()) > 0 {
+
+					localAllow := []string{}
+
+					for _, sr := range rm["allow"].(*schema.Set).List() {
+						localAllow = append(localAllow, sr.(string))
+					}
+
+					localPub.Allow = &localAllow
+				}
+
+				if rm["deny"] != nil && len(rm["deny"].(*schema.Set).List()) > 0 {
+
+					localDeny := []string{}
+
+					for _, sr := range rm["deny"].(*schema.Set).List() {
+						localDeny = append(localDeny, sr.(string))
+					}
+
+					localPub.Deny = &localDeny
+				}
+			}
+		}
+
+		return &localPub
+	}
+
+	return nil
+
+}
+
+func buildNgsIdentity(ngsIdentities []interface{}, identity *client.Identity, update bool) {
+
+	if len(ngsIdentities) == 1 {
+
+		a := ngsIdentities[0].(map[string]interface{})
+
+		newNgsIdentity := &client.NgsIdentity{
+			CloudAccountLink: GetString(a["cloud_account_link"]),
+		}
+
+		if a["pub"] != nil {
+			newNgsIdentity.Pub = buildPerm(a["pub"].([]interface{}))
+		}
+
+		if a["sub"] != nil {
+			newNgsIdentity.Sub = buildPerm(a["sub"].([]interface{}))
+		}
+
+		if a["resp"] != nil {
+
+			ps := a["resp"].([]interface{})
+
+			if len(ps) > 0 {
+
+				localResp := client.NgsResp{}
+
+				for _, p := range ps {
+
+					rm := p.(map[string]interface{})
+
+					localResp.Max = GetInt(rm["max"].(int))
+					localResp.TTL = GetString(rm["ttl"].(string))
+				}
+
+				newNgsIdentity.Resp = &localResp
+			}
+		}
+
+		if a["subs"] != nil {
+			subs := a["subs"].(int)
+			newNgsIdentity.Subs = GetInt(subs)
+		}
+
+		if a["data"] != nil {
+			data := a["data"].(int)
+			newNgsIdentity.Data = GetInt(data)
+		}
+
+		if a["payload"] != nil {
+			payload := a["payload"].(int)
+			newNgsIdentity.Payload = GetInt(payload)
+		}
+
+		if update {
+			identity.NgsReplace = newNgsIdentity
+		} else {
+			identity.Ngs = newNgsIdentity
+		}
+	} else {
+
+		if update {
+			if identity.Drop == nil {
+				identity.Drop = &[]string{}
+			}
+
+			list := *identity.Drop
+			newList := append(list, "ngs")
 			identity.Drop = &newList
 		}
 	}
@@ -720,6 +922,89 @@ func flattenGcpIdentity(gcpIdentity *client.GcpIdentity) []interface{} {
 	return nil
 }
 
+func flattenPerm(perm *client.NgsPerm) []interface{} {
+
+	if perm != nil {
+
+		ps := []interface{}{}
+		bs := make(map[string]interface{})
+
+		if perm.Allow != nil && len(*perm.Allow) > 0 {
+			allowDeny := []interface{}{}
+
+			for _, ad := range *perm.Allow {
+				allowDeny = append(allowDeny, ad)
+			}
+
+			bs["allow"] = allowDeny
+		}
+
+		if perm.Deny != nil && len(*perm.Deny) > 0 {
+			allowDeny := []interface{}{}
+
+			for _, ad := range *perm.Deny {
+				allowDeny = append(allowDeny, ad)
+			}
+
+			bs["deny"] = allowDeny
+		}
+
+		ps = append(ps, bs)
+
+		return ps
+	}
+
+	return nil
+}
+
+func flattenNgsIdentity(ngsIdentity *client.NgsIdentity) []interface{} {
+
+	if ngsIdentity != nil {
+
+		output := make(map[string]interface{})
+
+		output["cloud_account_link"] = *ngsIdentity.CloudAccountLink
+		output["pub"] = flattenPerm(ngsIdentity.Pub)
+		output["sub"] = flattenPerm(ngsIdentity.Sub)
+
+		if ngsIdentity.Resp != nil {
+
+			rs := make(map[string]interface{})
+
+			if ngsIdentity.Resp.Max != nil {
+				rs["max"] = *ngsIdentity.Resp.Max
+			}
+
+			if ngsIdentity.Resp.TTL != nil {
+				rs["ttl"] = *ngsIdentity.Resp.TTL
+			}
+
+			resps := []interface{}{}
+			resps = append(resps, rs)
+
+			output["resp"] = resps
+		}
+
+		if ngsIdentity.Subs != nil {
+			output["subs"] = *ngsIdentity.Subs
+		}
+
+		if ngsIdentity.Data != nil {
+			output["data"] = *ngsIdentity.Data
+		}
+
+		if ngsIdentity.Payload != nil {
+			output["payload"] = *ngsIdentity.Payload
+		}
+
+		return []interface{}{
+			output,
+		}
+	}
+
+	return nil
+}
+
 func resourceIdentityRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceIdentityRead")
@@ -774,6 +1059,10 @@ func setIdentity(d *schema.ResourceData, identity *client.Identity, gvcName stri
 		return diag.FromErr(err)
 	}
 
+	if err := d.Set("ngs_access_policy", flattenNgsIdentity(identity.Ngs)); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if err := SetSelfLink(identity.Links, d); err != nil {
 		return diag.FromErr(err)
 	}
@@ -796,7 +1085,7 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceIdentityUpdate")
 
-	if d.HasChanges("description", "tags", "network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy") {
+	if d.HasChanges("description", "tags", "network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy", "ngs_access_policy") {
 
 		gvcName := d.Get("gvc").(string)
 
@@ -825,6 +1114,10 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 		if d.HasChange("gcp_access_policy") {
 			buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identityToUpdate, true)
+		}
+
+		if d.HasChange("ngs_access_policy") {
+			buildNgsIdentity(d.Get("ngs_access_policy").([]interface{}), &identityToUpdate, true)
 		}
 
 		c := m.(*client.Client)

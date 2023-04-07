@@ -13,6 +13,8 @@ type Identity struct {
 	GcpReplace       *GcpIdentity       `json:"$replace/gcp,omitempty"`
 	Azure            *AzureIdentity     `json:"azure,omitempty"`
 	AzureReplace     *AzureIdentity     `json:"$replace/azure,omitempty"`
+	Ngs              *NgsIdentity       `json:"ngs,omitempty"`
+	NgsReplace       *NgsIdentity       `json:"$replace/ngs,omitempty"`
 	NetworkResources *[]NetworkResource `json:"networkResources,omitempty"`
 	Status           *IdentityStatus    `json:"status,omitempty"`
 	Drop             *[]string          `json:"$drop,omitempty"`
@@ -66,6 +68,25 @@ type AzureRoleAssignment struct {
 type AzureIdentity struct {
 	CloudAccountLink *string                `json:"cloudAccountLink,omitempty"`
 	RoleAssignments  *[]AzureRoleAssignment `json:"roleAssignments,omitempty"`
+}
+
+type NgsPerm struct {
+	Allow *[]string `json:"allow,omitempty"`
+	Deny  *[]string `json:"deny,omitempty"`
+}
+
+type NgsResp struct {
+	Max *int    `json:"max,omitempty"`
+	TTL *string `json:"ttl,omitempty"`
+}
+type NgsIdentity struct {
+	CloudAccountLink *string  `json:"cloudAccountLink,omitempty"`
+	Pub              *NgsPerm `json:"pub,omitempty"`
+	Sub              *NgsPerm `json:"sub,omitempty"`
+	Resp             *NgsResp `json:"resp,omitempty"`
+	Subs             *int     `json:"subs,omitempty"`
+	Data             *int     `json:"data,omitempty"`
+	Payload          *int     `json:"payload,omitempty"`
 }
 
 // GetIdentity - Get Identity by name

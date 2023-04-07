@@ -358,3 +358,25 @@ resource "cpln_secret" "userpass" {
     encoding = "plain"
   }
 }
+
+# NATS Account Secret
+resource "cpln_secret" "nats_account" {
+
+  name        = "natsaccount-${var.random}"
+  description = "natsaccount description ${var.random}"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+    secret_type         = "nats_account"
+  }
+
+  nats_account {
+
+    # Required
+		account_id  = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+
+    # Required
+		private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+	}
+}
