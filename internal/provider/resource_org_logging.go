@@ -9,6 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var loggingNames = []string{
+	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging",
+}
+
 func resourceOrgLogging() *schema.Resource {
 
 	return &schema.Resource{
@@ -40,7 +44,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
+				ExactlyOneOf: loggingNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"bucket": {
@@ -67,7 +71,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
+				ExactlyOneOf: loggingNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cluster": {
@@ -93,7 +97,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
+				ExactlyOneOf: loggingNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"host": {
@@ -111,7 +115,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
+				ExactlyOneOf: loggingNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"listener_host": {
@@ -129,7 +133,7 @@ func resourceOrgLogging() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ExactlyOneOf: []string{"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging"},
+				ExactlyOneOf: loggingNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"aws": {

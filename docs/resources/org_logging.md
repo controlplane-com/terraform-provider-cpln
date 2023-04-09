@@ -78,7 +78,7 @@ Required:
 
 <a id="nestedblock--elastic_logging"></a>
 
- // TODO: Add description.
+[Documentation Reference](https://docs.controlplane.com/reference/org#elastic_logging)
 
 Required:
 At least one of the following logging blocks are required:
@@ -90,27 +90,27 @@ At least one of the following logging blocks are required:
 
 Required:
 
--**host** (String) // TODO: Add description.
--**port** (Number) // TODO: Add description.
--**index** (String) // TODO: Add description.
--**type** (String) // TODO: Add description.
--**credentials** (String) // TODO: Add description.
--**region** (String) // TODO: Add description.
+-**host** (String) A valid AWS ElasticSearch host (must end with es.amazonaws.com).
+-**port** (Number) Port. Default: 443
+-**index** (String) Logging Index.
+-**type** (String) Logging Type.
+-**credentials** (String) Full Link to a secret of type `aws`.
+-**region** (String) Valid AWS region.
 
 <a id="nestedblock--elastic_logging--elastic_cloud"></a>
 
 Required:
 
--**index** (String) // TODO: Add description.
--**type** (String) // TODO: Add description.
--**credentials** (String) // TODO: Add description.
--**cloud_id** (String) // TODO: Add description.
+-**index** (String) Logging Index.
+-**type** (String) Logging Type.
+-**credentials** (String) Full Link to a secret of type `userpass`.
+-**cloud_id** (String) // [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
 
 ## Outputs
 
 The following attributes are exported:
 
-- **cpln_id** (String) ID, in GUID format, of the Identity.
+- **cpln_id** (String) ID, in GUID format, of the Org.
 - **name** (String) The name of Org.
 - **description** (String) The description of Org.
 - **tags** (Map of String) Key-value map of the Org's tags.
