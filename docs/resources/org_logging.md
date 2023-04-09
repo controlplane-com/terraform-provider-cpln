@@ -16,12 +16,23 @@ Manages an [Org's external logging configuration](https://docs.controlplane.com/
 
 At least one of the following logging blocks are required:
   
+- **s3_logging** (Block List, Max: 1) ([see below](#nestedblock--s3_logging)).
 - **coralogix_logging** (Block List, Max: 1) ([see below](#nestedblock--coralogix_logging)).
 - **datadog_logging** (Block List, Max: 1) ([see below](#nestedblock--datadog_logging)).
 - **logzio_logging** (Block List, Max: 1) ([see below](#nestedblock--logzio_logging)).
-- **s3_logging** (Block List, Max: 1) ([see below](#nestedblock--s3_logging)).
+- **elastic_logging** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging)).
 
+<a id="nestedblock--s3_logging"></a>
+ ### `s3_logging`
 
+[Documentation Reference](https://docs.controlplane.com/reference/org#s3)
+
+Required:
+
+- **bucket** (String) Name of S3 bucket. 
+- **region** (String) AWS region where bucket is located. 
+- **prefix** (String) Bucket path prefix. Default: "/".
+- **credentials** (String) Full link to referenced AWS Secret.
 
 <a id="nestedblock--coralogix_logging"></a>
  ### `coralogix_logging`
@@ -65,29 +76,83 @@ Required:
 
 ~> **Note** Valid listener hosts: `listener.logz.io`, `listener-nl.logz.io`
 
+<a id="nestedblock--elastic_logging"></a>
 
-<a id="nestedblock--s3_logging"></a>
- ### `s3_logging`
+[Documentation Reference](https://docs.controlplane.com/reference/org#elastic_logging)
 
-[Documentation Reference](https://docs.controlplane.com/reference/org#s3)
+Required:
+At least one of the following logging blocks are required:
+
+-**aws** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--aws)).
+-**elastic_cloud** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--elastic_cloud)).
+
+<a id="nestedblock--elastic_logging--aws"></a>
 
 Required:
 
-- **bucket** (String) Name of S3 bucket. 
-- **region** (String) AWS region where bucket is located. 
-- **prefix** (String) Bucket path prefix. Default: "/".
-- **credentials** (String) Full link to referenced AWS Secret. 
+-**host** (String) A valid AWS ElasticSearch host (must end with es.amazonaws.com).
+-**port** (Number) Port. Default: 443
+-**index** (String) Logging Index.
+-**type** (String) Logging Type.
+-**credentials** (String) Full Link to a secret of type `aws`.
+-**region** (String) Valid AWS region.
+
+<a id="nestedblock--elastic_logging--elastic_cloud"></a>
+
+Required:
+
+-**index** (String) Logging Index.
+-**type** (String) Logging Type.
+-**credentials** (String) Full Link to a secret of type `userpass`.
+-**cloud_id** (String) // [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
 
 ## Outputs
 
 The following attributes are exported:
 
-- **cpln_id** (String) ID, in GUID format, of the Identity.
+- **cpln_id** (String) ID, in GUID format, of the Org.
 - **name** (String) The name of Org.
 - **description** (String) The description of Org.
 - **tags** (Map of String) Key-value map of the Org's tags.
 
 ## Example Usage
+
+### S3
+
+```terraform
+
+    resource "cpln_secret" "aws" {
+
+		name = "aws-random-tbd"
+		description = "aws description aws-random-tbd" 
+				
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "aws"
+		} 
+		
+		aws {
+			secret_key = "AKIAIOSFODNN7EXAMPLE"
+			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+			role_arn = "arn:awskey" 
+		}
+	}
+
+	resource "cpln_org_logging" "new" {
+
+		s3_logging {
+
+			bucket = "test-bucket"
+			region = "us-east1"
+			prefix = "/"
+
+			// AWS Secret Only
+			credentials = cpln_secret.aws.self_link
+		}	
+	}
+
+```
 
 ### Coralogix
 
@@ -202,39 +267,72 @@ The following attributes are exported:
 
 ```
 
-### S3
+### Elastic - AWS
 
 ```terraform
 
-    resource "cpln_secret" "aws" {
+	resource "cpln_secret" "opaque" {
 
-		name = "aws-random-tbd"
-		description = "aws description aws-random-tbd" 
-				
+		name = "opaque-random-elastic-logging-aws-tbd"
+		description = "opaque description" 
+		
 		tags = {
 			terraform_generated = "true"
 			acceptance_test = "true"
-			secret_type = "aws"
-		} 
-		
-		aws {
-			secret_key = "AKIAIOSFODNN7EXAMPLE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey" 
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
 		}
 	}
 
 	resource "cpln_org_logging" "new" {
 
-		s3_logging {
-
-			bucket = "test-bucket"
-			region = "us-east1"
-			prefix = "/"
-
-			// AWS Secret Only
-			credentials = cpln_secret.aws.self_link
-		}	
+		elastic_logging {
+			aws {
+				host = "es.amazonaws.com"
+				port = 8080
+				index = "my-index"
+				type = "my-type"
+				credentials = cpln_secret.opaque.self_link
+				region = "us-east-1"
+			}
+		}
 	}
+```
 
+### Elastic - Elastic Cloud
+
+```terraform
+
+	resource "cpln_secret" "opaque" {
+
+        name = "opaque-random-elastic-logging-elastic-cloud-tbd"
+        description = "opaque description" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "opaque"
+        }
+
+        opaque {
+            payload = "opaque_secret_payload"
+            encoding = "plain"
+        }
+    }
+
+    resource "cpln_org_logging" "new" {
+
+        elastic_logging {
+			elastic_cloud {
+				index = "my-index"
+				type = "my-type"
+				credentials = cpln_secret.opaque.self_link
+				cloud_id = "my-cloud-id"
+			}
+        }
+    }
 ```
