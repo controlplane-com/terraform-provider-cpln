@@ -75,7 +75,8 @@ func resourceAuditContextRead(ctx context.Context, d *schema.ResourceData, m int
 	auditCtx, code, err := c.GetAuditContext(d.Id())
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {

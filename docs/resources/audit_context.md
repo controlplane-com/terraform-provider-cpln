@@ -9,6 +9,8 @@ description: |-
 
 Manages an org's [Audit Context](https://docs.controlplane.com/reference/auditctx).
 
+~> **Note** Audit Contexts are immutable and can not be deleted. When destroying using Terraform, it will only be removed from the state. Existing audit contexts must be imported.
+
 ## Declaration
 
 ### Required
