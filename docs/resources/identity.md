@@ -25,6 +25,7 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 - **ngs_access_policy** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy)).
 
 - **network_resource** (Block List) ([see below](#nestedblock--network_resource)).
+- **native_network_resource** (Block List) ([see below](#nestedblock--native_network_resource)
 
 <a id="nestedblock--aws_access_policy"></a>
 
@@ -87,7 +88,6 @@ Optional:
 - **resource** (String) Name of resource for binding.
 - **roles** (List of String) List of allowed roles.
 
-
 <a id="nestedblock--ngs_access_policy"></a>
 
 ### `ngs_access_policy`
@@ -145,6 +145,37 @@ Optional:
 - **ips** (Set of String) List of IP addresses.
 
 - **ports** (Set of Number) Ports to expose.
+
+<a id="nestedblock--native_network_resource"></a>
+
+### `native_network_resource`
+
+~> **Note** The configuration of a native network resource requires the assistance of Control Plane support.
+
+Required:
+-- **name** (String) Name of the Native Network Resource.
+-- **fqdn** (String) Fully qualified domain name.
+-- **ports** (Set of Number) Ports to expose. At least one port is required.
+
+Optional:
+
+Exactly one of:
+-- **aws_private_link** (Block List) ([see below](#nestedblock--native_network_resource--aws_private_link))
+-- **gcp_service_connect** (Block List) ([see below](#nestedblock--native_network_resource--gcp_service_connect))
+
+<a id="nestedblock--native_network_resource--aws_private_link"></a>
+
+### `aws_private_link`
+
+Required:
+-- **endpoint_service_name** (String) Endpoint service name.
+
+<a id="nestedblock--native_network_resource--gcp_service_connect"></a>
+
+### `gcp_service_connect`
+
+Required:
+-- **target_service** (String) Target service name.
 
 ## Outputs
 
@@ -224,8 +255,8 @@ resource "cpln_cloud_account" "example-gcp" {
 	resource "cpln_cloud_account" "example-ngs" {
 
 		name = "ngs-example"
-		description = "Example NGS Cloud Account" 
-		
+		description = "Example NGS Cloud Account"
+
 		tags = {
 			terraform_generated = "true"
 			acceptance_test = "true"
@@ -270,10 +301,30 @@ resource "cpln_identity" "example" {
   # Network Resource with IP
   network_resource {
     name       = "test-network-resource-ip"
-    agent_link = cpln_agent.test_agent.self_link
+    agent_link = cpln_agent.example.self_link
     ips        = ["192.168.1.1", "192.168.1.250"]
     ports      = [3099, 7890]
   }
+
+  # Native Network Resource with AWS Private Link
+  native_network_resource {
+    name = "test-native-network-resource-aws"
+    fqdn = "aws.test.com"
+    ports = [12345, 54321]
+    aws_private_link {
+      endpoint_service_name = "com.amazonaws.vpce.us-west-2.vpce-svc-01af6c4c9260ac550"
+    }
+  }
+  # Native Network Resource with GCP Service Connect
+  native_network_resource {
+    name = "test-native-network-resource-gcp"
+    fqdn = "gcp.test.com"
+    ports = [12345, 54321]
+    gcp_service_connect {
+      target_service = "projects/example-project/regions/example-region/serviceAttachments/example-service-attachments"
+    }
+  }
+
 
   aws_access_policy {
 
@@ -320,9 +371,9 @@ resource "cpln_identity" "example" {
       roles    = ["roles/editor", "roles/iam.serviceAccountUser"]
     }
   }
- 
+
   ngs_access_policy {
-			
+
 			cloud_account_link = cpln_cloud_account.example_ngs.self_link
 
 			pub {
