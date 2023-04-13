@@ -24,7 +24,7 @@
             },
             "args": [
                 "-test.run",
-                "TestAccControlPlaneAuditContext_basic",
+                "TestAccControlPlaneIdentity_basic",
                 "-test.v"
             ]
         }
