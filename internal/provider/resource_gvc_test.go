@@ -141,21 +141,21 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName),
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, 50),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
 				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName),
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, 75),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
 				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed"),
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", 75),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
 				),
 			},
@@ -264,7 +264,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string)
 	  }`, random, random2, name, description, sampling)
 }
 
-func testAccCheckControlPlaneGvcExists(resourceName, gvcName string) resource.TestCheckFunc {
+func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, sampling int) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -275,6 +275,23 @@ func testAccCheckControlPlaneGvcExists(resourceName, gvcName string) resource.Te
 
 		if rs.Primary.ID != gvcName {
 			return fmt.Errorf("GVC name does not match")
+		}
+
+		// Validate the data
+		client := testAccProvider.Meta().(*client.Client)
+		gvc, code, err := client.GetGvc(gvcName)
+
+		if code == 404 {
+			return fmt.Errorf("GVC not found")
+		}
+
+		if err != nil {
+			return fmt.Errorf(err.Error())
+		}
+
+		lightstepTracing, _ := generateLightstepTracing(sampling, *gvc.Spec.Tracing.Provider.Lightstep.Credentials)
+		if diff := deep.Equal(lightstepTracing, gvc.Spec.Tracing); diff != nil {
+			return fmt.Errorf("GVC Tracing mismatch. Diff: %s", diff)
 		}
 
 		return nil
