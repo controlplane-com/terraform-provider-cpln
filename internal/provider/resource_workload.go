@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+/*** Main ***/
 func resourceWorkload() *schema.Resource {
 
 	return &schema.Resource{
@@ -469,162 +470,32 @@ func resourceWorkload() *schema.Resource {
 					},
 				},
 			},
+			"rollout_options": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"min_ready_seconds": {
+							Type:        schema.TypeInt,
+							Optional:    true,
+							Default:     0,
+							Description: "The minimum number of seconds a container must run without crashing to be considered available",
+						},
+						"max_unavailable_replicas": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"max_surge_replicas": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
-		},
-	}
-}
-
-func AutoScalingResource() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"metric": {
-				Type:     schema.TypeString,
-				Optional: true,
-				// Default:  "concurrency",
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-					v := val.(string)
-
-					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" {
-						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'latency' or 'rps', got: %s", key, v))
-					}
-
-					return
-				},
-			},
-			"metric_percentile": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-					v := val.(string)
-
-					if v != "p50" && v != "p75" && v != "p99" {
-						errs = append(errs, fmt.Errorf("%q must be 'p50', 'p75' or 'p99', got: %s", key, v))
-					}
-
-					return
-				},
-			},
-			"target": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  100,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 || v > 20000 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 20000 inclusive, got: %d", key, v))
-					}
-					return
-				},
-			},
-			"max_scale": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  5,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 {
-						errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
-					}
-					return
-				},
-			},
-			"min_scale": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  1,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 {
-						errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
-					}
-					return
-				},
-			},
-			"max_concurrency": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  0,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 || v > 30000 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 30000 inclusive, got: %d", key, v))
-					}
-					return
-				},
-			},
-			"scale_to_zero_delay": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  300,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 30 || v > 3600 {
-						errs = append(errs, fmt.Errorf("%q must be between 30 and 3600 inclusive, got: %d", key, v))
-					}
-					return
-				},
-			},
-		},
-	}
-}
-
-func ExternalFirewallResource() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"inbound_allow_cidr": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"outbound_allow_cidr": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"outbound_allow_hostname": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-		},
-	}
-}
-
-func InternalFirewallResource() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"inbound_allow_type": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "none",
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-					v := val.(string)
-
-					if v != "none" && v != "same-gvc" && v != "same-org" && v != "workload-list" {
-						errs = append(errs, fmt.Errorf("%q must be 'none', 'same-gvc', 'same-org', or 'workload-list', got: %s", key, v))
-					}
-
-					return
-				},
-			},
-			"inbound_allow_workload": {
-				Type:     schema.TypeSet,
-				Required: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
 		},
 	}
 }
@@ -641,171 +512,6 @@ func importStateWorkload(ctx context.Context, d *schema.ResourceData, meta inter
 	d.SetId(parts[1])
 
 	return []*schema.ResourceData{d}, nil
-}
-
-func healthCheckSpec() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"initial_delay_seconds": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  0,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 0 || v > 600 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 600 inclusive, got: %d", key, v))
-					}
-
-					return
-				},
-			},
-			"period_seconds": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  10,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 1 || v > 60 {
-						errs = append(errs, fmt.Errorf("%q must be between 1 and 60 inclusive, got: %d", key, v))
-					}
-
-					return
-				},
-			},
-			"timeout_seconds": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  1,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-					v := val.(int)
-					if v < 1 || v > 60 {
-						errs = append(errs, fmt.Errorf("%q must be between 1 and 60 inclusive, got: %d", key, v))
-					}
-
-					return
-				},
-			},
-			"success_threshold": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Default:      1,
-				ValidateFunc: ThresholdValidator,
-			},
-			"failure_threshold": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Default:      3,
-				ValidateFunc: ThresholdValidator,
-			},
-			"exec": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"command": {
-							Type:     schema.TypeList,
-							Required: true,
-							MinItems: 1,
-							Elem:     StringSchema(),
-						},
-					},
-				},
-			},
-			"tcp_socket": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"port": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-								v := val.(int)
-								if v < 80 || v > 65535 {
-									errs = append(errs, fmt.Errorf("%q must be between 80 and 65535 inclusive, got: %d", key, v))
-									return
-								}
-
-								if v == 8012 || v == 8022 || v == 9090 || v == 9091 || v == 15000 || v == 15001 || v == 15006 || v == 15020 || v == 15021 || v == 15090 || v == 41000 {
-									errs = append(errs, fmt.Errorf("%q cannot be 8012, 8022, 9090, 9091, 15000, 15001, 15006, 15020, 15021, 15090, 41000, got: %d", key, v))
-								}
-
-								return
-							},
-						},
-					},
-				},
-			},
-			"http_get": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"path": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "/",
-						},
-						"port": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							ValidateFunc: PortValidator,
-						},
-						"http_headers": {
-							Type:     schema.TypeMap,
-							Optional: true,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
-						"scheme": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "HTTP",
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-								v := val.(string)
-								vLower := strings.ToLower(v)
-
-								if vLower != "http" && vLower != "https" {
-									errs = append(errs, fmt.Errorf("%q must be either HTTP or HTTPS: %s", key, v))
-								}
-
-								return
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func lifeCycleSpec() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"exec": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"command": {
-							Type:     schema.TypeList,
-							Required: true,
-							MinItems: 1,
-							Elem:     StringSchema(),
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -854,6 +560,15 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		}
 	}
 
+	if d.Get("rollout_options") != nil {
+		rolloutOptions := buildRolloutOptions(d.Get("rollout_options").([]interface{}))
+		if workload.Spec == nil {
+			workload.Spec = &client.WorkloadSpec{}
+		}
+
+		workload.Spec.RolloutOptions = rolloutOptions
+	}
+
 	newWorkload, code, err := c.CreateWorkload(workload, gvcName)
 
 	if code == 409 {
@@ -867,6 +582,262 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 	return setWorkload(d, newWorkload, gvcName, c.Org, nil)
 }
 
+func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
+	// log.Printf("[INFO] Method: resourceWorkloadRead")
+
+	workloadName := d.Id()
+	gvcName := d.Get("gvc").(string)
+
+	c := m.(*client.Client)
+	workload, code, err := c.GetWorkload(workloadName, gvcName)
+
+	if code == 404 {
+		d.SetId("")
+		return nil
+	}
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if tfTest := os.Getenv("CPLN_TF_TEST"); tfTest == "true" {
+
+		if workload.Status == nil {
+			workload.Status = &client.WorkloadStatus{}
+		}
+
+		testEndpoint := "http://tf-test"
+
+		workload.Status.Endpoint = &testEndpoint
+		workload.Status.CanonicalEndpoint = &testEndpoint
+	}
+
+	var diags diag.Diagnostics
+	count := 0
+
+	for workload.Status == nil || workload.Status.Endpoint == nil || workload.Status.CanonicalEndpoint == nil || strings.TrimSpace(*workload.Status.Endpoint) == "" || strings.TrimSpace(*workload.Status.CanonicalEndpoint) == "" {
+
+		if count++; count > 8 {
+			// Exit loop after 120 seconds
+
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Summary:  "Unable to obtain current status",
+				Detail:   "Workload status is not available. Run 'terraform apply' again.",
+			})
+
+			break
+		}
+
+		// log.Printf("Waiting For Valid Status. Count: %d", count)
+
+		time.Sleep(15 * time.Second)
+
+		workload, _, err = c.GetWorkload(workloadName, gvcName)
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	// log.Printf("Before Calling SET: Endpoint: %s. Canonical: %s", workload.Status.Endpoint, workload.Status.CanonicalEndpoint)
+
+	return setWorkload(d, workload, gvcName, c.Org, diags)
+}
+
+func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
+	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
+
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link", "rollout_options") {
+
+		c := m.(*client.Client)
+
+		gvcName := d.Get("gvc").(string)
+
+		workloadToUpdate := client.Workload{}
+		workloadToUpdate.Name = GetString(d.Get("name"))
+
+		if d.HasChange("description") {
+			workloadToUpdate.Description = GetDescriptionString(d.Get("description"), *workloadToUpdate.Name)
+		}
+
+		if d.HasChange("tags") {
+			workloadToUpdate.Tags = GetTagChanges(d)
+		}
+
+		if d.HasChange("type") {
+
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			workloadToUpdate.Spec.Type = GetString(d.Get("type"))
+		}
+
+		if d.HasChange("container") {
+
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			buildContainers(d.Get("container").([]interface{}), &workloadToUpdate)
+		}
+
+		if d.HasChange("options") {
+
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			buildOptions(d.Get("options").([]interface{}), &workloadToUpdate, false, c.Org)
+		}
+
+		if d.HasChange("local_options") {
+
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			buildOptions(d.Get("local_options").([]interface{}), &workloadToUpdate, true, c.Org)
+		}
+
+		if d.HasChange("firewall_spec") {
+
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workloadToUpdate, true)
+		}
+
+		if d.HasChange("rollout_options") {
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+				workloadToUpdate.Spec.Update = true
+			}
+
+			workloadToUpdate.Spec.RolloutOptions = buildRolloutOptions(d.Get("rollout_options").([]interface{}))
+		}
+
+		if d.Get("identity_link") != nil {
+
+			identityLink := strings.TrimSpace(d.Get("identity_link").(string))
+
+			if identityLink != "" {
+
+				if workloadToUpdate.Spec == nil {
+					workloadToUpdate.Spec = &client.WorkloadSpec{}
+					workloadToUpdate.Spec.Update = true
+				}
+
+				workloadToUpdate.Spec.IdentityLink = GetString(identityLink)
+			}
+		}
+
+		updatedWorkload, _, err := c.UpdateWorkload(workloadToUpdate, gvcName)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		if tfTest := os.Getenv("CPLN_TF_TEST"); tfTest == "true" {
+
+			if updatedWorkload.Status == nil {
+				updatedWorkload.Status = &client.WorkloadStatus{}
+			}
+
+			testEndpoint := "http://tf-test"
+
+			updatedWorkload.Status.Endpoint = &testEndpoint
+			updatedWorkload.Status.CanonicalEndpoint = &testEndpoint
+		}
+
+		return setWorkload(d, updatedWorkload, gvcName, c.Org, nil)
+	}
+
+	return nil
+}
+
+func resourceWorkloadDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
+	// log.Printf("[INFO] Method: resourceWorkloadDelete")
+
+	c := m.(*client.Client)
+	err := c.DeleteWorkload(d.Id(), d.Get("gvc").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	d.SetId("")
+
+	return nil
+}
+
+func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org string, diags diag.Diagnostics) diag.Diagnostics {
+
+	if workload == nil {
+		d.SetId("")
+		return nil
+	}
+
+	d.SetId(*workload.Name)
+
+	if err := SetBase(d, workload.Base); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if workload.Spec != nil {
+		if err := d.Set("container", flattenContainer(workload.Spec.Containers)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if workload.Spec.DefaultOptions != nil {
+			if err := d.Set("options", flattenOptions([]client.Options{*workload.Spec.DefaultOptions}, false, org)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		if workload.Spec.LocalOptions != nil {
+			if err := d.Set("local_options", flattenOptions(*workload.Spec.LocalOptions, true, org)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+
+		if err := d.Set("firewall_spec", flattenFirewallSpec(workload.Spec.FirewallConfig)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("identity_link", workload.Spec.IdentityLink); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("type", workload.Spec.Type); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("rollout_options", flattenRolloutOptions(workload.Spec.RolloutOptions)); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if err := d.Set("status", flattenWorkloadStatus(workload.Status)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := SetSelfLink(workload.Links, d); err != nil {
+		return diag.FromErr(err)
+	}
+
+	return diags
+}
+
+/*** Build ***/
 func buildContainers(containers []interface{}, workload *client.Workload) {
 
 	newContainers := []client.ContainerSpec{}
@@ -1306,16 +1277,27 @@ func buildFirewallSpec(specs []interface{}, workload *client.Workload, update bo
 	}
 }
 
-func getInnerLifeCycleCommands(property []interface{}) []string {
-	if len(property) == 0 {
-		return []string{}
+func buildRolloutOptions(specs []interface{}) *client.RolloutOptions {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
 	}
-	propertySafe := property[0].(map[string]interface{})
-	exec, ok := propertySafe["exec"].([]interface{})
-	if ok {
-		return buildExec(exec)
+
+	spec := specs[0].(map[string]interface{})
+	output := client.RolloutOptions{}
+
+	if spec["min_ready_seconds"] != nil {
+		output.MinReadySeconds = GetInt(spec["min_ready_seconds"].(int))
 	}
-	return []string{}
+
+	if spec["max_unavailable_replicas"] != nil {
+		output.MaxUnavailableReplicas = GetString(spec["max_unavailable_replicas"].(string))
+	}
+
+	if spec["max_surge_replicas"] != nil {
+		output.MaxSurgeReplicas = GetString(spec["max_surge_replicas"].(string))
+	}
+
+	return &output
 }
 
 func buildExec(exec []interface{}) []string {
@@ -1337,248 +1319,7 @@ func buildExec(exec []interface{}) []string {
 	return commands
 }
 
-func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceWorkloadRead")
-
-	workloadName := d.Id()
-	gvcName := d.Get("gvc").(string)
-
-	c := m.(*client.Client)
-	workload, code, err := c.GetWorkload(workloadName, gvcName)
-
-	if code == 404 {
-		d.SetId("")
-		return nil
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if tfTest := os.Getenv("CPLN_TF_TEST"); tfTest == "true" {
-
-		if workload.Status == nil {
-			workload.Status = &client.WorkloadStatus{}
-		}
-
-		testEndpoint := "http://tf-test"
-
-		workload.Status.Endpoint = &testEndpoint
-		workload.Status.CanonicalEndpoint = &testEndpoint
-	}
-
-	var diags diag.Diagnostics
-	count := 0
-
-	for workload.Status == nil || workload.Status.Endpoint == nil || workload.Status.CanonicalEndpoint == nil || strings.TrimSpace(*workload.Status.Endpoint) == "" || strings.TrimSpace(*workload.Status.CanonicalEndpoint) == "" {
-
-		if count++; count > 8 {
-			// Exit loop after 120 seconds
-
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Warning,
-				Summary:  "Unable to obtain current status",
-				Detail:   "Workload status is not available. Run 'terraform apply' again.",
-			})
-
-			break
-		}
-
-		// log.Printf("Waiting For Valid Status. Count: %d", count)
-
-		time.Sleep(15 * time.Second)
-
-		workload, _, err = c.GetWorkload(workloadName, gvcName)
-
-		if err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	// log.Printf("Before Calling SET: Endpoint: %s. Canonical: %s", workload.Status.Endpoint, workload.Status.CanonicalEndpoint)
-
-	return setWorkload(d, workload, gvcName, c.Org, diags)
-}
-
-func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
-
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link") {
-
-		c := m.(*client.Client)
-
-		gvcName := d.Get("gvc").(string)
-
-		workloadToUpdate := client.Workload{}
-		workloadToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			workloadToUpdate.Description = GetDescriptionString(d.Get("description"), *workloadToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			workloadToUpdate.Tags = GetTagChanges(d)
-		}
-
-		if d.HasChange("type") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			workloadToUpdate.Spec.Type = GetString(d.Get("type"))
-		}
-
-		if d.HasChange("container") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildContainers(d.Get("container").([]interface{}), &workloadToUpdate)
-		}
-
-		if d.HasChange("options") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildOptions(d.Get("options").([]interface{}), &workloadToUpdate, false, c.Org)
-		}
-
-		if d.HasChange("local_options") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildOptions(d.Get("local_options").([]interface{}), &workloadToUpdate, true, c.Org)
-		}
-
-		if d.HasChange("firewall_spec") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workloadToUpdate, true)
-		}
-
-		if d.Get("identity_link") != nil {
-
-			identityLink := strings.TrimSpace(d.Get("identity_link").(string))
-
-			if identityLink != "" {
-
-				if workloadToUpdate.Spec == nil {
-					workloadToUpdate.Spec = &client.WorkloadSpec{}
-					workloadToUpdate.Spec.Update = true
-				}
-
-				workloadToUpdate.Spec.IdentityLink = GetString(identityLink)
-			}
-		}
-
-		updatedWorkload, _, err := c.UpdateWorkload(workloadToUpdate, gvcName)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		if tfTest := os.Getenv("CPLN_TF_TEST"); tfTest == "true" {
-
-			if updatedWorkload.Status == nil {
-				updatedWorkload.Status = &client.WorkloadStatus{}
-			}
-
-			testEndpoint := "http://tf-test"
-
-			updatedWorkload.Status.Endpoint = &testEndpoint
-			updatedWorkload.Status.CanonicalEndpoint = &testEndpoint
-		}
-
-		return setWorkload(d, updatedWorkload, gvcName, c.Org, nil)
-	}
-
-	return nil
-}
-
-func resourceWorkloadDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceWorkloadDelete")
-
-	c := m.(*client.Client)
-	err := c.DeleteWorkload(d.Id(), d.Get("gvc").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	d.SetId("")
-
-	return nil
-}
-
-func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org string, diags diag.Diagnostics) diag.Diagnostics {
-
-	if workload == nil {
-		d.SetId("")
-		return nil
-	}
-
-	d.SetId(*workload.Name)
-
-	if err := SetBase(d, workload.Base); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if workload.Spec != nil {
-		if err := d.Set("container", flattenContainer(workload.Spec.Containers)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if workload.Spec.DefaultOptions != nil {
-			if err := d.Set("options", flattenOptions([]client.Options{*workload.Spec.DefaultOptions}, false, org)); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		if workload.Spec.LocalOptions != nil {
-			if err := d.Set("local_options", flattenOptions(*workload.Spec.LocalOptions, true, org)); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		if err := d.Set("firewall_spec", flattenFirewallSpec(workload.Spec.FirewallConfig)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("identity_link", workload.Spec.IdentityLink); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("type", workload.Spec.Type); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	if err := d.Set("status", flattenWorkloadStatus(workload.Status)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := SetSelfLink(workload.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return diags
-}
-
+/*** Flatten ***/
 func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 
 	if status != nil {
@@ -2091,4 +1832,359 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 	}
 
 	return []interface{}{lc}
+}
+
+func flattenRolloutOptions(spec *client.RolloutOptions) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	rolloutOptions := map[string]interface{}{}
+
+	if spec.MinReadySeconds != nil {
+		rolloutOptions["min_ready_seconds"] = *spec.MinReadySeconds
+	}
+
+	if spec.MaxUnavailableReplicas != nil {
+		rolloutOptions["max_unavailable_replicas"] = *spec.MaxUnavailableReplicas
+	}
+
+	if spec.MaxSurgeReplicas != nil {
+		rolloutOptions["max_surge_replicas"] = *spec.MaxSurgeReplicas
+	}
+
+	return []interface{}{
+		rolloutOptions,
+	}
+}
+
+/*** Helpers ***/
+func AutoScalingResource() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"metric": {
+				Type:     schema.TypeString,
+				Optional: true,
+				// Default:  "concurrency",
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+
+					v := val.(string)
+
+					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" {
+						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'latency' or 'rps', got: %s", key, v))
+					}
+
+					return
+				},
+			},
+			"metric_percentile": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+
+					v := val.(string)
+
+					if v != "p50" && v != "p75" && v != "p99" {
+						errs = append(errs, fmt.Errorf("%q must be 'p50', 'p75' or 'p99', got: %s", key, v))
+					}
+
+					return
+				},
+			},
+			"target": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  100,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 0 || v > 20000 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 20000 inclusive, got: %d", key, v))
+					}
+					return
+				},
+			},
+			"max_scale": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  5,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 0 {
+						errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
+					}
+					return
+				},
+			},
+			"min_scale": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  1,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 0 {
+						errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
+					}
+					return
+				},
+			},
+			"max_concurrency": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  0,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 0 || v > 30000 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 30000 inclusive, got: %d", key, v))
+					}
+					return
+				},
+			},
+			"scale_to_zero_delay": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  300,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 30 || v > 3600 {
+						errs = append(errs, fmt.Errorf("%q must be between 30 and 3600 inclusive, got: %d", key, v))
+					}
+					return
+				},
+			},
+		},
+	}
+}
+
+func ExternalFirewallResource() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"inbound_allow_cidr": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"outbound_allow_cidr": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"outbound_allow_hostname": {
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+		},
+	}
+}
+
+func InternalFirewallResource() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"inbound_allow_type": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "none",
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+
+					v := val.(string)
+
+					if v != "none" && v != "same-gvc" && v != "same-org" && v != "workload-list" {
+						errs = append(errs, fmt.Errorf("%q must be 'none', 'same-gvc', 'same-org', or 'workload-list', got: %s", key, v))
+					}
+
+					return
+				},
+			},
+			"inbound_allow_workload": {
+				Type:     schema.TypeSet,
+				Required: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+		},
+	}
+}
+
+func healthCheckSpec() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"initial_delay_seconds": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  0,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 0 || v > 600 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 600 inclusive, got: %d", key, v))
+					}
+
+					return
+				},
+			},
+			"period_seconds": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  10,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 1 || v > 60 {
+						errs = append(errs, fmt.Errorf("%q must be between 1 and 60 inclusive, got: %d", key, v))
+					}
+
+					return
+				},
+			},
+			"timeout_seconds": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Default:  1,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+					v := val.(int)
+					if v < 1 || v > 60 {
+						errs = append(errs, fmt.Errorf("%q must be between 1 and 60 inclusive, got: %d", key, v))
+					}
+
+					return
+				},
+			},
+			"success_threshold": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      1,
+				ValidateFunc: ThresholdValidator,
+			},
+			"failure_threshold": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      3,
+				ValidateFunc: ThresholdValidator,
+			},
+			"exec": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"command": {
+							Type:     schema.TypeList,
+							Required: true,
+							MinItems: 1,
+							Elem:     StringSchema(),
+						},
+					},
+				},
+			},
+			"tcp_socket": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"port": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+								v := val.(int)
+								if v < 80 || v > 65535 {
+									errs = append(errs, fmt.Errorf("%q must be between 80 and 65535 inclusive, got: %d", key, v))
+									return
+								}
+
+								if v == 8012 || v == 8022 || v == 9090 || v == 9091 || v == 15000 || v == 15001 || v == 15006 || v == 15020 || v == 15021 || v == 15090 || v == 41000 {
+									errs = append(errs, fmt.Errorf("%q cannot be 8012, 8022, 9090, 9091, 15000, 15001, 15006, 15020, 15021, 15090, 41000, got: %d", key, v))
+								}
+
+								return
+							},
+						},
+					},
+				},
+			},
+			"http_get": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"path": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "/",
+						},
+						"port": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: PortValidator,
+						},
+						"http_headers": {
+							Type:     schema.TypeMap,
+							Optional: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+						"scheme": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "HTTP",
+							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+								v := val.(string)
+								vLower := strings.ToLower(v)
+
+								if vLower != "http" && vLower != "https" {
+									errs = append(errs, fmt.Errorf("%q must be either HTTP or HTTPS: %s", key, v))
+								}
+
+								return
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func lifeCycleSpec() *schema.Resource {
+	return &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"exec": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"command": {
+							Type:     schema.TypeList,
+							Required: true,
+							MinItems: 1,
+							Elem:     StringSchema(),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getInnerLifeCycleCommands(property []interface{}) []string {
+	if len(property) == 0 {
+		return []string{}
+	}
+	propertySafe := property[0].(map[string]interface{})
+	exec, ok := propertySafe["exec"].([]interface{})
+	if ok {
+		return buildExec(exec)
+	}
+	return []string{}
 }

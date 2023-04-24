@@ -27,6 +27,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
+- **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
 
 <a id="nestedblock--container"></a>
 
@@ -272,6 +273,16 @@ Optional:
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
+
+<a id="nestedblock--rollout_options"></a>
+
+### `rollout_options`
+
+Optional:
+
+- **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
+- **max_unavailable_replicas** (String) //TODO: Add description.
+- **max_surge_replicas** (String) //TODO: Add description.
 
 <a id="nestedatt--status"></a>
 
@@ -578,6 +589,12 @@ resource "cpln_workload" "new" {
       inbound_allow_type     = "none"
       inbound_allow_workload = []
     }
+  }
+
+  rollout_options {
+    min_ready_seconds = 2
+    max_unavailable_replicas = "10"
+    max_surge_replicas = "20"
   }
 }
 

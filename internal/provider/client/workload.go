@@ -29,6 +29,7 @@ type WorkloadSpec struct {
 	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
 	DefaultOptions *Options         `json:"defaultOptions,omitempty"`
 	LocalOptions   *[]Options       `json:"localOptions,omitempty"`
+	RolloutOptions *RolloutOptions  `json:"rolloutOptions,omitempty"`
 	Update         bool             `json:"-"`
 }
 
@@ -245,6 +246,13 @@ type LifeCycleSpec struct {
 // LifeCycle - Inner
 type LifeCycleInner struct {
 	Exec *Exec `json:"exec,omitempty"`
+}
+
+// Rollout Options
+type RolloutOptions struct {
+	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
+	MaxUnavailableReplicas *string `json:"maxUnavailableReplicas,omitempty"`
+	MaxSurgeReplicas       *string `json:"maxSurgeReplicas,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {
