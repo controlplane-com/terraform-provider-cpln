@@ -479,6 +479,12 @@ resource "cpln_workload" "new" {
       inbound_allow_workload = []
     }
   }
+
+  rollout_options {
+    min_ready_seconds = 2
+    max_unavailable_replicas = "10"
+    max_surge_replicas = "20"
+  }
 }
 ```
 
