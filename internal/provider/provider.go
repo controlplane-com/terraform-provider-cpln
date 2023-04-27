@@ -52,6 +52,7 @@ func Provider() *schema.Provider {
 			"cpln_service_account":     resourceServiceAccount(),
 			"cpln_service_account_key": resourceServiceAccountKey(),
 			"cpln_workload":            resourceWorkload(),
+			"cpln_memcache":            resourceMemcache(),
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{

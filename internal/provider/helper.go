@@ -203,6 +203,15 @@ func GetInterface(s interface{}) *interface{} {
 	return &s
 }
 
+func GetFloat64(s interface{}) *float64 {
+	if s == nil {
+		return nil
+	}
+
+	output := s.(float64)
+	return &output
+}
+
 // MapSortHelper - Map Sort Helper
 func MapSortHelper(i interface{}) ([]string, map[string]interface{}) {
 
@@ -739,28 +748,28 @@ func PortProtocolValidator(val interface{}, key string) (warns []string, errs []
 	return
 }
 
-// func GetStringsArrayFromSet(spec interface{}) *[]string {
-// 	if spec == nil {
-// 		return nil
-// 	}
+func buildStringsArrayFromSet(spec interface{}) *[]string {
+	if spec == nil {
+		return nil
+	}
 
-// 	collection := []string{}
-// 	for _, value := range spec.(*schema.Set).List() {
-// 		collection = append(collection, value.(string))
-// 	}
+	collection := []string{}
+	for _, value := range spec.(*schema.Set).List() {
+		collection = append(collection, value.(string))
+	}
 
-// 	return &collection
-// }
+	return &collection
+}
 
-// func flattenReferencedStringsArray(strings *[]string) []interface{} {
-// 	if strings == nil || len(*strings) == 0 {
-// 		return nil
-// 	}
+func flattenReferencedStringsArray(strings *[]string) []interface{} {
+	if strings == nil || len(*strings) == 0 {
+		return nil
+	}
 
-// 	collection := make([]interface{}, len(*strings))
-// 	for i, item := range *strings {
-// 		collection[i] = item
-// 	}
+	collection := make([]interface{}, len(*strings))
+	for i, item := range *strings {
+		collection[i] = item
+	}
 
-// 	return collection
-// }
+	return collection
+}
