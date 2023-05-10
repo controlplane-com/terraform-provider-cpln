@@ -252,3 +252,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.0 - Update to Go 1.1.8 and Terraform SDK 2.25.0. Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.
 - v1.1.1 - Add identity manager to group.
 - v1.1.2 - Added `NATS Account` secret. Added NGS cloud account. Added NGS cloud access policy. Sync'ed GVC schema (env will be returned). Added GCP service account name and roles output to cloud account. Added elastic logging to org external logging. Added audit context resource. Added native network resources.
+- v1.1.3 - Fixed issue with identity and workload policies. 'gvc' property now required for those policy kinds.

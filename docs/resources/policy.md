@@ -23,6 +23,7 @@ Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 - **tags** (Map of String) Key-value map of resource tags.
   
 - **target_kind** (String) The kind of resource to target (e.g., gvc, serviceaccount, etc.).
+- **gvc** (String) The GVC for 'identity' and 'workload' target kinds only.
 
 - **target** (String) Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.
     
@@ -82,6 +83,8 @@ The following attributes are exported:
 
 ## Example Usage
 
+- Org Resources
+
 ```terraform
 resource "cpln_service_account" "example" {
 
@@ -135,4 +138,57 @@ resource "cpln_policy" "example" {
   }
 
 }
+```
+
+- GVC Resources (i.e. workload and identity)
+
+```terraform
+resource "cpln_gvc" "example" {
+	
+		name        = "gvc-example"	
+		description = "Example GVC"
+
+		locations = ["aws-eu-central-1"]
+
+		tags = {
+		  terraform_generated = "true"
+		}
+	}
+
+	resource "cpln_identity" "example" {
+
+  	gvc = cpln_gvc.exmaple.name
+
+		name        = "identity-example"	
+		description = "Example Identity"
+ 
+		tags = {
+		  terraform_generated = "true"
+		}
+	}
+
+  	resource "cpln_policy" "example" {
+
+		name = "policy-example"
+		description = "Example Policy for GVC resources" 
+		
+		tags = {
+			terraform_generated = "true"
+		}
+	
+		target_kind = "identity"
+		
+    # gvc required for `identity` and `workload` target kinds
+		gvc = cpln_gvc.terraform_gvc.name
+
+		target_links = [cpln_identity.example.name]
+
+
+		binding {
+			permissions = ["manage", "edit"]
+			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+		}
+	}
+
+
 ```

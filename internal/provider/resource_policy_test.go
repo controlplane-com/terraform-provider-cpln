@@ -42,7 +42,7 @@ func TestControlPlane_BuildPolicyTargetLinks(t *testing.T) {
 	tlfSet := schema.NewSet(stringFunc, tlf)
 
 	unitTestPolicy := &client.Policy{}
-	buildTargetLinks("testorg", "secret", tlfSet, unitTestPolicy)
+	buildTargetLinks("testorg", "", "secret", tlfSet, unitTestPolicy)
 
 	if diff := deep.Equal(unitTestPolicy, generateTestTargetLinks()); diff != nil {
 		t.Errorf("Policy Target Links was not built correctly. Diff: %s", diff)
@@ -264,6 +264,9 @@ func TestAccControlPlanePolicy_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_policy.terraform_policy", "description", "Policy description for policy-"+randomName),
 				),
 			},
+			{
+				Config: testAccControlPlanePolicyUpdate(randomName),
+			},
 		},
 	})
 }
@@ -360,6 +363,218 @@ func testAccControlPlanePolicy(name string) string {
 
 		binding {
 			permissions = ["manage", "edit"]
+			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+		}
+	}
+
+	resource "cpln_policy" "terraform_policy_02" {
+
+		name = "policy-02-${var.random-name}"
+		description = "Policy description for policy-02-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	
+		target_kind = "identity"
+		
+		gvc = cpln_gvc.terraform_gvc.name
+		target_links = [cpln_identity.terraform_identity.name]
+		// target = "all"
+
+
+		binding {
+			permissions = ["manage", "edit"]
+			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+		}
+	}
+
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.terraform_gvc.name
+	  
+		name        = "workload-01-${var.random-name}"
+		description = "workload-01-${var.random-name}"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		type = "standard" 
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+		  memory = "128Mi"
+		  cpu = "50m"	  
+
+		  ports {
+		    protocol = "http"
+			number   = "80" 
+		  }
+		}
+		
+	 	  	  
+		options {
+		  capacity_ai = false
+		  timeout_seconds = 30
+		  suspend = true
+
+		  autoscaling {
+			metric = "cpu"
+			target = 60
+			max_scale = 3
+			min_scale = 2
+			max_concurrency = 500
+			scale_to_zero_delay = 400
+		  }
+		}
+	}
+	
+
+	resource "cpln_policy" "terraform_policy_03" {
+
+		name = "policy-03-${var.random-name}"
+		description = "Policy description for policy-03-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	
+		target_kind = "workload"
+		
+		gvc = cpln_gvc.terraform_gvc.name
+		target_links = [cpln_workload.new.name]
+		// target = "all"
+
+
+		binding {
+			permissions = ["manage", "edit"]
+			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+		}
+	}
+
+	`, name)
+}
+
+func testAccControlPlanePolicyUpdate(name string) string {
+
+	return fmt.Sprintf(`
+	
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "terraform_gvc" {
+	
+		name        = "gvc-${var.random-name}"	
+		description = "GVC description for gvc-${var.random-name}"
+
+		locations = ["aws-eu-central-1"]
+
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "terraform_identity" {
+
+  		gvc = cpln_gvc.terraform_gvc.name
+
+		name        = "identity-${var.random-name}"	
+		description = "Identity description for identity-${var.random-name}"
+ 
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+
+	resource "cpln_policy" "terraform_policy" {
+
+		name = "policy-${var.random-name}"
+		description = "Policy description for policy-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+
+		target_kind = "secret"
+		target = "all"
+
+	}
+
+	resource "cpln_service_account" "tf_sa" {
+
+		name = "service-account-${var.random-name}"
+		description = "service account description ${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_policy" "terraform_policy_01" {
+
+		name = "policy-01-${var.random-name}"
+		description = "Policy description for policy-01-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	
+		target_kind = "serviceaccount"
+		target_links = [cpln_service_account.tf_sa.name]
+		// target = "all"
+
+		target_query {
+		
+			spec {
+				# match is either "all", "any", or "none"
+				match = "all"
+
+				terms {
+					op = "="
+					tag = "firebase/sign_in_provider"
+					value = "microsoft.com"
+				}
+			}
+		}
+
+		binding {
+			permissions = ["manage", "edit"]
+			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+		}
+	}
+
+	resource "cpln_policy" "terraform_policy_02" {
+
+		name = "policy-02-${var.random-name}"
+		description = "Policy description for policy-02-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	
+		target_kind = "identity"
+		
+		gvc = cpln_gvc.terraform_gvc.name
+		target_links = [cpln_identity.terraform_identity.name]
+		// target = "all"
+
+
+		binding {
+			permissions = ["manage"]
 			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
 		}
 	}
