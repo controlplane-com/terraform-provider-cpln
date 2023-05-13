@@ -32,7 +32,7 @@ func (c *Client) GetCloudAccount(name string) (*CloudAccount, int, error) {
 	cloudAccount, code, err := c.GetResource(fmt.Sprintf("cloudaccount/%s", name), new(CloudAccount))
 
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	return cloudAccount.(*CloudAccount), code, err

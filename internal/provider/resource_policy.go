@@ -46,10 +46,15 @@ func resourcePolicy() *schema.Resource {
 				Computed: true,
 			},
 			"target_kind": {
-				Type:         schema.TypeString,
-				ForceNew:     true,
-				Required:     true,
-				ValidateFunc: KindValidator,
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Required: true,
+				// ValidateFunc: KindValidator,
+			},
+			"gvc": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
 			},
 			"target_links": {
 				Type:     schema.TypeSet,
@@ -122,9 +127,15 @@ func resourcePolicyCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	policy.TargetKind = GetString(d.Get("target_kind"))
 	policy.Target = GetString(d.Get("target"))
 
+	gvc := d.Get("gvc").(string)
+
+	if (*policy.TargetKind == "identity" || *policy.TargetKind == "workload") && gvc == "" {
+		return diag.FromErr(fmt.Errorf("target kind of 'identity' or 'workload' requires the 'gvc' property"))
+	}
+
 	c := m.(*client.Client)
 
-	buildTargetLinks(c.Org, *policy.TargetKind, d.Get("target_links"), &policy)
+	buildTargetLinks(c.Org, gvc, *policy.TargetKind, d.Get("target_links"), &policy)
 	policy.TargetQuery = BuildQueryHelper(*policy.TargetKind, d.Get("target_query"))
 	buildBindings(c.Org, d.Get("binding"), &policy)
 
@@ -138,7 +149,7 @@ func resourcePolicyCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
-	return setPolicy(c.Org, d, newPolicy)
+	return setPolicy(c.Org, gvc, d, newPolicy)
 }
 
 func resourcePolicyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -146,19 +157,21 @@ func resourcePolicyRead(ctx context.Context, d *schema.ResourceData, m interface
 	c := m.(*client.Client)
 
 	policy, code, err := c.GetPolicy(d.Id())
+	gvc := d.Get("gvc").(string)
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	return setPolicy(c.Org, d, policy)
+	return setPolicy(c.Org, gvc, d, policy)
 }
 
-func setPolicy(org string, d *schema.ResourceData, policy *client.Policy) diag.Diagnostics {
+func setPolicy(org, gvc string, d *schema.ResourceData, policy *client.Policy) diag.Diagnostics {
 
 	if policy == nil {
 		d.SetId("")
@@ -172,6 +185,10 @@ func setPolicy(org string, d *schema.ResourceData, policy *client.Policy) diag.D
 	}
 
 	if err := d.Set("target_kind", policy.TargetKind); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("gvc", gvc); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -218,13 +235,20 @@ func resourcePolicyUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		c := m.(*client.Client)
 
+		gvc := d.Get("gvc").(string)
+		targetKind := d.Get("target_kind").(string)
+
+		if (targetKind == "identity" || targetKind == "workload") && gvc == "" {
+			return diag.FromErr(fmt.Errorf("target kind of 'identity' or 'workload' requires the 'gvc' property"))
+		}
+
 		policyToUpdate := client.Policy{}
 		policyToUpdate.Update = true
 		policyToUpdate.Name = GetString(d.Get("name"))
 
 		policyToUpdate.Target = GetString(d.Get("target"))
 		policyToUpdate.TargetQuery = BuildQueryHelper("user", d.Get("target_query"))
-		buildTargetLinks(c.Org, d.Get("target_kind").(string), d.Get("target_links"), &policyToUpdate)
+		buildTargetLinks(c.Org, gvc, targetKind, d.Get("target_links"), &policyToUpdate)
 		buildBindings(c.Org, d.Get("binding"), &policyToUpdate)
 
 		if d.HasChange("description") {
@@ -240,13 +264,13 @@ func resourcePolicyUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			return diag.FromErr(err)
 		}
 
-		return setPolicy(c.Org, d, updatedPolicy)
+		return setPolicy(c.Org, gvc, d, updatedPolicy)
 	}
 
 	return nil
 }
 
-func buildTargetLinks(org, kind string, targets interface{}, policy *client.Policy) {
+func buildTargetLinks(org, gvc, kind string, targets interface{}, policy *client.Policy) {
 
 	targetLinks := []string{}
 
@@ -255,7 +279,12 @@ func buildTargetLinks(org, kind string, targets interface{}, policy *client.Poli
 		targetArray := targets.(*schema.Set)
 
 		for _, t := range targetArray.List() {
-			targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/%s/%s", org, kind, t))
+
+			if kind == "identity" || kind == "workload" {
+				targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/gvc/%s/%s/%s", org, gvc, kind, t))
+			} else {
+				targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/%s/%s", org, kind, t))
+			}
 		}
 	}
 

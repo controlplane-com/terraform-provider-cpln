@@ -12,36 +12,245 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-func generateFlatTestMemberLinks() (interface{}, interface{}) {
+func TestAccControlPlaneGroup_basic(t *testing.T) {
 
-	usersFlat := []interface{}{
-		"username@cpln.io",
-		"control_plane_user",
-	}
+	var testGroup client.Group
 
-	serviceAccountsFlat := []interface{}{
-		"test-service-account",
-		"terraform-service-account",
-	}
+	randomName := "group-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	stringFunc := schema.HashSchema(StringSchema())
-
-	return schema.NewSet(stringFunc, usersFlat), schema.NewSet(stringFunc, serviceAccountsFlat)
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t, "GROUP") },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckControlPlaneGroupCheckDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccControlPlaneGroupWithJMESPATH(randomName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneGroupExists("cpln_group.tf-group", randomName, &testGroup),
+					testAccCheckControlPlaneGroupAttributes(&testGroup, "language_jmespath"),
+					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName),
+					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName),
+				),
+			},
+			{
+				Config: testAccControlPlaneGroupWithJavaScript(randomName + "-javascript"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneGroupExists("cpln_group.tf-group", randomName+"-javascript", &testGroup),
+					testAccCheckControlPlaneGroupAttributes(&testGroup, "language_javascript"),
+					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName+"-javascript"),
+					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName+"-javascript"),
+				),
+			},
+		},
+	})
 }
 
-func generateTestMemberLinks() client.Group {
+func testAccControlPlaneGroupWithJMESPATH(name string) string {
 
-	testGroup := client.Group{}
-	testGroup.MemberLinks = &[]string{
-		"/org/testorg/user/username@cpln.io",
-		"/org/testorg/user/control_plane_user",
-		"/org/testorg/serviceaccount/terraform-service-account",
-		"/org/testorg/serviceaccount/test-service-account",
+	return fmt.Sprintf(`
+	
+	variable "random-name" {
+		type = string
+		default = "%s"
 	}
 
-	return testGroup
+	resource "cpln_service_account" "tf_sa" {
+
+		name = "service-account-${var.random-name}"
+		description = "service account description ${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_group" "tf-group" {
+
+		depends_on = [cpln_service_account.tf_sa]
+
+		name = var.random-name
+		description = "group description ${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+
+		// user_ids_and_emails = ["unittest@controlplane.com"]
+
+		service_accounts = [cpln_service_account.tf_sa.name]
+
+		member_query {
+
+			fetch = "items"
+
+			spec {
+				match = "all"
+
+				terms {
+					op = "="
+					tag = "firebase/sign_in_provider"
+					value = "microsoft.com"
+				}
+			}
+		}
+
+		identity_matcher {
+			expression = "groups"
+			// language default value is 'jmespath'
+		}
+	}
+	`, name)
 }
 
+func testAccControlPlaneGroupWithJavaScript(name string) string {
+
+	return fmt.Sprintf(`
+	
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_service_account" "tf_sa" {
+
+		name = "service-account-${var.random-name}"
+		description = "service account description ${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_group" "tf-group" {
+
+		depends_on = [cpln_service_account.tf_sa]
+
+		name = var.random-name
+		description = "group description ${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+
+		// user_ids_and_emails = ["unittest@controlplane.com"]
+
+		service_accounts = [cpln_service_account.tf_sa.name]
+
+		member_query {
+
+			fetch = "items"
+
+			spec {
+				match = "all"
+
+				terms {
+					op = "="
+					tag = "firebase/sign_in_provider"
+					value = "microsoft.com"
+				}
+			}
+		}
+
+		identity_matcher {
+			expression = "if ($.includes('groups')) { const y = $.groups; }"
+			language = "javascript"
+		}
+	}
+	`, name)
+}
+
+func testAccCheckControlPlaneGroupExists(resourceName string, groupName string, group *client.Group) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		TestLogger.Printf("Inside testAccCheckControlPlaneGroupExists. Resources Length: %d", len(s.RootModule().Resources))
+
+		rs, ok := s.RootModule().Resources[resourceName]
+
+		if !ok {
+			return fmt.Errorf("Not found: %s", s)
+		}
+
+		if rs.Primary.ID != groupName {
+			return fmt.Errorf("Group name does not match")
+		}
+
+		client := testAccProvider.Meta().(*client.Client)
+
+		wl, _, err := client.GetGroup(groupName)
+
+		if err != nil {
+			return err
+		}
+
+		if *wl.Name != groupName {
+			return fmt.Errorf("Group name does not match")
+		}
+
+		*group = *wl
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneGroupAttributes(group *client.Group, groupType string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+
+		tags := *group.Tags
+
+		if tags["terraform_generated"] != "true" {
+			return fmt.Errorf("Tags - group terraform_generated attribute does not match")
+		}
+
+		identityMatcher, _, _ := generateTestIdentityMatcher(groupType)
+
+		if diff := deep.Equal(identityMatcher, group.IdentityMatcher); diff != nil {
+			return fmt.Errorf("Identity matcher attributes do not match. Diff: %s", diff)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckControlPlaneGroupCheckDestroy(s *terraform.State) error {
+
+	if len(s.RootModule().Resources) == 0 {
+		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+	}
+
+	c := testAccProvider.Meta().(*client.Client)
+
+	for _, rs := range s.RootModule().Resources {
+
+		if rs.Type == "cpln_group" {
+
+			groupName := rs.Primary.ID
+
+			group, _, _ := c.GetGroup(groupName)
+			if group != nil {
+				return fmt.Errorf("Group still exists. Name: %s", *group.Name)
+			}
+		}
+
+		if rs.Type == "cpln_service_account" {
+
+			saName := rs.Primary.ID
+
+			sa, _, _ := c.GetGroup(saName)
+			if sa != nil {
+				return fmt.Errorf("Service Account still exists. Name: %s", *sa.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
+/*** Unit Tests ***/
+// Build Functions //
 func TestControlPlane_BuildGroupMemberLinks(t *testing.T) {
 
 	u, sa := generateFlatTestMemberLinks()
@@ -62,6 +271,146 @@ func TestControlPlane_BuildGroupQuery(t *testing.T) {
 	if diff := deep.Equal(&unitTestGroup, generateTestGroupQuery()); diff != nil {
 		t.Errorf("Group Query was not built correctly. Diff: %s", diff)
 	}
+}
+
+func TestControlPlane_BuildIdentityMatcher_WithJMESPATH(t *testing.T) {
+	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("language_jmespath")
+
+	if diff := deep.Equal(identityMatcher, &expectedIdentityMatcher); diff != nil {
+		t.Errorf("Identity Matcher was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildIdentityMatcher_WithJavaScript(t *testing.T) {
+	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("language_javascript")
+
+	if diff := deep.Equal(identityMatcher, &expectedIdentityMatcher); diff != nil {
+		t.Errorf("Identity Matcher was not built correctly. Diff: %s", diff)
+	}
+}
+
+// Generate Functions //
+func generateTestMemberLinks() client.Group {
+
+	testGroup := client.Group{}
+	testGroup.MemberLinks = &[]string{
+		"/org/testorg/user/username@cpln.io",
+		"/org/testorg/user/control_plane_user",
+		"/org/testorg/serviceaccount/terraform-service-account",
+		"/org/testorg/serviceaccount/test-service-account",
+	}
+
+	return testGroup
+}
+
+func generateTestGroupQuery() *client.Group {
+
+	testGroup := client.Group{}
+	testGroup.MemberQuery = &client.Query{
+		Kind:  GetString("user"),
+		Fetch: GetString("items"),
+	}
+
+	testGroup.MemberQuery.Spec = &client.Spec{
+		Match: GetString("all"),
+		Terms: &[]client.Term{
+			{
+				Op:       GetString("="),
+				Property: GetString("property"),
+				// Rel:      GetString(""),
+				// Tag:      GetString(""),
+				Value: GetString("property-value"),
+			},
+			{
+				Op: GetString("!="),
+				// Property: GetString(""),
+				Rel: GetString("rel"),
+				// Tag:      GetString(""),
+				Value: GetString("rel-value"),
+			},
+			{
+				Op: GetString(">"),
+				// Property: GetString(""),
+				// Rel:      GetString(""),
+				Tag:   GetString("tag"),
+				Value: GetString("tag-value"),
+			},
+		},
+	}
+
+	return &testGroup
+}
+
+func generateTestIdentityMatcher(groupType string) (*client.IdentityMatcher, client.IdentityMatcher, []interface{}) {
+	expression := "groups"
+	language := "jmespath"
+
+	if groupType == "language_javascript" {
+		expression = "if ($.includes('groups')) { const y = $.groups; }"
+		language = "javascript"
+	}
+
+	flattened := generateFlatTestIdentityMatcher(expression, language)
+	identityMatcher := buildIdentityMatcher(flattened)
+	expectedIdentityMatcher := client.IdentityMatcher{
+		Expression: &expression,
+		Language:   &language,
+	}
+
+	return identityMatcher, expectedIdentityMatcher, flattened
+}
+
+// Flatten Functions //
+func TestControlPlane_FlattenMemberLinks(t *testing.T) {
+
+	userIDs, serviceAccounts, err := flattenMemberLinks("testorg", generateTestMemberLinks().MemberLinks)
+
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+
+	userIDsFlat, serviceAccountsFlat := generateFlatTestMemberLinks()
+
+	if diff := deep.Equal(userIDs, userIDsFlat.(*schema.Set).List()); diff != nil {
+		t.Errorf("User IDs were not flattened correctly. Diff: %s", diff)
+		return
+	}
+
+	if diff := deep.Equal(serviceAccounts, serviceAccountsFlat.(*schema.Set).List()); diff != nil {
+		t.Errorf("Service Accounts were not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenQuery(t *testing.T) {
+
+	query, err := FlattenQueryHelper(generateTestGroupQuery().MemberQuery)
+
+	if err != nil {
+		t.Errorf(err.Error())
+		return
+	}
+
+	if diff := deep.Equal(query, generateFlatTestGroupQuery()); diff != nil {
+		t.Errorf("Member Query was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func generateFlatTestMemberLinks() (interface{}, interface{}) {
+
+	usersFlat := []interface{}{
+		"username@cpln.io",
+		"control_plane_user",
+	}
+
+	serviceAccountsFlat := []interface{}{
+		"test-service-account",
+		"terraform-service-account",
+	}
+
+	stringFunc := schema.HashSchema(StringSchema())
+
+	return schema.NewSet(stringFunc, usersFlat), schema.NewSet(stringFunc, serviceAccountsFlat)
 }
 
 func generateFlatTestGroupQuery() []interface{} {
@@ -112,183 +461,13 @@ func generateFlatTestGroupQuery() []interface{} {
 	}
 }
 
-func generateTestGroupQuery() *client.Group {
-
-	testGroup := client.Group{}
-	testGroup.MemberQuery = &client.Query{
-		Kind:  GetString("user"),
-		Fetch: GetString("items"),
+func generateFlatTestIdentityMatcher(expression string, language string) []interface{} {
+	spec := map[string]interface{}{
+		"expression": expression,
+		"language":   language,
 	}
 
-	testGroup.MemberQuery.Spec = &client.Spec{
-		Match: GetString("all"),
-		Terms: &[]client.Term{
-			{
-				Op:       GetString("="),
-				Property: GetString("property"),
-				// Rel:      GetString(""),
-				// Tag:      GetString(""),
-				Value: GetString("property-value"),
-			},
-			{
-				Op: GetString("!="),
-				// Property: GetString(""),
-				Rel: GetString("rel"),
-				// Tag:      GetString(""),
-				Value: GetString("rel-value"),
-			},
-			{
-				Op: GetString(">"),
-				// Property: GetString(""),
-				// Rel:      GetString(""),
-				Tag:   GetString("tag"),
-				Value: GetString("tag-value"),
-			},
-		},
+	return []interface{}{
+		spec,
 	}
-
-	return &testGroup
-}
-
-func TestControlPlane_FlattenMemberLinks(t *testing.T) {
-
-	userIDs, serviceAccounts, err := flattenMemberLinks("testorg", generateTestMemberLinks().MemberLinks)
-
-	if err != nil {
-		t.Errorf(err.Error())
-		return
-	}
-
-	userIDsFlat, serviceAccountsFlat := generateFlatTestMemberLinks()
-
-	if diff := deep.Equal(userIDs, userIDsFlat.(*schema.Set).List()); diff != nil {
-		t.Errorf("User IDs were not flattened correctly. Diff: %s", diff)
-		return
-	}
-
-	if diff := deep.Equal(serviceAccounts, serviceAccountsFlat.(*schema.Set).List()); diff != nil {
-		t.Errorf("Service Accounts were not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenQuery(t *testing.T) {
-
-	query, err := FlattenQueryHelper(generateTestGroupQuery().MemberQuery)
-
-	if err != nil {
-		t.Errorf(err.Error())
-		return
-	}
-
-	if diff := deep.Equal(query, generateFlatTestGroupQuery()); diff != nil {
-		t.Errorf("Member Query was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestAccControlPlaneGroup_basic(t *testing.T) {
-
-	randomName := "group-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-
-	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "GROUP") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneGroupCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneGroup(randomName),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName),
-					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName),
-				),
-			},
-		},
-	})
-}
-
-func testAccControlPlaneGroup(name string) string {
-
-	return fmt.Sprintf(`
-	
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_service_account" "tf_sa" {
-
-		name = "service-account-${var.random-name}"
-		description = "service account description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_group" "tf-group" {
-
-		depends_on = [cpln_service_account.tf_sa]
-
-		name = var.random-name
-		description = "group description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-
-		// user_ids_and_emails = ["unittest@controlplane.com"]
-
-		service_accounts = [cpln_service_account.tf_sa.name]
-
-		member_query {
-
-			fetch = "items"
-
-			spec {
-				match = "all"
-
-				terms {
-					op = "="
-					tag = "firebase/sign_in_provider"
-					value = "microsoft.com"
-				}
-			}
-		}
-	}
-	`, name)
-}
-
-func testAccCheckControlPlaneGroupCheckDestroy(s *terraform.State) error {
-
-	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
-	}
-
-	c := testAccProvider.Meta().(*client.Client)
-
-	for _, rs := range s.RootModule().Resources {
-
-		if rs.Type == "cpln_group" {
-
-			groupName := rs.Primary.ID
-
-			group, _, _ := c.GetGroup(groupName)
-			if group != nil {
-				return fmt.Errorf("Group still exists. Name: %s", *group.Name)
-			}
-		}
-
-		if rs.Type == "cpln_service_account" {
-
-			saName := rs.Primary.ID
-
-			sa, _, _ := c.GetGroup(saName)
-			if sa != nil {
-				return fmt.Errorf("Service Account still exists. Name: %s", *sa.Name)
-			}
-		}
-	}
-
-	return nil
 }

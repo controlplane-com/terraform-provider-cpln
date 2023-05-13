@@ -28,7 +28,7 @@ func (c *Client) GetServiceAccount(name string) (*ServiceAccount, int, error) {
 	serviceAccount, code, err := c.GetResource(fmt.Sprintf("serviceaccount/%s", name), new(ServiceAccount))
 
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	return serviceAccount.(*ServiceAccount), code, err

@@ -80,7 +80,8 @@ func resourceServiceAccountRead(ctx context.Context, d *schema.ResourceData, m i
 	sa, code, err := c.GetServiceAccount(d.Id())
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {

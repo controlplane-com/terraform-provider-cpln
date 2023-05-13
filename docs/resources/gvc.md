@@ -39,6 +39,7 @@ Optional:
 
 ~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to `true`.
 
+
 ## Outputs
 
 The following attributes are exported:

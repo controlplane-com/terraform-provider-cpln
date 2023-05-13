@@ -220,10 +220,10 @@ func resourceWorkload() *schema.Resource {
 
 											v := val.(string)
 
-											re := regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln):\/\/.+`)
+											re := regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln|scratch):\/\/.+`)
 
 											if !re.MatchString(v) {
-												errs = append(errs, fmt.Errorf("%q must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, got: %s", key, v))
+												errs = append(errs, fmt.Errorf("%q must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, scratch://, got: %s", key, v))
 											}
 
 											return
@@ -312,14 +312,19 @@ func resourceWorkload() *schema.Resource {
 							Optional: true,
 							Default:  false,
 						},
+						"suspend": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
 						"timeout_seconds": {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Default:  5,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 								v := val.(int)
-								if v < 1 || v > 600 {
-									errs = append(errs, fmt.Errorf("%q must be between 1 and 600 inclusive, got: %d", key, v))
+								if v < 1 || v > 3600 {
+									errs = append(errs, fmt.Errorf("%q must be between 1 and 3600 inclusive, got: %d", key, v))
 								}
 								return
 							},
@@ -353,14 +358,19 @@ func resourceWorkload() *schema.Resource {
 							Optional: true,
 							Default:  false,
 						},
+						"suspend": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
 						"timeout_seconds": {
 							Type:     schema.TypeInt,
 							Optional: true,
 							Default:  5,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 								v := val.(int)
-								if v < 1 || v > 600 {
-									errs = append(errs, fmt.Errorf("%q must be between 1 and 600 inclusive, got: %d", key, v))
+								if v < 1 || v > 3600 {
+									errs = append(errs, fmt.Errorf("%q must be between 1 and 3600 inclusive, got: %d", key, v))
 								}
 								return
 							},
@@ -472,13 +482,27 @@ func AutoScalingResource() *schema.Resource {
 			"metric": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "concurrency",
+				// Default:  "concurrency",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
 
-					if v != "concurrency" && v != "cpu" && v != "rps" {
-						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', or 'rps', got: %s", key, v))
+					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" {
+						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'latency' or 'rps', got: %s", key, v))
+					}
+
+					return
+				},
+			},
+			"metric_percentile": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+
+					v := val.(string)
+
+					if v != "p50" && v != "p75" && v != "p99" {
+						errs = append(errs, fmt.Errorf("%q must be 'p50', 'p75' or 'p99', got: %s", key, v))
 					}
 
 					return
@@ -526,8 +550,8 @@ func AutoScalingResource() *schema.Resource {
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 0 || v > 1000 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 1000 inclusive, got: %d", key, v))
+					if v < 0 || v > 30000 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 30000 inclusive, got: %d", key, v))
 					}
 					return
 				},
@@ -538,8 +562,8 @@ func AutoScalingResource() *schema.Resource {
 				Default:  300,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 30 || v > 1000 {
-						errs = append(errs, fmt.Errorf("%q must be between 30 and 1000 inclusive, got: %d", key, v))
+					if v < 30 || v > 3600 {
+						errs = append(errs, fmt.Errorf("%q must be between 30 and 3600 inclusive, got: %d", key, v))
 					}
 					return
 				},
@@ -628,8 +652,8 @@ func healthCheckSpec() *schema.Resource {
 				Default:  0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 0 || v > 120 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 120 inclusive, got: %d", key, v))
+					if v < 0 || v > 600 {
+						errs = append(errs, fmt.Errorf("%q must be between 0 and 600 inclusive, got: %d", key, v))
 					}
 
 					return
@@ -1109,6 +1133,7 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 }
 
 func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
+
 	if len(lifecycle) == 0 {
 		return nil
 	}
@@ -1157,6 +1182,7 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 			newOptions.CapacityAI = GetBool(option["capacity_ai"])
 			newOptions.TimeoutSeconds = GetInt(option["timeout_seconds"])
 			newOptions.Debug = GetBool(option["debug"])
+			newOptions.Suspend = GetBool(option["suspend"])
 
 			autoScaling := option["autoscaling"].([]interface{})
 
@@ -1167,6 +1193,7 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 				cas := client.AutoScaling{
 
 					Metric:           GetString(as["metric"]),
+					MetricPercentile: GetString(as["metric_percentile"]),
 					Target:           GetInt(as["target"]),
 					MaxScale:         GetInt(as["max_scale"]),
 					MinScale:         GetInt(as["min_scale"]),
@@ -1321,7 +1348,8 @@ func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interfa
 	workload, code, err := c.GetWorkload(workloadName, gvcName)
 
 	if code == 404 {
-		return setGvc(d, nil, c.Org)
+		d.SetId("")
+		return nil
 	}
 
 	if err != nil {
@@ -1714,8 +1742,13 @@ func flattenVolumeSpec(volumes *[]client.VolumeSpec) []interface{} {
 
 			v := map[string]interface{}{}
 
-			v["uri"] = *volume.Uri
-			v["path"] = *volume.Path
+			if volume.Uri != nil {
+				v["uri"] = *volume.Uri
+			}
+
+			if volume.Path != nil {
+				v["path"] = *volume.Path
+			}
 
 			output = append(output, v)
 		}
@@ -1736,8 +1769,13 @@ func flattenPortSpec(ports *[]client.PortSpec) []interface{} {
 
 			v := map[string]interface{}{}
 
-			v["protocol"] = *port.Protocol
-			v["number"] = *port.Number
+			if port.Protocol != nil {
+				v["protocol"] = *port.Protocol
+			}
+
+			if port.Number != nil {
+				v["number"] = *port.Number
+			}
 
 			output = append(output, v)
 		}
@@ -1756,8 +1794,13 @@ func flattenMetrics(metrics *client.Metrics) []interface{} {
 
 		m := map[string]interface{}{}
 
-		m["path"] = *metrics.Path
-		m["port"] = *metrics.Port
+		if metrics.Path != nil {
+			m["path"] = *metrics.Path
+		}
+
+		if metrics.Port != nil {
+			m["port"] = *metrics.Port
+		}
 
 		output = append(output, m)
 
@@ -1773,11 +1816,25 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 
 		hc := map[string]interface{}{}
 
-		hc["initial_delay_seconds"] = *healthCheck.InitialDelaySeconds
-		hc["period_seconds"] = *healthCheck.PeriodSeconds
-		hc["timeout_seconds"] = *healthCheck.TimeoutSeconds
-		hc["success_threshold"] = *healthCheck.SuccessThreshold
-		hc["failure_threshold"] = *healthCheck.FailureThreshold
+		if healthCheck.InitialDelaySeconds != nil {
+			hc["initial_delay_seconds"] = *healthCheck.InitialDelaySeconds
+		}
+
+		if healthCheck.PeriodSeconds != nil {
+			hc["period_seconds"] = *healthCheck.PeriodSeconds
+		}
+
+		if healthCheck.TimeoutSeconds != nil {
+			hc["timeout_seconds"] = *healthCheck.TimeoutSeconds
+		}
+
+		if healthCheck.SuccessThreshold != nil {
+			hc["success_threshold"] = *healthCheck.SuccessThreshold
+		}
+
+		if healthCheck.FailureThreshold != nil {
+			hc["failure_threshold"] = *healthCheck.FailureThreshold
+		}
 
 		if healthCheck.Exec != nil && len(*healthCheck.Exec.Command) > 0 {
 			e := make(map[string]interface{})
@@ -1804,13 +1861,19 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 				h["port"] = *healthCheck.HTTPGet.Port
 			}
 
-			h["scheme"] = *healthCheck.HTTPGet.Scheme
+			if healthCheck.HTTPGet.Scheme != nil {
+				h["scheme"] = *healthCheck.HTTPGet.Scheme
+			}
 
 			headers := make(map[string]interface{})
 
 			if healthCheck.HTTPGet.HTTPHeaders != nil {
 				for _, header := range *healthCheck.HTTPGet.HTTPHeaders {
-					headers[*header.Name] = *header.Value
+					if header.Value != nil {
+						headers[*header.Name] = *header.Value
+					} else {
+						headers[*header.Name] = ""
+					}
 				}
 			}
 
@@ -1835,24 +1898,57 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 
 			option := make(map[string]interface{})
 
-			if localOptions {
+			if localOptions && o.Location != nil {
 				option["location"] = strings.TrimPrefix(*o.Location, fmt.Sprintf("/org/%s/location/", org))
 			}
 
-			option["capacity_ai"] = *o.CapacityAI
-			option["timeout_seconds"] = *o.TimeoutSeconds
-			option["debug"] = *o.Debug
+			if o.CapacityAI != nil {
+				option["capacity_ai"] = *o.CapacityAI
+			}
+
+			if o.TimeoutSeconds != nil {
+				option["timeout_seconds"] = *o.TimeoutSeconds
+			}
+
+			if o.Debug != nil {
+				option["debug"] = *o.Debug
+			}
+
+			if o.Suspend != nil {
+				option["suspend"] = *o.Suspend
+			}
 
 			as := make(map[string]interface{})
 
 			if o.AutoScaling != nil {
-				as["metric"] = *o.AutoScaling.Metric
-				as["target"] = *o.AutoScaling.Target
-				as["max_scale"] = *o.AutoScaling.MaxScale
-				as["min_scale"] = *o.AutoScaling.MinScale
-				as["max_concurrency"] = *o.AutoScaling.MaxConcurrency
-				as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
 
+				if o.AutoScaling.Metric != nil {
+					as["metric"] = *o.AutoScaling.Metric
+				}
+
+				if o.AutoScaling.MetricPercentile != nil {
+					as["metric_percentile"] = *o.AutoScaling.MetricPercentile
+				}
+
+				if o.AutoScaling.Target != nil {
+					as["target"] = *o.AutoScaling.Target
+				}
+
+				if o.AutoScaling.MaxScale != nil {
+					as["max_scale"] = *o.AutoScaling.MaxScale
+				}
+
+				if o.AutoScaling.MinScale != nil {
+					as["min_scale"] = *o.AutoScaling.MinScale
+				}
+
+				if o.AutoScaling.MaxConcurrency != nil {
+					as["max_concurrency"] = *o.AutoScaling.MaxConcurrency
+				}
+
+				if o.AutoScaling.ScaleToZeroDelay != nil {
+					as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
+				}
 				autoScaling := make([]interface{}, 1)
 				autoScaling[0] = as
 				option["autoscaling"] = autoScaling
@@ -1964,7 +2060,15 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 
 	if spec.PostStart != nil && len(*spec.PostStart.Exec.Command) > 0 {
 		exec := make(map[string]interface{})
-		exec["command"] = *spec.PostStart.Exec.Command
+
+		if spec.PostStart.Exec.Command != nil && len(*spec.PostStart.Exec.Command) > 0 {
+			exec["command"] = []interface{}{}
+
+			for _, command := range *spec.PostStart.Exec.Command {
+				exec["command"] = append(exec["command"].([]interface{}), command)
+			}
+		}
+
 		postStart := make(map[string]interface{})
 		postStart["exec"] = []interface{}{exec}
 		lc["post_start"] = []interface{}{postStart}
@@ -1972,7 +2076,15 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 
 	if spec.PreStop != nil && len(*spec.PreStop.Exec.Command) > 0 {
 		exec := make(map[string]interface{})
-		exec["command"] = *spec.PreStop.Exec.Command
+
+		if spec.PreStop.Exec.Command != nil && len(*spec.PreStop.Exec.Command) > 0 {
+			exec["command"] = []interface{}{}
+
+			for _, command := range *spec.PreStop.Exec.Command {
+				exec["command"] = append(exec["command"].([]interface{}), command)
+			}
+		}
+
 		preStop := make(map[string]interface{})
 		preStop["exec"] = []interface{}{exec}
 		lc["pre_stop"] = []interface{}{preStop}

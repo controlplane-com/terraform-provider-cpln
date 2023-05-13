@@ -95,12 +95,40 @@ func TestAccControlPlaneSecret_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
 					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
+				),
+			},
+			{
+				Config: testAccControlPlaneSecret(random),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("cpln_secret.opaque", "name", "opaque-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.opaque", "description", "opaque description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.tls", "name", "tls-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.tls", "description", "tls description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.gcp", "name", "gcp-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.gcp", "description", "gcp description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.aws", "name", "aws-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.aws", "description", "aws description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.docker", "name", "docker-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.docker", "description", "docker description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.userpass", "name", "userpass-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.userpass", "description", "userpass description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.keypair", "name", "keypair-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.keypair", "description", "keypair description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.azure_sdk", "name", "azuresdk-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.azure_sdk", "description", "azuresdk description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.dictionary", "name", "dictionary-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
+					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
 				),
 			},
 			// {
 			// 	Config: testAccControlPlaneSecretAzure(random),
 			// }, {
-
 			// 	Config: testAccControlPlaneSecretAzureToUserPass(random),
 			// },
 		},
@@ -257,7 +285,7 @@ EOT
 			secret_type = "azure-sdk"
 		} 
 	
-		azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
+		azure_sdk = "    {\"subscriptionId\":   \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
 	}
 
 	resource "cpln_secret" "docker" {
@@ -270,7 +298,7 @@ EOT
 			secret_type = "docker"
 		} 
 			
-		docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
+		docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}  }  }"
 	}
 
 	resource "cpln_secret" "ecr" {
@@ -318,7 +346,7 @@ EOT
 			secret_type = "gcp"
 		} 
 		
-		gcp = "{\"type\":\"gcp\",\"project_id\":\"cpln12345\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
+		gcp = "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
 	}
 
 	resource "cpln_secret" "keypair" {
@@ -405,6 +433,22 @@ EOT
 			code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
 		}
 	}
+
+	resource "cpln_secret" "nats_account" {
+		name = "natsaccount-${var.random}"
+		description = "natsaccount description ${var.random}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "nats-account"
+		}
+
+		nats_account {
+			account_id  = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+			private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+		}
+	}	
 	`, random)
 }
 

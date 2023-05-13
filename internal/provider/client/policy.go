@@ -57,7 +57,7 @@ func (c *Client) GetPolicy(name string) (*Policy, int, error) {
 	policy, code, err := c.GetResource(fmt.Sprintf("policy/%s", name), new(Policy))
 
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	return policy.(*Policy), code, err

@@ -97,12 +97,14 @@ type Options struct {
 	CapacityAI     *bool        `json:"capacityAI,omitempty"`
 	TimeoutSeconds *int         `json:"timeoutSeconds,omitempty"`
 	Debug          *bool        `json:"debug,omitempty"`
+	Suspend        *bool        `json:"suspend,omitempty"`
 	Location       *string      `json:"location,omitempty"`
 }
 
 // AutoScaling - Auto Scaling Options
 type AutoScaling struct {
 	Metric           *string `json:"metric,omitempty"`
+	MetricPercentile *string `json:"metricPercentile,omitempty"`
 	Target           *int    `json:"target,omitempty"`
 	MaxScale         *int    `json:"maxScale,omitempty"`
 	MinScale         *int    `json:"minScale,omitempty"`
@@ -285,7 +287,7 @@ func (c *Client) GetWorkloads(gvcName string) (*[]Workload, int, error) {
 
 	body, code, err := c.doRequest(req, "")
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	workloads := Workloads{}
@@ -302,7 +304,7 @@ func (c *Client) GetWorkload(name, gvcName string) (*Workload, int, error) {
 
 	workload, code, err := c.GetResource(fmt.Sprintf("gvc/%s/workload/%s", gvcName, name), new(Workload))
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	workload.(*Workload).RemoveEmptySlices()

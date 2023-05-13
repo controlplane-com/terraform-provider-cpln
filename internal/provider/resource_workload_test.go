@@ -138,24 +138,24 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		},
 	}
 
-	// newContainer.LifeCycle = &client.LifeCycleSpec{
+	newContainer.LifeCycle = &client.LifeCycleSpec{
 
-	// 	PreStop: &client.LifeCycleInner{
-	// 		Exec: &client.Exec{
-	// 			Command: &[]string{
-	// 				"lc_pre_1", "lc_pre_2", "lc_pre_3",
-	// 			},
-	// 		},
-	// 	},
+		PreStop: &client.LifeCycleInner{
+			Exec: &client.Exec{
+				Command: &[]string{
+					"lc_pre_1", "lc_pre_2", "lc_pre_3",
+				},
+			},
+		},
 
-	// 	PostStart: &client.LifeCycleInner{
-	// 		Exec: &client.Exec{
-	// 			Command: &[]string{
-	// 				"lc_post_1", "lc_post_2", "lc_post_3",
-	// 			},
-	// 		},
-	// 	},
-	// }
+		PostStart: &client.LifeCycleInner{
+			Exec: &client.Exec{
+				Command: &[]string{
+					"lc_post_1", "lc_post_2", "lc_post_3",
+				},
+			},
+		},
+	}
 
 	testContainers := make([]client.ContainerSpec, 1)
 	testContainers[0] = newContainer
@@ -237,6 +237,38 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 		metrics,
 	}
 
+	postStartExec := make(map[string]interface{})
+	postStartExec["command"] = []interface{}{
+		"lc_post_1", "lc_post_2", "lc_post_3",
+	}
+	postStart := make(map[string]interface{})
+	postStart["exec"] = []interface{}{
+		postStartExec,
+	}
+
+	preStopExec := make(map[string]interface{})
+	preStopExec["command"] = []interface{}{
+		"lc_pre_1", "lc_pre_2", "lc_pre_3",
+	}
+	preStop := make(map[string]interface{})
+	preStop["exec"] = []interface{}{
+		preStopExec,
+	}
+
+	lifecycle := make(map[string]interface{})
+
+	lifecycle["post_start"] = []interface{}{
+		postStart,
+	}
+
+	lifecycle["pre_stop"] = []interface{}{
+		preStop,
+	}
+
+	c["lifecycle"] = []interface{}{
+		lifecycle,
+	}
+
 	readiness := make(map[string]interface{})
 
 	readiness["initial_delay_seconds"] = 1
@@ -303,6 +335,7 @@ func generateTestOptions(workloadType string) *client.Options {
 			CapacityAI:     GetBool(false),
 			TimeoutSeconds: GetInt(30),
 			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
 
 			AutoScaling: &client.AutoScaling{
 				Metric:           GetString("cpu"),
@@ -319,6 +352,7 @@ func generateTestOptions(workloadType string) *client.Options {
 		CapacityAI:     GetBool(true),
 		TimeoutSeconds: GetInt(30),
 		Debug:          GetBool(false),
+		Suspend:        GetBool(false),
 
 		AutoScaling: &client.AutoScaling{
 			Metric:           GetString("concurrency"),
@@ -351,6 +385,7 @@ func generateFlatTestOptions() []interface{} {
 		"timeout_seconds": 30,
 		"autoscaling":     asi,
 		"debug":           false,
+		"suspend":         false,
 	}
 
 	return []interface{}{
@@ -697,6 +732,7 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		options {
 		  capacity_ai = true
 		  timeout_seconds = 30
+		  suspend = false
 	  
 		  autoscaling {
 			metric = "concurrency"
@@ -714,6 +750,7 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 			location = "aws-eu-central-1"
 			capacity_ai = true
 			timeout_seconds = 30
+			suspend = false
 		
 			autoscaling {
 			  metric = "concurrency"
@@ -898,6 +935,21 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 	  
 		  args = ["arg-01", "arg-02"]
 
+		  lifecycle {
+
+			pre_stop {
+				exec {
+					command = ["lc_pre_1", "lc_pre_2", "lc_pre_3"]
+				}
+			}
+
+			post_start {
+				exec {
+					command = ["lc_post_1", "lc_post_2", "lc_post_3"]
+				}
+			}
+		  }
+
 		  volume {
 			uri  = "s3://bucket"
 			path = "/testpath01"
@@ -953,6 +1005,7 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		options {
 		  capacity_ai = false
 		  timeout_seconds = 30
+		  suspend = false
 	  
 		  autoscaling {
 			metric = "cpu"

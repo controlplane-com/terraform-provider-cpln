@@ -7,15 +7,18 @@ import (
 // Identity - Identity
 type Identity struct {
 	Base
-	Aws              *AwsIdentity       `json:"aws,omitempty"`
-	AwsReplace       *AwsIdentity       `json:"$replace/aws,omitempty"`
-	Gcp              *GcpIdentity       `json:"gcp,omitempty"`
-	GcpReplace       *GcpIdentity       `json:"$replace/gcp,omitempty"`
-	Azure            *AzureIdentity     `json:"azure,omitempty"`
-	AzureReplace     *AzureIdentity     `json:"$replace/azure,omitempty"`
-	NetworkResources *[]NetworkResource `json:"networkResources,omitempty"`
-	Status           *IdentityStatus    `json:"status,omitempty"`
-	Drop             *[]string          `json:"$drop,omitempty"`
+	Aws                    *AwsIdentity             `json:"aws,omitempty"`
+	AwsReplace             *AwsIdentity             `json:"$replace/aws,omitempty"`
+	Gcp                    *GcpIdentity             `json:"gcp,omitempty"`
+	GcpReplace             *GcpIdentity             `json:"$replace/gcp,omitempty"`
+	Azure                  *AzureIdentity           `json:"azure,omitempty"`
+	AzureReplace           *AzureIdentity           `json:"$replace/azure,omitempty"`
+	Ngs                    *NgsIdentity             `json:"ngs,omitempty"`
+	NgsReplace             *NgsIdentity             `json:"$replace/ngs,omitempty"`
+	NetworkResources       *[]NetworkResource       `json:"networkResources,omitempty"`
+	NativeNetworkResources *[]NativeNetworkResource `json:"nativeNetworkResources,omitempty"`
+	Status                 *IdentityStatus          `json:"status,omitempty"`
+	Drop                   *[]string                `json:"$drop,omitempty"`
 }
 
 type IdentityStatus struct {
@@ -30,6 +33,25 @@ type NetworkResource struct {
 	FQDN       *string   `json:"FQDN,omitempty"`
 	ResolverIP *string   `json:"resolverIP,omitempty"`
 	Ports      *[]int    `json:"ports,omitempty"`
+}
+
+// NativeNetowrkResource - NativeNetowrkResource
+type NativeNetworkResource struct {
+	Name              *string            `json:"name,omitempty"`
+	FQDN              *string            `json:"FQDN,omitempty"`
+	Ports             *[]int             `json:"ports,omitempty"`
+	AWSPrivateLink    *AWSPrivateLink    `json:"awsPrivateLink,omitempty"`
+	GCPServiceConnect *GCPServiceConnect `json:"gcpServiceConnect,omitempty"`
+}
+
+// AWSPrivateLink - AWSPrivateLink
+type AWSPrivateLink struct {
+	EndpointServiceName *string `json:"endpointServiceName,omitempty"`
+}
+
+// GCPServiceConnect - GCPServiceConnect
+type GCPServiceConnect struct {
+	TargetService *string `json:"targetService,omitempty"`
 }
 
 // AwsIdentity - AwsIdentity
@@ -68,12 +90,31 @@ type AzureIdentity struct {
 	RoleAssignments  *[]AzureRoleAssignment `json:"roleAssignments,omitempty"`
 }
 
+type NgsPerm struct {
+	Allow *[]string `json:"allow,omitempty"`
+	Deny  *[]string `json:"deny,omitempty"`
+}
+
+type NgsResp struct {
+	Max *int    `json:"max,omitempty"`
+	TTL *string `json:"ttl,omitempty"`
+}
+type NgsIdentity struct {
+	CloudAccountLink *string  `json:"cloudAccountLink,omitempty"`
+	Pub              *NgsPerm `json:"pub,omitempty"`
+	Sub              *NgsPerm `json:"sub,omitempty"`
+	Resp             *NgsResp `json:"resp,omitempty"`
+	Subs             *int     `json:"subs,omitempty"`
+	Data             *int     `json:"data,omitempty"`
+	Payload          *int     `json:"payload,omitempty"`
+}
+
 // GetIdentity - Get Identity by name
 func (c *Client) GetIdentity(name, gvcName string) (*Identity, int, error) {
 
 	identity, code, err := c.GetResource(fmt.Sprintf("gvc/%s/identity/%s", gvcName, name), new(Identity))
 	if err != nil {
-		return nil, 0, err
+		return nil, code, err
 	}
 
 	return identity.(*Identity), code, err

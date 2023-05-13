@@ -93,6 +93,8 @@ Login to test environment:
 
 cpln profile update default --login --endpoint https://api.test.cpln.io
 
+Note: In provider section, the endpoint for test is `https://api.test.cpln.io`.
+
 ```
 
 Initialize Terraform
@@ -214,17 +216,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 
 - CLI Config File: https://www.terraform.io/docs/cli/config/config-file.html
 
-## Version Info
-
-- v1.0.2 - Publish To Terraform Registry.
-- v1.0.3 - Update docs.
-- v1.0.4 - Add standard workload type.
-- v1.0.5 - Add Org External Logging.
-- v1.0.7 - Add Org/Gvc Tracing (lightstep).
-- v1.0.8 - Add Gvc Data Source.
-- v1.0.9 - Only remove certain `cpln/*` server generated tags. Increase max containers.
-- v1.0.10 - Add Location / Locations Data Source.
-
 ## Notes for Developing New Features
 
 - Update item schema under internal/provider/client/<item>.go (Needs to follow data-service api structure)
@@ -238,6 +229,27 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - Update resource example
 - Update resource documentation
 
-### Note
+### Notes
 
-Flatten methods transform api object to terraform resource
+- Flatten methods transform api object to terraform resource
+
+## Version Info
+
+- v1.0.2 - Publish To Terraform Registry.
+- v1.0.3 - Update docs.
+- v1.0.4 - Add standard workload type.
+- v1.0.5 - Add Org External Logging.
+- v1.0.7 - Add Org/Gvc Tracing (lightstep).
+- v1.0.8 - Add Gvc Data Source.
+- v1.0.9 - Only remove certain `cpln/*` server generated tags. Increase max containers.
+- v1.0.10 - Add Location / Locations Data Source.
+- v1.0.11 - Fix issue with secrets having json types. Remove built-in server generated secret tags.
+- v1.0.12 - Update GitHub Action.
+- v1.0.121 - HotFix for removal of workload option spot property.
+- v1.0.122 - HotFix for new and missing workload properties.
+- v1.0.123 - Updates for -refresh-only flag.
+- v1.0.13 - Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.
+- v1.1.0 - Update to Go 1.1.8 and Terraform SDK 2.25.0. Add workload lifecycle hooks (post start / pre stor). Add GVC Environment Variables. Add workload suspend.
+- v1.1.1 - Add identity manager to group.
+- v1.1.2 - Added `NATS Account` secret. Added NGS cloud account. Added NGS cloud access policy. Sync'ed GVC schema (env will be returned). Added GCP service account name and roles output to cloud account. Added elastic logging to org external logging. Added audit context resource. Added native network resources.
+- v1.1.3 - Fixed issue with identity and workload policies. 'gvc' property now required for those policy kinds.
