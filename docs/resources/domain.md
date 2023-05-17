@@ -41,14 +41,14 @@ The APEX domain is required to be added to one of the orgs. Any subdomain within
 
 Required:
 
--- **ports** (Block List) ([see below](#nestedblock--spec-ports))
+- **ports** (Block List) ([see below](#nestedblock--spec-ports))
 
 ~> **Note** If no ports are configured, an empty ports declaration (e.g., **ports { }**) is required to allow the default properties to exist in the state file.
 
 Optional:
 
--- **dns_mode** (String) In 'cname' dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently 'cname' dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In 'ns' dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: "cname", "ns". Default: "cname".
--- **gvc_link** (String) This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. No not include if path based routing is used.
+- **dns_mode** (String) In 'cname' dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently 'cname' dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In 'ns' dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: "cname", "ns". Default: "cname".
+- **gvc_link** (String) This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. No not include if path based routing is used.
 
 <a id="nestedblock--spec-ports"></a>
 
@@ -56,15 +56,15 @@ Optional:
 
 Required:
 
--- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
+- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
 
 ~> **Note** If no tls properties are configured, an empty tls declaration (e.g., **tls { }**) is required to allow for the default properties to exist in the state file.
 
 Optional:
 
--- **number** (Number)
--- **protocol** (String)
--- **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
+- **number** (Number)
+- **protocol** (String)
+- **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
 
 <a id="nestedblock--spec--ports--cors"></a>
 
@@ -72,11 +72,11 @@ Optional:
 
 Optional:
 
--- **allow_origins** (Block List) ([see below](#nestedblock--spec--ports--cors--allow_origins))
--- **allow_methods** (List of Strings)
--- **allow_headers** (List of Strings)
--- **max_age** (String)
--- **allow_credentials** (Boolean)
+- **allow_origins** (Block List) ([see below](#nestedblock--spec--ports--cors--allow_origins))
+- **allow_methods** (List of Strings)
+- **allow_headers** (List of Strings)
+- **max_age** (String)
+- **allow_credentials** (Boolean)
 
 <a id="nestedblock--spec--ports--cors--allow_origins"></a>
 
@@ -84,23 +84,23 @@ Optional:
 
 Optional:
 
--- **exact** (String)
+- **exact** (String)
 
 <a id="nestedblock--spec--ports--tls"></a>
 
 ### `spec.ports.tls`
 
--- **min_protocol_version** (String)
--- **cipher_suites** (String)
--- **client_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
--- **server_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
+- **min_protocol_version** (String)
+- **cipher_suites** (String)
+- **client_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
+- **server_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
 
 <a id="nestedblock--spec--ports--tls--certificate"></a>
 
 ### `spec.ports.tls.certificate`
 
 Optional:
--- **secret_link** (String) Full link to a TLS secret.
+- **secret_link** (String) Full link to a TLS secret.
 
 ## Outputs
 
