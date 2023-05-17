@@ -18,19 +18,16 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 ### Optional
 
 - **description** (String) Description of the Workload.
-
-- **type** (String) Workload Type. Either `serverless` or `standard`. Default: `serverless`.
-
+- **type** (String) Workload Type. Either `serverless` or `standard`. Default: `serverless`. 
+- **tags** (Map of String) Key-value map of resource tags.
+- **identity_link** (String) Full link to an Identity.
 - **container** (Block List) ([see below](#nestedblock--container)).
 - **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
-- **identity_link** (String) Full link to an Identity.
 - **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
-- **tags** (Map of String) Key-value map of resource tags.
 
 <a id="nestedblock--container"></a>
-
-### `container`
+ ### `container`
 
 ~> **Note** A Workload must contain at least one container.
 
@@ -69,8 +66,7 @@ Containers which attempt to use these ports will not be able to bind:
 - **lifecycle** (Block List, Max: 1) LifeCycle ([see below](#nestedblock--container--lifecycle)) [Reference Page](https://docs.controlplane.com/reference/workload#lifecycle).
 
 <a id="nestedblock--container--ports"></a>
-
-### `container.ports`
+ ### `container.ports`
 
 Required:
 
@@ -78,8 +74,7 @@ Required:
 - **number** (String) Port to expose.
 
 <a id="nestedblock--container--liveness_probe"></a>
-
-### `container.liveness_probe`
+ ### `container.liveness_probe`
 
 Optional:
 
@@ -94,27 +89,24 @@ Optional:
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--tcp_socket)).
 
 <a id="nestedblock--container--liveness_probe--exec"></a>
-
-### `container.liveness_probe.exec`
+ ### `container.liveness_probe.exec`
 
 Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
 
 <a id="nestedblock--container--liveness_probe--http_get"></a>
-
-### `container.liveness_probe.http_get`
+ ### `container.liveness_probe.http_get`
 
 Optional:
 
-- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
 - **path** (String) Path. Default: "/".
 - **port** (Number) Port. Min: `80`. Max: `65535`.
+- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
 - **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
 <a id="nestedblock--container--liveness_probe--tcp_socket"></a>
-
-### `container.liveness_probe.tcp_socket`
+ ### `container.liveness_probe.tcp_socket`
 
 Optional:
 
@@ -184,8 +176,7 @@ Required:
 - **port** (Number) Port from container emitting custom metrics
 
 <a id="nestedblock--container--lifecycle"></a>
-
-### `container.lifecycle`
+ ### `container.lifecycle`
 
 Optional:
 
@@ -193,24 +184,21 @@ Optional:
 - **preStop** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
 
 <a id="nestedblock--container--lifecycle--spec"></a>
-
-### `container.lifecycle.spec`
+ ### `container.lifecycle.spec`
 
 Optional:
 
 - **exec** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec--exec)).
 
 <a id="nestedblock--container--lifecycle--spec--exec"></a>
-
-### `container.lifecycle.spec.exec`
+ ### `container.lifecycle.spec.exec`
 
 Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
 
 <a id="nestedblock--firewall_spec"></a>
-
-### `firewall_spec`
+ ### `firewall_spec`
 
 Control of inbound and outbound access to the workload for external (public) and internal (service to service) traffic. Access is restricted by default.
 
@@ -220,18 +208,16 @@ Optional:
 - **internal** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec--internal)).
 
 <a id="nestedblock--firewall_spec--external"></a>
-
-### `firewall_spec.external`
+ ### `firewall_spec.external`
 
 Optional:
 
 - **inbound_allow_cidr** (List of String) he list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
-- **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
+- **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 
 <a id="nestedblock--firewall_spec--internal"></a>
-
-### `firewall_spec.internal`
+ ### `firewall_spec.internal`
 
 The internal firewall is used to control access between workloads.
 
@@ -247,35 +233,32 @@ Optional:
 - **inbound_allow_workload** (List of String) A list of specific workloads which are allowed to access this workload internally. This list is only used if the 'inboundAllowType' is set to 'workload-list'.
 
 <a id="nestedblock--options"></a>
-
-### `options`
+ ### `options`
 
 Optional:
 
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling)).
+- **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
 - **debug** (Boolean) Debug mode. Default: `false`
 - **suspend** (Boolean) Workload suspend. Default: `false`
-- **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 
 - **location** (String) Valid only for `local_options`. Local options override for a specific location.
 
 <a id="nestedblock--options--autoscaling"></a>
-
-### `options.autoscaling`
+ ### `options.autoscaling`
 
 Optional:
 
 - **metric** (String) Valid values: `concurrency`, `cpu`, `rps`. Default: `concurrency`.
-- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
-- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
+- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
 
 <a id="nestedatt--status"></a>
-
-### `status`
+ ### `status`
 
 Status of the workload.
 
@@ -287,8 +270,7 @@ Read-Only:
 - **parent_id** (String) ID of the parent object.
 
 <a id="nestedobjatt--status--health_check"></a>
-
-### `status.health_check`
+ ### `status.health_check`
 
 Current health status.
 
@@ -344,6 +326,7 @@ resource "cpln_workload" "new" {
 
   name        = "workload-example"
   description = "Example Workload"
+  type = "serverless"
 
   tags = {
     terraform_generated = "true"
@@ -352,7 +335,6 @@ resource "cpln_workload" "new" {
 
   identity_link = cpln_identity.example.self_link
 
-  type = "serverless"
 
   container {
     name   = "container-01"
@@ -362,7 +344,7 @@ resource "cpln_workload" "new" {
     cpu    = "50m"
 
     command = "override-command"
-		working_directory = "/usr"
+    working_directory = "/usr"
 
     inherit_env = false
 
@@ -405,10 +387,7 @@ resource "cpln_workload" "new" {
       initial_delay_seconds = 2
     }
 
-    volume {
-      uri  = "s3://bucket"
-      path = "/s3"
-    }
+
 
     lifecycle {
 
@@ -423,6 +402,11 @@ resource "cpln_workload" "new" {
           command = ["command_pre", "command_2", "command_3"]
         }
       }
+    }
+    
+    volume {
+      uri  = "s3://bucket"
+      path = "/s3"
     }
   }
 

@@ -61,18 +61,18 @@ func testAccPreCheck(t *testing.T, testAccName string) {
 	TestLogger.Print("*********************************************************************")
 }
 
-func testAccPreCheckGoogle(t *testing.T, testAccName string) {
+// func testAccPreCheckGoogle(t *testing.T, testAccName string) {
 
-	if validateDomains := os.Getenv("VALIDATE_DOMAINS"); validateDomains != "false" {
+// 	if validateDomains := os.Getenv("VALIDATE_DOMAINS"); validateDomains != "false" {
 
-		if endpoint := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); endpoint == "" {
-			t.Fatal("GOOGLE_APPLICATION_CREDENTIALS must be set for acceptance tests")
-		}
+// 		if endpoint := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); endpoint == "" {
+// 			t.Fatal("GOOGLE_APPLICATION_CREDENTIALS must be set for acceptance tests")
+// 		}
 
-		if endpoint := os.Getenv("GOOGLE_PROJECT"); endpoint == "" {
-			t.Fatal("GOOGLE_PROJECT must be set for acceptance tests")
-		}
-	}
+// 		if endpoint := os.Getenv("GOOGLE_PROJECT"); endpoint == "" {
+// 			t.Fatal("GOOGLE_PROJECT must be set for acceptance tests")
+// 		}
+// 	}
 
-	testAccPreCheck(t, testAccName)
-}
+// 	testAccPreCheck(t, testAccName)
+// }

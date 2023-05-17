@@ -427,7 +427,7 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	if useSet {
 		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
 	} else {
-		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
+		e["inbound_allow_cidr"] = []string{"0.0.0.0/0"}
 	}
 
 	// e["outbound_allow_cidr"] = []interface{}{}
