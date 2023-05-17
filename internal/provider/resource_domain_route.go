@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"fmt"
 
 	client "terraform-provider-cpln/internal/provider/client"
 
@@ -21,8 +22,15 @@ func resourceDomainRoute() *schema.Resource {
 				ForceNew: true,
 				Required: true,
 			},
+			"domain_port": {
+				Type:     schema.TypeInt,
+				ForceNew: true,
+				Optional: true,
+				Default:  443,
+			},
 			"prefix": {
 				Type:     schema.TypeString,
+				ForceNew: true,
 				Required: true,
 			},
 			"replace_prefix": {
@@ -43,7 +51,10 @@ func resourceDomainRoute() *schema.Resource {
 }
 
 func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
 	domainLink := d.Get("domain_link").(string)
+	domainPort := d.Get("domain_port").(int)
+
 	route := client.DomainRoute{
 		Prefix:        GetString(d.Get("prefix")),
 		ReplacePrefix: GetString(d.Get("replace_prefix")),
@@ -52,67 +63,88 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	c := m.(*client.Client)
-	newRoute, err := c.AddDomainRoute(GetNameFromSelfLink(domainLink), route)
+	err := c.AddDomainRoute(GetNameFromSelfLink(domainLink), domainPort, route)
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	return setDomainRoute(d, domainLink, newRoute)
+	return setDomainRoute(d, domainLink, domainPort, &route)
 }
 
 func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	domainLink := d.Id()
+
+	domainLink := d.Get("domain_link").(string)
+	domainPort := d.Get("domain_port").(int)
 	prefix := d.Get("prefix").(string)
 
 	c := m.(*client.Client)
 	domain, code, err := c.GetDomain(GetNameFromSelfLink(domainLink))
 
 	if code == 404 {
-		return setDomainRoute(d, domainLink, nil)
+		return setDomainRoute(d, domainLink, domainPort, nil)
 	}
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	for _, route := range *(*domain.Spec.Ports)[0].Routes {
-		if route.Prefix != &prefix {
-			continue
-		}
+	for _, value := range *domain.Spec.Ports {
 
-		return setDomainRoute(d, domainLink, &route)
+		if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
+
+			for _, route := range *value.Routes {
+
+				if *route.Prefix != prefix {
+					continue
+				}
+
+				return setDomainRoute(d, domainLink, domainPort, &route)
+			}
+		}
 	}
 
 	return nil
 }
 
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	domainLink := d.Get("domain_link").(string)
-	route := &client.DomainRoute{
-		Prefix:        GetString(d.Get("prefix")),
-		ReplacePrefix: GetString(d.Get("replace_prefix")),
-		WorkloadLink:  GetString(d.Get("workload_link")),
-		Port:          GetInt(d.Get("port")),
+
+	if d.HasChanges("replace_prefix", "workload_link", "port") {
+
+		domainLink := d.Get("domain_link").(string)
+		domainPort := d.Get("domain_port").(int)
+
+		route := &client.DomainRoute{
+			Prefix:        GetString(d.Get("prefix")),
+			ReplacePrefix: GetString(d.Get("replace_prefix")),
+			WorkloadLink:  GetString(d.Get("workload_link")),
+			Port:          GetInt(d.Get("port")),
+		}
+
+		c := m.(*client.Client)
+
+		err := c.UpdateDomainRoute(GetNameFromSelfLink(domainLink), domainPort, route)
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		return setDomainRoute(d, domainLink, domainPort, route)
 	}
 
-	c := m.(*client.Client)
-
-	newRoute, err := c.UpdateDomainRoute(GetNameFromSelfLink(domainLink), route)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setDomainRoute(d, domainLink, newRoute)
+	return nil
 }
 
 func resourceDomainRouteDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
 	domainLink := d.Get("domain_link").(string)
+	domainPort := d.Get("domain_port").(int)
 	prefix := d.Get("prefix").(string)
 
 	c := m.(*client.Client)
 
-	_, err := c.RemoveDomainRoute(GetNameFromSelfLink(domainLink), prefix)
+	err := c.RemoveDomainRoute(GetNameFromSelfLink(domainLink), domainPort, prefix)
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -122,15 +154,20 @@ func resourceDomainRouteDelete(ctx context.Context, d *schema.ResourceData, m in
 	return nil
 }
 
-func setDomainRoute(d *schema.ResourceData, domainLink string, route *client.DomainRoute) diag.Diagnostics {
+func setDomainRoute(d *schema.ResourceData, domainLink string, domainPort int, route *client.DomainRoute) diag.Diagnostics {
+
 	if route == nil {
 		d.SetId("")
 		return nil
 	}
 
-	d.SetId(domainLink)
+	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, *route.Prefix))
 
 	if err := d.Set("domain_link", domainLink); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("domain_port", domainPort); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -138,20 +175,16 @@ func setDomainRoute(d *schema.ResourceData, domainLink string, route *client.Dom
 		return diag.FromErr(err)
 	}
 
-	if route.ReplacePrefix != nil && *route.ReplacePrefix != "" {
-		if err := d.Set("replace_prefix", route.ReplacePrefix); err != nil {
-			return diag.FromErr(err)
-		}
+	if err := d.Set("replace_prefix", route.ReplacePrefix); err != nil {
+		return diag.FromErr(err)
 	}
 
 	if err := d.Set("workload_link", route.WorkloadLink); err != nil {
 		return diag.FromErr(err)
 	}
 
-	if route.Port != nil {
-		if err := d.Set("port", route.Port); err != nil {
-			return diag.FromErr(err)
-		}
+	if err := d.Set("port", route.Port); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil

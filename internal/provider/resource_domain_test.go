@@ -48,8 +48,12 @@ func getWorkloadTwo() string {
 // }
 
 // TODO: Once the pipline is configured to run the acc tests, it will be set to not validate the apex txt record and we can use '.example.com'
+// func getTestApex() string {
+// 	return ".erickotler.com"
+// }
+
 func getTestApex() string {
-	return ".erickotler.com"
+	return "erickotler.com"
 }
 
 func TestAccControlPlaneDomain_basic(t *testing.T) {
@@ -58,46 +62,173 @@ func TestAccControlPlaneDomain_basic(t *testing.T) {
 	var org client.Org
 
 	randomName := "domain-acctest-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	domainName := randomName + getTestApex()
+	domainName := randomName + "." + getTestApex()
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t, "DOMAIN") },
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckControlPlaneDomainCheckDestroy,
 		Steps: []resource.TestStep{
-			// {
-			// 	Config: testAccControlPlaneDomainNSSubdomain(randomName, domainName),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneDomainExists("cpln_domain.ns_subdomain", domainName, &domain, &org),
-			// 		testAccCheckControlPlaneDomainNSSubdomain(&domain, &org, "gvc-"+randomName),
-			// 	),
-			// },
 			{
-				Config: testAccControlPlaneDomainNSPathBased(randomName, domainName),
+				Config: testAccDomainApexClean(getTestApex(), getTestApex()+" Description"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.ns_pathbased", domainName, &domain, &org),
-					testAccCheckControlPlaneDomainNSPathBased(&domain, &org, randomName),
+					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
 				),
 			},
-			// {
-			// 	Config: testAccControlPlaneDomainCNameSubdomain(getDomainThree()),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneDomainExists("cpln_domain.cname_subdomain", getDomainThree(), &domain),
-			// 		testAccCheckControlPlaneDomainCNameSubdomain(&domain),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneDomainCNamePathBased(getDomainFour()),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneDomainExists("cpln_domain.cname_pathbased", getDomainFour(), &domain),
-			// 		testAccCheckControlPlaneDomainCNamePathBased(&domain),
-			// 	),
-			// },
+			{
+				Config: testAccDomainApexClean(getTestApex(), getTestApex()+" Description Updated"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
+				),
+			},
+			{
+				Config: testAccDomainApex(randomName, getTestApex(), getTestApex()+" Description Updated"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
+				),
+			},
+			{
+				Config: testAccDomainApex(randomName, getTestApex(), getTestApex()+" Description Updated Again"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainSubdomain(randomName, getTestApex(), getTestApex()+" Description", domainName, "ns"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", domainName, &domain, &org),
+					// testAccCheckControlPlaneDomainNSSubdomain(&domain, &org, "gvc-"+randomName),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainSubdomain(randomName, getTestApex(), getTestApex()+" Description - Updated", domainName, "ns"),
+			},
+			{
+				Config: testAccControlPlaneDomainPathBased(randomName, getTestApex(), getTestApex()+" Description", domainName, "ns"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", domainName, &domain, &org),
+					// testAccCheckControlPlaneDomainNSPathBased(&domain, &org, randomName),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainPathBased(randomName, getTestApex(), getTestApex()+" Description - Updated", domainName, "ns"),
+			},
+			{
+				Config: testAccControlPlaneDomainPathBased(randomName, getTestApex(), getTestApex()+" Description", domainName, "cname"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", domainName, &domain, &org),
+					// testAccCheckControlPlaneDomainNSPathBased(&domain, &org, randomName),
+				),
+			},
+			{
+				Config: testAccControlPlaneDomainPathBasedUpdateRoutePort(randomName, getTestApex(), getTestApex()+" Description - Updated", domainName, "cname"),
+			},
 		},
 	})
 }
 
-func testAccControlPlaneDomainNSSubdomain(random, domain string) string {
+func testAccDomainApexClean(domain, description string) string {
+
+	TestLogger.Printf("Inside testAccDomainApex")
+
+	return fmt.Sprintf(`
+
+	resource "cpln_domain" "domain_apex" {
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		spec {
+			ports {
+				tls { }
+			 }
+		}
+		
+	}`, domain, description)
+}
+
+func testAccDomainApex(random, domain, description string) string {
+
+	TestLogger.Printf("Inside testAccDomainApex")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "domain_gvc" {
+
+		name        = "gvc-${var.random-name}"
+		description = "Example GVC"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+		tags = {
+		  terraform_generated = "true"
+		}
+	}
+
+	resource "cpln_domain" "domain_apex" {
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		spec {
+
+			dns_mode         = "cname"
+		  	gvc_link         = cpln_gvc.domain_gvc.self_link
+			accept_all_hosts = false
+
+			ports {
+
+				number = 443
+				protocol = "http2"
+
+				cors {
+
+					allow_origins {						
+						exact = "*"
+					}
+
+					allow_origins {						
+						exact = "*.erickotler.com"
+					}
+
+					allow_methods = ["GET", "OPTIONS", "POST"]
+					allow_headers = ["authorization", "host"]
+					expose_headers = ["accept/type"]
+					max_age = "12h"
+					allow_credentials = true
+				}
+
+				tls {
+
+					min_protocol_version = "TLSV1_1"
+					cipher_suites = ["AES256-GCM-SHA384"]
+
+					client_certificate {
+						secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+					}
+
+					server_certificate {
+						secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+					}
+				}
+			}
+		}
+		
+	}`, random, domain, description)
+}
+
+func testAccControlPlaneDomainSubdomain(random, apex, description, domain, dnsMode string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
@@ -120,18 +251,35 @@ func testAccControlPlaneDomainNSSubdomain(random, domain string) string {
 		}
 	}
 
-	resource "cpln_domain" "ns_subdomain" {
+	resource "cpln_domain" "domain_apex" {
 		name        = "%s"
-		description = "Custom domain that can be set on a GVC and used by associated workloads"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		spec {
+			ports {
+				tls { }
+			 }
+		}	
+	}
+
+	resource "cpln_domain" "subdomain" {
+
+		depends_on = [cpln_domain.domain_apex]
+
+		name        = "%s"
+		description = "NS - Subdomain Based"
 	  
 		tags = {
 		  terraform_generated = "true"
 		}
 	  
 		spec {
-		  dns_mode         = "ns"
+		  dns_mode         = "%s"
 		  gvc_link         = cpln_gvc.domain_gvc.self_link
-		  accept_all_hosts = "true"
 	  
 		  ports {
 				number   = 443
@@ -140,6 +288,10 @@ func testAccControlPlaneDomainNSSubdomain(random, domain string) string {
 				cors {
 					allow_origins {
 						exact = "example.com"
+					}
+
+					allow_origins {
+						exact = "*"
 					}
 			
 					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
@@ -165,10 +317,10 @@ func testAccControlPlaneDomainNSSubdomain(random, domain string) string {
 				}
 			}
 		}
-	}`, random, domain)
+	}`, random, apex, description, domain, dnsMode)
 }
 
-func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
+func testAccControlPlaneDomainPathBased(random, apex, description, domain, dnsMode string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
@@ -214,6 +366,8 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 		options {
 		  capacity_ai     = false
 		  timeout_seconds = 30
+		  suspend         = true
+
 		  autoscaling {
 			metric          = "concurrency"
 			target          = 100
@@ -224,18 +378,35 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 		}
 	}
 
-	resource "cpln_domain" "ns_pathbased" {
+	resource "cpln_domain" "domain_apex" {
 		name        = "%s"
-		description = "Custom domain that can be set on a GVC and used by associated workloads"
+		description = "%s"
 	  
 		tags = {
 		  terraform_generated = "true"
-		  example             = "true"
+		}
+
+		spec {
+			ports {
+				tls { }
+			 }
+		}	
+	}
+
+	resource "cpln_domain" "subdomain" {
+		
+		depends_on = [cpln_domain.domain_apex]
+
+		name        = "%s"
+		description = "NS - Path Based"
+	  
+		tags = {
+		  terraform_generated = "true"
 		}
 	  
 		spec {
-			dns_mode         = "ns"
-			accept_all_hosts = "true"
+
+			dns_mode = "%s"
 			
 			ports {
 				number   = 443
@@ -244,6 +415,45 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 				cors {
 					allow_origins {
 						exact = "example.com"
+					}
+
+					allow_origins {
+						exact = "*"
+					}
+			
+					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
+					max_age           = "24h"
+					allow_credentials = "true"
+				}
+	  
+				tls {
+					min_protocol_version = "TLSV1_2"
+					cipher_suites = [
+						"ECDHE-ECDSA-AES256-GCM-SHA384",
+						"ECDHE-ECDSA-CHACHA20-POLY1305",
+						"ECDHE-ECDSA-AES128-GCM-SHA256",
+						"ECDHE-RSA-AES256-GCM-SHA384",
+						"ECDHE-RSA-CHACHA20-POLY1305",
+						"ECDHE-RSA-AES128-GCM-SHA256",
+						"AES256-GCM-SHA384",
+						"AES128-GCM-SHA256",
+					]
+				}
+			}
+
+			ports {
+				number   = 80
+				protocol = "http"
+
+				cors {
+					allow_origins {
+						exact = "example.com"
+					}
+
+					allow_origins {
+						exact = "*"
 					}
 			
 					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
@@ -271,25 +481,44 @@ func testAccControlPlaneDomainNSPathBased(random, domainName string) string {
 	}
 	
 	resource "cpln_domain_route" "route_first" {
-		domain_link = cpln_domain.ns_pathbased.self_link
+
+		domain_link = cpln_domain.subdomain.self_link
+		// domain_port = 443
 
 		prefix = "/first"
 		workload_link = cpln_workload.new.self_link
-		port = 80
+		// port = 80
 	}
 
-	/*resource "cpln_domain_route" "route_second" {
-		domain_link = cpln_domain.ns_pathbased.self_link
+	resource "cpln_domain_route" "route_second" {
+
+		depends_on = [cpln_domain_route.route_first]
+		
+		domain_link = cpln_domain.subdomain.self_link
+		// domain_port = 443
 
 		prefix = "/second"
+		replace_prefix = "/"
 		workload_link = cpln_workload.new.self_link
 		port = 443
-	}*/
+	}
+
+	resource "cpln_domain_route" "route_3" {
+
+		depends_on = [cpln_domain_route.route_second]
+		
+		domain_link = cpln_domain.subdomain.self_link
+		domain_port = 80
+
+		prefix = "/3"
+		workload_link = cpln_workload.new.self_link
+		port = 443
+	}
 	
-	`, random, domainName)
+	`, random, apex, description, domain, dnsMode)
 }
 
-func testAccControlPlaneDomainCNameSubdomain(random, domainName string) string {
+func testAccControlPlaneDomainPathBasedUpdateRoutePort(random, apex, description, domain, dnsMode string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneDomain")
 
@@ -312,75 +541,179 @@ func testAccControlPlaneDomainCNameSubdomain(random, domainName string) string {
 		}
 	}
 
-	resource "cpln_domain" "cname_subdomain" {
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.domain_gvc.name
+
+		name = "workload-${var.random-name}"
+
+		description = "Example Workload"
+
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		container {
+		  name   = "container-01"
+		  image  = "gcr.io/knative-samples/helloworld-go"
+		  port   = 8080
+		  memory = "128Mi"
+		  cpu    = "50m"
+		}
+
+		options {
+		  capacity_ai     = false
+		  timeout_seconds = 30
+		  suspend         = true
+
+		  autoscaling {
+			metric          = "concurrency"
+			target          = 100
+			max_scale       = 0
+			min_scale       = 0
+			max_concurrency = 500
+		  }
+		}
+	}
+
+	resource "cpln_domain" "domain_apex" {
 		name        = "%s"
-		description = "Custom domain that can be set on a GVC and used by associated workloads"
+		description = "%s"
 	  
 		tags = {
 		  terraform_generated = "true"
-		  example             = "true"
+		}
+
+		spec {
+			ports {
+				tls { }
+			 }
+		}	
+	}
+
+	resource "cpln_domain" "subdomain" {
+		
+		depends_on = [cpln_domain.domain_apex]
+
+		name        = "%s"
+		description = "NS - Path Based"
+	  
+		tags = {
+		  terraform_generated = "true"
 		}
 	  
 		spec {
-		  dns_mode         = "cname"
-		  accept_all_hosts = "true"
-	      gvc_link         = cpln_gvc.domain_gvc.self_link
 
+			dns_mode = "%s"
+			
 			ports {
 				number   = 443
 				protocol = "http"
+
+				cors {
+					allow_origins {
+						exact = "example.com"
+					}
+
+					allow_origins {
+						exact = "*"
+					}
+			
+					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
+					max_age           = "24h"
+					allow_credentials = "true"
+				}
 	  
 				tls {
-					server_certificate {
-						secret_link = "/org/terraform-test-org/secret/test"
-					}
+					min_protocol_version = "TLSV1_2"
+					cipher_suites = [
+						"ECDHE-ECDSA-AES256-GCM-SHA384",
+						"ECDHE-ECDSA-CHACHA20-POLY1305",
+						"ECDHE-ECDSA-AES128-GCM-SHA256",
+						"ECDHE-RSA-AES256-GCM-SHA384",
+						"ECDHE-RSA-CHACHA20-POLY1305",
+						"ECDHE-RSA-AES128-GCM-SHA256",
+						"AES256-GCM-SHA384",
+						"AES128-GCM-SHA256",
+					]
 				}
 			}
-		}
 
-
-	}`, random, domainName)
-}
-
-// TODO fix TLS default values of cipher_suites array and min_protocol_version
-
-func testAccControlPlaneDomainCNamePathBased(domainName string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneDomain")
-
-	return fmt.Sprintf(`
-
-	resource "cpln_domain" "cname_pathbased" {
-		name        = "%s"
-		description = "Custom domain that can be set on a GVC and used by associated workloads"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  example             = "true"
-		}
-	  
-		spec {
-		  dns_mode         = "cname"
-		  accept_all_hosts = "true"
-	  
-		  ports {
-				number   = 443
+			ports {
+				number   = 80
 				protocol = "http"
-			
-				routes {
-					prefix = "/first"
-					workload_link = "%s"
-					port = 8080
-				}
 
-				routes {
-					prefix = "/second"
-					workload_link = "%s"
-					port = 8081
+				cors {
+					allow_origins {
+						exact = "example.com"
+					}
+
+					allow_origins {
+						exact = "*"
+					}
+			
+					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
+					max_age           = "24h"
+					allow_credentials = "true"
+				}
+	  
+				tls {
+					min_protocol_version = "TLSV1_2"
+					cipher_suites = [
+						"ECDHE-ECDSA-AES256-GCM-SHA384",
+						"ECDHE-ECDSA-CHACHA20-POLY1305",
+						"ECDHE-ECDSA-AES128-GCM-SHA256",
+						"ECDHE-RSA-AES256-GCM-SHA384",
+						"ECDHE-RSA-CHACHA20-POLY1305",
+						"ECDHE-RSA-AES128-GCM-SHA256",
+						"AES256-GCM-SHA384",
+						"AES128-GCM-SHA256",
+					]
 				}
 			}
 		}
-	}`, domainName, getWorkloadOne(), getWorkloadTwo())
+	}
+	
+	resource "cpln_domain_route" "route_first" {
+
+		domain_link = cpln_domain.subdomain.self_link
+		// domain_port = 443
+
+		prefix = "/first"
+		workload_link = cpln_workload.new.self_link
+		port = 80
+	}
+
+	resource "cpln_domain_route" "route_second" {
+
+		depends_on = [cpln_domain_route.route_first]
+		
+		domain_link = cpln_domain.subdomain.self_link
+		// domain_port = 443
+
+		prefix = "/second"
+		replace_prefix = "/"
+		workload_link = cpln_workload.new.self_link
+		port = 443
+	}
+
+	resource "cpln_domain_route" "route_3" {
+
+		depends_on = [cpln_domain_route.route_second]
+		
+		domain_link = cpln_domain.subdomain.self_link
+		domain_port = 80
+
+		prefix = "/3"
+		workload_link = cpln_workload.new.self_link
+		port = 443
+	}
+	
+	`, random, apex, description, domain, dnsMode)
 }
 
 func testAccCheckControlPlaneDomainExists(resourceName string, domainName string, domain *client.Domain, orgName *client.Org) resource.TestCheckFunc {
@@ -626,9 +959,10 @@ func TestControlPlane_BuildPorts_Empty(t *testing.T) {
 
 // Build Cors //
 func TestControlPlane_BuildCors(t *testing.T) {
-	allowMethods := &[]string{"1", "2", "3"}
-	allowHeaders := &[]string{"2"}
-	exposeHeaders := &[]string{"3"}
+
+	allowMethods := []string{"2", "3", "1"}
+	allowHeaders := []string{"2"}
+	exposeHeaders := []string{"3"}
 	maxAge := "24h"
 	allowCredentials := true
 
@@ -636,16 +970,16 @@ func TestControlPlane_BuildCors(t *testing.T) {
 
 	_, expectedAllowOrigins, flattenedAllowOrigins := generateAllowOrigins()
 	flattened := generateFlatTestCors(flattenedAllowOrigins,
-		schema.NewSet(stringFunc, flattenStringsArray(allowMethods)),
-		schema.NewSet(stringFunc, flattenStringsArray(allowHeaders)),
-		schema.NewSet(stringFunc, flattenStringsArray(exposeHeaders)), maxAge, allowCredentials)
+		schema.NewSet(stringFunc, flattenStringsArray(&allowMethods)),
+		schema.NewSet(stringFunc, flattenStringsArray(&allowHeaders)),
+		schema.NewSet(stringFunc, flattenStringsArray(&exposeHeaders)), maxAge, allowCredentials)
 
 	cors := buildCors(flattened)
 	expectedCors := client.DomainCors{
 		AllowOrigins:     &expectedAllowOrigins,
-		AllowMethods:     allowMethods,
-		AllowHeaders:     allowHeaders,
-		ExposeHeaders:    exposeHeaders,
+		AllowMethods:     &allowMethods,
+		AllowHeaders:     &allowHeaders,
+		ExposeHeaders:    &exposeHeaders,
 		MaxAge:           &maxAge,
 		AllowCredentials: &allowCredentials,
 	}
@@ -840,6 +1174,7 @@ func generateFlatTestRoute(prefix string, replacePrefix string, workloadLink str
 }
 
 func generateFlatTestCors(allowOrigins []interface{}, allowMethods interface{}, allowHeaders interface{}, exposeHeaders interface{}, maxAge string, allowCredentials bool) []interface{} {
+
 	spec := map[string]interface{}{
 		"allow_origins":     allowOrigins,
 		"allow_methods":     allowMethods,

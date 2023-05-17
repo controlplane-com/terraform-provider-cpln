@@ -42,16 +42,16 @@ func resourceDomain() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			// TODO update all default values
 			"spec": {
 				Type:     schema.TypeList,
-				Optional: true,
+				Required: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"dns_mode": {
 							Type:     schema.TypeString,
 							Optional: true,
+							Default:  "cname",
 						},
 						"gvc_link": {
 							Type:     schema.TypeString,
@@ -64,7 +64,7 @@ func resourceDomain() *schema.Resource {
 						},
 						"ports": {
 							Type:     schema.TypeList,
-							Optional: true,
+							Required: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"number": {
@@ -134,26 +134,26 @@ func resourceDomain() *schema.Resource {
 									},
 									"tls": {
 										Type:     schema.TypeList,
-										Optional: true,
-										DefaultFunc: func() (interface{}, error) {
-											return []map[string]interface{}{
-												{
-													"min_protocol_version": "TLSV1_2",
-													"cipher_suites": func() (interface{}, error) {
-														return []string{
-															"AES128-GCM-SHA256",
-															"AES256-GCM-SHA384",
-															"ECDHE-ECDSA-AES128-GCM-SHA256",
-															"ECDHE-ECDSA-AES256-GCM-SHA384",
-															"ECDHE-ECDSA-CHACHA20-POLY1305",
-															"ECDHE-RSA-AES128-GCM-SHA256",
-															"ECDHE-RSA-AES256-GCM-SHA384",
-															"ECDHE-RSA-CHACHA20-POLY1305",
-														}, nil
-													},
-												},
-											}, nil
-										},
+										Required: true,
+										// DefaultFunc: func() (interface{}, error) {
+										// 	return []map[string]interface{}{
+										// 		{
+										// 			"min_protocol_version": "TLSV1_2",
+										// 			"cipher_suites": func() (interface{}, error) {
+										// 				return []string{
+										// 					"AES128-GCM-SHA256",
+										// 					"AES256-GCM-SHA384",
+										// 					"ECDHE-ECDSA-AES128-GCM-SHA256",
+										// 					"ECDHE-ECDSA-AES256-GCM-SHA384",
+										// 					"ECDHE-ECDSA-CHACHA20-POLY1305",
+										// 					"ECDHE-RSA-AES128-GCM-SHA256",
+										// 					"ECDHE-RSA-AES256-GCM-SHA384",
+										// 					"ECDHE-RSA-CHACHA20-POLY1305",
+										// 				}, nil
+										// 			},
+										// 		},
+										// 	}, nil
+										// },
 										MaxItems: 1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
@@ -202,12 +202,6 @@ func resourceDomain() *schema.Resource {
 					},
 				},
 			},
-			// TODO add status Elem
-			// "status": {
-			// 	Type:     schema.TypeList,
-			// 	MaxItems: 1,
-			// 	Computed: true,
-			// },
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -219,16 +213,11 @@ func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		Name:        GetString(d.Get("name")),
 		Description: GetString(d.Get("description")),
 		Tags:        GetStringMap(d.Get("tags")),
-		Spec:        buildDomainSpec(d.Get("spec").([]interface{})),
+		// Spec:        buildDomainSpec(d.Get("spec").([]interface{})),
+		Spec: buildDomainSpec(d.Get("spec")),
 	}
 
 	c := m.(*client.Client)
-
-	// TODO do we need this still?
-
-	// count := 0
-
-	// for {
 
 	newDomain, code, err := c.CreateDomain(domain)
 
@@ -241,31 +230,6 @@ func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	return setDomain(d, newDomain)
-
-	// var diags diag.Diagnostics
-	// return diags
-
-	// 	if count++; count > 16 {
-	// 		// Exit loop after timeout
-
-	// 		var diags diag.Diagnostics
-
-	// 		diags = append(diags, diag.Diagnostic{
-	// 			Severity: diag.Error,
-	// 			Summary:  err.Error(),
-	// 		})
-
-	// 		diags = append(diags, diag.Diagnostic{
-	// 			Severity: diag.Error,
-	// 			Summary:  "Unable to verify domain ownership",
-	// 			Detail:   "Please review and run terraform apply again",
-	// 		})
-
-	// 		return diags
-	// 	}
-
-	// 	time.Sleep(15 * time.Second)
-	// }
 }
 
 func resourceDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -302,15 +266,34 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			domainToUpdate.Tags = GetTagChanges(d)
 		}
 
+		c := m.(*client.Client)
+
 		if d.HasChange("spec") {
-			if domainToUpdate.Spec == nil {
-				domainToUpdate.Spec = &client.DomainSpec{}
+
+			domain, _, err := c.GetDomain(*domainToUpdate.Name)
+
+			if err != nil {
+				return diag.FromErr(err)
 			}
-			domainToUpdate.Spec = buildDomainSpec(d.Get("spec").([]interface{}))
+
+			domainToUpdate.SpecReplace = buildDomainSpec(d.Get("spec"))
+
+			for uIndex, uValue := range *domainToUpdate.SpecReplace.Ports {
+
+				for dIndex, dValue := range *domain.Spec.Ports {
+
+					if *uValue.Number == *dValue.Number && ((*domain.Spec.Ports)[dIndex].Routes != nil && len(*(*domain.Spec.Ports)[dIndex].Routes) > 0) {
+
+						destination := make([]client.DomainRoute, len(*(*domain.Spec.Ports)[dIndex].Routes))
+						copy(destination, (*(*domain.Spec.Ports)[dIndex].Routes))
+						(*domainToUpdate.SpecReplace.Ports)[uIndex].Routes = &destination
+					}
+				}
+			}
 		}
 
 		// Apply update
-		c := m.(*client.Client)
+
 		updatedDomain, _, err := c.UpdateDomain(domainToUpdate)
 		if err != nil {
 			return diag.FromErr(err)
@@ -325,8 +308,10 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 func resourceDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	c := m.(*client.Client)
+
 	id := d.Id()
 	err := c.DeleteDomain(id)
+
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -350,7 +335,10 @@ func certificateResource() *schema.Resource {
 
 /*** Build Functions ***/
 // Spec Related //
-func buildDomainSpec(specs []interface{}) *client.DomainSpec {
+func buildDomainSpec(input interface{}) *client.DomainSpec {
+
+	specs := input.([]interface{})
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
@@ -378,11 +366,13 @@ func buildDomainSpec(specs []interface{}) *client.DomainSpec {
 }
 
 func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
 
 	collection := []client.DomainSpecPort{}
+
 	for _, item := range specs {
 		port := item.(map[string]interface{})
 		newPort := client.DomainSpecPort{}
@@ -410,6 +400,7 @@ func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
 }
 
 func buildCors(specs []interface{}) *client.DomainCors {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
@@ -445,6 +436,7 @@ func buildCors(specs []interface{}) *client.DomainCors {
 }
 
 func buildTLS(specs []interface{}) *client.DomainTLS {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
@@ -472,11 +464,13 @@ func buildTLS(specs []interface{}) *client.DomainTLS {
 }
 
 func buildAllowOrigins(specs []interface{}) *[]client.DomainAllowOrigin {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
 
 	collection := []client.DomainAllowOrigin{}
+
 	for _, item := range specs {
 		allowOrigin := item.(map[string]interface{})
 		newAllowOrigin := client.DomainAllowOrigin{}
@@ -490,6 +484,7 @@ func buildAllowOrigins(specs []interface{}) *[]client.DomainAllowOrigin {
 }
 
 func buildCertificate(specs []interface{}) *client.DomainCertificate {
+
 	if len(specs) == 0 {
 		return nil
 	}
@@ -502,6 +497,7 @@ func buildCertificate(specs []interface{}) *client.DomainCertificate {
 	}
 
 	specAsMap := spec.(map[string]interface{})
+
 	if specAsMap["secret_link"] != nil {
 		result.SecretLink = GetString(specAsMap["secret_link"].(string))
 	}
@@ -512,6 +508,7 @@ func buildCertificate(specs []interface{}) *client.DomainCertificate {
 /*** Flatten Functions ***/
 // Spec Related //
 func flattenDomainSpec(domainSpec *client.DomainSpec) []interface{} {
+
 	if domainSpec == nil {
 		return nil
 	}
@@ -536,6 +533,7 @@ func flattenDomainSpec(domainSpec *client.DomainSpec) []interface{} {
 }
 
 func flattenSpecPorts(ports *[]client.DomainSpecPort) []interface{} {
+
 	if ports == nil || len(*ports) == 0 {
 		return nil
 	}
@@ -562,6 +560,7 @@ func flattenSpecPorts(ports *[]client.DomainSpecPort) []interface{} {
 }
 
 func flattenCors(cors *client.DomainCors) []interface{} {
+
 	if cors == nil {
 		return nil
 	}
@@ -586,6 +585,7 @@ func flattenCors(cors *client.DomainCors) []interface{} {
 }
 
 func flattenTLS(tls *client.DomainTLS) []interface{} {
+
 	if tls == nil {
 		return nil
 	}
@@ -605,11 +605,13 @@ func flattenTLS(tls *client.DomainTLS) []interface{} {
 }
 
 func flattenAllowOrigins(allowOrigins *[]client.DomainAllowOrigin) []interface{} {
+
 	if allowOrigins == nil || len(*allowOrigins) == 0 {
 		return nil
 	}
 
 	collection := make([]interface{}, len(*allowOrigins))
+
 	for i, item := range *allowOrigins {
 
 		allowOrigin := make(map[string]interface{})
@@ -624,6 +626,7 @@ func flattenAllowOrigins(allowOrigins *[]client.DomainAllowOrigin) []interface{}
 }
 
 func flattenCertificate(certificate *client.DomainCertificate) []interface{} {
+
 	if certificate == nil {
 		return nil
 	}
@@ -673,6 +676,7 @@ func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
 
 // Build //
 func buildStringArray(specs []interface{}) *[]string {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
@@ -687,6 +691,7 @@ func buildStringArray(specs []interface{}) *[]string {
 
 // Flatten //
 func flattenStringsArray(strings *[]string) []interface{} {
+
 	if strings == nil || len(*strings) == 0 {
 		return nil
 	}

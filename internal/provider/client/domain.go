@@ -2,6 +2,8 @@ package cpln
 
 import (
 	"fmt"
+	"reflect"
+	"time"
 )
 
 const MAX_ATTEMPTS = 10
@@ -14,6 +16,7 @@ type Domain struct {
 	Tags        *map[string]interface{} `json:"tags,omitempty"`
 	Links       *[]Link                 `json:"links,omitempty"`
 	Spec        *DomainSpec             `json:"spec,omitempty"`
+	SpecReplace *DomainSpec             `json:"$replace/spec,omitempty"`
 	Status      *DomainStatus           `json:"status,omitempty"`
 }
 
@@ -103,6 +106,8 @@ func (c *Client) CreateDomain(domain Domain) (*Domain, int, error) {
 		return nil, code, err
 	}
 
+	time.Sleep(15 * time.Second)
+
 	return c.GetDomain(*domain.Name)
 }
 
@@ -114,6 +119,8 @@ func (c *Client) UpdateDomain(domain Domain) (*Domain, int, error) {
 		return nil, code, err
 	}
 
+	time.Sleep(15 * time.Second)
+
 	return c.GetDomain(*domain.Name)
 }
 
@@ -123,144 +130,165 @@ func (c *Client) DeleteDomain(name string) error {
 }
 
 /*** Domain Route ***/
-func (c *Client) AddDomainRoute(domainName string, route DomainRoute) (*DomainRoute, error) {
+func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainRoute) error {
 
-	for {
-		domain, _, err := c.GetDomain(domainName)
+	domain, _, err := c.GetDomain(domainName)
 
-		if err != nil {
-			return nil, err
-		}
-
-		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
-			return nil, fmt.Errorf("Domain is not configured correctly, ports are not set")
-		}
-
-		// Append a new route
-		if (*domain.Spec.Ports)[0].Routes == nil {
-			(*domain.Spec.Ports)[0].Routes = &[]DomainRoute{}
-		}
-
-		*(*domain.Spec.Ports)[0].Routes = append(*(*domain.Spec.Ports)[0].Routes, route)
-
-		// Update resource
-		code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-
-		if code == 409 {
-			continue
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		break
+	if err != nil {
+		return err
 	}
 
-	return &route, nil
+	if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		return fmt.Errorf("domain is not configured correctly, ports are not set")
+	}
+
+	for index, value := range *domain.Spec.Ports {
+
+		if *value.Number == domainPort {
+
+			// Append a new route
+			if (*domain.Spec.Ports)[index].Routes == nil {
+				(*domain.Spec.Ports)[index].Routes = &[]DomainRoute{}
+			}
+
+			if *route.Port == 0 {
+				route.Port = nil
+			}
+
+			*(*domain.Spec.Ports)[index].Routes = append(*(*domain.Spec.Ports)[index].Routes, route)
+
+			domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)
+			domain.Spec = nil
+			domain.Status = nil
+
+			// Update resource
+			_, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("unable to add route '%s' for domain '%s', Port '%d' is not set", *route.Prefix, domainName, domainPort)
+
 }
 
-func (c *Client) UpdateDomainRoute(domainName string, route *DomainRoute) (*DomainRoute, error) {
+func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *DomainRoute) error {
 
-	for {
-		domain, _, err := c.GetDomain(domainName)
+	domain, _, err := c.GetDomain(domainName)
 
-		if err != nil {
-			return nil, err
-		}
-
-		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
-			return nil, fmt.Errorf("Domain is not configured correctly, ports are not set")
-		}
-
-		found := false
-
-		// Update given route
-		for j, _route := range *(*domain.Spec.Ports)[0].Routes {
-			if *_route.Prefix != *route.Prefix {
-				continue
-			}
-
-			*(*(*domain.Spec.Ports)[0].Routes)[j].Prefix = *route.Prefix
-			*(*(*domain.Spec.Ports)[0].Routes)[j].WorkloadLink = *route.WorkloadLink
-
-			if route.ReplacePrefix != nil {
-				*(*(*domain.Spec.Ports)[0].Routes)[j].ReplacePrefix = *route.ReplacePrefix
-			}
-
-			if route.Port != nil {
-				*(*(*domain.Spec.Ports)[0].Routes)[j].Port = *route.Port
-			}
-
-			found = true
-			break
-		}
-
-		if !found {
-			return nil, fmt.Errorf("Domain route specified was not found")
-		}
-
-		// Update resource
-		code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-
-		if code == 409 {
-			continue
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		break
+	if err != nil {
+		return err
 	}
 
-	return route, nil
+	if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		return fmt.Errorf("Domain is not configured correctly, ports are not set")
+	}
+
+	for pIndex, value := range *domain.Spec.Ports {
+
+		if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
+
+			for rIndex, _route := range *value.Routes {
+
+				if *_route.Prefix == *route.Prefix {
+
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].ReplacePrefix = route.ReplacePrefix
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].WorkloadLink = route.WorkloadLink
+
+					if route.Port == nil || *route.Port == 0 {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = nil
+					} else {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = route.Port
+					}
+
+					// Update resource
+					domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)
+					domain.Spec = nil
+					domain.Status = nil
+
+					_, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+					if err != nil {
+						return err
+					}
+
+					return nil
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("unable to update route '%s' for domain '%s', Port '%d' is not set", *route.Prefix, domainName, domainPort)
 }
 
-func (c *Client) RemoveDomainRoute(domainName string, prefix string) (bool, error) {
+func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix string) error {
 
-	for {
-		domain, _, err := c.GetDomain(domainName)
+	domain, _, err := c.GetDomain(domainName)
 
-		if err != nil {
-			return false, err
-		}
-
-		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
-			return false, fmt.Errorf("Domain is not configured correctly, ports are not set")
-		}
-
-		// Remove route
-		routeIndex := -1
-
-		for j, _route := range *(*domain.Spec.Ports)[0].Routes {
-			if *_route.Prefix != prefix {
-				continue
-			}
-
-			routeIndex = j
-			break
-		}
-
-		if routeIndex == -1 {
-			continue
-		}
-
-		*(*domain.Spec.Ports)[0].Routes = append((*(*domain.Spec.Ports)[0].Routes)[:routeIndex], (*(*domain.Spec.Ports)[0].Routes)[routeIndex+1:]...)
-
-		// Update resource
-		code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-
-		if code == 409 {
-			continue
-		}
-
-		if err != nil {
-			return false, err
-		}
-
-		break
+	if err != nil {
+		return err
 	}
 
-	return true, nil
+	if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		return fmt.Errorf("domain is not configured correctly, ports are not set")
+	}
+
+	routeIndex := -1
+
+	for pIndex, value := range *domain.Spec.Ports {
+
+		if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
+
+			for _index, _route := range *value.Routes {
+
+				if *_route.Prefix == prefix {
+					routeIndex = _index
+					break
+				}
+			}
+
+			if routeIndex != -1 {
+
+				*(*domain.Spec.Ports)[pIndex].Routes = append((*(*domain.Spec.Ports)[pIndex].Routes)[:routeIndex], (*(*domain.Spec.Ports)[pIndex].Routes)[routeIndex+1:]...)
+
+				// Update resource
+				domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)
+				domain.Spec = nil
+				domain.Status = nil
+
+				_, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("unable to delete route '%s' for domain '%s', Port '%d' is not set", prefix, domainName, domainPort)
+}
+
+func DeepCopy(source interface{}) interface{} {
+
+	sourceValue := reflect.ValueOf(source)
+
+	if sourceValue.Kind() != reflect.Ptr || sourceValue.IsNil() {
+		return nil
+	}
+
+	sourceType := reflect.TypeOf(source).Elem()
+	dest := reflect.New(sourceType).Elem()
+
+	for i := 0; i < sourceValue.Elem().NumField(); i++ {
+		sourceFieldValue := sourceValue.Elem().Field(i)
+		dest.Field(i).Set(sourceFieldValue)
+	}
+
+	return dest.Addr().Interface()
 }

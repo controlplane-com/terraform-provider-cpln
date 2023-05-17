@@ -2,7 +2,6 @@
 page_title: "cpln_domain Resource - terraform-provider-cpln"
 subcategory: "Domain"
 description: |-
-  
 ---
 
 # cpln_domain (Resource)
@@ -12,45 +11,63 @@ Manages an org's custom [Domain](https://docs.controlplane.com/reference/domain)
 The required DNS entries must exist before using Terraform to manage a `Domain`.
 
 Refer to the [Configure a Domain](https://docs.controlplane.com/guides/configure-domain#dns-entries)
-page for additional details. 
+page for additional details.
 
-During the creation of a domain, Control Plane will verify that the DNS entries exists. If they do 
+During the creation of a domain, Control Plane will verify that the DNS entries exists. If they do
 not exist, the Terraform script will fail.
+
+The APEX domain is required to be added to one of the orgs. Any subdomain within that org will not need the TXT records. Any subdomain added to another org will require the TXT records be added.
 
 ## Declaration
 
 ### Required
 
-- **name** (String) Domain name. Must be a valid domain name with at least three segments (e.g., test.example.com). Control Plane will validate the existence of the domain with DNS. Create and Update will fail if the required DNS entries cannot be validated.
+- **name** (String) Domain name. (e.g., example.com / test.example.com). Control Plane will validate the existence of the domain with DNS. Create and Update will fail if the required DNS entries cannot be validated.
+
+~> **Note** For a subdomain, include a `depends_on` property that points to the APEX domain declaration if the APEX was created in the same org.
+
+- **spec** (Block List, Max: 1) ([see below](#nestedblock--spec))
+
+~> **Note** If no spec properties are configured, an empty spec declaration (e.g., **spec { }**) is required to allow the default properties to exist in the state file.
 
 ### Optional
 
 - **description** (String) Description for the domain name.
 - **tags** (Map of String) Key-value map of resource tags.
-- **spec** (Block List, Max: 1) ([see below](#nestedblock--spec))
-- **status** (Block List, Max: 1) ([see below](#nestedblock--status))
 
 <a id="nestedblock--spec"></a>
+
 ### `spec`
+
+Required:
+
+-- **ports** (Block List) ([see below](#nestedblock--spec-ports))
+
+~> **Note** If no ports are configured, an empty ports declaration (e.g., **ports { }**) is required to allow the default properties to exist in the state file.
 
 Optional:
 
--- **dns_mode** (String) In 'cname' dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently 'cname' dnsMode requires that a tls.serverCertificate is configured when subdomain based routing is used. In 'ns' dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure an NS record to forward DNS requests to the Control Plane managed DNS servers.
--- **gvc_link** (String) One of gvcLink and routes may be provided. When gvcLink is configured each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}
--- **accept_all_hosts** (Boolean)
--- **ports** (Block List) ([see below](#nestedblock--spec-ports))
+-- **dns_mode** (String) In 'cname' dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently 'cname' dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In 'ns' dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: "cname", "ns". Default: "cname".
+-- **gvc_link** (String) This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. No not include if path based routing is used.
 
 <a id="nestedblock--spec-ports"></a>
+
 ### `spec.ports`
+
+Required:
+
+-- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
+
+~> **Note** If no tls properties are configured, an empty tls declaration (e.g., **tls { }**) is required to allow for the default properties to exist in the state file.
 
 Optional:
 
 -- **number** (Number)
 -- **protocol** (String)
 -- **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
--- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
 
 <a id="nestedblock--spec--ports--cors"></a>
+
 ### `spec.ports.cors`
 
 Optional:
@@ -62,6 +79,7 @@ Optional:
 -- **allow_credentials** (Boolean)
 
 <a id="nestedblock--spec--ports--cors--allow_origins"></a>
+
 ### `spec.ports.cors.allow_origins`
 
 Optional:
@@ -69,6 +87,7 @@ Optional:
 -- **exact** (String)
 
 <a id="nestedblock--spec--ports--tls"></a>
+
 ### `spec.ports.tls`
 
 -- **min_protocol_version** (String)
@@ -77,48 +96,39 @@ Optional:
 -- **server_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
 
 <a id="nestedblock--spec--ports--tls--certificate"></a>
+
 ### `spec.ports.tls.certificate`
 
 Optional:
--- **secret_link** (String)
-
-<a id="nestedblock--status"></a>
-### `status`
-
-Optional
-
--- **endpoints** (Block List) ([see below](#nestedblock--status--endpoints))
--- **status** (String)
--- **warning** (String)
--- **locations** (Block List) ([see below](#nestedblock--status--locations))
--- **fingerprint** (String)
-
-<a id="nestedblock--status--endpoints"></a>
-### `status.endpoints`
-
-Optional:
-
--- **url** (String)
--- **workload_link** (String)
-
-<a id="nestedblock--status--locations"></a>
-### `status.locations`
-
-Optionals:
-
--- **name** (String)
--- **certificate_status** (String)
+-- **secret_link** (String) Full link to a TLS secret.
 
 ## Outputs
 
 The following attributes are exported:
 
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage
 
 ```terraform
+resource "cpln_domain" "domain_apex" {
+		name        = "example.com"
+		description = "APEX domain example"
+
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		spec {
+			ports {
+				tls { }
+			 }
+		}
+}
+
 resource "cpln_domain" "example_ns_subdomain" {
+
+  depends_on  = [cpln_domain.domain_apex]
 
   name        = "app.example.com"
   description = "Custom domain that can be set on a GVC and used by associated workloads"
@@ -142,6 +152,10 @@ resource "cpln_domain" "example_ns_subdomain" {
           exact = "example.com"
         }
 
+         allow_origins {
+          exact = "*"
+        }
+
         allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
         allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
         max_age           = "24h"
@@ -161,7 +175,9 @@ resource "cpln_domain" "example_ns_subdomain" {
           "AES128-GCM-SHA256",
         ]
 
-        client_certificate {}
+        client_certificate {
+          secret_link = "LINK_TO_TLS_CERTIFICATE"
+        }
       }
     }
   }
