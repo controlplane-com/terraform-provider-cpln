@@ -30,7 +30,24 @@ Used in conjunction with a Domain.
 ## Example Usage
 
 ```terraform
+resource "cpln_domain" "domain_apex" {
+		name        = "example.com"
+		description = "APEX domain example"
+
+		tags = {
+		  terraform_generated = "true"
+		}
+
+		spec {
+			ports {
+				tls { }
+			 }
+		}
+}
+
 resource "cpln_domain" "example_cname_routes" {
+
+  depends_on = [cpln_domain.domain_apex]
 
   name        = "app.example.com"
   description = "Custom domain that can be set on a GVC and used by associated workloads"
@@ -41,12 +58,11 @@ resource "cpln_domain" "example_cname_routes" {
   }
 
   spec {
-    dns_mode         = "ns"
-    accept_all_hosts = "true"
+    dns_mode = "ns"
 
     ports {
       number   = 443
-      protocol = "http"
+      protocol = "http2"
 
       cors {
         allow_origins {
@@ -71,8 +87,6 @@ resource "cpln_domain" "example_cname_routes" {
           "AES256-GCM-SHA384",
           "AES128-GCM-SHA256",
         ]
-
-        client_certificate {}
       }
     }
   }
@@ -100,8 +114,8 @@ resource "cpln_domain_route" "example_second_route" {
     domain_link = cpln_domain.example_cname_routes.self_link
     domain_port = 443
 
-    prefix = "/example"
-    replace_prefix = "/replace_example"
+    prefix = "/example_second_route"
+    replace_prefix = "/"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
 }

@@ -135,25 +135,6 @@ func resourceDomain() *schema.Resource {
 									"tls": {
 										Type:     schema.TypeList,
 										Required: true,
-										// DefaultFunc: func() (interface{}, error) {
-										// 	return []map[string]interface{}{
-										// 		{
-										// 			"min_protocol_version": "TLSV1_2",
-										// 			"cipher_suites": func() (interface{}, error) {
-										// 				return []string{
-										// 					"AES128-GCM-SHA256",
-										// 					"AES256-GCM-SHA384",
-										// 					"ECDHE-ECDSA-AES128-GCM-SHA256",
-										// 					"ECDHE-ECDSA-AES256-GCM-SHA384",
-										// 					"ECDHE-ECDSA-CHACHA20-POLY1305",
-										// 					"ECDHE-RSA-AES128-GCM-SHA256",
-										// 					"ECDHE-RSA-AES256-GCM-SHA384",
-										// 					"ECDHE-RSA-CHACHA20-POLY1305",
-										// 				}, nil
-										// 			},
-										// 		},
-										// 	}, nil
-										// },
 										MaxItems: 1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
@@ -213,8 +194,7 @@ func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interfa
 		Name:        GetString(d.Get("name")),
 		Description: GetString(d.Get("description")),
 		Tags:        GetStringMap(d.Get("tags")),
-		// Spec:        buildDomainSpec(d.Get("spec").([]interface{})),
-		Spec: buildDomainSpec(d.Get("spec")),
+		Spec:        buildDomainSpec(d.Get("spec")),
 	}
 
 	c := m.(*client.Client)
@@ -257,7 +237,6 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 			Name: GetString(d.Get("name")),
 		}
 
-		// Check for changes
 		if d.HasChange("description") {
 			domainToUpdate.Description = GetDescriptionString(d.Get("description"), *domainToUpdate.Name)
 		}
@@ -278,6 +257,7 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 			domainToUpdate.SpecReplace = buildDomainSpec(d.Get("spec"))
 
+			// For loop is to restore routes created using domain_routes
 			for uIndex, uValue := range *domainToUpdate.SpecReplace.Ports {
 
 				for dIndex, dValue := range *domain.Spec.Ports {

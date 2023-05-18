@@ -141,13 +141,13 @@ resource "cpln_domain" "example_ns_subdomain" {
   spec {
     dns_mode         = "ns"
     gvc_link         = "/org/myorg/gvc/mygvc"
-    accept_all_hosts = "true"
 
     ports {
       number   = 443
-      protocol = "http"
+      protocol = "http2"
 
       cors {
+
         allow_origins {
           exact = "example.com"
         }
@@ -175,7 +175,7 @@ resource "cpln_domain" "example_ns_subdomain" {
           "AES128-GCM-SHA256",
         ]
 
-        client_certificate {
+        server_certificate {
           secret_link = "LINK_TO_TLS_CERTIFICATE"
         }
       }
