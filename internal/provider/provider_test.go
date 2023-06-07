@@ -1,7 +1,7 @@
 package cpln
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"testing"
@@ -25,7 +25,7 @@ func init() {
 	if infoLog {
 		TestLogger = log.New(os.Stdout, "TEST LOGGER: ", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
-		TestLogger = log.New(ioutil.Discard, "TEST LOGGER: ", log.Ldate|log.Ltime|log.Lshortfile)
+		TestLogger = log.New(io.Discard, "TEST LOGGER: ", log.Ldate|log.Ltime|log.Lshortfile)
 	}
 }
 
