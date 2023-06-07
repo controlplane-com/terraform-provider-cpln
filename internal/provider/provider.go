@@ -42,6 +42,7 @@ func Provider() *schema.Provider {
 			"cpln_audit_context":       resourceAuditContext(),
 			"cpln_cloud_account":       resourceCloudAccount(),
 			"cpln_domain":              resourceDomain(),
+			"cpln_domain_route":        resourceDomainRoute(),
 			"cpln_group":               resourceGroup(),
 			"cpln_gvc":                 resourceGvc(),
 			"cpln_identity":            resourceIdentity(),

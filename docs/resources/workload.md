@@ -106,9 +106,9 @@ Required:
 
 Optional:
 
-- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
 - **path** (String) Path. Default: "/".
 - **port** (Number) Port. Min: `80`. Max: `65535`.
+- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
 - **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
 <a id="nestedblock--container--liveness_probe--tcp_socket"></a>
@@ -225,8 +225,8 @@ Optional:
 Optional:
 
 - **inbound_allow_cidr** (List of String) he list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
-- **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
+- **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 
 <a id="nestedblock--firewall_spec--internal"></a>
 
@@ -252,12 +252,12 @@ Optional:
 Optional:
 
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling)).
+- **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
 - **debug** (Boolean) Debug mode. Default: `false`
 - **suspend** (Boolean) Workload suspend. Default: `false`
-- **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 
-- **location** (String) Valid only for `local_options`. Local options override for a specific location.
+- **location** (String) Valid only for `local_options`. Override options for a specific location.
 
 <a id="nestedblock--options--autoscaling"></a>
 
@@ -265,12 +265,12 @@ Optional:
 
 Optional:
 
-- **metric** (String) Valid values: `concurrency`, `cpu`, `rps`. Default: `concurrency`.
-- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **metric** (String) Valid values: `concurrency`, `cpu`, `latency`, or `rps`.
+- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
-- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
+- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
 
 <a id="nestedblock--job"></a>
 
@@ -288,6 +288,14 @@ Optional:
 - **history_limit** (Number) The maximum number of completed job instances to display. This should be an integer between 1 and 10. Default: `5`
 - **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`
 - **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.
+
+## Outputs
+
+The following attributes are exported:
+
+- **cpln_id** (String) ID, in GUID format, of the Workload.
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **status** (List of Object) ([see below](#nestedatt--status)).
 
 <a id="nestedatt--status"></a>
 
@@ -317,14 +325,6 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
-
-## Outputs
-
-The following attributes are exported:
-
-- **cpln_id** (String) ID, in GUID format, of the Workload.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources.
-- **status** (List of Object) ([see below](#nestedatt--status)).
 
 ## Example Usage - Serverless
 
@@ -360,6 +360,7 @@ resource "cpln_workload" "new" {
 
   name        = "workload-example"
   description = "Example Workload"
+  type = "serverless"
 
   tags = {
     terraform_generated = "true"
@@ -368,7 +369,6 @@ resource "cpln_workload" "new" {
 
   identity_link = cpln_identity.example.self_link
 
-  type = "serverless"
 
   container {
     name   = "container-01"
@@ -378,7 +378,7 @@ resource "cpln_workload" "new" {
     cpu    = "50m"
 
     command = "override-command"
-		working_directory = "/usr"
+    working_directory = "/usr"
 
     inherit_env = false
 
@@ -421,10 +421,7 @@ resource "cpln_workload" "new" {
       initial_delay_seconds = 2
     }
 
-    volume {
-      uri  = "s3://bucket"
-      path = "/s3"
-    }
+
 
     lifecycle {
 
@@ -439,6 +436,11 @@ resource "cpln_workload" "new" {
           command = ["command_pre", "arg_1", "arg_2"]
         }
       }
+    }
+
+    volume {
+      uri  = "s3://bucket"
+      path = "/s3"
     }
   }
 
