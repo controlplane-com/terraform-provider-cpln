@@ -111,10 +111,94 @@ resource "cpln_workload" "new" {
       inbound_allow_workload = []
     }
   }
+}
+
+resource "cpln_workload" "new_type_standard" {
+  gvc = cpln_gvc.example.name
+
+  name        = "workload-example"
+  description = "Example Workload"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  type = "standard"
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    memory = "128Mi"
+    cpu    = "50m"
+
+		ports {
+		  protocol = "http"
+			number   = "80"
+		}
+
+		ports {
+			protocol = "http2"
+			number   = "8080"
+	  }
+
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02",
+    }
+
+    lifecycle {
+
+      post_start {
+        exec {
+          command = ["command_post", "command_2", "command_3"]
+        }
+      }
+
+      pre_stop {
+        exec {
+          command = ["command_pre", "command_2", "command_3"]
+        }
+      }
+    }
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = false
+
+    autoscaling {
+      metric          = "cpu"
+      target          = 60
+      max_scale       = 3
+      min_scale       = 2
+      max_concurrency = 500
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_cidr     = []
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+    }
+    internal {
+      # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
 
   rollout_options {
     min_ready_seconds = 2
     max_unavailable_replicas = "10"
     max_surge_replicas = "20"
+  }
+
+  security_options {
+    file_system_group_id = 1
   }
 }

@@ -493,6 +493,20 @@ func resourceWorkload() *schema.Resource {
 					},
 				},
 			},
+			"security_options": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"file_system_group_id": {
+							Type:        schema.TypeInt,
+							Required:    true,
+							Description: "The group id assigned to any mounted volume",
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -567,6 +581,15 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		}
 
 		workload.Spec.RolloutOptions = rolloutOptions
+	}
+
+	if d.Get("security_options") != nil {
+		securityOptions := buildSecurityOptions(d.Get("security_options").([]interface{}))
+		if workload.Spec == nil {
+			workload.Spec = &client.WorkloadSpec{}
+		}
+
+		workload.Spec.SecurityOptions = securityOptions
 	}
 
 	newWorkload, code, err := c.CreateWorkload(workload, gvcName)
@@ -650,7 +673,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link", "rollout_options") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link", "rollout_options", "security_options") {
 
 		c := m.(*client.Client)
 
@@ -724,6 +747,14 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 			}
 
 			workloadToUpdate.Spec.RolloutOptions = buildRolloutOptions(d.Get("rollout_options").([]interface{}))
+		}
+
+		if d.HasChange("security_options") {
+			if workloadToUpdate.Spec == nil {
+				workloadToUpdate.Spec = &client.WorkloadSpec{}
+			}
+
+			workloadToUpdate.Spec.SecurityOptions = buildSecurityOptions(d.Get("security_options").([]interface{}))
 		}
 
 		if d.Get("identity_link") != nil {
@@ -822,6 +853,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 		}
 
 		if err := d.Set("rollout_options", flattenRolloutOptions(workload.Spec.RolloutOptions)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("security_options", flattenSecurityOptions(workload.Spec.SecurityOptions)); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -1295,6 +1330,19 @@ func buildRolloutOptions(specs []interface{}) *client.RolloutOptions {
 
 	if spec["max_surge_replicas"] != nil {
 		output.MaxSurgeReplicas = GetString(spec["max_surge_replicas"].(string))
+	}
+
+	return &output
+}
+
+func buildSecurityOptions(specs []interface{}) *client.SecurityOptions {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.SecurityOptions{
+		FileSystemGroupID: GetInt(spec["file_system_group_id"].(int)),
 	}
 
 	return &output
@@ -1855,6 +1903,20 @@ func flattenRolloutOptions(spec *client.RolloutOptions) []interface{} {
 
 	return []interface{}{
 		rolloutOptions,
+	}
+}
+
+func flattenSecurityOptions(spec *client.SecurityOptions) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	securityOptions := map[string]interface{}{
+		"file_system_group_id": *spec.FileSystemGroupID,
+	}
+
+	return []interface{}{
+		securityOptions,
 	}
 }
 

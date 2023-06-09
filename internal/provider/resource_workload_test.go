@@ -256,12 +256,6 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 			inbound_allow_workload = []
 		  }
 		}
-
-		rollout_options {
-			min_ready_seconds = 2
-			max_unavailable_replicas = "10"
-			max_surge_replicas = "20"
-		}
 	  }
 	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
@@ -472,6 +466,10 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 			max_unavailable_replicas = "10"
 			max_surge_replicas = "20"
 		}
+
+		security_options {
+			file_system_group_id = 1
+		}
 	  }
 	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
@@ -544,6 +542,11 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			expectedRolloutOptions, _, _ := generateTestRolloutOptions()
 			if diff := deep.Equal(expectedRolloutOptions, workload.Spec.RolloutOptions); diff != nil {
 				return fmt.Errorf("RolloutOptions mismatch, Diff: %s", diff)
+			}
+
+			expectedSecurityOptions, _, _ := generateTestSecurityOptions()
+			if diff := deep.Equal(expectedSecurityOptions, workload.Spec.SecurityOptions); diff != nil {
+				return fmt.Errorf("SecurityOptions mismatch, Diff: %s", diff)
 			}
 		}
 
@@ -633,6 +636,13 @@ func TestControlPlane_BuildRolloutOptions(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildSecurityOptions(t *testing.T) {
+	securityOptions, expectedSecurityOptions, _ := generateTestSecurityOptions()
+	if diff := deep.Equal(securityOptions, expectedSecurityOptions); diff != nil {
+		t.Errorf("SecurityOptions was not built correctly, Diff: %s", diff)
+	}
+}
+
 // Flatten //
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
@@ -707,6 +717,15 @@ func TestControlPlane_FlattenFirewallSpec(t *testing.T) {
 
 	if diff := deep.Equal(flatSpec, flattenedFirewallSpec); diff != nil {
 		t.Errorf("FirewallSpec not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenSecurityOptions(t *testing.T) {
+	_, expectedSecurityOptions, expectedFlatten := generateTestSecurityOptions()
+	flattenSecurityOptions := flattenSecurityOptions(expectedSecurityOptions)
+
+	if diff := deep.Equal(expectedFlatten, flattenSecurityOptions); diff != nil {
+		t.Errorf("SecurityOptions was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -907,6 +926,18 @@ func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOption
 	}
 
 	return rolloutOptions, expectedRolloutOptions, flatten
+}
+
+func generateTestSecurityOptions() (*client.SecurityOptions, *client.SecurityOptions, []interface{}) {
+	fileSystemGroupId := 1
+
+	flatten := generateFlatTestSecurityOptions(fileSystemGroupId)
+	securityOptions := buildSecurityOptions(flatten)
+	expectedSecurityOptions := &client.SecurityOptions{
+		FileSystemGroupID: &fileSystemGroupId,
+	}
+
+	return securityOptions, expectedSecurityOptions, flatten
 }
 
 // Flatten //
@@ -1134,6 +1165,16 @@ func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas 
 		"min_ready_seconds":        minReadySeconds,
 		"max_unavailable_replicas": maxUnavailableReplicas,
 		"max_surge_replicas":       maxSurgeReplicas,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
+	spec := map[string]interface{}{
+		"file_system_group_id": fileSystemGroupId,
 	}
 
 	return []interface{}{

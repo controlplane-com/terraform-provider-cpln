@@ -28,6 +28,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
+- **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 
 <a id="nestedblock--container"></a>
 
@@ -284,6 +285,14 @@ Optional:
 - **max_unavailable_replicas** (String) //TODO: Add description.
 - **max_surge_replicas** (String) //TODO: Add description.
 
+<a id="nestedblock--security_options"></a>
+
+### `security_options`
+
+Required:
+
+- **file_system_group_id** (Number) The group id assigned to any mounted volume
+
 <a id="nestedatt--status"></a>
 
 ### `status`
@@ -479,12 +488,6 @@ resource "cpln_workload" "new" {
       inbound_allow_workload = []
     }
   }
-
-  rollout_options {
-    min_ready_seconds = 2
-    max_unavailable_replicas = "10"
-    max_surge_replicas = "20"
-  }
 }
 ```
 
@@ -601,6 +604,10 @@ resource "cpln_workload" "new" {
     min_ready_seconds = 2
     max_unavailable_replicas = "10"
     max_surge_replicas = "20"
+  }
+
+  security_options {
+    file_system_group_id = 1
   }
 }
 

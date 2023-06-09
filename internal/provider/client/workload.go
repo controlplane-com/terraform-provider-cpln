@@ -23,14 +23,15 @@ type Workload struct {
 
 // WorkloadSpec - Workload Specifications
 type WorkloadSpec struct {
-	Type           *string          `json:"type,omitempty"`
-	IdentityLink   *string          `json:"identityLink,omitempty"`
-	Containers     *[]ContainerSpec `json:"containers,omitempty"`
-	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
-	DefaultOptions *Options         `json:"defaultOptions,omitempty"`
-	LocalOptions   *[]Options       `json:"localOptions,omitempty"`
-	RolloutOptions *RolloutOptions  `json:"rolloutOptions,omitempty"`
-	Update         bool             `json:"-"`
+	Type            *string          `json:"type,omitempty"`
+	IdentityLink    *string          `json:"identityLink,omitempty"`
+	Containers      *[]ContainerSpec `json:"containers,omitempty"`
+	FirewallConfig  *FirewallSpec    `json:"firewallConfig,omitempty"`
+	DefaultOptions  *Options         `json:"defaultOptions,omitempty"`
+	LocalOptions    *[]Options       `json:"localOptions,omitempty"`
+	RolloutOptions  *RolloutOptions  `json:"rolloutOptions,omitempty"`
+	SecurityOptions *SecurityOptions `json:"securityOptions,omitempty"`
+	Update          bool             `json:"-"`
 }
 
 // WorkloadSpecUpdate - Workload Specifications
@@ -253,6 +254,11 @@ type RolloutOptions struct {
 	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
 	MaxUnavailableReplicas *string `json:"maxUnavailableReplicas,omitempty"`
 	MaxSurgeReplicas       *string `json:"maxSurgeReplicas,omitempty"`
+}
+
+// Security Options
+type SecurityOptions struct {
+	FileSystemGroupID *int `json:"filesystemGroupId,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {
