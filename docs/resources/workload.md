@@ -267,7 +267,7 @@ Optional:
 
 Optional:
 
-- **metric** (String) Valid values: `concurrency`, `cpu`, `rps`. Default: `concurrency`.
+- **metric** (String) Valid values: `concurrency`, `cpu`, `rps`, `latency`, `disabled`. Default: `concurrency`.
 - **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.

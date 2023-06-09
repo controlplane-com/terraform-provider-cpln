@@ -1870,8 +1870,8 @@ func AutoScalingResource() *schema.Resource {
 
 					v := val.(string)
 
-					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" {
-						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'latency' or 'rps', got: %s", key, v))
+					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" && v != "disabled" {
+						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'rps', 'latency' or 'disabled', got: %s", key, v))
 					}
 
 					return
