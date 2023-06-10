@@ -28,6 +28,7 @@ type GvcSpec struct {
 	Domain          *string          `json:"domain,omitempty"`
 	Tracing         *Tracing         `json:"tracing,omitempty"`
 	Env             *[]NameValue     `json:"env,omitempty"`
+	LoadBalancer    *LoadBalancer    `json:"loadBalancer,omitempty"`
 	Update          bool             `json:"-"`
 }
 
@@ -42,6 +43,11 @@ type GvcSpecUpdate struct {
 type StaticPlacement struct {
 	LocationLinks *[]string `json:"locationLinks,omitempty"`
 	LocationQuery *Query    `json:"locationQuery,omitempty"`
+}
+
+// LoadBalancer - Load Balancer
+type LoadBalancer struct {
+	Dedicated *bool `json:"dedicated,omitempty"`
 }
 
 func (g GvcSpec) MarshalJSON() ([]byte, error) {
