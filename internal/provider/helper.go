@@ -739,28 +739,7 @@ func PortProtocolValidator(val interface{}, key string) (warns []string, errs []
 	return
 }
 
-// func GetStringsArrayFromSet(spec interface{}) *[]string {
-// 	if spec == nil {
-// 		return nil
-// 	}
-
-// 	collection := []string{}
-// 	for _, value := range spec.(*schema.Set).List() {
-// 		collection = append(collection, value.(string))
-// 	}
-
-// 	return &collection
-// }
-
-// func flattenReferencedStringsArray(strings *[]string) []interface{} {
-// 	if strings == nil || len(*strings) == 0 {
-// 		return nil
-// 	}
-
-// 	collection := make([]interface{}, len(*strings))
-// 	for i, item := range *strings {
-// 		collection[i] = item
-// 	}
-
-// 	return collection
-// }
+func GetNameFromSelfLink(selfLink string) string {
+	parts := strings.Split(selfLink, "/")
+	return parts[len(parts)-1]
+}

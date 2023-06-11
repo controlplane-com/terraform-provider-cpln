@@ -17,8 +17,9 @@ type Workloads struct {
 // Workload - GVC Workload
 type Workload struct {
 	Base
-	Spec   *WorkloadSpec   `json:"spec,omitempty"`
-	Status *WorkloadStatus `json:"status,omitempty"`
+	Spec        *WorkloadSpec   `json:"spec,omitempty"`
+	SpecReplace *WorkloadSpec   `json:"$replace/spec,omitempty"`
+	Status      *WorkloadStatus `json:"status,omitempty"`
 }
 
 // WorkloadSpec - Workload Specifications
@@ -30,35 +31,8 @@ type WorkloadSpec struct {
 	DefaultOptions  *Options         `json:"defaultOptions,omitempty"`
 	LocalOptions    *[]Options       `json:"localOptions,omitempty"`
 	RolloutOptions  *RolloutOptions  `json:"rolloutOptions,omitempty"`
+	Job             *JobSpec         `json:"job,omitempty"`
 	SecurityOptions *SecurityOptions `json:"securityOptions,omitempty"`
-	Update          bool             `json:"-"`
-}
-
-// WorkloadSpecUpdate - Workload Specifications
-type WorkloadSpecUpdate struct {
-	Type           *string          `json:"type,omitempty"`
-	IdentityLink   *string          `json:"identityLink"`
-	Containers     *[]ContainerSpec `json:"containers,omitempty"`
-	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
-	DefaultOptions *Options         `json:"defaultOptions,omitempty"`
-	LocalOptions   *[]Options       `json:"localOptions"`
-}
-
-func (p WorkloadSpec) MarshalJSON() ([]byte, error) {
-
-	type localWorkload WorkloadSpec
-
-	if p.Update && (p.IdentityLink == nil || *p.IdentityLink == "") {
-		return json.Marshal(WorkloadSpecUpdate{
-			Type:           p.Type,
-			IdentityLink:   p.IdentityLink,
-			Containers:     p.Containers,
-			FirewallConfig: p.FirewallConfig,
-			DefaultOptions: p.DefaultOptions,
-			LocalOptions:   p.LocalOptions,
-		})
-	}
-	return json.Marshal(localWorkload(p))
 }
 
 // ContainerSpec - Workload Container Definition
@@ -125,54 +99,12 @@ type FirewallSpecExternal struct {
 	InboundAllowCIDR      *[]string `json:"inboundAllowCIDR,omitempty"`
 	OutboundAllowCIDR     *[]string `json:"outboundAllowCIDR,omitempty"`
 	OutboundAllowHostname *[]string `json:"outboundAllowHostname,omitempty"`
-	Update                bool      `json:"-"`
-}
-
-// FirewallSpecExternalUpdate - Firewall Spec External
-type FirewallSpecExternalUpdate struct {
-	InboundAllowCIDR      *[]string `json:"inboundAllowCIDR"`
-	OutboundAllowCIDR     *[]string `json:"outboundAllowCIDR"`
-	OutboundAllowHostname *[]string `json:"outboundAllowHostname"`
-}
-
-func (p FirewallSpecExternal) MarshalJSON() ([]byte, error) {
-
-	type localFirewallSpecExternal FirewallSpecExternal
-
-	if p.Update {
-		return json.Marshal(FirewallSpecExternalUpdate{
-			InboundAllowCIDR:      p.InboundAllowCIDR,
-			OutboundAllowCIDR:     p.OutboundAllowCIDR,
-			OutboundAllowHostname: p.OutboundAllowHostname,
-		})
-	}
-	return json.Marshal(localFirewallSpecExternal(p))
 }
 
 // FirewallSpecInternal - Firewall Spec Internal
 type FirewallSpecInternal struct {
 	InboundAllowType     *string   `json:"inboundAllowType,omitempty"`
 	InboundAllowWorkload *[]string `json:"inboundAllowWorkload,omitempty"`
-	Update               bool      `json:"-"`
-}
-
-// FirewallSpecInternaUpdate - Firewall Spec Internal
-type FirewallSpecInternaUpdate struct {
-	InboundAllowType     *string   `json:"inboundAllowType"`
-	InboundAllowWorkload *[]string `json:"inboundAllowWorkload"`
-}
-
-func (p FirewallSpecInternal) MarshalJSON() ([]byte, error) {
-
-	type localFirewallSpecInternal FirewallSpecInternal
-
-	if p.Update {
-		return json.Marshal(FirewallSpecInternaUpdate{
-			InboundAllowType:     p.InboundAllowType,
-			InboundAllowWorkload: p.InboundAllowWorkload,
-		})
-	}
-	return json.Marshal(localFirewallSpecInternal(p))
 }
 
 // WorkloadStatus - Workload Status
@@ -249,6 +181,15 @@ type LifeCycleInner struct {
 	Exec *Exec `json:"exec,omitempty"`
 }
 
+// JobSpec - Cronjob
+type JobSpec struct {
+	Schedule              *string `json:"schedule,omitempty"`
+	ConcurrencyPolicy     *string `json:"concurrencyPolicy,omitempty"` // Enum: [ Forbid, Replace ]
+	HistoryLimit          *int    `json:"historyLimit,omitempty"`
+	RestartPolicy         *string `json:"restartPolicy,omitempty"` // Enum: [ OnFailure, Never ]
+	ActiveDeadlineSeconds *int    `json:"activeDeadlineSeconds,omitempty"`
+}
+
 // Rollout Options
 type RolloutOptions struct {
 	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
@@ -263,9 +204,11 @@ type SecurityOptions struct {
 
 func (w Workload) RemoveEmptySlices() {
 
-	for _, c := range *w.Spec.Containers {
-		if c.Args == nil || len(*c.Args) < 1 {
-			c.Args = nil
+	if w.Spec.Containers != nil {
+		for _, c := range *w.Spec.Containers {
+			if c.Args == nil || len(*c.Args) < 1 {
+				c.Args = nil
+			}
 		}
 	}
 
@@ -280,7 +223,7 @@ func (w Workload) RemoveEmptySlices() {
 				w.Spec.FirewallConfig.External.OutboundAllowCIDR = nil
 			}
 
-			if w.Spec.FirewallConfig.External.InboundAllowCIDR != nil && len(*w.Spec.FirewallConfig.External.OutboundAllowHostname) < 1 {
+			if w.Spec.FirewallConfig.External.OutboundAllowHostname != nil && len(*w.Spec.FirewallConfig.External.OutboundAllowHostname) < 1 {
 				w.Spec.FirewallConfig.External.OutboundAllowHostname = nil
 			}
 		}
@@ -321,7 +264,7 @@ func (c *Client) GetWorkload(name, gvcName string) (*Workload, int, error) {
 		return nil, code, err
 	}
 
-	workload.(*Workload).RemoveEmptySlices()
+	// workload.(*Workload).RemoveEmptySlices()
 
 	return workload.(*Workload), code, err
 }

@@ -66,8 +66,7 @@ func resourceWorkload() *schema.Resource {
 			"type": {
 				Type:         schema.TypeString,
 				ForceNew:     true,
-				Optional:     true,
-				Default:      "serverless",
+				Required:     true,
 				ValidateFunc: WorkloadTypeValidator,
 			},
 			"container": {
@@ -347,7 +346,6 @@ func resourceWorkload() *schema.Resource {
 						"location": {
 							Type:     schema.TypeString,
 							Required: true,
-							// ForceNew: true,
 						},
 						"capacity_ai": {
 							Type:     schema.TypeBool,
@@ -402,6 +400,38 @@ func resourceWorkload() *schema.Resource {
 							Optional: true,
 							MaxItems: 1,
 							Elem:     InternalFirewallResource(),
+						},
+					},
+				},
+			},
+			"job": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"schedule": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"concurrency_policy": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "Forbid",
+						},
+						"history_limit": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Default:  5,
+						},
+						"restart_policy": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "Never",
+						},
+						"active_deadline_seconds": {
+							Type:     schema.TypeInt,
+							Optional: true,
 						},
 					},
 				},
@@ -540,24 +570,18 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 	workload.Name = GetString(d.Get("name"))
 	workload.Description = GetString(d.Get("description"))
 	workload.Tags = GetStringMap(d.Get("tags"))
+	workload.Spec = &client.WorkloadSpec{}
 
-	buildContainers(d.Get("container").([]interface{}), &workload)
-	buildOptions(d.Get("options").([]interface{}), &workload, false, c.Org)
-	buildOptions(d.Get("local_options").([]interface{}), &workload, true, c.Org)
-	buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workload, false)
+	buildContainers(d.Get("container").([]interface{}), workload.Spec)
+	buildFirewallSpec(d.Get("firewall_spec").([]interface{}), workload.Spec)
+	buildOptions(d.Get("options").([]interface{}), workload.Spec, false, c.Org)
+	buildOptions(d.Get("local_options").([]interface{}), workload.Spec, true, c.Org)
+	workload.Spec.Job = buildJobSpec(d.Get("job").([]interface{}))
 
-	if d.Get("type") != nil {
+	workload.Spec.Type = GetString(strings.TrimSpace(d.Get("type").(string)))
 
-		workloadType := strings.TrimSpace(d.Get("type").(string))
-
-		if workloadType != "" {
-
-			if workload.Spec == nil {
-				workload.Spec = &client.WorkloadSpec{}
-			}
-
-			workload.Spec.Type = GetString(workloadType)
-		}
+	if e := workloadSpecValidate(workload.Spec); e != nil {
+		return e
 	}
 
 	if d.Get("identity_link") != nil {
@@ -566,28 +590,18 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 		if identityLink != "" {
 
-			if workload.Spec == nil {
-				workload.Spec = &client.WorkloadSpec{}
-			}
-
 			workload.Spec.IdentityLink = GetString(identityLink)
 		}
 	}
 
 	if d.Get("rollout_options") != nil {
 		rolloutOptions := buildRolloutOptions(d.Get("rollout_options").([]interface{}))
-		if workload.Spec == nil {
-			workload.Spec = &client.WorkloadSpec{}
-		}
 
 		workload.Spec.RolloutOptions = rolloutOptions
 	}
 
 	if d.Get("security_options") != nil {
 		securityOptions := buildSecurityOptions(d.Get("security_options").([]interface{}))
-		if workload.Spec == nil {
-			workload.Spec = &client.WorkloadSpec{}
-		}
 
 		workload.Spec.SecurityOptions = securityOptions
 	}
@@ -673,7 +687,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "identity_link", "rollout_options", "security_options") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options") {
 
 		c := m.(*client.Client)
 
@@ -681,95 +695,28 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 		workloadToUpdate := client.Workload{}
 		workloadToUpdate.Name = GetString(d.Get("name"))
+		workloadToUpdate.Description = GetDescriptionString(d.Get("description"), *workloadToUpdate.Name)
+		workloadToUpdate.Tags = GetTagChanges(d)
 
-		if d.HasChange("description") {
-			workloadToUpdate.Description = GetDescriptionString(d.Get("description"), *workloadToUpdate.Name)
-		}
+		workloadToUpdate.SpecReplace = &client.WorkloadSpec{}
+		workloadToUpdate.SpecReplace.Type = GetString(d.Get("type"))
 
-		if d.HasChange("tags") {
-			workloadToUpdate.Tags = GetTagChanges(d)
-		}
-
-		if d.HasChange("type") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			workloadToUpdate.Spec.Type = GetString(d.Get("type"))
-		}
-
-		if d.HasChange("container") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildContainers(d.Get("container").([]interface{}), &workloadToUpdate)
-		}
-
-		if d.HasChange("options") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildOptions(d.Get("options").([]interface{}), &workloadToUpdate, false, c.Org)
-		}
-
-		if d.HasChange("local_options") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildOptions(d.Get("local_options").([]interface{}), &workloadToUpdate, true, c.Org)
-		}
-
-		if d.HasChange("firewall_spec") {
-
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			buildFirewallSpec(d.Get("firewall_spec").([]interface{}), &workloadToUpdate, true)
-		}
-
-		if d.HasChange("rollout_options") {
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-				workloadToUpdate.Spec.Update = true
-			}
-
-			workloadToUpdate.Spec.RolloutOptions = buildRolloutOptions(d.Get("rollout_options").([]interface{}))
-		}
-
-		if d.HasChange("security_options") {
-			if workloadToUpdate.Spec == nil {
-				workloadToUpdate.Spec = &client.WorkloadSpec{}
-			}
-
-			workloadToUpdate.Spec.SecurityOptions = buildSecurityOptions(d.Get("security_options").([]interface{}))
-		}
-
+		buildContainers(d.Get("container").([]interface{}), workloadToUpdate.SpecReplace)
+		buildOptions(d.Get("options").([]interface{}), workloadToUpdate.SpecReplace, false, c.Org)
+		buildOptions(d.Get("local_options").([]interface{}), workloadToUpdate.SpecReplace, true, c.Org)
+		buildFirewallSpec(d.Get("firewall_spec").([]interface{}), workloadToUpdate.SpecReplace)
+		workloadToUpdate.SpecReplace.Job = buildJobSpec(d.Get("job").([]interface{}))
+		workloadToUpdate.SpecReplace.RolloutOptions = buildRolloutOptions(d.Get("rollout_options").([]interface{}))
+		workloadToUpdate.SpecReplace.SecurityOptions = buildSecurityOptions(d.Get("security_options").([]interface{}))
 		if d.Get("identity_link") != nil {
 
-			identityLink := strings.TrimSpace(d.Get("identity_link").(string))
-
-			if identityLink != "" {
-
-				if workloadToUpdate.Spec == nil {
-					workloadToUpdate.Spec = &client.WorkloadSpec{}
-					workloadToUpdate.Spec.Update = true
-				}
-
-				workloadToUpdate.Spec.IdentityLink = GetString(identityLink)
+			if identityLink := strings.TrimSpace(d.Get("identity_link").(string)); identityLink != "" {
+				workloadToUpdate.SpecReplace.IdentityLink = GetString(identityLink)
 			}
+		}
+
+		if e := workloadSpecValidate(workloadToUpdate.SpecReplace); e != nil {
+			return e
 		}
 
 		updatedWorkload, _, err := c.UpdateWorkload(workloadToUpdate, gvcName)
@@ -844,6 +791,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("job", flattenJobSpec(workload.Spec.Job)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("identity_link", workload.Spec.IdentityLink); err != nil {
 			return diag.FromErr(err)
 		}
@@ -872,8 +823,11 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 	return diags
 }
 
-/*** Build ***/
-func buildContainers(containers []interface{}, workload *client.Workload) {
+func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec) {
+
+	if containers == nil {
+		return
+	}
 
 	newContainers := []client.ContainerSpec{}
 
@@ -947,17 +901,13 @@ func buildContainers(containers []interface{}, workload *client.Workload) {
 		}
 
 		if c["lifecycle"] != nil {
-			newContainer.LifeCycle = buildLifeCycleSpec(c["lifecycle"].([]interface{}))
+			buildLifeCycleSpec(c["lifecycle"].([]interface{}), &newContainer)
 		}
 
 		newContainers = append(newContainers, newContainer)
 	}
 
-	if workload.Spec == nil {
-		workload.Spec = &client.WorkloadSpec{}
-	}
-
-	workload.Spec.Containers = &newContainers
+	workloadSpec.Containers = &newContainers
 }
 
 func buildPortSpec(ports []interface{}) *[]client.PortSpec {
@@ -1138,38 +1088,64 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 	return nil
 }
 
-func buildLifeCycleSpec(lifecycle []interface{}) *client.LifeCycleSpec {
+func buildLifeCycleSpec(lifecycle []interface{}, containerSpec *client.ContainerSpec) {
 
-	if len(lifecycle) == 0 {
-		return nil
-	}
+	if len(lifecycle) > 0 {
 
-	output := client.LifeCycleSpec{}
-	lc := lifecycle[0].(map[string]interface{})
+		containerSpec.LifeCycle = &client.LifeCycleSpec{}
 
-	// Set struct fields
-	if lc["post_start"] != nil {
-		commands := getInnerLifeCycleCommands(lc["post_start"].([]interface{}))
-		if len(commands) > 0 {
-			output.PostStart = &client.LifeCycleInner{}
-			output.PostStart.Exec = &client.Exec{}
-			output.PostStart.Exec.Command = &commands
+		if lifecycle[0] != nil {
+
+			lc := lifecycle[0].(map[string]interface{})
+
+			// Set struct fields
+			if lc["post_start"] != nil {
+
+				containerSpec.LifeCycle.PostStart = &client.LifeCycleInner{}
+
+				ps := lc["post_start"].([]interface{})
+
+				if len(ps) > 0 && ps[0] != nil {
+
+					psMap := ps[0].(map[string]interface{})
+					exec := psMap["exec"].([]interface{})
+
+					if len(exec) > 0 {
+
+						containerSpec.LifeCycle.PostStart.Exec = &client.Exec{}
+						containerSpec.LifeCycle.PostStart.Exec.Command = buildCommand(exec)
+					}
+				}
+			}
+
+			if lc["pre_stop"] != nil {
+
+				containerSpec.LifeCycle.PreStop = &client.LifeCycleInner{}
+
+				ps := lc["pre_stop"].([]interface{})
+
+				if len(ps) > 0 && ps[0] != nil {
+
+					psMap := ps[0].(map[string]interface{})
+					exec := psMap["exec"].([]interface{})
+
+					if len(exec) > 0 {
+
+						containerSpec.LifeCycle.PreStop.Exec = &client.Exec{}
+						containerSpec.LifeCycle.PreStop.Exec.Command = buildCommand(exec)
+					}
+				}
+			}
 		}
-	}
 
-	if lc["pre_stop"] != nil {
-		commands := getInnerLifeCycleCommands(lc["pre_stop"].([]interface{}))
-		if len(commands) > 0 {
-			output.PreStop = &client.LifeCycleInner{}
-			output.PreStop.Exec = &client.Exec{}
-			output.PreStop.Exec.Command = &commands
-		}
 	}
-
-	return &output
 }
 
-func buildOptions(options []interface{}, workload *client.Workload, localOptions bool, org string) {
+func buildOptions(options []interface{}, workloadSpec *client.WorkloadSpec, localOptions bool, org string) {
+
+	if options == nil {
+		return
+	}
 
 	output := []client.Options{}
 
@@ -1214,105 +1190,149 @@ func buildOptions(options []interface{}, workload *client.Workload, localOptions
 		}
 	}
 
-	if workload.Spec == nil {
-		workload.Spec = &client.WorkloadSpec{}
+	if workloadSpec == nil {
+		workloadSpec = &client.WorkloadSpec{}
 	}
 
 	if localOptions {
-		workload.Spec.LocalOptions = &output
+		workloadSpec.LocalOptions = &output
 	} else {
-		workload.Spec.DefaultOptions = &output[0]
+		workloadSpec.DefaultOptions = &output[0]
 	}
 }
 
-func buildFirewallSpec(specs []interface{}, workload *client.Workload, update bool) {
+func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 
-	if len(specs) > 0 && specs[0] != nil {
+	if len(specs) > 0 {
 
 		newSpec := client.FirewallSpec{}
+		workloadSpec.FirewallConfig = &newSpec
+
+		if specs[0] == nil {
+			return
+		}
 
 		spec := specs[0].(map[string]interface{})
 		external := spec["external"].([]interface{})
 
-		if len(external) > 0 && external[0] != nil {
+		if len(external) > 0 {
 
-			e := external[0].(map[string]interface{})
 			we := client.FirewallSpecExternal{}
-			we.Update = update
-
-			if e["inbound_allow_cidr"] != nil {
-				inboundAllowCIDR := []string{}
-
-				for _, value := range e["inbound_allow_cidr"].(*schema.Set).List() {
-					inboundAllowCIDR = append(inboundAllowCIDR, value.(string))
-				}
-
-				if len(inboundAllowCIDR) > 0 {
-					we.InboundAllowCIDR = &inboundAllowCIDR
-				}
-			}
-
-			if e["outbound_allow_cidr"] != nil {
-				outboundAllowCIDR := []string{}
-
-				for _, value := range e["outbound_allow_cidr"].(*schema.Set).List() {
-					outboundAllowCIDR = append(outboundAllowCIDR, value.(string))
-				}
-
-				if len(outboundAllowCIDR) > 0 {
-					we.OutboundAllowCIDR = &outboundAllowCIDR
-				}
-			}
-
-			if e["outbound_allow_hostname"] != nil {
-				outboundAllowHostname := []string{}
-
-				for _, value := range e["outbound_allow_hostname"].(*schema.Set).List() {
-					outboundAllowHostname = append(outboundAllowHostname, value.(string))
-				}
-
-				if len(outboundAllowHostname) > 0 {
-					we.OutboundAllowHostname = &outboundAllowHostname
-				}
-			}
-
 			newSpec.External = &we
+
+			if external[0] != nil {
+
+				e := external[0].(map[string]interface{})
+
+				if e["inbound_allow_cidr"] != nil {
+					inboundAllowCIDR := []string{}
+
+					for _, value := range e["inbound_allow_cidr"].(*schema.Set).List() {
+						inboundAllowCIDR = append(inboundAllowCIDR, value.(string))
+					}
+
+					if len(inboundAllowCIDR) > 0 {
+						we.InboundAllowCIDR = &inboundAllowCIDR
+					}
+				}
+
+				if e["outbound_allow_cidr"] != nil {
+					outboundAllowCIDR := []string{}
+
+					for _, value := range e["outbound_allow_cidr"].(*schema.Set).List() {
+						outboundAllowCIDR = append(outboundAllowCIDR, value.(string))
+					}
+
+					if len(outboundAllowCIDR) > 0 {
+						we.OutboundAllowCIDR = &outboundAllowCIDR
+					}
+				}
+
+				if e["outbound_allow_hostname"] != nil {
+					outboundAllowHostname := []string{}
+
+					for _, value := range e["outbound_allow_hostname"].(*schema.Set).List() {
+						outboundAllowHostname = append(outboundAllowHostname, value.(string))
+					}
+
+					if len(outboundAllowHostname) > 0 {
+						we.OutboundAllowHostname = &outboundAllowHostname
+					}
+				}
+			}
+
 		}
 
 		internal := spec["internal"].([]interface{})
 
-		if len(internal) > 0 && internal[0] != nil {
+		if len(internal) > 0 {
 
-			i := internal[0].(map[string]interface{})
 			wi := client.FirewallSpecInternal{}
-			wi.Update = update
+			newSpec.Internal = &wi
 
-			wi.InboundAllowType = GetString(i["inbound_allow_type"])
+			if internal[0] != nil {
 
-			if i["inbound_allow_workload"] != nil {
-				inboundAllowWorkload := []string{}
+				i := internal[0].(map[string]interface{})
 
-				for _, value := range i["inbound_allow_workload"].(*schema.Set).List() {
-					inboundAllowWorkload = append(inboundAllowWorkload, value.(string))
-				}
+				wi.InboundAllowType = GetString(i["inbound_allow_type"])
 
-				if len(inboundAllowWorkload) > 0 {
-					wi.InboundAllowWorkload = &inboundAllowWorkload
+				if i["inbound_allow_workload"] != nil {
+					inboundAllowWorkload := []string{}
+
+					for _, value := range i["inbound_allow_workload"].(*schema.Set).List() {
+						inboundAllowWorkload = append(inboundAllowWorkload, value.(string))
+					}
+
+					if len(inboundAllowWorkload) > 0 {
+						wi.InboundAllowWorkload = &inboundAllowWorkload
+					}
 				}
 			}
-
-			newSpec.Internal = &wi
 		}
-
-		if workload.Spec == nil {
-			workload.Spec = &client.WorkloadSpec{}
-		}
-
-		workload.Spec.FirewallConfig = &newSpec
 	}
 }
 
+func buildJobSpec(specs []interface{}) *client.JobSpec {
+
+	if len(specs) > 0 && specs[0] != nil {
+
+		result := &client.JobSpec{}
+
+		spec := specs[0].(map[string]interface{})
+
+		if spec["schedule"] != nil {
+			result.Schedule = GetString(spec["schedule"].(string))
+		}
+
+		if spec["concurrency_policy"] != nil {
+			result.ConcurrencyPolicy = GetString(spec["concurrency_policy"].(string))
+		}
+
+		if spec["history_limit"] != nil {
+			result.HistoryLimit = GetInt(spec["history_limit"].(int))
+		}
+
+		if spec["restart_policy"] != nil {
+			result.RestartPolicy = GetString(spec["restart_policy"].(string))
+		}
+
+		if spec["active_deadline_seconds"] != nil {
+
+			if spec["active_deadline_seconds"].(int) == 0 {
+				result.ActiveDeadlineSeconds = nil
+			} else {
+				result.ActiveDeadlineSeconds = GetInt(spec["active_deadline_seconds"].(int))
+			}
+		}
+
+		return result
+	}
+
+	return nil
+}
+
 func buildRolloutOptions(specs []interface{}) *client.RolloutOptions {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
@@ -1348,26 +1368,37 @@ func buildSecurityOptions(specs []interface{}) *client.SecurityOptions {
 	return &output
 }
 
-func buildExec(exec []interface{}) []string {
-	if len(exec) > 0 && exec[0] == nil {
-		return []string{}
-	}
+func buildCommand(exec []interface{}) *[]string {
 
-	commands := []string{}
-	e := exec[0].(map[string]interface{})
+	if len(exec) > 0 {
 
-	for _, k := range e["command"].([]interface{}) {
-		if k != nil {
-			commands = append(commands, k.(string))
-		} else {
-			commands = append(commands, "")
+		output := []string{}
+
+		if exec[0] == nil {
+			return &output
+		}
+
+		e := exec[0].(map[string]interface{})
+
+		if e["command"] != nil {
+
+			for _, k := range e["command"].([]interface{}) {
+				if k != nil {
+					output = append(output, k.(string))
+				} else {
+					output = append(output, "")
+				}
+			}
+
+			return &output
 		}
 	}
 
-	return commands
+	return nil
 }
 
 /*** Flatten ***/
+
 func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 
 	if status != nil {
@@ -1756,10 +1787,11 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 
 	if spec != nil {
 
-		external := make(map[string]interface{})
-		addExternal := false
+		localSpec := make(map[string]interface{})
 
 		if spec.External != nil {
+
+			external := make(map[string]interface{})
 
 			if spec.External.InboundAllowCIDR != nil && len(*spec.External.InboundAllowCIDR) > 0 {
 				external["inbound_allow_cidr"] = []interface{}{}
@@ -1767,8 +1799,6 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				for _, arg := range *spec.External.InboundAllowCIDR {
 					external["inbound_allow_cidr"] = append(external["inbound_allow_cidr"].([]interface{}), arg)
 				}
-
-				addExternal = true
 			}
 
 			if spec.External.OutboundAllowCIDR != nil && len(*spec.External.OutboundAllowCIDR) > 0 {
@@ -1777,8 +1807,6 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				for _, arg := range *spec.External.OutboundAllowCIDR {
 					external["outbound_allow_cidr"] = append(external["outbound_allow_cidr"].([]interface{}), arg)
 				}
-
-				addExternal = true
 			}
 
 			if spec.External.OutboundAllowHostname != nil && len(*spec.External.OutboundAllowHostname) > 0 {
@@ -1787,22 +1815,19 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				for _, arg := range *spec.External.OutboundAllowHostname {
 					external["outbound_allow_hostname"] = append(external["outbound_allow_hostname"].([]interface{}), arg)
 				}
-
-				addExternal = true
 			}
+
+			e := make([]interface{}, 1)
+			e[0] = external
+			localSpec["external"] = e
 		}
-
-		e := make([]interface{}, 1)
-		e[0] = external
-
-		internal := make(map[string]interface{})
-		addInternal := false
 
 		if spec.Internal != nil {
 
+			internal := make(map[string]interface{})
+
 			if spec.Internal.InboundAllowType != nil {
 				internal["inbound_allow_type"] = *spec.Internal.InboundAllowType
-				addInternal = true
 			}
 
 			if spec.Internal.InboundAllowWorkload != nil && len(*spec.Internal.InboundAllowWorkload) > 0 {
@@ -1811,78 +1836,115 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				for _, arg := range *spec.Internal.InboundAllowWorkload {
 					internal["inbound_allow_workload"] = append(internal["inbound_allow_workload"].([]interface{}), arg)
 				}
-
-				addInternal = true
 			}
-		}
 
-		i := make([]interface{}, 1)
-		i[0] = internal
-
-		localSpec := make(map[string]interface{})
-
-		if addExternal {
-			localSpec["external"] = e
-		}
-
-		if addInternal {
+			i := make([]interface{}, 1)
+			i[0] = internal
 			localSpec["internal"] = i
 		}
 
-		if addExternal || addInternal {
-			c := make([]interface{}, 1)
-			c[0] = localSpec
+		c := make([]interface{}, 1)
+		c[0] = localSpec
 
-			return c
-		}
+		return c
 	}
 
 	return nil
 }
 
-func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
+func flattenJobSpec(spec *client.JobSpec) []interface{} {
+
 	if spec == nil {
 		return nil
 	}
 
-	lc := map[string]interface{}{}
+	result := make(map[string]interface{})
 
-	if spec.PostStart != nil && len(*spec.PostStart.Exec.Command) > 0 {
-		exec := make(map[string]interface{})
-
-		if spec.PostStart.Exec.Command != nil && len(*spec.PostStart.Exec.Command) > 0 {
-			exec["command"] = []interface{}{}
-
-			for _, command := range *spec.PostStart.Exec.Command {
-				exec["command"] = append(exec["command"].([]interface{}), command)
-			}
-		}
-
-		postStart := make(map[string]interface{})
-		postStart["exec"] = []interface{}{exec}
-		lc["post_start"] = []interface{}{postStart}
+	if spec.Schedule != nil {
+		result["schedule"] = *spec.Schedule
 	}
 
-	if spec.PreStop != nil && len(*spec.PreStop.Exec.Command) > 0 {
-		exec := make(map[string]interface{})
-
-		if spec.PreStop.Exec.Command != nil && len(*spec.PreStop.Exec.Command) > 0 {
-			exec["command"] = []interface{}{}
-
-			for _, command := range *spec.PreStop.Exec.Command {
-				exec["command"] = append(exec["command"].([]interface{}), command)
-			}
-		}
-
-		preStop := make(map[string]interface{})
-		preStop["exec"] = []interface{}{exec}
-		lc["pre_stop"] = []interface{}{preStop}
+	if spec.ConcurrencyPolicy != nil {
+		result["concurrency_policy"] = *spec.ConcurrencyPolicy
 	}
 
-	return []interface{}{lc}
+	if spec.HistoryLimit != nil {
+		result["history_limit"] = *spec.HistoryLimit
+	}
+
+	if spec.RestartPolicy != nil {
+		result["restart_policy"] = *spec.RestartPolicy
+	}
+
+	if spec.ActiveDeadlineSeconds != nil {
+		result["active_deadline_seconds"] = *spec.ActiveDeadlineSeconds
+	}
+
+	return []interface{}{
+		result,
+	}
+}
+
+func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
+
+	if spec != nil {
+
+		lc := map[string]interface{}{}
+
+		if spec.PostStart != nil {
+
+			postStart := make(map[string]interface{})
+
+			if spec.PostStart.Exec != nil {
+
+				exec := make(map[string]interface{})
+
+				if spec.PostStart.Exec.Command != nil && len(*spec.PostStart.Exec.Command) > 0 {
+					exec["command"] = []interface{}{}
+
+					for _, command := range *spec.PostStart.Exec.Command {
+						exec["command"] = append(exec["command"].([]interface{}), command)
+					}
+				}
+
+				postStart["exec"] = []interface{}{exec}
+			}
+
+			lc["post_start"] = []interface{}{postStart}
+		}
+
+		if spec.PreStop != nil {
+
+			preStop := make(map[string]interface{})
+
+			if spec.PreStop.Exec != nil {
+
+				exec := make(map[string]interface{})
+
+				if spec.PreStop.Exec.Command != nil && len(*spec.PreStop.Exec.Command) > 0 {
+					exec["command"] = []interface{}{}
+
+					for _, command := range *spec.PreStop.Exec.Command {
+						exec["command"] = append(exec["command"].([]interface{}), command)
+					}
+
+					preStop["exec"] = []interface{}{exec}
+				}
+
+				lc["pre_stop"] = []interface{}{preStop}
+			}
+
+			lc["pre_stop"] = []interface{}{preStop}
+		}
+
+		return []interface{}{lc}
+	}
+
+	return nil
 }
 
 func flattenRolloutOptions(spec *client.RolloutOptions) []interface{} {
+
 	if spec == nil {
 		return nil
 	}
@@ -1927,7 +1989,6 @@ func AutoScalingResource() *schema.Resource {
 			"metric": {
 				Type:     schema.TypeString,
 				Optional: true,
-				// Default:  "concurrency",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -1956,7 +2017,7 @@ func AutoScalingResource() *schema.Resource {
 			"target": {
 				Type:     schema.TypeInt,
 				Optional: true,
-				Default:  100,
+				Default:  95,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
 					if v < 0 || v > 20000 {
@@ -2065,7 +2126,7 @@ func InternalFirewallResource() *schema.Resource {
 			},
 			"inbound_allow_workload": {
 				Type:     schema.TypeSet,
-				Required: true,
+				Optional: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -2222,7 +2283,7 @@ func lifeCycleSpec() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"exec": {
 				Type:     schema.TypeList,
-				Optional: true,
+				Required: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -2239,14 +2300,66 @@ func lifeCycleSpec() *schema.Resource {
 	}
 }
 
-func getInnerLifeCycleCommands(property []interface{}) []string {
-	if len(property) == 0 {
-		return []string{}
+func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
+
+	if workloadSpec != nil {
+
+		if *workloadSpec.Type == "cron" && workloadSpec.Job == nil {
+			return diag.FromErr(fmt.Errorf("'job' section is required when workload type is 'cron'"))
+		}
+
+		if *workloadSpec.Type != "standard" && workloadSpec.RolloutOptions != nil {
+			return diag.FromErr(fmt.Errorf("rollout options are only available when workload type is 'standard'"))
+		}
+
+		for _, c := range *workloadSpec.Containers {
+
+			if *workloadSpec.Type == "cron" {
+				if c.ReadinessProbe != nil || c.LivenessProbe != nil {
+					return diag.FromErr(fmt.Errorf("probes are not allowed when workload type is 'cron'"))
+				}
+			}
+
+			if c.LifeCycle != nil && c.LifeCycle.PostStart == nil && c.LifeCycle.PreStop == nil {
+				return diag.FromErr(fmt.Errorf("container post start and pre start is empty"))
+			}
+		}
+
+		if workloadSpec.DefaultOptions != nil {
+			if e := validateOptions(*workloadSpec.Type, "", workloadSpec.DefaultOptions); e != nil {
+				return e
+			}
+		}
+
+		if workloadSpec.LocalOptions != nil && len(*workloadSpec.LocalOptions) > 0 {
+			for _, o := range *workloadSpec.LocalOptions {
+				if e := validateOptions(*workloadSpec.Type, "local_options - ", &o); e != nil {
+					return e
+				}
+			}
+		}
 	}
-	propertySafe := property[0].(map[string]interface{})
-	exec, ok := propertySafe["exec"].([]interface{})
-	if ok {
-		return buildExec(exec)
+
+	return nil
+}
+
+func validateOptions(workloadType, errorMsg string, options *client.Options) diag.Diagnostics {
+
+	if options != nil && options.AutoScaling != nil {
+		if workloadType == "cron" {
+			if options.CapacityAI != nil && *options.CapacityAI {
+				return diag.FromErr(fmt.Errorf(errorMsg + "capacity AI must be false when workload type is 'cron'"))
+			}
+
+			if options.AutoScaling.MinScale != nil && *options.AutoScaling.MinScale != 1 {
+				return diag.FromErr(fmt.Errorf(errorMsg + "min scale must be set to 1 when workload type is 'cron'"))
+			}
+
+			if options.AutoScaling.MaxScale != nil && *options.AutoScaling.MaxScale != 1 {
+				return diag.FromErr(fmt.Errorf(errorMsg + "max scale must be set to 1 when workload type is 'cron'"))
+			}
+		}
 	}
-	return []string{}
+
+	return nil
 }
