@@ -319,7 +319,6 @@ The following attributes are exported:
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (List of Object) ([see below](#nestedatt--status)).
 
-
 <a id="nestedatt--status"></a>
 
 ### `status`
@@ -348,7 +347,6 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
-
 
 ## Example Usage - Serverless
 
@@ -715,9 +713,9 @@ resource "cpln_workload" "new" {
     capacity_ai = false
 
     autoscaling {
-			max_scale = 1
-			min_scale = 1
-	  }
+    	max_scale = 1
+	    min_scale = 1
+    }
   }
 
   firewall_spec {

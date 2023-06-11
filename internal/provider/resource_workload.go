@@ -567,10 +567,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 	gvcName := d.Get("gvc").(string)
 
 	workload := client.Workload{}
+	workload.Spec = &client.WorkloadSpec{}
 	workload.Name = GetString(d.Get("name"))
 	workload.Description = GetString(d.Get("description"))
 	workload.Tags = GetStringMap(d.Get("tags"))
-	workload.Spec = &client.WorkloadSpec{}
 
 	buildContainers(d.Get("container").([]interface{}), workload.Spec)
 	buildFirewallSpec(d.Get("firewall_spec").([]interface{}), workload.Spec)
@@ -1993,8 +1993,8 @@ func AutoScalingResource() *schema.Resource {
 
 					v := val.(string)
 
-					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" {
-						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'latency' or 'rps', got: %s", key, v))
+					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" && v != "disabled" {
+						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'rps', 'latency' or 'disabled', got: %s", key, v))
 					}
 
 					return
