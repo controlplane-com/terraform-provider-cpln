@@ -27,6 +27,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **tags** (Map of String) Key-value map of resource tags.
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
+- **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 
 <a id="nestedblock--container"></a>
 
@@ -290,14 +291,6 @@ Optional:
 - **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`
 - **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.
 
-## Outputs
-
-The following attributes are exported:
-
-- **cpln_id** (String) ID, in GUID format, of the Workload.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources.
-- **status** (List of Object) ([see below](#nestedatt--status)).
-
 <a id="nestedblock--rollout_options"></a>
 
 ### `rollout_options`
@@ -308,7 +301,24 @@ Optional:
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
 
-~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero. 
+~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
+
+<a id="nestedblock--security_options"></a>
+
+### `security_options`
+
+Required:
+
+- **file_system_group_id** (Number) The group id assigned to any mounted volume
+
+## Outputs
+
+The following attributes are exported:
+
+- **cpln_id** (String) ID, in GUID format, of the Workload.
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **status** (List of Object) ([see below](#nestedatt--status)).
+
 
 <a id="nestedatt--status"></a>
 
@@ -338,6 +348,7 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
+
 
 ## Example Usage - Serverless
 
@@ -381,7 +392,6 @@ resource "cpln_workload" "new" {
   }
 
   identity_link = cpln_identity.example.self_link
-
 
   container {
     name   = "container-01"
@@ -433,8 +443,6 @@ resource "cpln_workload" "new" {
       success_threshold     = 1
       initial_delay_seconds = 2
     }
-
-
 
     lifecycle {
 
@@ -498,6 +506,10 @@ resource "cpln_workload" "new" {
       inbound_allow_type     = "none"
       inbound_allow_workload = []
     }
+  }
+
+  security_options {
+    file_system_group_id = 1
   }
 }
 ```
@@ -616,7 +628,11 @@ resource "cpln_workload" "new" {
     max_unavailable_replicas = "10"
     max_surge_replicas = "20"
   }
-  
+
+  security_options {
+    file_system_group_id = 1
+  }
+
 }
 
 ```
@@ -709,6 +725,10 @@ resource "cpln_workload" "new" {
       inbound_allow_cidr      = ["0.0.0.0/0"]
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
     }
+  }
+
+  security_options {
+    file_system_group_id = 1
   }
 
   job {
