@@ -90,12 +90,9 @@ func setOrgTracing(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		return diag.FromErr(err)
 	}
 
-	if org.Spec != nil && org.Spec.Tracing != nil {
-
-		if org.Spec.Tracing.Lightstep != nil {
-			if err := d.Set("lightstep_tracing", flattenLightstepTracing(org.Spec.Tracing)); err != nil {
-				return diag.FromErr(err)
-			}
+	if org.Spec != nil && org.Spec.Tracing != nil && org.Spec.Tracing.Provider != nil && org.Spec.Tracing.Provider.Lightstep != nil {
+		if err := d.Set("lightstep_tracing", flattenLightstepTracing(org.Spec.Tracing)); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 
@@ -109,8 +106,8 @@ func flattenLightstepTracing(trace *client.Tracing) []interface{} {
 		outputMap := make(map[string]interface{})
 
 		outputMap["sampling"] = *trace.Sampling
-		outputMap["endpoint"] = *trace.Lightstep.Endpoint
-		outputMap["credentials"] = *trace.Lightstep.Credentials
+		outputMap["endpoint"] = *trace.Provider.Lightstep.Endpoint
+		outputMap["credentials"] = *trace.Provider.Lightstep.Credentials
 
 		output := make([]interface{}, 1)
 		output[0] = outputMap
@@ -132,8 +129,10 @@ func buildLightStepTracing(tracing []interface{}) *client.Tracing {
 		iTrace.Credentials = GetString(trace["credentials"])
 
 		return &client.Tracing{
-			Sampling:  GetInt(trace["sampling"]),
-			Lightstep: iTrace,
+			Sampling: GetInt(trace["sampling"]),
+			Provider: &client.Provider{
+				Lightstep: iTrace,
+			},
 		}
 	}
 

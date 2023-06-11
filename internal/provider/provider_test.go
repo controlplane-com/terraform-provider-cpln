@@ -1,7 +1,7 @@
 package cpln
 
 import (
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"testing"
@@ -25,7 +25,7 @@ func init() {
 	if infoLog {
 		TestLogger = log.New(os.Stdout, "TEST LOGGER: ", log.Ldate|log.Ltime|log.Lshortfile)
 	} else {
-		TestLogger = log.New(ioutil.Discard, "TEST LOGGER: ", log.Ldate|log.Ltime|log.Lshortfile)
+		TestLogger = log.New(io.Discard, "TEST LOGGER: ", log.Ldate|log.Ltime|log.Lshortfile)
 	}
 }
 
@@ -61,18 +61,18 @@ func testAccPreCheck(t *testing.T, testAccName string) {
 	TestLogger.Print("*********************************************************************")
 }
 
-func testAccPreCheckGoogle(t *testing.T, testAccName string) {
+// func testAccPreCheckGoogle(t *testing.T, testAccName string) {
 
-	if validateDomains := os.Getenv("VALIDATE_DOMAINS"); validateDomains != "false" {
+// 	if validateDomains := os.Getenv("VALIDATE_DOMAINS"); validateDomains != "false" {
 
-		if endpoint := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); endpoint == "" {
-			t.Fatal("GOOGLE_APPLICATION_CREDENTIALS must be set for acceptance tests")
-		}
+// 		if endpoint := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); endpoint == "" {
+// 			t.Fatal("GOOGLE_APPLICATION_CREDENTIALS must be set for acceptance tests")
+// 		}
 
-		if endpoint := os.Getenv("GOOGLE_PROJECT"); endpoint == "" {
-			t.Fatal("GOOGLE_PROJECT must be set for acceptance tests")
-		}
-	}
+// 		if endpoint := os.Getenv("GOOGLE_PROJECT"); endpoint == "" {
+// 			t.Fatal("GOOGLE_PROJECT must be set for acceptance tests")
+// 		}
+// 	}
 
-	testAccPreCheck(t, testAccName)
-}
+// 	testAccPreCheck(t, testAccName)
+// }
