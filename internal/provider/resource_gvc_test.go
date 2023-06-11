@@ -42,7 +42,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, 50, &testGvc),
 					testAccCheckControlPlaneGvcAttributes(&testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
@@ -50,7 +50,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, 75, &testGvc),
 					testAccCheckControlPlaneGvcAttributes(&testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
@@ -58,7 +58,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", 75, &testGvc),
 					testAccCheckControlPlaneGvcAttributes(&testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
 				),
@@ -142,7 +142,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string)
 	  }`, random, random2, name, description, sampling)
 }
 
-func testAccCheckControlPlaneGvcExists(resourceName string, gvcName string, gvc *client.Gvc) resource.TestCheckFunc {
+func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, sampling int, gvc *client.Gvc) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		rs, ok := s.RootModule().Resources[resourceName]
@@ -155,12 +155,21 @@ func testAccCheckControlPlaneGvcExists(resourceName string, gvcName string, gvc 
 			return fmt.Errorf("GVC name does not match")
 		}
 
+		// Validate the data
 		client := testAccProvider.Meta().(*client.Client)
+		gvc, code, err := client.GetGvc(gvcName)
 
-		newGvc, _, err := client.GetGvc(gvcName)
+		if code == 404 {
+			return fmt.Errorf("GVC not found")
+		}
 
 		if err != nil {
-			return err
+			return fmt.Errorf(err.Error())
+		}
+
+		lightstepTracing, _ := generateLightstepTracing(sampling, *gvc.Spec.Tracing.Provider.Lightstep.Credentials)
+		if diff := deep.Equal(lightstepTracing, gvc.Spec.Tracing); diff != nil {
+			return fmt.Errorf("GVC Tracing mismatch. Diff: %s", diff)
 		}
 
 		if *newGvc.Name != gvcName {

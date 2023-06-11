@@ -254,3 +254,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.2 - Added `NATS Account` secret. Added NGS cloud account. Added NGS cloud access policy. Sync'ed GVC schema (env will be returned). Added GCP service account name and roles output to cloud account. Added elastic logging to org external logging. Added audit context resource. Added native network resources.
 - v1.1.3 - Fixed issue with identity and workload policies. 'gvc' property now required for those policy kinds.
 - v1.1.4 - Added domain and domain route.
+- v1.1.5 - Updated Terraform SDK to v2.26.1. Added CRON job workload type.

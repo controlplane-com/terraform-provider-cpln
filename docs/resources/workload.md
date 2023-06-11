@@ -14,20 +14,24 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 
 - **name** (String) Name of the Workload.
 - **gvc** (String) Name of the associated GVC.
+- **type** (String) Workload Type. Either `serverless`, `standard`, or `cron`.
+- **container** (Block List) ([see below](#nestedblock--container)).
+- **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 
 ### Optional
 
 - **description** (String) Description of the Workload.
-- **type** (String) Workload Type. Either `serverless` or `standard`. Default: `serverless`. 
-- **tags** (Map of String) Key-value map of resource tags.
-- **identity_link** (String) Full link to an Identity.
-- **container** (Block List) ([see below](#nestedblock--container)).
 - **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
-- **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
+- **identity_link** (String) Full link to an Identity.
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
+- **tags** (Map of String) Key-value map of resource tags.
+- **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
+- **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
+- **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 
 <a id="nestedblock--container"></a>
- ### `container`
+
+### `container`
 
 ~> **Note** A Workload must contain at least one container.
 
@@ -66,7 +70,8 @@ Containers which attempt to use these ports will not be able to bind:
 - **lifecycle** (Block List, Max: 1) LifeCycle ([see below](#nestedblock--container--lifecycle)) [Reference Page](https://docs.controlplane.com/reference/workload#lifecycle).
 
 <a id="nestedblock--container--ports"></a>
- ### `container.ports`
+
+### `container.ports`
 
 Required:
 
@@ -74,7 +79,8 @@ Required:
 - **number** (String) Port to expose.
 
 <a id="nestedblock--container--liveness_probe"></a>
- ### `container.liveness_probe`
+
+### `container.liveness_probe`
 
 Optional:
 
@@ -89,14 +95,16 @@ Optional:
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--tcp_socket)).
 
 <a id="nestedblock--container--liveness_probe--exec"></a>
- ### `container.liveness_probe.exec`
+
+### `container.liveness_probe.exec`
 
 Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
 
 <a id="nestedblock--container--liveness_probe--http_get"></a>
- ### `container.liveness_probe.http_get`
+
+### `container.liveness_probe.http_get`
 
 Optional:
 
@@ -106,7 +114,8 @@ Optional:
 - **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
 <a id="nestedblock--container--liveness_probe--tcp_socket"></a>
- ### `container.liveness_probe.tcp_socket`
+
+### `container.liveness_probe.tcp_socket`
 
 Optional:
 
@@ -176,7 +185,8 @@ Required:
 - **port** (Number) Port from container emitting custom metrics
 
 <a id="nestedblock--container--lifecycle"></a>
- ### `container.lifecycle`
+
+### `container.lifecycle`
 
 Optional:
 
@@ -184,21 +194,24 @@ Optional:
 - **preStop** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
 
 <a id="nestedblock--container--lifecycle--spec"></a>
- ### `container.lifecycle.spec`
+
+### `container.lifecycle.spec`
 
 Optional:
 
 - **exec** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec--exec)).
 
 <a id="nestedblock--container--lifecycle--spec--exec"></a>
- ### `container.lifecycle.spec.exec`
+
+### `container.lifecycle.spec.exec`
 
 Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
 
 <a id="nestedblock--firewall_spec"></a>
- ### `firewall_spec`
+
+### `firewall_spec`
 
 Control of inbound and outbound access to the workload for external (public) and internal (service to service) traffic. Access is restricted by default.
 
@@ -208,7 +221,8 @@ Optional:
 - **internal** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec--internal)).
 
 <a id="nestedblock--firewall_spec--external"></a>
- ### `firewall_spec.external`
+
+### `firewall_spec.external`
 
 Optional:
 
@@ -217,7 +231,8 @@ Optional:
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 
 <a id="nestedblock--firewall_spec--internal"></a>
- ### `firewall_spec.internal`
+
+### `firewall_spec.internal`
 
 The internal firewall is used to control access between workloads.
 
@@ -233,7 +248,8 @@ Optional:
 - **inbound_allow_workload** (List of String) A list of specific workloads which are allowed to access this workload internally. This list is only used if the 'inboundAllowType' is set to 'workload-list'.
 
 <a id="nestedblock--options"></a>
- ### `options`
+
+### `options`
 
 Optional:
 
@@ -243,22 +259,69 @@ Optional:
 - **debug** (Boolean) Debug mode. Default: `false`
 - **suspend** (Boolean) Workload suspend. Default: `false`
 
-- **location** (String) Valid only for `local_options`. Local options override for a specific location.
+- **location** (String) Valid only for `local_options`. Override options for a specific location.
 
 <a id="nestedblock--options--autoscaling"></a>
- ### `options.autoscaling`
+
+### `options.autoscaling`
 
 Optional:
 
-- **metric** (String) Valid values: `concurrency`, `cpu`, `rps`. Default: `concurrency`.
-- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
+- **metric** (String) Valid values: `concurrency`, `cpu`, `latency`, or `rps`.
+- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
 - **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
 
+<a id="nestedblock--job"></a>
+
+### `job`
+
+~> **Note** A CRON workload must contain a `job`. Capacity AI must be false and min/max scale must equal 1.
+
+Required:
+
+- **schedule** (String) A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) used to determine when your job should execute.
+
+Optional:
+
+- **concurrency_policy** (String) Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`
+- **history_limit** (Number) The maximum number of completed job instances to display. This should be an integer between 1 and 10. Default: `5`
+- **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`
+- **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.
+
+<a id="nestedblock--rollout_options"></a>
+
+### `rollout_options`
+
+Optional:
+
+- **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
+- **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
+- **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
+
+~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
+
+<a id="nestedblock--security_options"></a>
+
+### `security_options`
+
+Required:
+
+- **file_system_group_id** (Number) The group id assigned to any mounted volume
+
+## Outputs
+
+The following attributes are exported:
+
+- **cpln_id** (String) ID, in GUID format, of the Workload.
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **status** (List of Object) ([see below](#nestedatt--status)).
+
 <a id="nestedatt--status"></a>
- ### `status`
+
+### `status`
 
 Status of the workload.
 
@@ -270,7 +333,8 @@ Read-Only:
 - **parent_id** (String) ID of the parent object.
 
 <a id="nestedobjatt--status--health_check"></a>
- ### `status.health_check`
+
+### `status.health_check`
 
 Current health status.
 
@@ -283,14 +347,6 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
-
-## Outputs
-
-The following attributes are exported:
-
-- **cpln_id** (String) ID, in GUID format, of the Workload.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources.
-- **status** (List of Object) ([see below](#nestedatt--status)).
 
 ## Example Usage - Serverless
 
@@ -334,7 +390,6 @@ resource "cpln_workload" "new" {
   }
 
   identity_link = cpln_identity.example.self_link
-
 
   container {
     name   = "container-01"
@@ -387,23 +442,21 @@ resource "cpln_workload" "new" {
       initial_delay_seconds = 2
     }
 
-
-
     lifecycle {
 
       post_start {
         exec {
-          command = ["command_post", "command_2", "command_3"]
+          command = ["command_post", "arg_1", "arg_2"]
         }
       }
 
       pre_stop {
         exec {
-          command = ["command_pre", "command_2", "command_3"]
+          command = ["command_pre", "arg_1", "arg_2"]
         }
       }
     }
-    
+
     volume {
       uri  = "s3://bucket"
       path = "/s3"
@@ -451,6 +504,10 @@ resource "cpln_workload" "new" {
       inbound_allow_type     = "none"
       inbound_allow_workload = []
     }
+  }
+
+  security_options {
+    file_system_group_id = 1
   }
 }
 ```
@@ -525,13 +582,13 @@ resource "cpln_workload" "new" {
 
       post_start {
         exec {
-          command = ["command_post", "command_2", "command_3"]
+          command = ["command_post", "arg_1", "arg_2"]
         }
       }
 
       pre_stop {
         exec {
-          command = ["command_pre", "command_2", "command_3"]
+          command = ["command_pre", "arg_1", "arg_2"]
         }
       }
     }
@@ -562,6 +619,122 @@ resource "cpln_workload" "new" {
       inbound_allow_type     = "none"
       inbound_allow_workload = []
     }
+  }
+
+  rollout_options {
+    min_ready_seconds = 2
+    max_unavailable_replicas = "10"
+    max_surge_replicas = "20"
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+}
+
+```
+
+## Example Usage - Cron
+
+```terraform
+resource "cpln_gvc" "example" {
+
+  name        = "gvc-example"
+  description = "Example GVC"
+  locations   = ["aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_identity" "example" {
+
+  gvc         = cpln_gvc.example.name
+  name        = "identity-example"
+  description = "Example Identity"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc         = cpln_gvc.example.name
+  name        = "workload-example"
+  description = "Example Workload"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  type = "cron"
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    memory            = "128Mi"
+    cpu               = "50m"
+    command           = "override-command"
+    working_directory = "/usr"
+
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02",
+    }
+
+    args = ["arg-01", "arg-02"]
+
+    volume {
+      uri  = "s3://bucket"
+      path = "/testpath01"
+    }
+
+    volume {
+      uri  = "azureblob://storageAccount/container"
+      path = "/testpath02"
+    }
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+  }
+
+  options {
+    suspend     = false
+    capacity_ai = false
+
+    autoscaling {
+    	max_scale = 1
+	    min_scale = 1
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+    }
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  job {
+    schedule                = "* * * * *"
+    concurrency_policy      = "Forbid"
+    history_limit           = 5
+    restart_policy          = "Never"
+    active_deadline_seconds = 1200
   }
 }
 

@@ -354,11 +354,9 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		}
 	}
 
-	if gvc.Spec != nil && gvc.Spec.Tracing != nil {
-		if gvc.Spec.Tracing.Lightstep != nil {
-			if err := d.Set("lightstep_tracing", flattenLightstepTracing(gvc.Spec.Tracing)); err != nil {
-				return diag.FromErr(err)
-			}
+	if gvc.Spec != nil && gvc.Spec.Tracing != nil && gvc.Spec.Tracing.Provider != nil && gvc.Spec.Tracing.Provider.Lightstep != nil {
+		if err := d.Set("lightstep_tracing", flattenLightstepTracing(gvc.Spec.Tracing)); err != nil {
+			return diag.FromErr(err)
 		}
 	} else {
 		if err := d.Set("lightstep_tracing", nil); err != nil {
