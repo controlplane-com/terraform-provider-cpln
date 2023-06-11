@@ -23,6 +23,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
+- **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
 
 <a id="nestedblock--lightstep_tracing"></a>
 
@@ -39,6 +40,13 @@ Optional:
 
 ~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to `true`.
 
+<a id="nestedblock--load_balancer"></a>
+
+### `load_balancer`
+
+Required:
+
+- **dedicated** (Boolean) Creates a dedicated load balancer in each location and enables additional Domain features: custom ports, protocols and wildcard hostnames. Charges apply for each location.
 
 ## Outputs
 
@@ -108,5 +116,8 @@ resource "cpln_gvc" "example" {
 		// Opaque Secret Only
 		credentials = cpln_secret.opaque.self_link
 	}
+  load_balancer {
+	dedicated = true
+  }
 }
 ```
