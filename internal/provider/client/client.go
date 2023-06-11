@@ -3,7 +3,7 @@ package cpln
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os/exec"
 	"reflect"
@@ -23,7 +23,7 @@ type Client struct {
 func NewClient(org, host, profile, token *string) (*Client, error) {
 
 	c := Client{
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		HTTPClient: &http.Client{Timeout: 90 * time.Second},
 		HostURL:    *host,
 		Org:        *org,
 		Token:      *token,
@@ -73,7 +73,7 @@ func (c *Client) doRequest(req *http.Request, contentType string) ([]byte, int, 
 
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 
 	if err != nil {
 		return nil, res.StatusCode, err
