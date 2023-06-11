@@ -689,6 +689,12 @@ func StringSchema() *schema.Schema {
 	}
 }
 
+func IntSchema() *schema.Schema {
+	return &schema.Schema{
+		Type: schema.TypeInt,
+	}
+}
+
 func WorkloadTypeValidator(val interface{}, key string) (warns []string, errs []error) {
 
 	workloadType := val.(string)
@@ -731,4 +737,9 @@ func PortProtocolValidator(val interface{}, key string) (warns []string, errs []
 	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, portProtocol))
 
 	return
+}
+
+func GetNameFromSelfLink(selfLink string) string {
+	parts := strings.Split(selfLink, "/")
+	return parts[len(parts)-1]
 }

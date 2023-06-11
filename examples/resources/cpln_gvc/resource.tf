@@ -17,4 +17,8 @@ resource "cpln_gvc" "example" {
     "name_first" : "value_first",
     "name_second" : "value_second"
   }
+
+  load_balancer {
+    dedicated = true
+  }
 }

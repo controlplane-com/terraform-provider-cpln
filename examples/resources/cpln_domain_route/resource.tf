@@ -1,4 +1,4 @@
-resource "cpln_domain" "example_ns_subdomain" {
+resource "cpln_domain" "example_cname_routes" {
 
   name        = "app.example.com"
   description = "Custom domain that can be set on a GVC and used by associated workloads"
@@ -10,7 +10,6 @@ resource "cpln_domain" "example_ns_subdomain" {
 
   spec {
     dns_mode         = "ns"
-    gvc_link         = "/org/myorg/gvc/mygvc"
     accept_all_hosts = "true"
 
     ports {
@@ -45,4 +44,13 @@ resource "cpln_domain" "example_ns_subdomain" {
       }
     }
   }
+}
+
+resource "cpln_domain_route" "example_route" {
+    domain_link = cpln_domain.example_cname_routes.self_link
+
+    prefix = "/example"
+    replace_prefix = "/replace_example"
+    workload_link = "self/link/to/workload"
+    port = 80
 }
