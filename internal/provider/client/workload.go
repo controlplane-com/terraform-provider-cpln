@@ -30,6 +30,7 @@ type WorkloadSpec struct {
 	FirewallConfig *FirewallSpec    `json:"firewallConfig,omitempty"`
 	DefaultOptions *Options         `json:"defaultOptions,omitempty"`
 	LocalOptions   *[]Options       `json:"localOptions,omitempty"`
+	RolloutOptions *RolloutOptions  `json:"rolloutOptions,omitempty"`
 	Job            *JobSpec         `json:"job,omitempty"`
 }
 
@@ -187,6 +188,13 @@ type JobSpec struct {
 	HistoryLimit          *int    `json:"historyLimit,omitempty"`
 	RestartPolicy         *string `json:"restartPolicy,omitempty"` // Enum: [ OnFailure, Never ]
 	ActiveDeadlineSeconds *int    `json:"activeDeadlineSeconds,omitempty"`
+}
+
+// Rollout Options
+type RolloutOptions struct {
+	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
+	MaxUnavailableReplicas *string `json:"maxUnavailableReplicas,omitempty"`
+	MaxSurgeReplicas       *string `json:"maxSurgeReplicas,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {

@@ -26,6 +26,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
+- **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
 
 <a id="nestedblock--container"></a>
 
@@ -296,6 +297,18 @@ The following attributes are exported:
 - **cpln_id** (String) ID, in GUID format, of the Workload.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (List of Object) ([see below](#nestedatt--status)).
+
+<a id="nestedblock--rollout_options"></a>
+
+### `rollout_options`
+
+Optional:
+
+- **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
+- **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
+- **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
+
+~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero. 
 
 <a id="nestedatt--status"></a>
 
@@ -597,6 +610,13 @@ resource "cpln_workload" "new" {
       inbound_allow_workload = []
     }
   }
+
+  rollout_options {
+    min_ready_seconds = 2
+    max_unavailable_replicas = "10"
+    max_surge_replicas = "20"
+  }
+  
 }
 
 ```
