@@ -1907,6 +1907,7 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 }
 
 func flattenRolloutOptions(spec *client.RolloutOptions) []interface{} {
+
 	if spec == nil {
 		return nil
 	}
@@ -2254,6 +2255,10 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 
 		if *workloadSpec.Type == "cron" && workloadSpec.Job == nil {
 			return diag.FromErr(fmt.Errorf("'job' section is required when workload type is 'cron'"))
+		}
+
+		if *workloadSpec.Type != "standard" && workloadSpec.RolloutOptions != nil {
+			return diag.FromErr(fmt.Errorf("rollout options are only available when workload type is 'standard'"))
 		}
 
 		for _, c := range *workloadSpec.Containers {

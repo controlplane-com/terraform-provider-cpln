@@ -305,18 +305,10 @@ The following attributes are exported:
 Optional:
 
 - **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
-- **max_unavailable_replicas** (String) //TODO: Add description.
-- **max_surge_replicas** (String) //TODO: Add description.
+- **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
+- **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
 
-<a id="nestedblock--rollout_options"></a>
-
-### `rollout_options`
-
-Optional:
-
-- **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
-- **max_unavailable_replicas** (String) //TODO: Add description.
-- **max_surge_replicas** (String) //TODO: Add description.
+~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero. 
 
 <a id="nestedatt--status"></a>
 
