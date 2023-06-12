@@ -347,9 +347,9 @@ func testAccControlPlaneDomainPathBased(random, apex, description, domain, dnsMo
 
 		gvc = cpln_gvc.domain_gvc.name
 
-		name = "workload-${var.random-name}"
-
+		name        = "workload-${var.random-name}"
 		description = "Example Workload"
+		type        = "serverless"
 
 		tags = {
 		  terraform_generated = "true"
@@ -545,9 +545,9 @@ func testAccControlPlaneDomainPathBasedUpdateRoutePort(random, apex, description
 
 		gvc = cpln_gvc.domain_gvc.name
 
-		name = "workload-${var.random-name}"
-
+		name        = "workload-${var.random-name}"
 		description = "Example Workload"
+		type        = "serverless"
 
 		tags = {
 		  terraform_generated = "true"

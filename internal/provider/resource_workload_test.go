@@ -1247,13 +1247,13 @@ func generateTestFirewallSpec() *client.FirewallSpec {
 
 	return &client.FirewallSpec{
 		External: &client.FirewallSpecExternal{
-			InboundAllowCIDR:      &[]string{"0.0.0.0/0"},
-			OutboundAllowCIDR:     &[]string{},
+			InboundAllowCIDR: &[]string{"0.0.0.0/0"},
+			// OutboundAllowCIDR:     &[]string{},
 			OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 		},
 		Internal: &client.FirewallSpecInternal{
-			InboundAllowType:     GetString("none"),
-			InboundAllowWorkload: &[]string{},
+			InboundAllowType: GetString("none"),
+			// InboundAllowWorkload: &[]string{},
 		},
 	}
 }
@@ -1476,10 +1476,15 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	if useSet {
 		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
 	} else {
-		e["inbound_allow_cidr"] = []string{"0.0.0.0/0"}
+		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
 	}
 
 	// e["outbound_allow_cidr"] = []interface{}{}
+	// if useSet {
+	// 	e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
+	// } else {
+	// 	e["outbound_allow_cidr"] = []string{}
+	// }
 
 	if useSet {
 		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
@@ -1489,7 +1494,13 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 
 	i := make(map[string]interface{})
 	i["inbound_allow_type"] = "none"
+
 	// i["inbound_allow_workload"] = []interface{}{}
+	// if useSet {
+	// 	e["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
+	// } else {
+	// 	e["inbound_allow_workload"] = []interface{}{}
+	// }
 
 	fc := map[string]interface{}{
 		"external": []interface{}{
