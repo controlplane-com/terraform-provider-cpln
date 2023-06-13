@@ -28,6 +28,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
+- **support_dynamic_tags** (Boolean) Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.
 
 <a id="nestedblock--container"></a>
 
@@ -380,9 +381,12 @@ resource "cpln_workload" "new" {
 
   gvc = cpln_gvc.example.name
 
+  type = "serverless"
+
   name        = "workload-example"
   description = "Example Workload"
-  type = "serverless"
+
+  support_dynamic_tags = false
 
   tags = {
     terraform_generated = "true"
@@ -545,8 +549,12 @@ resource "cpln_workload" "new" {
 
   gvc = cpln_gvc.example.name
 
+  type = "standard"
+
   name        = "workload-example"
   description = "Example Workload"
+
+  support_dynamic_tags = false
 
   tags = {
     terraform_generated = "true"
@@ -554,8 +562,6 @@ resource "cpln_workload" "new" {
   }
 
   identity_link = cpln_identity.example.self_link
-
-  type = "standard"
 
   container {
     name   = "container-01"
@@ -665,8 +671,13 @@ resource "cpln_identity" "example" {
 resource "cpln_workload" "new" {
 
   gvc         = cpln_gvc.example.name
+
+  type = "cron"
+
   name        = "workload-example"
   description = "Example Workload"
+
+  support_dynamic_tags = false
 
   tags = {
     terraform_generated = "true"
@@ -674,8 +685,6 @@ resource "cpln_workload" "new" {
   }
 
   identity_link = cpln_identity.example.self_link
-
-  type = "cron"
 
   container {
     name              = "container-01"

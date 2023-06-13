@@ -537,6 +537,11 @@ func resourceWorkload() *schema.Resource {
 					},
 				},
 			},
+			"support_dynamic_tags": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -604,6 +609,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		securityOptions := buildSecurityOptions(d.Get("security_options").([]interface{}))
 
 		workload.Spec.SecurityOptions = securityOptions
+	}
+
+	if d.Get("support_dynamic_tags") != nil {
+		workload.Spec.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
 	}
 
 	newWorkload, code, err := c.CreateWorkload(workload, gvcName)
@@ -687,7 +696,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags") {
 
 		c := m.(*client.Client)
 
@@ -708,6 +717,8 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace.Job = buildJobSpec(d.Get("job").([]interface{}))
 		workloadToUpdate.SpecReplace.RolloutOptions = buildRolloutOptions(d.Get("rollout_options").([]interface{}))
 		workloadToUpdate.SpecReplace.SecurityOptions = buildSecurityOptions(d.Get("security_options").([]interface{}))
+		workloadToUpdate.SpecReplace.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
+
 		if d.Get("identity_link") != nil {
 
 			if identityLink := strings.TrimSpace(d.Get("identity_link").(string)); identityLink != "" {
@@ -808,6 +819,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 		}
 
 		if err := d.Set("security_options", flattenSecurityOptions(workload.Spec.SecurityOptions)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("support_dynamic_tags", workload.Spec.SupportDynamicTags); err != nil {
 			return diag.FromErr(err)
 		}
 	}

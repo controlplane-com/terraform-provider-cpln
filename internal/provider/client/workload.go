@@ -24,15 +24,16 @@ type Workload struct {
 
 // WorkloadSpec - Workload Specifications
 type WorkloadSpec struct {
-	Type            *string          `json:"type,omitempty"`
-	IdentityLink    *string          `json:"identityLink,omitempty"`
-	Containers      *[]ContainerSpec `json:"containers,omitempty"`
-	FirewallConfig  *FirewallSpec    `json:"firewallConfig,omitempty"`
-	DefaultOptions  *Options         `json:"defaultOptions,omitempty"`
-	LocalOptions    *[]Options       `json:"localOptions,omitempty"`
-	RolloutOptions  *RolloutOptions  `json:"rolloutOptions,omitempty"`
-	Job             *JobSpec         `json:"job,omitempty"`
-	SecurityOptions *SecurityOptions `json:"securityOptions,omitempty"`
+	Type               *string          `json:"type,omitempty"`
+	IdentityLink       *string          `json:"identityLink,omitempty"`
+	Containers         *[]ContainerSpec `json:"containers,omitempty"`
+	FirewallConfig     *FirewallSpec    `json:"firewallConfig,omitempty"`
+	DefaultOptions     *Options         `json:"defaultOptions,omitempty"`
+	LocalOptions       *[]Options       `json:"localOptions,omitempty"`
+	RolloutOptions     *RolloutOptions  `json:"rolloutOptions,omitempty"`
+	Job                *JobSpec         `json:"job,omitempty"`
+	SecurityOptions    *SecurityOptions `json:"securityOptions,omitempty"`
+	SupportDynamicTags *bool            `json:"supportDynamicTags,omitempty"`
 }
 
 // ContainerSpec - Workload Container Definition

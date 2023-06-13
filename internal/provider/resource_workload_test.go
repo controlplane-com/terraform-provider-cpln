@@ -130,6 +130,8 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		identity_link = cpln_identity.new.self_link
 	  
 		type = "serverless"
+
+		support_dynamic_tags = true
 	  
 		container {
 		  name   = "container-01"
@@ -333,7 +335,9 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 
 		identity_link = cpln_identity.new.self_link
 
-		type = "standard" 
+		type = "standard"
+		
+		support_dynamic_tags = true
 	  
 		container {
 		  name  = "container-01"
@@ -548,6 +552,8 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		identity_link = cpln_identity.new.self_link
 	  
 		type = "cron"
+
+		support_dynamic_tags = true
 	  
 		container {
 		  name   = "container-01"
@@ -889,7 +895,7 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
             // active_deadline_seconds = 1200
         }
 	
-	security_options {
+	    security_options {
 			file_system_group_id = 1
 		}
 		
