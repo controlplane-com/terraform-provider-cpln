@@ -17,7 +17,7 @@ import (
 
 func TestAccControlPlaneWorkload_basic(t *testing.T) {
 
-	// var testWorkload client.Workload
+	var testWorkload client.Workload
 
 	gName := "gvc-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	wName := "workload-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
@@ -30,47 +30,47 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests"),
-				// Check: resource.ComposeTestCheckFunc(
-				// 	testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-				// 	testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
-				// 	resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
-				// 	resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
-				// ),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
+				),
 			},
 			{
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests"),
-				// Check: resource.ComposeTestCheckFunc(
-				// 	testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-				// 	testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
-				// 	resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
-				// ),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
+				),
 			},
 			{
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests"),
-				// Check: resource.ComposeTestCheckFunc(
-				// 	testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-				// 	testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
-				// 	resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
-				// ),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
+				),
 			},
 			{
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests"),
-				// Check: resource.ComposeTestCheckFunc(
-				// 	testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
-				// 	testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard"),
-				// 	resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
-				// ),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
+				),
 			},
 			{
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests Updated"),
 			},
 			{
 				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests"),
-				// 	Check: resource.ComposeTestCheckFunc(
-				// 		testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
-				// 		testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron"),
-				// 		resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
-				// 	),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
+				),
 			},
 			{
 				Config: testAccControlPlaneCronWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests Updated"),
@@ -86,24 +86,24 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 	return fmt.Sprintf(`
 
 	variable "random-name" {
-		type = string
+		type    = string
 		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
+	  }
+	  
+	  resource "cpln_gvc" "new" {
+		name        = "%s"
 		description = "%s"
-
+	  
 		locations = ["aws-eu-central-1", "aws-us-west-2"]
 	  
 		tags = {
 		  terraform_generated = "true"
-		  acceptance_test = "true"
+		  acceptance_test     = "true"
 		}
-	}
-
-	resource "cpln_identity" "new" {
-
+	  }
+	  
+	  resource "cpln_identity" "new" {
+	  
 		gvc = cpln_gvc.new.name
 	  
 		name        = "terraform-identity-${var.random-name}"
@@ -113,10 +113,10 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		  terraform_generated = "true"
 		  acceptance_test     = "true"
 		}
-	}
+	  }
 	  
-	resource "cpln_workload" "new" {
-
+	  resource "cpln_workload" "new" {
+	  
 		gvc = cpln_gvc.new.name
 	  
 		name        = "%s"
@@ -124,21 +124,21 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 	  
 		tags = {
 		  terraform_generated = "true"
-		  acceptance_test = "true"
+		  acceptance_test     = "true"
 		}
-
+	  
 		identity_link = cpln_identity.new.self_link
-
+	  
 		type = "serverless"
 	  
 		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-		  port = 8080
+		  name   = "container-01"
+		  image  = "gcr.io/knative-samples/helloworld-go"
+		  port   = 8080
 		  memory = "128Mi"
-		  cpu = "50m"
-
-		  command = "override-command"
+		  cpu    = "50m"
+	  
+		  command           = "override-command"
 		  working_directory = "/usr"
 	  
 		  env = {
@@ -147,133 +147,139 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		  }
 	  
 		  args = ["arg-01", "arg-02"]
-
+	  
 		  volume {
 			uri  = "s3://bucket"
 			path = "/testpath01"
 		  }
-
+	  
 		  volume {
 			uri  = "azureblob://storageAccount/container"
 			path = "/testpath02"
 		  }
-
+	  
 		  metrics {
 			path = "/metrics"
 			port = 8181
 		  }
-
+	  
 		  readiness_probe {
-
-				tcp_socket {
-					port = 8181
-				}
-
+	  
+			tcp_socket {
+			  port = 8181
+			}
+	  
 			// exec {
 			// 	command = ["test1", "test2"]
 			// }
 	  
-				period_seconds       = 11
-				timeout_seconds      = 2
-				failure_threshold    = 4
-				success_threshold    = 2
-				initial_delay_seconds = 1
+			period_seconds        = 11
+			timeout_seconds       = 2
+			failure_threshold     = 4
+			success_threshold     = 2
+			initial_delay_seconds = 1
 		  }
-
-		  liveness_probe {
-
-				http_get {
-					path = "/path"
-					port = 8282
-					scheme = "HTTPS"
-					http_headers = {
-						header-name-01 = "header-value-01"
-						header-name-02 = "header-value-02"
-					}
-				}
 	  
-				period_seconds       = 10
-				timeout_seconds      = 3
-				failure_threshold    = 5
-				success_threshold    = 1
-				initial_delay_seconds = 2
-		  }
-
-			lifecycle {
-				pre_stop {
-					exec {
-						command = ["lc_pre_1", "lc_pre_2", "lc_pre_3"]
-					}
-				}
-	
-				post_start {
-					exec {
-						command = ["lc_post_1", "lc_post_2", "lc_post_3"]
-					}
-				}
+		  liveness_probe {
+	  
+			http_get {
+			  path   = "/path"
+			  port   = 8282
+			  scheme = "HTTPS"
+			  http_headers = {
+				header-name-01 = "header-value-01"
+				header-name-02 = "header-value-02"
+			  }
 			}
+	  
+			period_seconds        = 10
+			timeout_seconds       = 3
+			failure_threshold     = 5
+			success_threshold     = 1
+			initial_delay_seconds = 2
+		  }
+	  
+		  lifecycle {
+	  
+			post_start {
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
+			}
+		  }
 		}
-
+	  
 		// container {
 		// 	name  = "container-02"
 		// 	image = "gcr.io/knative-samples/helloworld-go"
 		// 	memory = "128Mi"
 		// 	cpu = "50m"
-		
+	  
 		// 	env = {
 		// 	  env-name-01 = "env-value-01",
 		// 	  env-name-02 = "env-value-02",
 		// 	}
-		
+	  
 		// 	args = ["arg-01", "arg-02"]
 		// }
-		 	  	  
+	  
 		options {
-		  capacity_ai = true
+		  capacity_ai     = true
 		  timeout_seconds = 30
-		  suspend = false
+		  suspend         = false
 	  
 		  autoscaling {
-			metric = "concurrency"
-			target = 100
-			max_scale = 3
-			min_scale = 2
-			max_concurrency = 500
+			metric              = "concurrency"
+			target              = 100
+			max_scale           = 3
+			min_scale           = 2
+			max_concurrency     = 500
 			scale_to_zero_delay = 400
 		  }
 		}
-
+	  
 		// locations = ["aws-eu-central-1", "aws-us-west-2", "azure-eastus2", "azure-eastus2"]
-
+	  
 		local_options {
-			location = "aws-eu-central-1"
-			capacity_ai = true
-			timeout_seconds = 30
-			suspend = false
-		
-			autoscaling {
-			  metric = "concurrency"
-			  target = 100
-			  max_scale = 3
-			  min_scale = 2
-			  max_concurrency = 500
-			  scale_to_zero_delay = 400
-			}
+		  location        = "aws-eu-central-1"
+		  capacity_ai     = true
+		  timeout_seconds = 30
+		  suspend         = false
+	  
+		  autoscaling {
+			metric              = "concurrency"
+			target              = 100
+			max_scale           = 3
+			min_scale           = 2
+			max_concurrency     = 500
+			scale_to_zero_delay = 400
+		  }
 		}
 	  
 		firewall_spec {
 		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			outbound_allow_cidr =  []
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			inbound_allow_cidr      = ["0.0.0.0/0"]
+			outbound_allow_cidr     = []
+			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
 		  }
-		  internal { 
+		  internal {
 			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
+			inbound_allow_type     = "none"
 			inbound_allow_workload = []
 		  }
 		}
+
+		security_options {
+			file_system_group_id = 1
+		}
 	  }
+	  
 	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
 
@@ -367,17 +373,17 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		  args = ["arg-01", "arg-02"]
 
 		  lifecycle {
-
-			pre_stop {
-				exec {
-					command = ["lc_pre_1", "lc_pre_2", "lc_pre_3"]
-				}
-			}
-
+	  
 			post_start {
-				exec {
-					command = ["lc_post_1", "lc_post_2", "lc_post_3"]
-				}
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
 			}
 		  }
 
@@ -498,24 +504,24 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	return fmt.Sprintf(`
 
 	variable "random-name" {
-		type = string
+		type    = string
 		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
+	  }
+	  
+	  resource "cpln_gvc" "new" {
+		name        = "%s"
 		description = "%s"
-
+	  
 		locations = ["aws-us-west-2", "gcp-us-east1"]
 	  
 		tags = {
 		  terraform_generated = "true"
-		  acceptance_test = "true"
+		  acceptance_test     = "true"
 		}
-	}
-
-	resource "cpln_identity" "new" {
-
+	  }
+	  
+	  resource "cpln_identity" "new" {
+	  
 		gvc = cpln_gvc.new.name
 	  
 		name        = "terraform-identity-${var.random-name}"
@@ -525,10 +531,10 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  terraform_generated = "true"
 		  acceptance_test     = "true"
 		}
-	}
+	  }
 	  
-	resource "cpln_workload" "new" {
-
+	  resource "cpln_workload" "new" {
+	  
 		gvc = cpln_gvc.new.name
 	  
 		name        = "%s"
@@ -536,20 +542,20 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	  
 		tags = {
 		  terraform_generated = "true"
-		  acceptance_test = "true"
+		  acceptance_test     = "true"
 		}
-
+	  
 		identity_link = cpln_identity.new.self_link
-
+	  
 		type = "cron"
 	  
 		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
+		  name   = "container-01"
+		  image  = "gcr.io/knative-samples/helloworld-go"
 		  memory = "128Mi"
-		  cpu = "50m"
-
-		  command = "override-command"
+		  cpu    = "50m"
+	  
+		  command           = "override-command"
 		  working_directory = "/usr"
 	  
 		  env = {
@@ -558,44 +564,58 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  }
 	  
 		  args = ["arg-01", "arg-02"]
-
+	  
 		  volume {
 			uri  = "s3://bucket"
 			path = "/testpath01"
 		  }
-
+	  
 		  volume {
 			uri  = "azureblob://storageAccount/container"
 			path = "/testpath02"
 		  }
-
+	  
 		  metrics {
 			path = "/metrics"
 			port = 8181
 		  }
-
-		//   readiness_probe {
-
-		// 	tcp_socket {
-		// 	  port = 8181
-		// 	}
 	  
-		// 	period_seconds        = 11
-		// 	timeout_seconds       = 2
-		// 	failure_threshold     = 4
-		// 	success_threshold     = 2
-		// 	initial_delay_seconds = 1
-		//   }
-
-
+		  # readiness_probe {
+	  
+		  #   tcp_socket {
+		  #     port = 8181
+		  #   }
+	  
+		  #   period_seconds        = 11
+		  #   timeout_seconds       = 2
+		  #   failure_threshold     = 4
+		  #   success_threshold     = 2
+		  #   initial_delay_seconds = 1
+		  # }
+	  
+		  lifecycle {
+	  
+			post_start {
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
+			}
+		  }
+	  
 		}
-		 	  	  
+	  
 		options {
-		  suspend = false
+		  suspend     = false
 		  capacity_ai = false
-
+	  
 		  autoscaling {
-            min_scale = 1
+			min_scale = 1
 			max_scale = 1
 		  }
 		}
@@ -603,24 +623,25 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		firewall_spec {
 		  external {
 			outbound_allow_cidr     = ["192.168.0.1/16"]
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
 		  }
 		}
-
+	  
 		job {
-            schedule = "* * * * *"
-            concurrency_policy = "Forbid"
-            history_limit = 5
-            restart_policy = "Never"
-            active_deadline_seconds = 1200
-        }
-	
-			
-		security_options {
-			file_system_group_id = 1
+		  schedule                = "* * * * *"
+		  concurrency_policy      = "Forbid"
+		  history_limit           = 5
+		  restart_policy          = "Never"
+		  active_deadline_seconds = 1200
 		}
-		
+	  
+	  
+		security_options {
+		  file_system_group_id = 1
+		}
+	  
 	  }
+	  
 	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
 
@@ -682,7 +703,7 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("Options attributes does not match. Diff: %s", diff)
 		}
 
-		firewallSpec := generateTestFirewallSpec()
+		firewallSpec := generateTestFirewallSpec(workloadType)
 
 		if diff := deep.Equal(firewallSpec, workload.Spec.FirewallConfig); diff != nil {
 			return fmt.Errorf("FirewallSpec attributes does not match. Diff: %s", diff)
@@ -806,6 +827,20 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		// 	success_threshold     = 2
 		// 	initial_delay_seconds = 1
 		//   }
+
+			lifecycle {
+				post_start {
+					exec {
+						command = ["command_post", "arg_1", "arg_2"]
+					}
+				}
+		
+				pre_stop {
+					exec {
+						command = ["command_pre", "arg_1", "arg_2"]
+					}
+				}
+			}
 		}
 		 	  	  
 		options {
@@ -940,7 +975,7 @@ func TestControlPlane_BuildFirewallSpec(t *testing.T) {
 
 	buildFirewallSpec(generateFlatTestFirewallSpec(true), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.FirewallConfig, generateTestFirewallSpec()); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.FirewallConfig, generateTestFirewallSpec("")); diff != nil {
 		t.Errorf("FirewallSpec was not built correctly. Diff: %s", diff)
 	}
 }
@@ -1026,7 +1061,7 @@ func TestControlPlane_FlattenOptions(t *testing.T) {
 
 func TestControlPlane_FlattenFirewallSpec(t *testing.T) {
 
-	spec := generateTestFirewallSpec()
+	spec := generateTestFirewallSpec("")
 	flattenedFirewallSpec := flattenFirewallSpec(spec)
 
 	flatSpec := generateFlatTestFirewallSpec(false)
@@ -1123,6 +1158,25 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		Port: GetInt(8181),
 	}
 
+	newContainer.LifeCycle = &client.LifeCycleSpec{
+
+		PostStart: &client.LifeCycleInner{
+			Exec: &client.Exec{
+				Command: &[]string{
+					"command_post", "arg_1", "arg_2",
+				},
+			},
+		},
+
+		PreStop: &client.LifeCycleInner{
+			Exec: &client.Exec{
+				Command: &[]string{
+					"command_pre", "arg_1", "arg_2",
+				},
+			},
+		},
+	}
+
 	if workloadType != "cron" {
 
 		newContainer.ReadinessProbe = &client.HealthCheckSpec{
@@ -1158,25 +1212,6 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 					{
 						Name:  GetString("header-name-02"),
 						Value: GetString("header-value-02"),
-					},
-				},
-			},
-		}
-
-		newContainer.LifeCycle = &client.LifeCycleSpec{
-
-			PreStop: &client.LifeCycleInner{
-				Exec: &client.Exec{
-					Command: &[]string{
-						"lc_pre_1", "lc_pre_2", "lc_pre_3",
-					},
-				},
-			},
-
-			PostStart: &client.LifeCycleInner{
-				Exec: &client.Exec{
-					Command: &[]string{
-						"lc_post_1", "lc_post_2", "lc_post_3",
 					},
 				},
 			},
@@ -1217,7 +1252,7 @@ func generateTestOptions(workloadType string) *client.Options {
 			Suspend:        GetBool(false),
 
 			AutoScaling: &client.AutoScaling{
-				Target:           GetInt(100),
+				Target:           GetInt(95),
 				MaxScale:         GetInt(1),
 				MinScale:         GetInt(1),
 				MaxConcurrency:   GetInt(0),
@@ -1243,17 +1278,26 @@ func generateTestOptions(workloadType string) *client.Options {
 	}
 }
 
-func generateTestFirewallSpec() *client.FirewallSpec {
+func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
+
+	if workloadType == "cron" {
+		return &client.FirewallSpec{
+			External: &client.FirewallSpecExternal{
+				OutboundAllowCIDR:     &[]string{"192.168.0.1/16"},
+				OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
+			},
+		}
+	}
 
 	return &client.FirewallSpec{
 		External: &client.FirewallSpecExternal{
-			InboundAllowCIDR: &[]string{"0.0.0.0/0"},
-			// OutboundAllowCIDR:     &[]string{},
+			InboundAllowCIDR:      &[]string{"0.0.0.0/0"},
+			OutboundAllowCIDR:     &[]string{},
 			OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 		},
 		Internal: &client.FirewallSpecInternal{
-			InboundAllowType: GetString("none"),
-			// InboundAllowWorkload: &[]string{},
+			InboundAllowType:     GetString("none"),
+			InboundAllowWorkload: &[]string{},
 		},
 	}
 }
@@ -1274,6 +1318,7 @@ func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOption
 }
 
 func generateTestSecurityOptions() (*client.SecurityOptions, *client.SecurityOptions, []interface{}) {
+
 	fileSystemGroupId := 1
 
 	flatten := generateFlatTestSecurityOptions(fileSystemGroupId)

@@ -1101,8 +1101,6 @@ func buildLifeCycleSpec(lifecycle []interface{}, containerSpec *client.Container
 			// Set struct fields
 			if lc["post_start"] != nil {
 
-				containerSpec.LifeCycle.PostStart = &client.LifeCycleInner{}
-
 				ps := lc["post_start"].([]interface{})
 
 				if len(ps) > 0 && ps[0] != nil {
@@ -1111,7 +1109,7 @@ func buildLifeCycleSpec(lifecycle []interface{}, containerSpec *client.Container
 					exec := psMap["exec"].([]interface{})
 
 					if len(exec) > 0 {
-
+						containerSpec.LifeCycle.PostStart = &client.LifeCycleInner{}
 						containerSpec.LifeCycle.PostStart.Exec = &client.Exec{}
 						containerSpec.LifeCycle.PostStart.Exec.Command = buildCommand(exec)
 					}
@@ -1119,8 +1117,6 @@ func buildLifeCycleSpec(lifecycle []interface{}, containerSpec *client.Container
 			}
 
 			if lc["pre_stop"] != nil {
-
-				containerSpec.LifeCycle.PreStop = &client.LifeCycleInner{}
 
 				ps := lc["pre_stop"].([]interface{})
 
@@ -1130,7 +1126,7 @@ func buildLifeCycleSpec(lifecycle []interface{}, containerSpec *client.Container
 					exec := psMap["exec"].([]interface{})
 
 					if len(exec) > 0 {
-
+						containerSpec.LifeCycle.PreStop = &client.LifeCycleInner{}
 						containerSpec.LifeCycle.PreStop.Exec = &client.Exec{}
 						containerSpec.LifeCycle.PreStop.Exec.Command = buildCommand(exec)
 					}
@@ -2319,10 +2315,6 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 					return diag.FromErr(fmt.Errorf("probes are not allowed when workload type is 'cron'"))
 				}
 			}
-
-			if c.LifeCycle != nil && c.LifeCycle.PostStart == nil && c.LifeCycle.PreStop == nil {
-				return diag.FromErr(fmt.Errorf("container post start and pre start is empty"))
-			}
 		}
 
 		if workloadSpec.DefaultOptions != nil {
@@ -2357,6 +2349,10 @@ func validateOptions(workloadType, errorMsg string, options *client.Options) dia
 
 			if options.AutoScaling.MaxScale != nil && *options.AutoScaling.MaxScale != 1 {
 				return diag.FromErr(fmt.Errorf(errorMsg + "max scale must be set to 1 when workload type is 'cron'"))
+			}
+		} else {
+			if options.AutoScaling.Metric == nil || strings.TrimSpace(*options.AutoScaling.Metric) == "" {
+				return diag.FromErr(fmt.Errorf(errorMsg + "scaling strategy metric is required"))
 			}
 		}
 	}

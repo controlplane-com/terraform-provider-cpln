@@ -24,7 +24,7 @@
             },
             "args": [
                 "-test.run",
-                "TestAccControlPlaneGvc_basic",
+                "TestAccControlPlaneWorkload_basic",
                 "-test.v"
             ]
         }
