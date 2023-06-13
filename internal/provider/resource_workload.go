@@ -1227,9 +1227,8 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 						inboundAllowCIDR = append(inboundAllowCIDR, value.(string))
 					}
 
-					if len(inboundAllowCIDR) > 0 {
-						we.InboundAllowCIDR = &inboundAllowCIDR
-					}
+					we.InboundAllowCIDR = &inboundAllowCIDR
+
 				}
 
 				if e["outbound_allow_cidr"] != nil {
@@ -1239,9 +1238,8 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 						outboundAllowCIDR = append(outboundAllowCIDR, value.(string))
 					}
 
-					if len(outboundAllowCIDR) > 0 {
-						we.OutboundAllowCIDR = &outboundAllowCIDR
-					}
+					we.OutboundAllowCIDR = &outboundAllowCIDR
+
 				}
 
 				if e["outbound_allow_hostname"] != nil {
@@ -1251,9 +1249,8 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 						outboundAllowHostname = append(outboundAllowHostname, value.(string))
 					}
 
-					if len(outboundAllowHostname) > 0 {
-						we.OutboundAllowHostname = &outboundAllowHostname
-					}
+					we.OutboundAllowHostname = &outboundAllowHostname
+
 				}
 			}
 
@@ -1279,9 +1276,9 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 						inboundAllowWorkload = append(inboundAllowWorkload, value.(string))
 					}
 
-					if len(inboundAllowWorkload) > 0 {
-						wi.InboundAllowWorkload = &inboundAllowWorkload
-					}
+					// if len(inboundAllowWorkload) > 0 {
+					wi.InboundAllowWorkload = &inboundAllowWorkload
+					// }
 				}
 			}
 		}

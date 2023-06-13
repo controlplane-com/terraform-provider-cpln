@@ -474,7 +474,7 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
-			// outbound_allow_cidr =  []
+			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
 		  }
 		  internal { 
@@ -878,11 +878,7 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 			inbound_allow_cidr =  ["0.0.0.0/0"]
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
 		  }
-		  internal { 
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
-			inbound_allow_workload = []
-		  }
+
 		}
 
 		job {
@@ -1283,6 +1279,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 	if workloadType == "cron" {
 		return &client.FirewallSpec{
 			External: &client.FirewallSpecExternal{
+				InboundAllowCIDR:      &[]string{},
 				OutboundAllowCIDR:     &[]string{"192.168.0.1/16"},
 				OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 			},
@@ -1407,7 +1404,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 
 	postStartExec := make(map[string]interface{})
 	postStartExec["command"] = []interface{}{
-		"lc_post_1", "lc_post_2", "lc_post_3",
+		"command_post", "arg_1", "arg_2",
 	}
 	postStart := make(map[string]interface{})
 	postStart["exec"] = []interface{}{
@@ -1416,7 +1413,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 
 	preStopExec := make(map[string]interface{})
 	preStopExec["command"] = []interface{}{
-		"lc_pre_1", "lc_pre_2", "lc_pre_3",
+		"command_pre", "arg_1", "arg_2",
 	}
 	preStop := make(map[string]interface{})
 	preStop["exec"] = []interface{}{
@@ -1524,12 +1521,9 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
 	}
 
-	// e["outbound_allow_cidr"] = []interface{}{}
-	// if useSet {
-	// 	e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
-	// } else {
-	// 	e["outbound_allow_cidr"] = []string{}
-	// }
+	if useSet {
+		e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
+	}
 
 	if useSet {
 		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
@@ -1540,12 +1534,9 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	i := make(map[string]interface{})
 	i["inbound_allow_type"] = "none"
 
-	// i["inbound_allow_workload"] = []interface{}{}
-	// if useSet {
-	// 	e["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
-	// } else {
-	// 	e["inbound_allow_workload"] = []interface{}{}
-	// }
+	if useSet {
+		i["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
+	}
 
 	fc := map[string]interface{}{
 		"external": []interface{}{
