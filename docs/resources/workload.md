@@ -62,6 +62,7 @@ Containers which attempt to use these ports will not be able to bind:
 - **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
 - **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
 - **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
+- **gpu_nvidia** (Block List, Max: 1) ([see below](#nestedblock--container--gpu_nvidia))
 - **liveness_probe** (Block List, Max: 1) Liveness Probe ([see below](#nestedblock--container--liveness_probe)).
 - **readiness_probe** (Block List, Max: 1) Readiness Probe ([see below](#nestedblock--container--readiness_probe)).
 
@@ -78,6 +79,15 @@ Required:
 
 - **protocol** (String) Protocol. Choice of: `http`, `http2`, or `grpc`.
 - **number** (String) Port to expose.
+
+<a id="nestedblock--container--gpu_nvidia"></a>
+
+### `container.gpu_nvidia`
+
+Required:
+
+- **model** (String) //TODO: Add description.
+- **quantity** (Int) //TODO: Add description.
 
 <a id="nestedblock--container--liveness_probe"></a>
 
@@ -747,4 +757,175 @@ resource "cpln_workload" "new" {
   }
 }
 
+```
+
+## Example Usage - Serverless Workload with a GPU resource
+
+
+```terraform
+variable "random-name" {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_gvc" "new" {
+  name        = "%s"
+  description = "%s"
+  
+  locations = ["aws-us-west-2", "gcp-us-east1"]
+  
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+}
+
+resource "cpln_identity" "new" {
+  
+  gvc = cpln_gvc.new.name
+  
+  name        = "terraform-identity-${var.random-name}"
+  description = "Identity created using terraform"
+  
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+}
+
+
+resource "cpln_workload" "new" {
+  
+  gvc = cpln_gvc.new.name
+  
+  name        = "%s"
+  description = "%s"
+  type = "serverless"
+  
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+  
+  identity_link = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    port   = 8080
+      memory = "128Mi"
+      cpu    = "50m"
+
+    gpu_nvidia {
+      model 	 = "t1"
+      quantity = 1
+    }
+  
+    command           = "override-command"
+    working_directory = "/usr"
+  
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02",
+    }
+  
+      args = ["arg-01", "arg-02"]
+  
+    volume {
+      uri  = "s3://bucket"
+      path = "/testpath01"
+    }
+  
+      volume {
+      uri  = "azureblob://storageAccount/container"
+      path = "/testpath02"
+      }
+    
+    metrics {
+      path = "/metrics"
+      port = 8181
+      }
+  
+    readiness_probe {
+  
+      tcp_socket {
+        port = 8181
+      }
+  
+      period_seconds        = 11
+      timeout_seconds       = 2
+      failure_threshold     = 4
+      success_threshold     = 2
+      initial_delay_seconds = 1
+    }
+  
+    liveness_probe {
+      
+      http_get {
+        path   = "/path"
+        port   = 8282
+        scheme = "HTTPS"
+        http_headers = {
+          header-name-01 = "header-value-01"
+          header-name-02 = "header-value-02"
+        }
+      }
+  
+      period_seconds        = 10
+      timeout_seconds       = 3
+      failure_threshold     = 5
+      success_threshold     = 1
+      initial_delay_seconds = 2
+    }
+  
+    lifecycle {
+      
+      post_start {
+        exec {
+          command = ["command_post", "arg_1", "arg_2"]
+        }
+      }
+  
+      pre_stop {
+        exec {
+          command = ["command_pre", "arg_1", "arg_2"]
+        }
+      }
+    }
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = false
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+  
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_cidr     = []
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+    }
+
+    internal {
+      # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+}
 ```

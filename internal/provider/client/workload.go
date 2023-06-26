@@ -46,6 +46,7 @@ type ContainerSpec struct {
 	ReadinessProbe   *HealthCheckSpec `json:"readinessProbe,omitempty"`
 	LivenessProbe    *HealthCheckSpec `json:"livenessProbe,omitempty"`
 	CPU              *string          `json:"cpu,omitempty"`
+	GPU              *GpuResource     `json:"gpu,omitempty"`
 	Env              *[]NameValue     `json:"env,omitempty"`
 	Args             *[]string        `json:"args,omitempty"`
 	Volumes          *[]VolumeSpec    `json:"volumes,omitempty"`
@@ -54,6 +55,16 @@ type ContainerSpec struct {
 	InheritEnv       *bool            `json:"inheritEnv,omitempty"`
 	WorkingDirectory *string          `json:"workingDir,omitempty"`
 	LifeCycle        *LifeCycleSpec   `json:"lifecycle,omitempty"`
+}
+
+// GPU - GPU Settings
+type GpuResource struct {
+	Nvidia *Nvidia `json:"nvidia,omitempty"`
+}
+
+type Nvidia struct {
+	Model    *string `json:"model,omitempty"`
+	Quantity *int    `json:"quantity,omitempty"`
 }
 
 // NameValue - Name/Value Struct
