@@ -45,6 +45,10 @@ func resourceDomainRoute() *schema.Resource {
 				Type:     schema.TypeInt,
 				Optional: true,
 			},
+			"host_prefix": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -60,6 +64,7 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 		ReplacePrefix: GetString(d.Get("replace_prefix")),
 		WorkloadLink:  GetString(d.Get("workload_link")),
 		Port:          GetInt(d.Get("port")),
+		HostPrefix:    GetString(d.Get("host_prefix")),
 	}
 
 	c := m.(*client.Client)
@@ -109,7 +114,7 @@ func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m inte
 
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("replace_prefix", "workload_link", "port") {
+	if d.HasChanges("prefix", "replace_prefix", "workload_link", "port", "host_prefix") {
 
 		domainLink := d.Get("domain_link").(string)
 		domainPort := d.Get("domain_port").(int)
@@ -119,6 +124,7 @@ func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m in
 			ReplacePrefix: GetString(d.Get("replace_prefix")),
 			WorkloadLink:  GetString(d.Get("workload_link")),
 			Port:          GetInt(d.Get("port")),
+			HostPrefix:    GetString(d.Get(("host_prefix"))),
 		}
 
 		c := m.(*client.Client)
@@ -184,6 +190,10 @@ func setDomainRoute(d *schema.ResourceData, domainLink string, domainPort int, r
 	}
 
 	if err := d.Set("port", route.Port); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("host_prefix", route.HostPrefix); err != nil {
 		return diag.FromErr(err)
 	}
 

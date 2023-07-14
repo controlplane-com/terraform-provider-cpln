@@ -487,6 +487,7 @@ func testAccControlPlaneDomainPathBased(random, apex, description, domain, dnsMo
 
 		prefix = "/first"
 		workload_link = cpln_workload.new.self_link
+		host_prefix   = "my.thing."
 		// port = 80
 	}
 
@@ -501,6 +502,7 @@ func testAccControlPlaneDomainPathBased(random, apex, description, domain, dnsMo
 		replace_prefix = "/"
 		workload_link = cpln_workload.new.self_link
 		port = 443
+		host_prefix   = "my.thing."
 	}
 
 	resource "cpln_domain_route" "route_3" {
@@ -513,6 +515,7 @@ func testAccControlPlaneDomainPathBased(random, apex, description, domain, dnsMo
 		prefix = "/3"
 		workload_link = cpln_workload.new.self_link
 		port = 443
+		host_prefix   = "my.thing."
 	}
 	
 	`, random, apex, description, domain, dnsMode)
@@ -686,6 +689,7 @@ func testAccControlPlaneDomainPathBasedUpdateRoutePort(random, apex, description
 		prefix = "/first"
 		workload_link = cpln_workload.new.self_link
 		port = 80
+		host_prefix   = "my.thing.update."
 	}
 
 	resource "cpln_domain_route" "route_second" {
@@ -699,6 +703,7 @@ func testAccControlPlaneDomainPathBasedUpdateRoutePort(random, apex, description
 		replace_prefix = "/"
 		workload_link = cpln_workload.new.self_link
 		port = 443
+		host_prefix   = "my.thing.update."
 	}
 
 	resource "cpln_domain_route" "route_3" {
@@ -711,6 +716,7 @@ func testAccControlPlaneDomainPathBasedUpdateRoutePort(random, apex, description
 		prefix = "/3"
 		workload_link = cpln_workload.new.self_link
 		port = 443
+		host_prefix   = "my.thing.update."
 	}
 	
 	`, random, apex, description, domain, dnsMode)
@@ -795,6 +801,7 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *clien
 
 		port1 := 80
 		prefix1 := "/first"
+		hostPrefix := "my.thing." // On update this will fail
 		wl := "/org/" + *org.Name + "/gvc/gvc-" + randomName + "/workload/workload-" + randomName
 
 		routes := []client.DomainRoute{
@@ -802,6 +809,7 @@ func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *clien
 				Prefix:       &prefix1,
 				WorkloadLink: &wl,
 				Port:         &port1,
+				HostPrefix:   &hostPrefix,
 			},
 		}
 
@@ -853,16 +861,20 @@ func testAccCheckControlPlaneDomainCNamePathBased(domain *client.Domain) resourc
 		wl2 := getWorkloadTwo()
 		port1 := 8080
 		port2 := 8081
+		hostPrefix1 := "my.thing." // On update this will fail
+		hostPrefix2 := "my."       // On update this will fail
 		routes := []client.DomainRoute{
 			{
 				Prefix:       &prefix1,
 				WorkloadLink: &wl1,
 				Port:         &port1,
+				HostPrefix:   &hostPrefix1,
 			},
 			{
 				Prefix:       &prefix2,
 				WorkloadLink: &wl2,
 				Port:         &port2,
+				HostPrefix:   &hostPrefix2,
 			},
 		}
 
