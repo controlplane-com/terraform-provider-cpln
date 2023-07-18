@@ -52,6 +52,7 @@ func Provider() *schema.Provider {
 			"cpln_secret":              resourceSecret(),
 			"cpln_service_account":     resourceServiceAccount(),
 			"cpln_service_account_key": resourceServiceAccountKey(),
+			"cpln_volume_set":          resourceVolumeSet(),
 			"cpln_workload":            resourceWorkload(),
 		},
 
