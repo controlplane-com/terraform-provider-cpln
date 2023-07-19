@@ -4,8 +4,9 @@ import "fmt"
 
 type VolumeSet struct {
 	Base
-	Spec   *VolumeSetSpec   `json:"spec,omitempty"`
-	Status *VolumeSetStatus `json:"status,omitempty"`
+	Spec        *VolumeSetSpec   `json:"spec,omitempty"`
+	SpecReplace *VolumeSetSpec   `json:"$replace/spec,omitempty"`
+	Status      *VolumeSetStatus `json:"status,omitempty"`
 }
 
 type VolumeSetSpec struct {

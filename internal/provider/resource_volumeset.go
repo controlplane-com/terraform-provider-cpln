@@ -236,7 +236,11 @@ func resourceVolumeSetUpdate(ctx context.Context, d *schema.ResourceData, m inte
 	if d.HasChanges("description", "tags", "initial_capacity", "performance_class", "file_system_type", "snapshots", "autoscaling") {
 
 		volumeSetToUpdate := client.VolumeSet{
-			Spec: &client.VolumeSetSpec{},
+			SpecReplace: &client.VolumeSetSpec{
+				InitialCapacity:  GetInt(d.Get("initial_capacity")),
+				PerformanceClass: GetString(d.Get("performance_class")),
+				FileSystemType:   GetString(d.Get("file_system_type")),
+			},
 		}
 		volumeSetToUpdate.Name = GetString(d.Get("name"))
 
@@ -248,24 +252,12 @@ func resourceVolumeSetUpdate(ctx context.Context, d *schema.ResourceData, m inte
 			volumeSetToUpdate.Tags = GetTagChanges(d)
 		}
 
-		if d.HasChange("initial_capacity") {
-			volumeSetToUpdate.Spec.InitialCapacity = GetInt(d.Get("initial_capacity"))
-		}
-
-		if d.HasChange("performance_class") {
-			volumeSetToUpdate.Spec.PerformanceClass = GetString(d.Get("performance_class"))
-		}
-
-		if d.HasChange("file_system_type") {
-			volumeSetToUpdate.Spec.FileSystemType = GetString(d.Get("file_system_type"))
-		}
-
 		if d.HasChange("snapshots") {
-			volumeSetToUpdate.Spec.Snapshots = buildVolumeSetSnapshots(d.Get("snapshots").([]interface{}))
+			volumeSetToUpdate.SpecReplace.Snapshots = buildVolumeSetSnapshots(d.Get("snapshots").([]interface{}))
 		}
 
 		if d.HasChange("autoscaling") {
-			volumeSetToUpdate.Spec.AutoScaling = buildVolumeSetAutoscaling(d.Get("autoscaling").([]interface{}))
+			volumeSetToUpdate.SpecReplace.AutoScaling = buildVolumeSetAutoscaling(d.Get("autoscaling").([]interface{}))
 		}
 
 		// Perform update
