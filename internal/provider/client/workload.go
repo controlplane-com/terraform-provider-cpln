@@ -108,9 +108,15 @@ type FirewallSpec struct {
 
 // FirewallSpecExternal - Firewall Spec External
 type FirewallSpecExternal struct {
-	InboundAllowCIDR      *[]string `json:"inboundAllowCIDR,omitempty"`
-	OutboundAllowCIDR     *[]string `json:"outboundAllowCIDR,omitempty"`
-	OutboundAllowHostname *[]string `json:"outboundAllowHostname,omitempty"`
+	InboundAllowCIDR      *[]string                    `json:"inboundAllowCIDR,omitempty"`
+	OutboundAllowCIDR     *[]string                    `json:"outboundAllowCIDR,omitempty"`
+	OutboundAllowHostname *[]string                    `json:"outboundAllowHostname,omitempty"`
+	OutboundAllowPort     *[]FirewallOutboundAllowPort `json:"outboundAllowPort,omitempty"`
+}
+
+type FirewallOutboundAllowPort struct {
+	Protocol *string `json:"protocol,omitempty"`
+	Number   *int    `json:"number,omitempty"`
 }
 
 // FirewallSpecInternal - Firewall Spec Internal

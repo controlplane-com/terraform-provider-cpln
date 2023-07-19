@@ -240,6 +240,18 @@ Optional:
 - **inbound_allow_cidr** (List of String) he list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
+- **outbound_allow_port** (Block List) ([see below](#nestedblock--firewall_spec--external--outbound_allow_port)).
+
+<a id="nestedblock--firewall_spec--external--outbound_allow_port"></a>
+
+### `firewall_spec.external.outbound_allow_port`
+
+Allow outbound access to specific ports and protocols. When not specified, communication to address ranges in outboundAllowCIDR is allowed on all ports and communication to names in outboundAllowHostname is allowed on ports 80/443.
+
+Required:
+
+- **protocol** (String) Either http, https or tcp. Default: "tcp"
+- **number** (Number) Port number. Max: 65000
 
 <a id="nestedblock--firewall_spec--internal"></a>
 
@@ -512,6 +524,16 @@ resource "cpln_workload" "new" {
       inbound_allow_cidr      = ["0.0.0.0/0"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+      outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
     }
     internal {
       # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
@@ -629,6 +651,16 @@ resource "cpln_workload" "new" {
       inbound_allow_cidr      = ["0.0.0.0/0"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+      outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
     }
     internal {
       # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
@@ -740,6 +772,16 @@ resource "cpln_workload" "new" {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+      outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
     }
   }
 

@@ -279,6 +279,16 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 			inbound_allow_cidr      = ["0.0.0.0/0"]
 			outbound_allow_cidr     = []
 			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
 		  }
 		  internal {
 			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
@@ -490,6 +500,16 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 			inbound_allow_cidr =  ["0.0.0.0/0"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
 		  }
 		  internal { 
 			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
@@ -640,6 +660,16 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  external {
 			outbound_allow_cidr     = ["192.168.0.1/16"]
 			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
 		  }
 		}
 	  
@@ -1239,6 +1269,16 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
 		  }
 
 		}
@@ -1700,6 +1740,16 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 				InboundAllowCIDR:      &[]string{},
 				OutboundAllowCIDR:     &[]string{"192.168.0.1/16"},
 				OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
+				OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
+					{
+						Protocol: GetString("http"),
+						Number:   GetInt(80),
+					},
+					{
+						Protocol: GetString("https"),
+						Number:   GetInt(443),
+					},
+				},
 			},
 		}
 	}
@@ -1709,6 +1759,16 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 			InboundAllowCIDR:      &[]string{"0.0.0.0/0"},
 			OutboundAllowCIDR:     &[]string{},
 			OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
+			OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
+				{
+					Protocol: GetString("http"),
+					Number:   GetInt(80),
+				},
+				{
+					Protocol: GetString("https"),
+					Number:   GetInt(443),
+				},
+			},
 		},
 		Internal: &client.FirewallSpecInternal{
 			InboundAllowType:     GetString("none"),
@@ -1967,6 +2027,19 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	if useSet {
 		i["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
 	}
+
+	e["outbound_allow_port"] = flattenFirewallOutboundAllowPort(
+		&[]client.FirewallOutboundAllowPort{
+			{
+				Protocol: GetString("http"),
+				Number:   GetInt(80),
+			},
+			{
+				Protocol: GetString("https"),
+				Number:   GetInt(443),
+			},
+		},
+	)
 
 	fc := map[string]interface{}{
 		"external": []interface{}{

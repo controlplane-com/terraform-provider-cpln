@@ -1305,6 +1305,11 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 					we.OutboundAllowHostname = &outboundAllowHostname
 
 				}
+
+				if e["outbound_allow_port"] != nil {
+
+					we.OutboundAllowPort = buildFirewallOutboundAllowPort(e["outbound_allow_port"].([]interface{}))
+				}
 			}
 
 		}
@@ -1336,6 +1341,28 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 			}
 		}
 	}
+}
+
+func buildFirewallOutboundAllowPort(specs []interface{}) *[]client.FirewallOutboundAllowPort {
+
+	if len(specs) == 0 {
+		return nil
+	}
+
+	output := []client.FirewallOutboundAllowPort{}
+
+	for _, spec := range specs {
+
+		specMap := spec.(map[string]interface{})
+		outboundAllowPort := client.FirewallOutboundAllowPort{
+			Protocol: GetString(specMap["protocol"]),
+			Number:   GetInt(specMap["number"]),
+		}
+
+		output = append(output, outboundAllowPort)
+	}
+
+	return &output
 }
 
 func buildJobSpec(specs []interface{}) *client.JobSpec {
@@ -1882,6 +1909,10 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				}
 			}
 
+			if spec.External.OutboundAllowPort != nil && len(*spec.External.OutboundAllowPort) > 0 {
+				external["outbound_allow_port"] = flattenFirewallOutboundAllowPort(spec.External.OutboundAllowPort)
+			}
+
 			e := make([]interface{}, 1)
 			e[0] = external
 			localSpec["external"] = e
@@ -1915,6 +1946,27 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenFirewallOutboundAllowPort(outboundAllowPorts *[]client.FirewallOutboundAllowPort) []interface{} {
+
+	if outboundAllowPorts == nil || len(*outboundAllowPorts) == 0 {
+		return []interface{}{}
+	}
+
+	specs := []interface{}{}
+
+	for _, outboundAllowPort := range *outboundAllowPorts {
+
+		spec := map[string]interface{}{
+			"protocol": *outboundAllowPort.Protocol,
+			"number":   *outboundAllowPort.Number,
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
 }
 
 func flattenJobSpec(spec *client.JobSpec) []interface{} {
@@ -2165,6 +2217,22 @@ func ExternalFirewallResource() *schema.Resource {
 				Optional: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
+				},
+			},
+			"outbound_allow_port": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"protocol": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"number": {
+							Type:     schema.TypeInt,
+							Required: true,
+						},
+					},
 				},
 			},
 		},
