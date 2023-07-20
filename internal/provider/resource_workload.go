@@ -130,6 +130,23 @@ func resourceWorkload() *schema.Resource {
 							Default:      "50m",
 							ValidateFunc: CpuMemoryValidator,
 						},
+						"gpu_nvidia": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"model": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"quantity": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+								},
+							},
+						},
 						"memory": {
 							Type:         schema.TypeString,
 							Optional:     true,
@@ -860,6 +877,10 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 			WorkingDirectory: GetString(c["working_directory"].(string)),
 		}
 
+		if c["gpu_nvidia"] != nil {
+			newContainer.GPU = buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
+		}
+
 		if c["port"] != nil {
 			newContainer.Port = GetPortInt(c["port"])
 		}
@@ -949,6 +970,23 @@ func buildPortSpec(ports []interface{}) *[]client.PortSpec {
 	}
 
 	return nil
+}
+
+func buildGpuNvidia(specs []interface{}) *client.GpuResource {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+
+	gpuResource := client.GpuResource{
+		Nvidia: &client.Nvidia{
+			Model:    GetString(spec["model"].(string)),
+			Quantity: GetInt(spec["quantity"].(int)),
+		},
+	}
+
+	return &gpuResource
 }
 
 func buildVolumeSpec(volumes []interface{}) *[]client.VolumeSpec {
@@ -1498,8 +1536,12 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 				c["ports"] = flattenPortSpec(container.Ports)
 			}
 
-			c["memory"] = *container.Memory
 			c["cpu"] = *container.CPU
+			c["memory"] = *container.Memory
+
+			if container.GPU != nil && container.GPU.Nvidia != nil {
+				c["gpu_nvidia"] = flattenGpuNvidia(container.GPU)
+			}
 
 			if container.Command != nil {
 				c["command"] = *container.Command
@@ -1612,6 +1654,21 @@ func flattenPortSpec(ports *[]client.PortSpec) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenGpuNvidia(spec *client.GpuResource) []interface{} {
+	if spec == nil || spec.Nvidia == nil {
+		return nil
+	}
+
+	gpu := map[string]interface{}{
+		"model":    *spec.Nvidia.Model,
+		"quantity": *spec.Nvidia.Quantity,
+	}
+
+	return []interface{}{
+		gpu,
+	}
 }
 
 func flattenMetrics(metrics *client.Metrics) []interface{} {
@@ -2325,6 +2382,23 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 			if *workloadSpec.Type == "cron" {
 				if c.ReadinessProbe != nil || c.LivenessProbe != nil {
 					return diag.FromErr(fmt.Errorf("probes are not allowed when workload type is 'cron'"))
+				}
+			}
+
+			if c.GPU != nil && c.GPU.Nvidia != nil {
+				cpuAmount, cpuUnit := ExtractNumberAndCharactersFromString(*c.CPU)
+				memoryAmount, memoryUnit := ExtractNumberAndCharactersFromString(*c.Memory)
+
+				// Return an error if the CPU amount is less than 2 and memory is less than 7Gi RAM
+				if (cpuUnit == "" && cpuAmount < 2) ||
+					(cpuUnit == "m" && cpuAmount < 2000) ||
+					(memoryUnit == "Gi" && memoryAmount < 7) ||
+					(memoryUnit == "Mi" && memoryAmount < 7000) {
+					return diag.FromErr(fmt.Errorf("the GPU requires this container to have at least 2 CPU Cores and 7 Gi RAM"))
+				}
+
+				if *workloadSpec.DefaultOptions.CapacityAI {
+					return diag.FromErr(fmt.Errorf("capacity AI must be disabled when using GPUs. Please remove the GPU selection from the containers or disable Capacity AI"))
 				}
 			}
 		}

@@ -75,6 +75,16 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneCronWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests Updated"),
 			},
+			{
+				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu"),
+				),
+			},
+			{
+				Config: testAccControlPlaneGpuWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description updated using terraform for acceptance tests"),
+			},
 		},
 	})
 }
@@ -651,6 +661,352 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
 }
 
+func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type    = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"
+		description = "%s"
+	  
+		locations = ["aws-us-west-2", "gcp-us-east1"]
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+	  
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+
+	resource "cpln_workload" "new" {
+		
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+		type = "serverless"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	  
+		identity_link = cpln_identity.new.self_link
+		support_dynamic_tags = true
+	  
+		container {
+			name   = "container-01"
+			image  = "gcr.io/knative-samples/helloworld-go"
+			port   = 8080
+		  	memory = "7Gi"
+		  	cpu    = "2"
+
+			gpu_nvidia {
+				model 	 = "t1"
+				quantity = 1
+			}
+	  
+			command           = "override-command"
+			working_directory = "/usr"
+	  
+			env = {
+				env-name-01 = "env-value-01",
+				env-name-02 = "env-value-02",
+			}
+	  
+		  	args = ["arg-01", "arg-02"]
+	  
+			volume {
+				uri  = "s3://bucket"
+				path = "/testpath01"
+			}
+	  
+		  	volume {
+				uri  = "azureblob://storageAccount/container"
+				path = "/testpath02"
+		  	}
+			
+			metrics {
+				path = "/metrics"
+				port = 8181
+		  	}
+	  
+			readiness_probe {
+		
+				tcp_socket {
+					port = 8181
+				}
+		
+				period_seconds        = 11
+				timeout_seconds       = 2
+				failure_threshold     = 4
+				success_threshold     = 2
+				initial_delay_seconds = 1
+			}
+		
+			liveness_probe {
+				
+				http_get {
+					path   = "/path"
+					port   = 8282
+					scheme = "HTTPS"
+					http_headers = {
+						header-name-01 = "header-value-01"
+						header-name-02 = "header-value-02"
+					}
+				}
+		
+				period_seconds        = 10
+				timeout_seconds       = 3
+				failure_threshold     = 5
+				success_threshold     = 1
+				initial_delay_seconds = 2
+			}
+	  
+			lifecycle {
+				
+				post_start {
+					exec {
+						command = ["command_post", "arg_1", "arg_2"]
+					}
+				}
+		
+				pre_stop {
+					exec {
+						command = ["command_pre", "arg_1", "arg_2"]
+					}
+				}
+			}
+		}
+
+		options {
+			capacity_ai     = false
+			timeout_seconds = 30
+			suspend         = false
+	
+			autoscaling {
+				metric              = "concurrency"
+				target              = 100
+				max_scale           = 3
+				min_scale           = 2
+				max_concurrency     = 500
+				scale_to_zero_delay = 400
+			}
+		}
+	  
+		firewall_spec {
+			external {
+				inbound_allow_cidr      = ["0.0.0.0/0"]
+				outbound_allow_cidr     = []
+				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			}
+
+			internal {
+				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+				inbound_allow_type     = "none"
+				inbound_allow_workload = []
+			}
+		}
+
+		security_options {
+			file_system_group_id = 1
+		}
+	}
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+}
+
+func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkloadUpdate")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type    = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"
+		description = "%s"
+	  
+		locations = ["aws-us-west-2", "gcp-us-east1"]
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+	  
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+
+	resource "cpln_workload" "new" {
+		
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+		type = "serverless"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	  
+		identity_link = cpln_identity.new.self_link
+		support_dynamic_tags = true
+	  
+		container {
+			name   = "container-01"
+			image  = "gcr.io/knative-samples/helloworld-go"
+			port   = 8080
+		  	memory = "7Gi"
+		  	cpu    = "2"
+
+			gpu_nvidia {
+				model 	 = "t1"
+				quantity = 0
+			}
+	  
+			command           = "override-command"
+			working_directory = "/usr"
+	  
+			env = {
+				env-name-01 = "env-value-01",
+				env-name-02 = "env-value-02",
+			}
+	  
+		  	args = ["arg-01", "arg-02"]
+	  
+			volume {
+				uri  = "s3://bucket"
+				path = "/testpath01"
+			}
+	  
+		  	volume {
+				uri  = "azureblob://storageAccount/container"
+				path = "/testpath02"
+		  	}
+			
+			metrics {
+				path = "/metrics"
+				port = 8181
+		  	}
+	  
+			readiness_probe {
+		
+				tcp_socket {
+					port = 8181
+				}
+		
+				period_seconds        = 11
+				timeout_seconds       = 2
+				failure_threshold     = 4
+				success_threshold     = 2
+				initial_delay_seconds = 1
+			}
+		
+			liveness_probe {
+				
+				http_get {
+					path   = "/path"
+					port   = 8282
+					scheme = "HTTPS"
+					http_headers = {
+						header-name-01 = "header-value-01"
+						header-name-02 = "header-value-02"
+					}
+				}
+		
+				period_seconds        = 10
+				timeout_seconds       = 3
+				failure_threshold     = 5
+				success_threshold     = 1
+				initial_delay_seconds = 2
+			}
+	  
+			lifecycle {
+				
+				post_start {
+					exec {
+						command = ["command_post", "arg_1", "arg_2"]
+					}
+				}
+		
+				pre_stop {
+					exec {
+						command = ["command_pre", "arg_1", "arg_2"]
+					}
+				}
+			}
+		}
+
+		options {
+			capacity_ai     = false
+			timeout_seconds = 30
+			suspend         = false
+	
+			autoscaling {
+				metric              = "concurrency"
+				target              = 100
+				max_scale           = 3
+				min_scale           = 2
+				max_concurrency     = 500
+				scale_to_zero_delay = 400
+			}
+		}
+	  
+		firewall_spec {
+			external {
+				inbound_allow_cidr      = ["0.0.0.0/0"]
+				outbound_allow_cidr     = []
+				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			}
+
+			internal {
+				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+				inbound_allow_type     = "none"
+				inbound_allow_workload = []
+			}
+		}
+
+		security_options {
+			file_system_group_id = 1
+		}
+	}
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+}
+
 func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName string, workload *client.Workload) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
@@ -958,6 +1314,13 @@ func TestControlPlane_BuildContainersStandard(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildGPU(t *testing.T) {
+	gpu, expectedGpu, _ := generateTestGpuNvidia()
+	if diff := deep.Equal(gpu, expectedGpu); diff != nil {
+		t.Errorf("Gpu was not built correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_BuildOptions(t *testing.T) {
 
 	unitTestWorkload := client.Workload{}
@@ -1050,6 +1413,14 @@ func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenGpu(t *testing.T) {
+	gpu, _, flattenedGpu := generateTestGpuNvidia()
+	expectedFlattenedGpu := flattenGpuNvidia(gpu)
+	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
+		t.Errorf("Gpu was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenOptions(t *testing.T) {
 
 	options := generateTestOptions("serverless")
@@ -1106,6 +1477,13 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 	}
 
 	if workloadType == "serverless" {
+		newContainer.Port = GetInt(8080)
+	} else if workloadType == "serverless-gpu" {
+		newContainer.CPU = GetString("2")
+		newContainer.Memory = GetString("7Gi")
+
+		gpuNvidia, _, _ := generateTestGpuNvidia()
+		newContainer.GPU = gpuNvidia
 		newContainer.Port = GetInt(8080)
 	} else if workloadType == "standard" {
 		newContainer.Ports = &[]client.PortSpec{
@@ -1226,7 +1604,41 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 	return &testContainers
 }
 
+func generateTestGpuNvidia() (*client.GpuResource, *client.GpuResource, []interface{}) {
+	model := "t1"
+	quantity := 1
+
+	flatten := generateFlatTestGpuNvidia(model, quantity)
+	gpu := buildGpuNvidia(flatten)
+	expectedGpu := &client.GpuResource{
+		Nvidia: &client.Nvidia{
+			Model:    &model,
+			Quantity: &quantity,
+		},
+	}
+
+	return gpu, expectedGpu, flatten
+}
+
 func generateTestOptions(workloadType string) *client.Options {
+
+	if workloadType == "serverless-gpu" {
+		return &client.Options{
+			CapacityAI:     GetBool(false),
+			TimeoutSeconds: GetInt(30),
+			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
+
+			AutoScaling: &client.AutoScaling{
+				Metric:           GetString("concurrency"),
+				Target:           GetInt(100),
+				MaxScale:         GetInt(3),
+				MinScale:         GetInt(2),
+				MaxConcurrency:   GetInt(500),
+				ScaleToZeroDelay: GetInt(400),
+			},
+		}
+	}
 
 	if workloadType == "standard" {
 		return &client.Options{
@@ -1304,6 +1716,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 		},
 	}
 }
+
 func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOptions, []interface{}) {
 	minReadySeconds := 2
 	maxUnavailableReplicas := "10"
@@ -1486,6 +1899,17 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	}
 
 	return localContainers
+}
+
+func generateFlatTestGpuNvidia(model string, quantity int) []interface{} {
+	spec := map[string]interface{}{
+		"model":    model,
+		"quantity": quantity,
+	}
+
+	return []interface{}{
+		spec,
+	}
 }
 
 func generateFlatTestOptions() []interface{} {
