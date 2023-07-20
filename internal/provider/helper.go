@@ -161,6 +161,16 @@ func GetInt(s interface{}) *int {
 	return &output
 }
 
+func GetFloat64(s interface{}) *float64 {
+
+	if s == nil {
+		return nil
+	}
+
+	output := s.(float64)
+	return &output
+}
+
 func GetPortInt(s interface{}) *int {
 	if s == nil {
 		return nil
