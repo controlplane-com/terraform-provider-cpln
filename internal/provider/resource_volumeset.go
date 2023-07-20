@@ -78,10 +78,13 @@ func resourceVolumeSet() *schema.Resource {
 			"performance_class": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			"file_system_type": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				ForceNew: true,
+				Default:  "ext4",
 			},
 			"snapshots": {
 				Type:     schema.TypeList,
@@ -93,6 +96,7 @@ func resourceVolumeSet() *schema.Resource {
 						"create_final_snapshot": {
 							Type:     schema.TypeBool,
 							Optional: true,
+							Default:  true,
 						},
 						"retention_duration": {
 							Type:     schema.TypeString,
@@ -110,15 +114,15 @@ func resourceVolumeSet() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"max_capacity": {
 							Type:     schema.TypeInt,
-							Optional: true,
+							Required: true,
 						},
 						"min_free_percentage": {
 							Type:     schema.TypeInt,
-							Optional: true,
+							Required: true,
 						},
 						"scaling_factor": {
 							Type:     schema.TypeFloat,
-							Optional: true,
+							Required: true,
 						},
 					},
 				},

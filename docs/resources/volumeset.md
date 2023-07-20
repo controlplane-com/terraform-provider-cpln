@@ -16,9 +16,9 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 
 - **name** (String) Name of the Volume Set.
 - **gvc** (String) Name of the associated GVC.
-- **initial_capacity** (Integer) The initial size in GB of volumes in this set.
-- **performance_class** (String) Each volume set has a single, immutable, performance class.
-- **file_system_type** (String) Each volume set has a single, immutable file system.
+- **initial_capacity** (Integer) The initial size in GB of volumes in this set. Minimum value: `10`.
+- **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `premium-low-latency-ssd`
+- **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`
 
 ### Optional
 
@@ -33,18 +33,18 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 
 Optional:
 
-- **create_final_snapshot** (Boolean) If true, a volume snapshot will be created immediately before deletion of any volume in this set.
+- **create_final_snapshot** (Boolean) If true, a volume snapshot will be created immediately before deletion of any volume in this set. Default: `true`
 - **retention_duration** (String) The default retention period for volume snapshots. This string should contain a floating point number followed by either d, h, or m. For example, "10d" would retain snapshots for 10 days.
 
 <a id="nestedblock--autoscaling"></a>
 
 ### `autoscaling`
 
-Optional:
+Required:
 
-- **max_capacity** (Integer) The maximum size in GB for a volume in this set. A volume cannot grow to be bigger than this value.
-- **min_free_percentage** (Integer) The guaranteed free space on the volume as a percentage of the volume's total size. ControlPlane will try to maintain at least that many percent free by scaling up the total size.
-- **scaling_factor** (Float64) When scaling is necessary, then `new_capacity = current_capacity * storageScalingFactor`.
+- **max_capacity** (Integer) The maximum size in GB for a volume in this set. A volume cannot grow to be bigger than this value. Minimum value: `10`.
+- **min_free_percentage** (Integer) The guaranteed free space on the volume as a percentage of the volume's total size. Control Plane will try to maintain at least that many percent free by scaling up the total size. Minimum percentage: `1`. Maximum Percentage: `100`.
+- **scaling_factor** (Float64) When scaling is necessary, then `new_capacity = current_capacity * storageScalingFactor`. Minimum value: `1.1`.
 
 ## Outputs
 
