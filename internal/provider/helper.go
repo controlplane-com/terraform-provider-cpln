@@ -743,3 +743,14 @@ func GetNameFromSelfLink(selfLink string) string {
 	parts := strings.Split(selfLink, "/")
 	return parts[len(parts)-1]
 }
+
+func ExtractNumberAndCharactersFromString(value string) (int, string) {
+
+	numberRegex := regexp.MustCompile("[0-9]+")
+	charactersRegex := regexp.MustCompile("[A-Za-z]+")
+
+	number, _ := strconv.Atoi(numberRegex.FindString(value))
+	characters := charactersRegex.FindString(value)
+
+	return number, characters
+}
