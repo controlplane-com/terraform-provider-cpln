@@ -86,8 +86,8 @@ Required:
 
 Required:
 
-- **model** (String) //TODO: Add description.
-- **quantity** (Int) //TODO: Add description.
+- **model** (String) GPU Model (i.e.: t4)
+- **quantity** (Int) Number of GPUs.
 
 <a id="nestedblock--container--liveness_probe"></a>
 
@@ -646,7 +646,6 @@ resource "cpln_workload" "new" {
   security_options {
     file_system_group_id = 1
   }
-
 }
 
 ```
@@ -761,19 +760,14 @@ resource "cpln_workload" "new" {
 
 ## Example Usage - Serverless Workload with a GPU resource
 
-
 ```terraform
-variable "random-name" {
-  type    = string
-  default = "%s"
-}
 
 resource "cpln_gvc" "new" {
-  name        = "%s"
-  description = "%s"
-  
+  name        = "gvc-example"
+  description = "Example GVC"
+
   locations = ["aws-us-west-2", "gcp-us-east1"]
-  
+
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
@@ -781,12 +775,12 @@ resource "cpln_gvc" "new" {
 }
 
 resource "cpln_identity" "new" {
-  
+
   gvc = cpln_gvc.new.name
-  
-  name        = "terraform-identity-${var.random-name}"
+
+  name        = "identity-example"
   description = "Identity created using terraform"
-  
+
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
@@ -795,73 +789,73 @@ resource "cpln_identity" "new" {
 
 
 resource "cpln_workload" "new" {
-  
+
   gvc = cpln_gvc.new.name
-  
-  name        = "%s"
-  description = "%s"
-  type = "serverless"
-  
+
+  name        = "workload-example"
+  description = "Example Workload"
+  type        = "serverless"
+
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
   }
-  
-  identity_link = cpln_identity.new.self_link
+
+  identity_link        = cpln_identity.new.self_link
   support_dynamic_tags = true
-  
+
   container {
     name   = "container-01"
     image  = "gcr.io/knative-samples/helloworld-go"
     port   = 8080
-      memory = "128Mi"
-      cpu    = "50m"
+    memory = "7Gi"
+    cpu    = "2"
 
     gpu_nvidia {
-      model 	 = "t1"
+      model    = "t4"
       quantity = 1
     }
-  
+
     command           = "override-command"
     working_directory = "/usr"
-  
+
     env = {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
-  
-      args = ["arg-01", "arg-02"]
-  
+
+    args = ["arg-01", "arg-02"]
+
     volume {
       uri  = "s3://bucket"
       path = "/testpath01"
     }
-  
-      volume {
+
+    volume {
       uri  = "azureblob://storageAccount/container"
       path = "/testpath02"
-      }
-    
+    }
+
     metrics {
       path = "/metrics"
       port = 8181
-      }
-  
+    }
+
     readiness_probe {
-  
+
       tcp_socket {
         port = 8181
       }
-  
+
       period_seconds        = 11
       timeout_seconds       = 2
       failure_threshold     = 4
       success_threshold     = 2
       initial_delay_seconds = 1
     }
-  
+
     liveness_probe {
-      
+
       http_get {
         path   = "/path"
         port   = 8282
@@ -871,22 +865,22 @@ resource "cpln_workload" "new" {
           header-name-02 = "header-value-02"
         }
       }
-  
+
       period_seconds        = 10
       timeout_seconds       = 3
       failure_threshold     = 5
       success_threshold     = 1
       initial_delay_seconds = 2
     }
-  
+
     lifecycle {
-      
+
       post_start {
         exec {
           command = ["command_post", "arg_1", "arg_2"]
         }
       }
-  
+
       pre_stop {
         exec {
           command = ["command_pre", "arg_1", "arg_2"]
@@ -909,7 +903,7 @@ resource "cpln_workload" "new" {
       scale_to_zero_delay = 400
     }
   }
-  
+
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
@@ -928,4 +922,5 @@ resource "cpln_workload" "new" {
     file_system_group_id = 1
   }
 }
+
 ```
