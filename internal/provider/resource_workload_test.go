@@ -848,6 +848,16 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 				inbound_allow_cidr      = ["0.0.0.0/0"]
 				outbound_allow_cidr     = []
 				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+				outbound_allow_port {
+					protocol = "http"
+					number   = 80
+				}
+	
+				outbound_allow_port {
+					protocol = "https"
+					number   = 443
+				}
 			}
 
 			internal {

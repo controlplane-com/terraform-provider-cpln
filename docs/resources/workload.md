@@ -250,7 +250,7 @@ Allow outbound access to specific ports and protocols. When not specified, commu
 
 Required:
 
-- **protocol** (String) Either http, https or tcp. Default: "tcp"
+- **protocol** (String) Either `http`, `https` or `tcp`. Default: `tcp`.
 - **number** (Number) Port number. Max: 65000
 
 <a id="nestedblock--firewall_spec--internal"></a>

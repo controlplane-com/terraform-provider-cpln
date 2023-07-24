@@ -24,7 +24,7 @@
             },
             "args": [
                 "-test.run",
-                "TestAccControlPlaneVolumeSet_basic",
+                "TestAccControlPlaneWorkload_basic",
                 "-test.v"
             ]
         }
