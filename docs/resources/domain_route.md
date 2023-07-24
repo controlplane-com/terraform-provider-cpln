@@ -26,6 +26,7 @@ Used in conjunction with a Domain.
 
 - **replace_prefix** (String) A path prefix can be configured to be replaced when forwarding the request to the Workload.
 - **port** (Number) For the linked workload, the port to route traffic to.
+- **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.
 
 ## Example Usage
 
@@ -102,6 +103,7 @@ resource "cpln_domain_route" "example_route" {
 
     prefix = "/example"
     replace_prefix = "/replace_example"
+    host_prefix = "www.example.com"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
 }
@@ -116,6 +118,7 @@ resource "cpln_domain_route" "example_second_route" {
 
     prefix = "/example_second_route"
     replace_prefix = "/"
+    host_prefix = "www.foo.com"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
 }

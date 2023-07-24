@@ -49,6 +49,7 @@ type DomainRoute struct {
 	ReplacePrefix *string `json:"replacePrefix,omitempty"`
 	WorkloadLink  *string `json:"workloadLink,omitempty"`
 	Port          *int    `json:"port,omitempty"`
+	HostPrefix    *string `json:"hostPrefix,omitempty"`
 }
 
 type DomainCors struct {
@@ -203,6 +204,12 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = nil
 					} else {
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = route.Port
+					}
+
+					if route.HostPrefix == nil || *route.HostPrefix == "" {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = nil
+					} else {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
 					}
 
 					// Update resource
