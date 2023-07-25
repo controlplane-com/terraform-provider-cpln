@@ -105,6 +105,7 @@ $ terraform apply -var 'org=ENTER-VALID-ORG'
 
 Remove infrastructure
 $ terraform destroy -var 'org=ENTER-VALID-ORG'
+
 ```
 
 ## Testing
@@ -256,3 +257,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.4 - Added domain and domain route.
 - v1.1.5 - Updated Terraform SDK to v2.26.1. Added CRON job workload type. Add workload rollout and security options. Add disabled scaling strategy. Add GVC load balancer. Add workload support dynamic tags.
 - v1.1.6 - Added volume sets. Added GPU to workload. Added external firewall outbound allow ports. Add domain host prefix.
+- v1.1.7 - Update all resources to allow import. Updated docs with import details and syntax.

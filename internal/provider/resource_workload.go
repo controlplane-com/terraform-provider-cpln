@@ -571,7 +571,7 @@ func importStateWorkload(ctx context.Context, d *schema.ResourceData, meta inter
 	parts := strings.SplitN(d.Id(), ":", 2)
 
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("unexpected format of ID (%s), expected gvc:workload", d.Id())
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax: 'gvc:workload'. Example: 'terraform import cpln_workload.RESOURCE_NAME GVC_NAME:WORKLOAD_NAME'", d.Id())
 	}
 
 	d.Set("gvc", parts[0])

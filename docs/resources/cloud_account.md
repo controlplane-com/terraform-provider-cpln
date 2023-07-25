@@ -69,6 +69,16 @@ The following attributes are exported:
 - **gcp_service_account_name** (String) GCP service account name used during the configuration of the cloud account at GCP.
 - **gcp_roles** (List of String) GCP roles used during the configuration of the cloud account at GCP.
 
+## Import Syntax
+
+To update a statefile with an existing cloud account resource, execute the following import command:
+
+```terraform
+terraform import cpln_cloud_account.RESOURCE_NAME CLOUD_ACCOUNT_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute CLOUD_ACCOUNT_NAME with the corresponding cloud account defined in the resource.
+
 ## Example Usage
 
 ```terraform

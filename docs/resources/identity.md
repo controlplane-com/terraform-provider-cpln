@@ -153,29 +153,33 @@ Optional:
 ~> **Note** The configuration of a native network resource requires the assistance of Control Plane support.
 
 Required:
--- **name** (String) Name of the Native Network Resource.
--- **fqdn** (String) Fully qualified domain name.
--- **ports** (Set of Number) Ports to expose. At least one port is required.
+
+- **name** (String) Name of the Native Network Resource.
+- **fqdn** (String) Fully qualified domain name.
+- **ports** (Set of Number) Ports to expose. At least one port is required.
 
 Optional:
 
 Exactly one of:
--- **aws_private_link** (Block List) ([see below](#nestedblock--native_network_resource--aws_private_link))
--- **gcp_service_connect** (Block List) ([see below](#nestedblock--native_network_resource--gcp_service_connect))
+
+- **aws_private_link** (Block List) ([see below](#nestedblock--native_network_resource--aws_private_link))
+- **gcp_service_connect** (Block List) ([see below](#nestedblock--native_network_resource--gcp_service_connect))
 
 <a id="nestedblock--native_network_resource--aws_private_link"></a>
 
 ### `aws_private_link`
 
 Required:
--- **endpoint_service_name** (String) Endpoint service name.
+
+- **endpoint_service_name** (String) Endpoint service name.
 
 <a id="nestedblock--native_network_resource--gcp_service_connect"></a>
 
 ### `gcp_service_connect`
 
 Required:
--- **target_service** (String) Target service name.
+
+- **target_service** (String) Target service name.
 
 ## Outputs
 
@@ -183,6 +187,16 @@ The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Identity.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
+
+## Import Syntax
+
+To update a statefile with an existing identity resource, execute the following import command:
+
+```terraform
+terraform import cpln_identity.RESOURCE_NAME GVC_NAME:IDENTITY_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and IDENTITY_NAME with the corresponding GVC and identity name defined in the resource.
 
 ## Example Usage
 
@@ -252,22 +266,22 @@ resource "cpln_cloud_account" "example-gcp" {
   }
 }
 
-	resource "cpln_cloud_account" "example-ngs" {
+resource "cpln_cloud_account" "example-ngs" {
 
-		name = "ngs-example"
-		description = "Example NGS Cloud Account"
+  name        = "ngs-example"
+  description = "Example NGS Cloud Account"
 
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
 
-		ngs {
-			// Use the full link for now
-			// secret_link = "//secret/tf_secret_nats_account"
-			secret_link = "/org/ORG_NAME/secret/NATS_ACCOUNT_SECRET"
-		}
-	}
+  ngs {
+    // Use the full link for now
+    // secret_link = "//secret/tf_secret_nats_account"
+    secret_link = "/org/ORG_NAME/secret/NATS_ACCOUNT_SECRET"
+  }
+}
 
 resource "cpln_identity" "example" {
 
@@ -308,8 +322,8 @@ resource "cpln_identity" "example" {
 
   # Native Network Resource with AWS Private Link
   native_network_resource {
-    name = "test-native-network-resource-aws"
-    fqdn = "aws.test.com"
+    name  = "test-native-network-resource-aws"
+    fqdn  = "aws.test.com"
     ports = [12345, 54321]
     aws_private_link {
       endpoint_service_name = "com.amazonaws.vpce.us-west-2.vpce-svc-01af6c4c9260ac550"
@@ -317,14 +331,13 @@ resource "cpln_identity" "example" {
   }
   # Native Network Resource with GCP Service Connect
   native_network_resource {
-    name = "test-native-network-resource-gcp"
-    fqdn = "gcp.test.com"
+    name  = "test-native-network-resource-gcp"
+    fqdn  = "gcp.test.com"
     ports = [12345, 54321]
     gcp_service_connect {
       target_service = "projects/example-project/regions/example-region/serviceAttachments/example-service-attachments"
     }
   }
-
 
   aws_access_policy {
 
@@ -374,26 +387,26 @@ resource "cpln_identity" "example" {
 
   ngs_access_policy {
 
-			cloud_account_link = cpln_cloud_account.example_ngs.self_link
+    cloud_account_link = cpln_cloud_account.example_ngs.self_link
 
-			pub {
-				allow = ["pa1", "pa2"]
-				deny  = ["pd1", "pd2"]
-			}
+    pub {
+      allow = ["pa1", "pa2"]
+      deny  = ["pd1", "pd2"]
+    }
 
-			sub {
-				allow = ["sa1", "sa2"]
-				deny  = ["sd1", "sd2"]
-			}
+    sub {
+      allow = ["sa1", "sa2"]
+      deny  = ["sd1", "sd2"]
+    }
 
-			resp {
-				max = 1
-				ttl = "5m"
-			}
+    resp {
+      max = 1
+      ttl = "5m"
+    }
 
-			subs = 1
-			data = 2
-			payload = 3
-		}
+    subs    = 1
+    data    = 2
+    payload = 3
+  }
 }
 ```

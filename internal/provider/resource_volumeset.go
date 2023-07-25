@@ -2,6 +2,8 @@ package cpln
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -128,7 +130,24 @@ func resourceVolumeSet() *schema.Resource {
 				},
 			},
 		},
+		Importer: &schema.ResourceImporter{
+			StateContext: importStateVolumeSet,
+		},
 	}
+}
+
+func importStateVolumeSet(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+
+	parts := strings.SplitN(d.Id(), ":", 2)
+
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax: 'gvc:volume_set'. Example: 'terraform import cpln_volume_set.RESOURCE_NAME GVC_NAME:VOLUME_SET_NAME'", d.Id())
+	}
+
+	d.Set("gvc", parts[0])
+	d.SetId(parts[1])
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func setVolumeSet(d *schema.ResourceData, volumeSet *client.VolumeSet) diag.Diagnostics {

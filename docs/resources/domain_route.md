@@ -2,7 +2,6 @@
 page_title: "cpln_domain_route Resource - terraform-provider-cpln"
 subcategory: "Domain"
 description: |-
-
 ---
 
 # cpln_domain_route (Resource)
@@ -19,7 +18,7 @@ Used in conjunction with a Domain.
 
 - **domain_link** (String) The self link of the domain to add the route to.
 - **domain_port** (int) The port the route corresponds to. Default: 443
-- **prefix** (String) The path will match any unmatched path prefixes for the subdomain. 
+- **prefix** (String) The path will match any unmatched path prefixes for the subdomain.
 - **workload_link** (String) The link of the workload to map the prefix to.
 
 ### Optional
@@ -27,6 +26,16 @@ Used in conjunction with a Domain.
 - **replace_prefix** (String) A path prefix can be configured to be replaced when forwarding the request to the Workload.
 - **port** (Number) For the linked workload, the port to route traffic to.
 - **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.
+
+## Import Syntax
+
+To update a statefile with an existing domain route resource, execute the following import command:
+
+```terraform
+terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_ROUTE_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_ROUTE_NAME with the corresponding domain route defined in the resource.
 
 ## Example Usage
 

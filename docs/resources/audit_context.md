@@ -2,7 +2,6 @@
 page_title: "cpln_audit_context Resource - terraform-provider-cpln"
 subcategory: "Audit Context"
 description: |-
-
 ---
 
 # cpln_audit_context (Resource)
@@ -26,15 +25,25 @@ Manages an org's [Audit Context](https://docs.controlplane.com/reference/auditct
 
 The following attributes are exported:
 
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
+
+## Import Syntax
+
+To update a statefile with an existing audit context resource, execute the following import command:
+
+```terraform
+terraform import cpln_audit_context.RESOURCE_NAME AUDIT_CONTEXT_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute AUDIT_CONTEXT_NAME with the corresponding audit context defined in the resource.
 
 ## Example Usage
 
 ```terraform
 resource "cpln_audit_context" "example" {
     name = "audit-context-example"
-    description = "audit context description" 
-    
+    description = "audit context description"
+
     tags = {
         terraform_generated = "true"
         example = "true"
