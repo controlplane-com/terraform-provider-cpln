@@ -109,16 +109,6 @@ The following attributes are exported:
 
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
-## Import Syntax
-
-To update a statefile with an existing domain resource, execute the following import command:
-
-```terraform
-terraform import cpln_domain.RESOURCE_NAME DOMAIN_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_NAME with the corresponding domain defined in the resource.
-
 ## Example Usage
 
 ```terraform
@@ -194,3 +184,15 @@ resource "cpln_domain" "example_ns_subdomain" {
   }
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing domain resource, execute the following import command:
+
+```terraform
+terraform import cpln_domain.RESOURCE_NAME DOMAIN_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_NAME with the corresponding domain defined in the resource.

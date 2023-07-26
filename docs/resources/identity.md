@@ -188,16 +188,6 @@ The following attributes are exported:
 - **cpln_id** (String) ID, in GUID format, of the Identity.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
-## Import Syntax
-
-To update a statefile with an existing identity resource, execute the following import command:
-
-```terraform
-terraform import cpln_identity.RESOURCE_NAME GVC_NAME:IDENTITY_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and IDENTITY_NAME with the corresponding GVC and identity name defined in the resource.
-
 ## Example Usage
 
 ```terraform
@@ -410,3 +400,15 @@ resource "cpln_identity" "example" {
   }
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing identity resource, execute the following import command:
+
+```terraform
+terraform import cpln_identity.RESOURCE_NAME GVC_NAME:IDENTITY_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and IDENTITY_NAME with the corresponding GVC and identity name defined in the resource.

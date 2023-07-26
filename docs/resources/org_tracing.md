@@ -31,16 +31,6 @@ Optional:
 
 ~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to `true`.
 
-## Import Syntax
-
-To update a statefile with an existing org tracing resource, execute the following import command:
-
-```terraform
-terraform import cpln_org_tracing.RESOURCE_NAME ORG_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute ORG_NAME with the target org.
-
 ## Example Usage
 
 ### Lightstep
@@ -75,3 +65,15 @@ resource "cpln_org_tracing" "new" {
   }
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing org tracing resource, execute the following import command:
+
+```terraform
+terraform import cpln_org_tracing.RESOURCE_NAME ORG_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute ORG_NAME with the target org.

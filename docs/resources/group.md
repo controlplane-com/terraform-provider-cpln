@@ -78,16 +78,6 @@ The following attributes are exported:
 - **origin** (String) Origin of the service account. Either `builtin` or `default`.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
-## Import Syntax
-
-To update a statefile with an existing group resource, execute the following import command:
-
-```terraform
-terraform import cpln_group.RESOURCE_NAME GROUP_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GROUP_NAME with the corresponding group defined in the resource.
-
 ## Example Usage
 
 ```terraform
@@ -163,3 +153,15 @@ resource "cpln_group" "example_javascript" {
   }
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing group resource, execute the following import command:
+
+```terraform
+terraform import cpln_group.RESOURCE_NAME GROUP_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GROUP_NAME with the corresponding group defined in the resource.

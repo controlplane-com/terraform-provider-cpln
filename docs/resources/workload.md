@@ -371,15 +371,7 @@ Read-Only:
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
 
-## Import Syntax
 
-To update a statefile with an existing workload resource, execute the following import command:
-
-```terraform
-terraform import cpln_workload.RESOURCE_NAME GVC_NAME:WORKLOAD_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and WORKLOAD_NAME with the corresponding GVC and workload name defined in the resource.
 
 ## Example Usage - Serverless
 
@@ -976,3 +968,14 @@ resource "cpln_workload" "new" {
 }
 
 ```
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing workload resource, execute the following import command:
+
+```terraform
+terraform import cpln_workload.RESOURCE_NAME GVC_NAME:WORKLOAD_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and WORKLOAD_NAME with the corresponding GVC and workload name defined in the resource.

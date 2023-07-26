@@ -27,16 +27,6 @@ The following attributes are exported:
 - **key** (String, Sensitive) The generated key.
 - **name** (String) The generated name of the key.
 
-## Import Syntax
-
-To update a statefile with an existing service account key resource, execute the following import command:
-
-```terraform
-terraform import cpln_service_account_key.RESOURCE_NAME SERVICE_ACCOUNT_NAME:KEY_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute SERVICE_ACCOUNT_NAME with the name of the service account and KEY_NAME with the corresponding key name defined in the resource. (key name can be obtained from the console UI or CLI).
-
 ## Example Usage
 
 ```terraform
@@ -74,3 +64,15 @@ output "key_02" {
   value = cpln_service_account_key.example_02.key
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing service account key resource, execute the following import command:
+
+```terraform
+terraform import cpln_service_account_key.RESOURCE_NAME SERVICE_ACCOUNT_NAME:KEY_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute SERVICE_ACCOUNT_NAME with the name of the service account and KEY_NAME with the corresponding key name defined in the resource. (key name can be obtained from the console UI or CLI).

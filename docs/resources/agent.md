@@ -40,16 +40,6 @@ To use the `user_data` output:
 Refer to this [example](https://github.com/controlplane-com/examples/blob/main/terraform/poc/example-postgres/main.tf) in which
 one of the steps creates an Agent at AWS using the `user_data` output.
 
-## Import Syntax
-
-To update a statefile with an existing agent resource, execute the following import command:
-
-```terraform
-terraform import cpln_agent.RESOURCE_NAME AGENT_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute AGENT_NAME with the corresponding agent defined in the resource.
-
 ## Example Usage
 
 ```terraform
@@ -64,3 +54,15 @@ resource "cpln_agent" "example" {
   }
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing agent resource, execute the following import command:
+
+```terraform
+terraform import cpln_agent.RESOURCE_NAME AGENT_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute AGENT_NAME with the corresponding agent defined in the resource.

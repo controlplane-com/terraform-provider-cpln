@@ -27,16 +27,6 @@ Used in conjunction with a Domain.
 - **port** (Number) For the linked workload, the port to route traffic to.
 - **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.
 
-## Import Syntax
-
-To update a statefile with an existing domain route resource, execute the following import command:
-
-```terraform
-terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_ROUTE_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_ROUTE_NAME with the corresponding domain route defined in the resource.
-
 ## Example Usage
 
 ```terraform
@@ -132,3 +122,15 @@ resource "cpln_domain_route" "example_second_route" {
     port = 80
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing domain route resource, execute the following import command:
+
+```terraform
+terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_ROUTE_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_ROUTE_NAME with the corresponding domain route defined in the resource.

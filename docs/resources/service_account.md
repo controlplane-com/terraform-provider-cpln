@@ -27,16 +27,6 @@ The following attributes are exported:
 - **origin** (String) Origin of the Policy. Either `builtin` or `default`.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
-## Import Syntax
-
-To update a statefile with an existing service resource, execute the following import command:
-
-```terraform
-terraform import cpln_service_account.RESOURCE_NAME SERVICE_ACCOUNT_NAME
-```
-
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute SERVICE_ACCOUNT_NAME with the corresponding service account defined in the resource.
-
 ## Example Usage
 
 ```terraform
@@ -75,3 +65,15 @@ output "key_02" {
   value = cpln_service_account_key.example_02.key
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing service resource, execute the following import command:
+
+```terraform
+terraform import cpln_service_account.RESOURCE_NAME SERVICE_ACCOUNT_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute SERVICE_ACCOUNT_NAME with the corresponding service account defined in the resource.
