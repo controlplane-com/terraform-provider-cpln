@@ -2,14 +2,13 @@
 page_title: "cpln_group Resource - terraform-provider-cpln"
 subcategory: "Group"
 description: |-
-  
 ---
 
 # cpln_group (Resource)
 
-Manages an org's [Groups](https://docs.controlplane.com/reference/group). 
+Manages an org's [Groups](https://docs.controlplane.com/reference/group).
 
-Groups membership can contain [users](https://docs.controlplane.com/reference/user), [service accounts](https://docs.controlplane.com/reference/serviceaccount), and [custom queries](https://docs.controlplane.com/reference/group#query). 
+Groups membership can contain [users](https://docs.controlplane.com/reference/user), [service accounts](https://docs.controlplane.com/reference/serviceaccount), and [custom queries](https://docs.controlplane.com/reference/group#query).
 
 ## Declaration
 
@@ -21,16 +20,15 @@ Groups membership can contain [users](https://docs.controlplane.com/reference/us
 
 - **description** (String) Description of Group.
 - **tags** (Map of String) Key-value map of resource tags.
-  
 - **service_accounts** (List of String) List of service accounts that exists within the configured org. Group membership will fail if the service account does not exits within the org.
 - **user_ids_and_emails** (List of String) List of either the user ID or email address for a user that exists within the configured org. Group membership will fail if the user ID / email does not exist within the org.
 
 - **member_query** (Block List, Max: 1) ([see below](#nestedblock--member_query)).
 - **identity_matcher** (Block List, Max: 1) ([see below](#nestedblock--identity_matcher).
 
-
 <a id="nestedblock--member_query"></a>
- ### `member_query`
+
+### `member_query`
 
 Optional:
 
@@ -38,7 +36,8 @@ Optional:
 - **spec** (Block List, Max: 1) ([see below](#nestedblock--member_query--spec)).
 
 <a id="nestedblock--member_query--spec"></a>
- ### `member_query.spec`
+
+### `member_query.spec`
 
 Optional:
 
@@ -46,9 +45,11 @@ Optional:
 - **terms** (Block List) ([see below](#nestedblock--member_query--spec--terms)).
 
 <a id="nestedblock--member_query--spec--terms"></a>
- ### `member_query.spec.terms`
+
+### `member_query.spec.terms`
 
 <!-- Terms can only contain one of the following attributes: `property`, `rel`, `tag`. -->
+
 Terms can only contain one of the following attributes: `property`, `tag`.
 
 Optional:
@@ -58,9 +59,7 @@ Optional:
 - **property** (String) Property to use for query evaluation.
 <!-- - **rel** (String) Rel to use use for query evaluation. -->
 - **tag** (String) Tag key to use for query evaluation.
-  
 - **value** (String) Testing value for query evaluation.
-
 
 <a id="nestedblock--identity_matcher"></a>
 
@@ -70,14 +69,24 @@ This method is useful for managing the grouping of users loggined with SAML prov
 Required:
 
 - **expression** (String) Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged in with SAML providers.
-- **language** (String) Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`. 
+- **language** (String) Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`.
 
 ## Outputs
 
 The following attributes are exported:
 
 - **origin** (String) Origin of the service account. Either `builtin` or `default`.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
+
+## Import Syntax
+
+To update a statefile with an existing group resource, execute the following import command:
+
+```terraform
+terraform import cpln_group.RESOURCE_NAME GROUP_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GROUP_NAME with the corresponding group defined in the resource.
 
 ## Example Usage
 
@@ -131,7 +140,7 @@ resource "cpln_group" "example_jmespath" {
     terraform_generated = "true"
     example             = "true"
   }
-  
+
   identity_matcher {
     expression = "groups"
     language = "jmespath"
@@ -147,7 +156,7 @@ resource "cpln_group" "example_javascript" {
     terraform_generated = "true"
     example             = "true"
   }
-  
+
   identity_matcher {
     expression = "if ($.includes('groups')) { const y = $.groups; }"
     language = "javascript"

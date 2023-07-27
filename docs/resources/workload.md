@@ -301,7 +301,7 @@ Optional:
 
 ### `job`
 
-~> **Note** A CRON workload must contain a `job`. Capacity AI must be false and min/max scale must equal 1.
+~> **Note** A CRON workload must contain a `job`.<br/><br/>Capacity AI must be false and min/max scale must equal 1.
 
 Required:
 
@@ -370,6 +370,16 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
+
+## Import Syntax
+
+To update a statefile with an existing workload resource, execute the following import command:
+
+```terraform
+terraform import cpln_workload.RESOURCE_NAME GVC_NAME:WORKLOAD_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and WORKLOAD_NAME with the corresponding GVC and workload name defined in the resource.
 
 ## Example Usage - Serverless
 

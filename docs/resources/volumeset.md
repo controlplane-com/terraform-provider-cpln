@@ -60,15 +60,25 @@ Required:
 - **used_by_workload** (String) The url of the workload currently using this volume set (if any).
 - **locations** (List of String) Contains a list of actual volumes grouped by location.
 
+## Import Syntax
+
+To update a statefile with an existing volume set resource, execute the following import command:
+
+```terraform
+terraform import cpln_volume_set.RESOURCE_NAME GVC_NAME:VOLUME_SET_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME and VOLUME_SET_NAME with the corresponding GVC and volume set name defined in the resource.
+
 ## Example Usage
 
 ```terraform
 resource "cpln_gvc" "new" {
     name        = "gvc-for-volume-set"
     description = "This is a GVC description"
-    
+
     locations = ["aws-eu-central-1", "aws-us-west-2"]
-    
+
     tags = {
         terraform_generated = "true"
         acceptance_test     = "true"
@@ -76,7 +86,7 @@ resource "cpln_gvc" "new" {
 }
 
 resource "cpln_volume_set" "new" {
-    
+
     name 		= "volume-set-example"
     description = "This is a Volume Set description"
 

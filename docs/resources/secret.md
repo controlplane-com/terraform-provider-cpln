@@ -2,7 +2,6 @@
 page_title: "cpln_secret Resource - terraform-provider-cpln"
 subcategory: "Secret"
 description: |-
-  
 ---
 
 # cpln_secret (Resource)
@@ -39,84 +38,85 @@ Terraform state can contain sensitive data. Please review [Terraform's recommend
 - **tls** (Block List, Max: 1) ([see below](#nestedblock--tls)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
 - **userpass** (Block List, Max: 1) ([see below](#nestedblock--userpass)) [Reference Page](https://docs.controlplane.com/reference/secret#username).
 
-
 <a id="nestedblock--aws"></a>
- ### `aws`
+
+### `aws`
 
 Optional:
 
-- **access_key** (String, Sensitive) Access Key provided by AWS. 
+- **access_key** (String, Sensitive) Access Key provided by AWS.
 - **role_arn** (String) Role ARN provided by AWS.
-- **secret_key** (String, Sensitive) Secret Key provided by AWS. 
-
+- **secret_key** (String, Sensitive) Secret Key provided by AWS.
 
 <a id="nestedblock--azure_connector"></a>
- ### `azure_connector`
+
+### `azure_connector`
 
 Optional:
 
 - **code** (String, Sensitive) Code/Key to authenticate to deployment URL.
 - **url** (String, Sensitive) Deployment URL.
 
-
 <a id="nestedblock--ecr"></a>
- ### `ecr`
+
+### `ecr`
 
 [Reference Page](https://docs.controlplane.com/reference/secret#ecr)
 
 Optional:
 
-- **access_key** (String) Access Key provided by AWS. 
-- **repos** (Set of String) List of ECR repositories. 
-- **role_arn** (String) Role ARN provided by AWS. 
+- **access_key** (String) Access Key provided by AWS.
+- **repos** (Set of String) List of ECR repositories.
+- **role_arn** (String) Role ARN provided by AWS.
 - **secret_key** (String, Sensitive) Secret Key provided by AWS.
 
-
 <a id="nestedblock--keypair"></a>
- ### `keypair`
+
+### `keypair`
 
 Optional:
 
-- **passphrase** (String, Sensitive) Passphrase for private key. 
-- **public_key** (String) Public Key. 
-- **secret_key** (String, Sensitive) Secret/Private Key. 
+- **passphrase** (String, Sensitive) Passphrase for private key.
+- **public_key** (String) Public Key.
+- **secret_key** (String, Sensitive) Secret/Private Key.
 
 <a id="nestedblock--nats-account"></a>
- ### `nats_account`
+
+### `nats_account`
 
 Required:
 
-- **account_id** (String) Account ID. 
-- **private_key** (String) Private Key. 
+- **account_id** (String) Account ID.
+- **private_key** (String) Private Key.
 
 <a id="nestedblock--opaque"></a>
- ### `opaque`
+
+### `opaque`
 
 Optional:
 
-- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`. 
-- **payload** (String, Sensitive)  Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.
-
+- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`.
+- **payload** (String, Sensitive) Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.
 
 <a id="nestedblock--tls"></a>
- ### `tls`
+
+### `tls`
 
 Optional:
 
-- **cert** (String) Public Certificate. 
-- **chain** (String) Chain Certificate. 
-- **key** (String, Sensitive) Private Certificate. 
-
+- **cert** (String) Public Certificate.
+- **chain** (String) Chain Certificate.
+- **key** (String, Sensitive) Private Certificate.
 
 <a id="nestedblock--userpass"></a>
- ### `userpass`
+
+### `userpass`
 
 Optional:
 
-- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`. 
-- **password** (String, Sensitive) Password. 
-- **username** (String) Username. 
-
+- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`.
+- **password** (String, Sensitive) Password.
+- **username** (String) Username.
 
 ## Outputs
 
@@ -125,8 +125,17 @@ The following attributes are exported:
 - **cpln_id** (String) ID, in GUID format, of the Secret.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **tags** (Map of String) Key-value map of resource tags. Includes any server generated tags.
-  
-  
+
+## Import Syntax
+
+To update a statefile with an existing secret resource, execute the following import command:
+
+```terraform
+terraform import cpln_secret.RESOURCE_NAME SECRET_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute SECRET_NAME with the corresponding secret defined in the resource.
+
 ## Example Usage
 
 ```terraform
@@ -162,7 +171,7 @@ wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
 5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
 YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
 u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
+-----END CERTIFICATE-----
 EOT
 }
 
@@ -298,8 +307,8 @@ resource "cpln_secret" "azure_sdk" {
 resource "cpln_secret" "azure_connector" {
 
   name = "azureconnector-${var.random}"
-  description = "azureconnector description ${var.random}" 
-  
+  description = "azureconnector description ${var.random}"
+
   tags = {
     terraform_generated = "true"
     acceptance_test = "true"
@@ -310,7 +319,7 @@ resource "cpln_secret" "azure_connector" {
 
     # Required
     url  = "https://example.azurewebsites.net/api/iam-broker"
-    
+
     # Required
     code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
   }

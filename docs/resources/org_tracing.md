@@ -2,73 +2,76 @@
 page_title: "cpln_org_Tracing Resource - terraform-provider-cpln"
 subcategory: "Org Tracing"
 description: |-
-  
 ---
 
 # cpln_org_tracing (Resource)
 
 Manages an Org's tracing configuration.
 
-
 ## Declaration
 
-### Required 
+### Required
 
 At least one of the following tracing blocks are required:
-  
+
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 
-
 <a id="nestedblock--lightstep_tracing"></a>
- ### `lightstep_tracing`
 
+### `lightstep_tracing`
 
 Required:
 
 - **sampling** (Int) Sampling percentage.
-- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint. 
+- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
 
 Optional:
 
-- **credentials** (String) Full link to referenced Opaque Secret. 
+- **credentials** (String) Full link to referenced Opaque Secret.
 
-~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to  `true`.
+~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to `true`.
 
+## Import Syntax
+
+To update a statefile with an existing org tracing resource, execute the following import command:
+
+```terraform
+terraform import cpln_org_tracing.RESOURCE_NAME ORG_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute ORG_NAME with the target org.
 
 ## Example Usage
 
 ### Lightstep
 
 ```terraform
+resource "cpln_secret" "opaque" {
 
-   resource "cpln_secret" "opaque" {
+  name        = "opaque-random-tbd"
+  description = "description opaque-random-tbd"
 
-		name = "opaque-random-tbd"
-		description = "description opaque-random-tbd" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		} 
-		
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
 
-	resource "cpln_org_tracing" "new" {
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
 
-		lightstep_tracing {
+resource "cpln_org_tracing" "new" {
 
-			sampling = 50
-			endpoint = "test.cpln.local:8080"
+  lightstep_tracing {
 
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque.self_link
-		}	
-	}
+    sampling = 50
+    endpoint = "test.cpln.local:8080"
 
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+  }
+}
 ```
-

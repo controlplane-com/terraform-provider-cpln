@@ -2,6 +2,8 @@ package cpln
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -41,8 +43,24 @@ func resourceServiceAccountKey() *schema.Resource {
 				Computed:  true,
 			},
 		},
-		Importer: &schema.ResourceImporter{},
+		Importer: &schema.ResourceImporter{
+			StateContext: importStateServiceAccountKey,
+		},
 	}
+}
+
+func importStateServiceAccountKey(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+
+	parts := strings.SplitN(d.Id(), ":", 2)
+
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax: 'service_account_name:key_name'. Example: 'terraform import cpln_service_account_key.RESOURCE_NAME SERVICE_ACCOUNT_NAME:KEY_NAME'", d.Id())
+	}
+
+	d.Set("service_account_name", parts[0])
+	d.SetId(parts[1])
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func resourceServiceAccountKeyCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

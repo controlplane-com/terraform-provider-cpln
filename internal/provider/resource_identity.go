@@ -399,7 +399,7 @@ func importStateIdentity(ctx context.Context, d *schema.ResourceData, meta inter
 	parts := strings.SplitN(d.Id(), ":", 2)
 
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("unexpected format of ID (%s), expected gvc:identity", d.Id())
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax 'gvc:identity'. Example: 'terraform import cpln_identity.RESOURCE_NAME GVC_NAME:IDENTITY_NAME'", d.Id())
 	}
 
 	d.Set("gvc", parts[0])

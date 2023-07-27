@@ -54,42 +54,53 @@ The following attributes are exported:
 
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
+## Import Syntax
+
+To update a statefile with an existing GVC resource, execute the following import command:
+
+```terraform
+terraform import cpln_gvc.RESOURCE_NAME GVC_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute GVC_NAME with the corresponding GVC defined in the resource.
+
 ## Example Usage
 
 ```terraform
+
 resource "cpln_secret" "docker" {
-	name = "docker-secret"
-	description = "docker secret"
+  name        = "docker-secret"
+  description = "docker secret"
 
-	tags = {
-		terraform_generated = "true"
-		acceptance_test = "true"
-		secret_type = "docker"
-	}
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "docker"
+  }
 
-	env = {
-		env_var_key = "env_var_value"
-		workload_can_inherit = "true"
-	}
+  env = {
+    env_var_key          = "env_var_value"
+    workload_can_inherit = "true"
+  }
 
-	docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
+  docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
 }
 
 resource "cpln_secret" "opaque" {
 
-	name = "opaque-random-tbd"
-	description = "description opaque-random-tbd"
+  name        = "opaque-random-tbd"
+  description = "description opaque-random-tbd"
 
-	tags = {
-		terraform_generated = "true"
-		acceptance_test = "true"
-		secret_type = "opaque"
-	}
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
 
-	opaque {
-		payload = "opaque_secret_payload"
-		encoding = "plain"
-	}
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
 }
 
 resource "cpln_gvc" "example" {
@@ -110,14 +121,16 @@ resource "cpln_gvc" "example" {
 
   lightstep_tracing {
 
-		sampling = 50
-		endpoint = "test.cpln.local:8080"
+    sampling = 50
+    endpoint = "test.cpln.local:8080"
 
-		// Opaque Secret Only
-		credentials = cpln_secret.opaque.self_link
-	}
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+  }
+  
   load_balancer {
-	dedicated = true
+    dedicated = true
   }
 }
+
 ```
