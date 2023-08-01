@@ -60,6 +60,10 @@ func resourceSecret() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"dictionary_as_envs": {
+				Type:     schema.TypeMap,
+				Computed: true,
+			},
 			"opaque": {
 				Type:         schema.TypeList,
 				Optional:     true,
@@ -650,6 +654,15 @@ func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
 			secretData := data.(map[string]interface{})
 
 			if err := d.Set(*secret.Type, secretData); err != nil {
+				return diag.FromErr(err)
+			}
+
+			dict_as_envs := make(map[string]string)
+			for key := range secretData {
+				dict_as_envs[key] = fmt.Sprintf("cpln://secret/%s.%s", *secret.Name, key)
+			}
+
+			if err := d.Set("dictionary_as_envs", dict_as_envs); err != nil {
 				return diag.FromErr(err)
 			}
 		} else {

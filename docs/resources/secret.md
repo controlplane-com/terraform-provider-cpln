@@ -125,6 +125,7 @@ The following attributes are exported:
 - **cpln_id** (String) ID, in GUID format, of the Secret.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **tags** (Map of String) Key-value map of resource tags. Includes any server generated tags.
+- **dictionary_as_envs** (Map of String) If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.
 
 ## Example Usage
 
