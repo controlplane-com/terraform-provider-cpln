@@ -640,6 +640,10 @@ func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
 		*secret.Type = "nats_account"
 	}
 
+	if err := d.Set("dictionary_as_envs", nil); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if secret.Data != nil {
 
 		data := *secret.Data
