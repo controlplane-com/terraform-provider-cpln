@@ -258,3 +258,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.5 - Updated Terraform SDK to v2.26.1. Added CRON job workload type. Add workload rollout and security options. Add disabled scaling strategy. Add GVC load balancer. Add workload support dynamic tags.
 - v1.1.6 - Added volume sets. Added GPU to workload. Added external firewall outbound allow ports. Add domain host prefix.
 - v1.1.7 - Update all resources to allow import. Updated docs with import details and syntax.
+- v1.1.8 - Add to secret the output `dictionary_as_env`. Updated import docs.
