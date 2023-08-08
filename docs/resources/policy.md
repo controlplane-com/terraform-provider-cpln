@@ -19,7 +19,7 @@ Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 - **description** (String) Description of the Policy.
 - **tags** (Map of String) Key-value map of resource tags.
 - **target_kind** (String) The kind of resource to target (e.g., gvc, serviceaccount, etc.).
-- **gvc** (String) The GVC for 'identity' and 'workload' target kinds only.
+- **gvc** (String) The GVC for 'identity', 'workload' and 'volumeset' target kinds only.
 
 - **target** (String) Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.
 - **target_links** (List of String) List of the targets this policy will be applied to. Not used if `target` is set to `all`.
@@ -132,61 +132,58 @@ resource "cpln_policy" "example" {
     # Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `gvc/GVC_NAME/identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`
     principal_links = ["user/email@example.com", "group/viewers"]
   }
-
 }
 ```
 
-- GVC Resources (i.e. workload and identity)
+- GVC Resources (i.e. identity, workload and volumeset)
 
 ```terraform
 resource "cpln_gvc" "example" {
 
-		name        = "gvc-example"
-		description = "Example GVC"
+  name        = "gvc-example"
+  description = "Example GVC"
 
-		locations = ["aws-eu-central-1"]
+  locations = ["aws-eu-central-1"]
 
-		tags = {
-		  terraform_generated = "true"
-		}
-	}
+  tags = {
+    terraform_generated = "true"
+  }
+}
 
-	resource "cpln_identity" "example" {
+resource "cpln_identity" "example" {
 
-  	gvc = cpln_gvc.exmaple.name
+  gvc = cpln_gvc.exmaple.name
 
-		name        = "identity-example"
-		description = "Example Identity"
+  name        = "identity-example"
+  description = "Example Identity"
 
-		tags = {
-		  terraform_generated = "true"
-		}
-	}
+  tags = {
+    terraform_generated = "true"
+  }
+}
 
-  	resource "cpln_policy" "example" {
+  resource "cpln_policy" "example" {
 
-		name = "policy-example"
-		description = "Example Policy for GVC resources"
+  name = "policy-example"
+  description = "Example Policy for GVC resources"
 
-		tags = {
-			terraform_generated = "true"
-		}
+  tags = {
+    terraform_generated = "true"
+  }
 
-		target_kind = "identity"
+  target_kind = "identity"
 
-    # gvc required for `identity` and `workload` target kinds
-		gvc = cpln_gvc.terraform_gvc.name
+  # gvc required for 'identity', 'workload' and 'volumeset' target kinds
+  gvc = cpln_gvc.terraform_gvc.name
 
-		target_links = [cpln_identity.example.name]
-
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
-		}
-	}
+  target_links = [cpln_identity.example.name]
 
 
+  binding {
+    permissions = ["manage", "edit"]
+    principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+  }
+}
 ```
 
 ## Import Syntax

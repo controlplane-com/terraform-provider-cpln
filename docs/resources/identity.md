@@ -98,9 +98,9 @@ Required:
 
 Optional:
 
-- **pub** (Block List) Pub Permission. ([see below](#nestedblock--ngs_access_policy--perm)).
-- **sub** (Block List) Sub Permission. ([see below](#nestedblock--ngs_access_policy--perm)).
-- **resp** (Block List) Reponses. ([see below](#nestedblock--ngs_access_policy--resp)).
+- **pub** (Block List, Max: 1) Pub Permission. ([see below](#nestedblock--ngs_access_policy--perm)).
+- **sub** (Block List, Max: 1) Sub Permission. ([see below](#nestedblock--ngs_access_policy--perm)).
+- **resp** (Block List, Max: 1) Reponses. ([see below](#nestedblock--ngs_access_policy--resp)).
 - **subs** (Number) Max number of subscriptions per connection. Default: -1
 - **data** (Number) Max number of bytes a connection can send. Default: -1
 - **payload** (Number) Max message payload. Default: -1
@@ -162,8 +162,8 @@ Optional:
 
 Exactly one of:
 
-- **aws_private_link** (Block List) ([see below](#nestedblock--native_network_resource--aws_private_link))
-- **gcp_service_connect** (Block List) ([see below](#nestedblock--native_network_resource--gcp_service_connect))
+- **aws_private_link** (Block List, Max: 1) ([see below](#nestedblock--native_network_resource--aws_private_link))
+- **gcp_service_connect** (Block List, Max: 1) ([see below](#nestedblock--native_network_resource--gcp_service_connect))
 
 <a id="nestedblock--native_network_resource--aws_private_link"></a>
 
@@ -358,7 +358,7 @@ resource "cpln_identity" "example" {
   gcp_access_policy {
 
     cloud_account_link = cpln_cloud_account.example_gcp.self_link
-    scopes             = ["https://www.googleapis.com/auth/cloud-platform"]
+    scopes             = "https://www.googleapis.com/auth/cloud-platform"
 
     # The GCP access policy can either contain an existing service_account or multiple bindings
 
