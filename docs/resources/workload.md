@@ -23,7 +23,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **description** (String) Description of the Workload.
 - **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
 - **identity_link** (String) Full link to an Identity.
-- **local_options** (Block List, Max: 1) ([see below](#nestedblock--options)).
+- **local_options** (Block List) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
@@ -201,8 +201,8 @@ Required:
 
 Optional:
 
-- **postStart** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
-- **preStop** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
+- **post_start** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
+- **pre_stop** (Block List, Max: 1) ([see below](#nestedblock--container--lifecycle--spec)).
 
 <a id="nestedblock--container--lifecycle--spec"></a>
 

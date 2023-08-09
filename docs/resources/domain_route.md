@@ -31,18 +31,18 @@ Used in conjunction with a Domain.
 
 ```terraform
 resource "cpln_domain" "domain_apex" {
-		name        = "example.com"
-		description = "APEX domain example"
+  name        = "example.com"
+  description = "APEX domain example"
 
-		tags = {
-		  terraform_generated = "true"
-		}
+  tags = {
+    terraform_generated = "true"
+  }
 
-		spec {
-			ports {
-				tls { }
-			 }
-		}
+  spec {
+    ports {
+      tls { }
+      }
+  }
 }
 
 resource "cpln_domain" "example_cname_routes" {
