@@ -105,6 +105,7 @@ func resourceWorkload() *schema.Resource {
 							Type:         schema.TypeInt,
 							Optional:     true,
 							ValidateFunc: PortValidator,
+							Deprecated:   "The 'port' attribute will be deprecated in the next major version. Use the 'ports' attribute instead.",
 						},
 						"ports": {
 							Type:     schema.TypeList,
@@ -584,6 +585,18 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadCreate")
 
+	if checkLegacyPort(d.Get("container").([]interface{})) {
+		var diags diag.Diagnostics
+
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "port and ports are both defined",
+			Detail:   "Use only the ports attributes",
+		})
+
+		return diags
+	}
+
 	c := m.(*client.Client)
 
 	gvcName := d.Get("gvc").(string)
@@ -594,7 +607,7 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 	workload.Description = GetString(d.Get("description"))
 	workload.Tags = GetStringMap(d.Get("tags"))
 
-	buildContainers(d.Get("container").([]interface{}), workload.Spec)
+	legacyPort := buildContainers(d.Get("container").([]interface{}), workload.Spec)
 	buildFirewallSpec(d.Get("firewall_spec").([]interface{}), workload.Spec)
 	buildOptions(d.Get("options").([]interface{}), workload.Spec, false, c.Org)
 	buildOptions(d.Get("local_options").([]interface{}), workload.Spec, true, c.Org)
@@ -642,7 +655,7 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
-	return setWorkload(d, newWorkload, gvcName, c.Org, nil)
+	return setWorkload(d, newWorkload, gvcName, c.Org, legacyPort, nil)
 }
 
 func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -651,6 +664,10 @@ func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interfa
 
 	workloadName := d.Id()
 	gvcName := d.Get("gvc").(string)
+
+	workloadTemp := client.Workload{}
+	workloadTemp.Spec = &client.WorkloadSpec{}
+	legacyPort := buildContainers(d.Get("container").([]interface{}), workloadTemp.Spec)
 
 	c := m.(*client.Client)
 	workload, code, err := c.GetWorkload(workloadName, gvcName)
@@ -706,7 +723,7 @@ func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interfa
 
 	// log.Printf("Before Calling SET: Endpoint: %s. Canonical: %s", workload.Status.Endpoint, workload.Status.CanonicalEndpoint)
 
-	return setWorkload(d, workload, gvcName, c.Org, diags)
+	return setWorkload(d, workload, gvcName, c.Org, legacyPort, diags)
 }
 
 func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -714,6 +731,18 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
 	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags") {
+
+		if checkLegacyPort(d.Get("container").([]interface{})) {
+			var diags diag.Diagnostics
+
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "port and ports are both defined",
+				Detail:   "Use only the ports attributes",
+			})
+
+			return diags
+		}
 
 		c := m.(*client.Client)
 
@@ -727,7 +756,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace = &client.WorkloadSpec{}
 		workloadToUpdate.SpecReplace.Type = GetString(d.Get("type"))
 
-		buildContainers(d.Get("container").([]interface{}), workloadToUpdate.SpecReplace)
+		legacyPort := buildContainers(d.Get("container").([]interface{}), workloadToUpdate.SpecReplace)
 		buildOptions(d.Get("options").([]interface{}), workloadToUpdate.SpecReplace, false, c.Org)
 		buildOptions(d.Get("local_options").([]interface{}), workloadToUpdate.SpecReplace, true, c.Org)
 		buildFirewallSpec(d.Get("firewall_spec").([]interface{}), workloadToUpdate.SpecReplace)
@@ -764,7 +793,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 			updatedWorkload.Status.CanonicalEndpoint = &testEndpoint
 		}
 
-		return setWorkload(d, updatedWorkload, gvcName, c.Org, nil)
+		return setWorkload(d, updatedWorkload, gvcName, c.Org, legacyPort, nil)
 	}
 
 	return nil
@@ -785,7 +814,7 @@ func resourceWorkloadDelete(ctx context.Context, d *schema.ResourceData, m inter
 	return nil
 }
 
-func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org string, diags diag.Diagnostics) diag.Diagnostics {
+func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org string, legacyPort bool, diags diag.Diagnostics) diag.Diagnostics {
 
 	if workload == nil {
 		d.SetId("")
@@ -799,7 +828,7 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 	}
 
 	if workload.Spec != nil {
-		if err := d.Set("container", flattenContainer(workload.Spec.Containers)); err != nil {
+		if err := d.Set("container", flattenContainer(workload.Spec.Containers, legacyPort)); err != nil {
 			return diag.FromErr(err)
 		}
 
@@ -855,10 +884,31 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 	return diags
 }
 
-func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec) {
+func checkLegacyPort(containers []interface{}) bool {
 
 	if containers == nil {
-		return
+		return false
+	}
+
+	for _, container := range containers {
+
+		c := container.(map[string]interface{})
+
+		if (c["port"] != nil && c["port"].(int) > 0) && (c["ports"] != nil && len(c["ports"].([]interface{})) > 0) {
+			return true
+		}
+
+	}
+
+	return false
+}
+
+func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec) bool {
+
+	output := false
+
+	if containers == nil {
+		return output
 	}
 
 	newContainers := []client.ContainerSpec{}
@@ -881,11 +931,20 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 			newContainer.GPU = buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
 		}
 
-		if c["port"] != nil {
-			newContainer.Port = GetPortInt(c["port"])
+		if c["port"] != nil && c["port"].(int) > 0 {
+			// newContainer.Port = GetPortInt(c["port"])
+
+			newPorts := map[string]interface{}{
+				"protocol": "http",
+				"number":   c["port"],
+			}
+
+			newContainer.Ports = buildPortSpec([]interface{}{newPorts})
+
+			output = true
 		}
 
-		if c["ports"] != nil {
+		if c["ports"] != nil && len(c["ports"].([]interface{})) > 0 {
 			newContainer.Ports = buildPortSpec(c["ports"].([]interface{}))
 		}
 
@@ -944,6 +1003,8 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 	}
 
 	workloadSpec.Containers = &newContainers
+
+	return output
 }
 
 func buildPortSpec(ports []interface{}) *[]client.PortSpec {
@@ -1542,7 +1603,7 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 	return nil
 }
 
-func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
+func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []interface{} {
 
 	if containers != nil && len(*containers) > 0 {
 
@@ -1555,12 +1616,17 @@ func flattenContainer(containers *[]client.ContainerSpec) []interface{} {
 			c["name"] = *container.Name
 			c["image"] = *container.Image
 
-			if container.Port != nil && *container.Port > 0 {
-				c["port"] = *container.Port
-			}
+			// if container.Port != nil && *container.Port > 0 {
+			// 	c["port"] = *container.Port
+			// }
 
 			if container.Ports != nil {
-				c["ports"] = flattenPortSpec(container.Ports)
+
+				if legacyPort {
+					c["port"] = (*container.Ports)[0].Number
+				} else {
+					c["ports"] = flattenPortSpec(container.Ports)
+				}
 			}
 
 			c["cpu"] = *container.CPU

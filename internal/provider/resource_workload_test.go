@@ -146,10 +146,18 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		container {
 		  name   = "container-01"
 		  image  = "gcr.io/knative-samples/helloworld-go"
-		  port   = 8080
+		  
 		  memory = "128Mi"
 		  cpu    = "50m"
 	  
+
+		// port   = 8080
+
+		ports {
+			protocol = "http"
+			number   = "8080"
+		} 
+
 		  command           = "override-command"
 		  working_directory = "/usr"
 	  
@@ -746,8 +754,14 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 		container {
 			name   = "container-01"
 			image  = "gcr.io/knative-samples/helloworld-go"
-			port   = 8080
-		  	memory = "7Gi"
+			// port   = 8080
+		  	
+			ports {
+				protocol = "http"
+				number   = "8080"
+			} 
+			
+			memory = "7Gi"
 		  	cpu    = "2"
 
 			gpu_nvidia {
@@ -929,7 +943,14 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 		container {
 			name   = "container-01"
 			image  = "gcr.io/knative-samples/helloworld-go"
-			port   = 8080
+			
+			//port   = 8080
+
+			ports {
+				protocol = "http"
+				number   = "8080"
+			} 
+
 		  	memory = "7Gi"
 		  	cpu    = "2"
 
@@ -1442,7 +1463,7 @@ func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
 	containers := generateTestContainers("serverless")
-	flattenedContainer := flattenContainer(containers)
+	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless")
 
@@ -1454,7 +1475,7 @@ func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
 	containers := generateTestContainers("standard")
-	flattenedContainer := flattenContainer(containers)
+	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard")
 
@@ -1527,14 +1548,29 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 	}
 
 	if workloadType == "serverless" {
-		newContainer.Port = GetInt(8080)
+		// newContainer.Port = GetInt(8080)
+
+		newContainer.Ports = &[]client.PortSpec{
+			{
+				Protocol: GetString("http"),
+				Number:   GetInt(8080),
+			},
+		}
 	} else if workloadType == "serverless-gpu" {
 		newContainer.CPU = GetString("2")
 		newContainer.Memory = GetString("7Gi")
 
 		gpuNvidia, _, _ := generateTestGpuNvidia()
 		newContainer.GPU = gpuNvidia
-		newContainer.Port = GetInt(8080)
+		// newContainer.Port = GetInt(8080)
+
+		newContainer.Ports = &[]client.PortSpec{
+			{
+				Protocol: GetString("http"),
+				Number:   GetInt(8080),
+			},
+		}
+
 	} else if workloadType == "standard" {
 		newContainer.Ports = &[]client.PortSpec{
 			{
@@ -1831,7 +1867,16 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	}
 
 	if workloadType == "serverless" {
-		c["port"] = 8080
+
+		// c["port"] = 8080
+		port_01 := make(map[string]interface{})
+		port_01["protocol"] = "http"
+		port_01["number"] = 8080
+
+		c["ports"] = []interface{}{
+			port_01,
+		}
+
 	} else if workloadType == "standard" {
 
 		port_01 := make(map[string]interface{})
