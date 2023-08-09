@@ -46,7 +46,7 @@ func GvcSchema() map[string]*schema.Schema {
 		"domain": {
 			Type:       schema.TypeString,
 			Optional:   true,
-			Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use cpln_domain instead.",
+			Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use the 'cpln_domain resource' instead.",
 		},
 		"alias": {
 			Type:     schema.TypeString,

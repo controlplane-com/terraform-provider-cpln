@@ -48,7 +48,7 @@ Required:
 
 Optional:
 
-- **port** (Number) The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`. Used by `serverless` Workload type.
+- **port** (Number) The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`. Used by `serverless` Workload type. **DEPRECATED - Use `ports`.**
 
 - **ports** (Block List) ([see below](#nestedblock--container--ports)).
 
@@ -422,9 +422,14 @@ resource "cpln_workload" "new" {
   container {
     name   = "container-01"
     image  = "gcr.io/knative-samples/helloworld-go"
-    port   = 8080
+
     memory = "128Mi"
     cpu    = "50m"
+
+    ports {
+			protocol = "http"
+			number   = "8080"
+		} 
 
     command = "override-command"
     working_directory = "/usr"
@@ -851,9 +856,14 @@ resource "cpln_workload" "new" {
   container {
     name   = "container-01"
     image  = "gcr.io/knative-samples/helloworld-go"
-    port   = 8080
+
     memory = "7Gi"
     cpu    = "2"
+
+    ports {
+			protocol = "http"
+			number   = "8080"
+		} 
 
     gpu_nvidia {
       model    = "t4"
