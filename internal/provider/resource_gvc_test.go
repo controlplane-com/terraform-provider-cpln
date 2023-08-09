@@ -102,7 +102,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string)
 
 	resource "time_sleep" "wait_30_seconds" {
 		depends_on = [cpln_secret.docker]
-	  	destroy_duration = "15s"
+	  	destroy_duration = "30s"
 	}
 
 	resource "cpln_gvc" "new" {
