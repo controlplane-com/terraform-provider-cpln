@@ -91,7 +91,7 @@ Optional:
 ### `spec.ports.tls`
 
 - **min_protocol_version** (String)
-- **cipher_suites** (String)
+- **cipher_suites** (List of Strings)
 - **client_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
 - **server_certificate** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls--certificate))
 
