@@ -3,6 +3,8 @@ package cpln
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	client "terraform-provider-cpln/internal/provider/client"
 
@@ -50,8 +52,34 @@ func resourceDomainRoute() *schema.Resource {
 				Optional: true,
 			},
 		},
-		Importer: &schema.ResourceImporter{},
+		Importer: &schema.ResourceImporter{
+			StateContext: importStateDomainRoute,
+		},
 	}
+}
+
+func importStateDomainRoute(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+
+	parts := strings.SplitN(d.Id(), ":", 3)
+
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax: 'domain_link:domain_port:prefix'. Example: 'terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:PREFIX'", d.Id())
+	}
+
+	domainLink := parts[0]
+	domainPort, err := strconv.Atoi(parts[1])
+	routePrefix := parts[2]
+
+	if err != nil {
+		return nil, fmt.Errorf("unexpected format of ID (%s), domain port is invalid, must be a integer. value provided: %s. error: %s", d.Id(), parts[1], err.Error())
+	}
+
+	d.Set("domain_link", domainLink)
+	d.Set("domain_port", domainPort)
+	d.Set("prefix", routePrefix)
+	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, routePrefix))
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

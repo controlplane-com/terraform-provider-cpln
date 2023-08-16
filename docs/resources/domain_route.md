@@ -130,7 +130,7 @@ The `terraform import` command is used to bring existing infrastructure resource
 To update a statefile with an existing domain route resource, execute the following import command:
 
 ```terraform
-terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_ROUTE_NAME
+terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:PREFIX
 ```
 
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_ROUTE_NAME with the corresponding domain route defined in the resource.
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_LINK with the corresponding domain link defined in the resource.<br/>3. Substitute DOMAIN_PORT with the corresponding domain port defined in the resource.<br/>4. Substitute PREFIX with the corresponding prefix defined in the resource.
