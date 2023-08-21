@@ -12,7 +12,7 @@ import (
 
 func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 
-	var testLogging client.Logging
+	var testLogging []client.Logging
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t, "ORG_LOGGING") },
@@ -23,49 +23,63 @@ func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 				Config: testAccControlPlaneOrgS3(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "s3_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgCoralogix(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "coralogix_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgDatadog(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "datadog_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgLogzio(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "logzio_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "logzio_logging-different_listener_host"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgElasticAWS(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "elastic_logging-aws"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgElasticCloud(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "elastic_logging-elastic_cloud"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgThreeUniqueLoggings(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgTwoUniqueLoggings(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 		},
@@ -344,7 +358,156 @@ func testAccControlPlaneOrgElasticCloud() string {
     `
 }
 
-func testAccCheckControlPlaneLoggingExists(resourceName string, logging *client.Logging) resource.TestCheckFunc {
+func testAccControlPlaneOrgThreeUniqueLoggings() string {
+	return `
+
+	resource "cpln_secret" "aws" {
+		name = "aws-random-tbd"
+		description = "aws description aws-random-tbd" 
+							
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "aws"
+		}
+			
+		aws {
+			secret_key = "AKIAIOSFODNN7EXAMPLE"
+			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+			role_arn = "arn:awskey" 
+		}
+	}
+
+	resource "cpln_secret" "opaque-coralogix" {
+
+		name = "opaque-random-coralogix-tbd"
+		description = "opaque description opaque-random-tbd" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_secret" "opaque-datadog" {
+
+		name = "opaque-random-datadog-tbd"
+		description = "opaque description" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_org_logging" "tf-logging" {
+
+		s3_logging {
+			bucket = "test-bucket"
+			region = "us-east1"
+			prefix = "/"
+
+			// AWS Secret Only
+			credentials = cpln_secret.aws.self_link
+		}
+
+
+		coralogix_logging {
+			cluster = "coralogix.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-coralogix.self_link
+
+			app = "{workload}"
+			subsystem = "{org}"
+		}
+
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-datadog.self_link  
+		}
+	}
+
+	`
+}
+
+func testAccControlPlaneOrgTwoUniqueLoggings() string {
+	return `
+
+	resource "cpln_secret" "opaque-coralogix" {
+
+		name = "opaque-random-coralogix-tbd"
+		description = "opaque description opaque-random-tbd" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_secret" "opaque-datadog" {
+
+		name = "opaque-random-datadog-tbd"
+		description = "opaque description" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_org_logging" "tf-logging" {
+
+		coralogix_logging {
+			cluster = "coralogix.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-coralogix.self_link
+
+			app = "{workload}"
+			subsystem = "{org}"
+		}
+
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-datadog.self_link  
+		}
+	}
+
+	`
+}
+
+func testAccCheckControlPlaneLoggingExists(resourceName string, loggings *[]client.Logging) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		TestLogger.Printf("Inside testAccCheckControlPlaneLoggingExists. Resources Length: %d", len(s.RootModule().Resources))
 
@@ -354,67 +517,110 @@ func testAccCheckControlPlaneLoggingExists(resourceName string, logging *client.
 			return fmt.Errorf("Resource not found: %s", s)
 		}
 
-		client := testAccProvider.Meta().(*client.Client)
-		org, _, err := client.GetOrg()
+		c := testAccProvider.Meta().(*client.Client)
+		org, _, err := c.GetOrg()
 
 		if err != nil {
 			return err
 		}
 
-		*logging = *org.Spec.Logging
+		if org.Spec == nil {
+			return fmt.Errorf("Org spec is nil")
+		}
+
+		_loggings := []client.Logging{}
+
+		if org.Spec.Logging != nil {
+			_loggings = append(_loggings, *org.Spec.Logging)
+		}
+
+		if org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0 {
+			_loggings = append(_loggings, *org.Spec.ExtraLogging...)
+		}
+
+		*loggings = _loggings
 
 		return nil
 	}
 }
 
-func testAccCheckControlPlaneLoggingAttributes(logging *client.Logging, loggingType string) resource.TestCheckFunc {
+func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		var expectedValue interface{}
-		var toTestValue interface{}
-
-		switch loggingType {
-		case "s3_logging":
-			value, _, _ := generateTestS3Logging()
-			expectedValue = value
-			toTestValue = logging.S3
-
-		case "coralogix_logging":
-			value, _, _ := generateTestCoralogixLogging()
-			expectedValue = value
-			toTestValue = logging.Coralogix
-
-		case "datadog_logging":
-			value, _, _ := generateTestDatadogLogging()
-			expectedValue = value
-			toTestValue = logging.Datadog
-
-		case "logzio_logging":
-			value, _, _ := generateTestLogzioLogging(loggingType)
-			expectedValue = value
-			toTestValue = logging.Logzio
-
-		case "logzio_logging-different_listener_host":
-			value, _, _ := generateTestLogzioLogging(loggingType)
-			expectedValue = value
-			toTestValue = logging.Logzio
-
-		case "elastic_logging-aws":
-			value, _, _ := generateTestElasticLogging()
-			expectedValue = value.AWS
-			toTestValue = logging.Elastic.AWS
-
-		case "elastic_logging-elastic_cloud":
-			value, _, _ := generateTestElasticLogging()
-			expectedValue = value.ElasticCloud
-			toTestValue = logging.Elastic.ElasticCloud
-
-		default:
-			return nil
+		if loggings == nil || len(*loggings) == 0 {
+			return fmt.Errorf("Logging Attributes: Loggings were nil or empty")
 		}
 
-		if diff := deep.Equal(expectedValue, toTestValue); diff != nil {
-			return fmt.Errorf("%s attributes do not match. Diff: %s", loggingType, diff)
+		for _, logging := range *loggings {
+
+			var loggingType string
+			var expectedValue interface{}
+			var toTestValue interface{}
+
+			// Determine logging type
+			if logging.S3 != nil {
+				loggingType = "s3_logging"
+			} else if logging.Coralogix != nil {
+				loggingType = "coralogix_logging"
+			} else if logging.Datadog != nil {
+				loggingType = "datadog_logging"
+			} else if logging.Logzio != nil {
+				loggingType = "logzio_logging"
+
+				if *logging.Logzio.ListenerHost == "listener-nl.logz.io" {
+					loggingType = "logzio_logging-different_listener_host"
+				}
+			} else if logging.Elastic != nil && logging.Elastic.AWS != nil {
+				loggingType = "elastic_logging-aws"
+			} else if logging.Elastic != nil && logging.Elastic.ElasticCloud != nil {
+				loggingType = "elastic_logging-elastic_cloud"
+			} else {
+				return fmt.Errorf("Logging Attributes: We were not able to determine logging type")
+			}
+
+			switch loggingType {
+			case "s3_logging":
+				value, _, _ := generateTestS3Logging()
+				expectedValue = value
+				toTestValue = logging.S3
+
+			case "coralogix_logging":
+				value, _, _ := generateTestCoralogixLogging()
+				expectedValue = value
+				toTestValue = logging.Coralogix
+
+			case "datadog_logging":
+				value, _, _ := generateTestDatadogLogging()
+				expectedValue = value
+				toTestValue = logging.Datadog
+
+			case "logzio_logging":
+				value, _, _ := generateTestLogzioLogging(loggingType)
+				expectedValue = value
+				toTestValue = logging.Logzio
+
+			case "logzio_logging-different_listener_host":
+				value, _, _ := generateTestLogzioLogging(loggingType)
+				expectedValue = value
+				toTestValue = logging.Logzio
+
+			case "elastic_logging-aws":
+				value, _, _ := generateTestElasticLogging()
+				expectedValue = value.AWS
+				toTestValue = logging.Elastic.AWS
+
+			case "elastic_logging-elastic_cloud":
+				value, _, _ := generateTestElasticLogging()
+				expectedValue = value.ElasticCloud
+				toTestValue = logging.Elastic.ElasticCloud
+
+			default:
+				return nil
+			}
+
+			if diff := deep.Equal(expectedValue, toTestValue); diff != nil {
+				return fmt.Errorf("%s attributes do not match. Diff: %s", loggingType, diff)
+			}
 		}
 
 		return nil
@@ -445,7 +651,7 @@ func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
 
 		org, _, _ := c.GetOrg()
 
-		if org.Spec.Logging != nil {
+		if org.Spec.Logging != nil || (org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0) {
 			return fmt.Errorf("Org Spec Logging still exists. Org Name: %s", *org.Name)
 		}
 	}

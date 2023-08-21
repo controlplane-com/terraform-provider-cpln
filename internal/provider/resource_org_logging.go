@@ -41,10 +41,9 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"s3_logging": {
-				Type:         schema.TypeList,
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: loggingNames,
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"bucket": {
@@ -68,10 +67,9 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"coralogix_logging": {
-				Type:         schema.TypeList,
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: loggingNames,
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cluster": {
@@ -94,10 +92,9 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"datadog_logging": {
-				Type:         schema.TypeList,
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: loggingNames,
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"host": {
@@ -112,10 +109,9 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"logzio_logging": {
-				Type:         schema.TypeList,
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: loggingNames,
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"listener_host": {
@@ -130,10 +126,9 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"elastic_logging": {
-				Type:         schema.TypeList,
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: loggingNames,
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"aws": {
@@ -220,34 +215,13 @@ func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	// // Clear out all logging
 	// org.Spec.Logging = nil
 
-	var logCreate *client.Logging
+	loggings := buildMultipleLoggings(d, loggingNames...)
 
-	logArray := d.Get("s3_logging").([]interface{})
-	if len(logArray) == 1 {
-		logCreate = buildS3Logging(logArray)
+	if e := orgLoggingValidate(d, loggings); e != nil {
+		return e
 	}
 
-	logArray = d.Get("coralogix_logging").([]interface{})
-	if len(logArray) == 1 {
-		logCreate = buildCoralogixLogging(logArray)
-	}
-
-	logArray = d.Get("datadog_logging").([]interface{})
-	if len(logArray) == 1 {
-		logCreate = buildDatadogLogging(logArray)
-	}
-
-	logArray = d.Get("logzio_logging").([]interface{})
-	if len(logArray) == 1 {
-		logCreate = buildLogzioLogging(logArray)
-	}
-
-	logArray = d.Get("elastic_logging").([]interface{})
-	if len(logArray) == 1 {
-		logCreate = buildElasticLogging(logArray)
-	}
-
-	org, _, err := c.UpdateOrgLogging(logCreate)
+	org, _, err := c.UpdateOrgLogging(&loggings)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -289,49 +263,14 @@ func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 		// // Clear out all logging
 		// org.Spec.Logging = nil
 
-		var logUpdate *client.Logging
+		// Build regardless of changes
+		loggings := buildMultipleLoggings(d, loggingNames...)
 
-		if d.HasChange("s3_logging") {
-			logArray := d.Get("s3_logging").([]interface{})
-
-			if logArray != nil {
-				logUpdate = buildS3Logging(logArray)
-			}
+		if e := orgLoggingValidate(d, loggings); e != nil {
+			return e
 		}
 
-		if d.HasChange("coralogix_logging") {
-			logArray := d.Get("coralogix_logging").([]interface{})
-
-			if logArray != nil {
-				logUpdate = buildCoralogixLogging(logArray)
-			}
-		}
-
-		if d.HasChange("datadog_logging") {
-			logArray := d.Get("datadog_logging").([]interface{})
-
-			if logArray != nil {
-				logUpdate = buildDatadogLogging(logArray)
-			}
-		}
-
-		if d.HasChange("logzio_logging") {
-			logArray := d.Get("logzio_logging").([]interface{})
-
-			if logArray != nil {
-				logUpdate = buildLogzioLogging(logArray)
-			}
-		}
-
-		if d.HasChange("elastic_logging") {
-			logArray := d.Get("elastic_logging").([]interface{})
-
-			if logArray != nil {
-				logUpdate = buildElasticLogging(logArray)
-			}
-		}
-
-		org, _, err := c.UpdateOrgLogging(logUpdate)
+		org, _, err := c.UpdateOrgLogging(&loggings)
 		if err != nil {
 			return diag.FromErr(err)
 		}
@@ -642,38 +581,104 @@ func setOrg(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		return diag.FromErr(err)
 	}
 
-	if org.Spec != nil && org.Spec.Logging != nil {
+	loggings := []client.Logging{}
 
-		if org.Spec.Logging.S3 != nil {
-			if err := d.Set("s3_logging", flattenS3Logging(org.Spec.Logging.S3)); err != nil {
-				return diag.FromErr(err)
-			}
+	if org.Spec != nil {
+		if org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0 {
+			loggings = *org.Spec.ExtraLogging
 		}
 
-		if org.Spec.Logging.Coralogix != nil {
-			if err := d.Set("coralogix_logging", flattenCoralogixLogging(org.Spec.Logging.Coralogix)); err != nil {
-				return diag.FromErr(err)
-			}
+		// Legacy support
+		if org.Spec.Logging != nil {
+			loggings = append(loggings, *org.Spec.Logging)
 		}
 
-		if org.Spec.Logging.Datadog != nil {
-			if err := d.Set("datadog_logging", flattenDatadogLogging(org.Spec.Logging.Datadog)); err != nil {
-				return diag.FromErr(err)
+		for _, logging := range loggings {
+			if logging.S3 != nil {
+				if err := d.Set("s3_logging", flattenS3Logging(logging.S3)); err != nil {
+					return diag.FromErr(err)
+				}
 			}
-		}
 
-		if org.Spec.Logging.Logzio != nil {
-			if err := d.Set("logzio_logging", flattenLogzioLogging(org.Spec.Logging.Logzio)); err != nil {
-				return diag.FromErr(err)
+			if logging.Coralogix != nil {
+				if err := d.Set("coralogix_logging", flattenCoralogixLogging(logging.Coralogix)); err != nil {
+					return diag.FromErr(err)
+				}
 			}
-		}
 
-		if org.Spec.Logging.Elastic != nil {
-			if err := d.Set("elastic_logging", flattenElasticLogging(org.Spec.Logging.Elastic)); err != nil {
-				return diag.FromErr(err)
+			if logging.Datadog != nil {
+				if err := d.Set("datadog_logging", flattenDatadogLogging(logging.Datadog)); err != nil {
+					return diag.FromErr(err)
+				}
+			}
+
+			if logging.Logzio != nil {
+				if err := d.Set("logzio_logging", flattenLogzioLogging(logging.Logzio)); err != nil {
+					return diag.FromErr(err)
+				}
+			}
+
+			if logging.Elastic != nil {
+				if err := d.Set("elastic_logging", flattenElasticLogging(logging.Elastic)); err != nil {
+					return diag.FromErr(err)
+				}
 			}
 		}
 	}
 
 	return nil
+}
+
+func orgLoggingValidate(d *schema.ResourceData, loggings []client.Logging) diag.Diagnostics {
+	// Make sure each logging argument is being used only once
+	for _, value := range loggingNames {
+		logArray := d.Get(value).([]interface{})
+
+		if len(logArray) > 1 {
+			return diag.Errorf("the argument '%s' is unqiue and can only be used once, remove the extra use of the argument from your resource", value)
+		}
+	}
+
+	// Users can have 3 loggings max
+	if len(loggings) > 3 {
+		return diag.Errorf("you can only have a maximum of 3 loggings")
+	}
+
+	return nil
+}
+
+func buildMultipleLoggings(d *schema.ResourceData, loggingTypes ...string) []client.Logging {
+
+	loggings := []client.Logging{}
+
+	for _, loggingType := range loggingTypes {
+		logArray := d.Get(loggingType).([]interface{})
+
+		if logArray == nil {
+			continue
+		}
+
+		var loggingToAdd *client.Logging
+
+		switch loggingType {
+		case "s3_logging":
+			loggingToAdd = buildS3Logging(logArray)
+		case "coralogix_logging":
+			loggingToAdd = buildCoralogixLogging(logArray)
+		case "datadog_logging":
+			loggingToAdd = buildDatadogLogging(logArray)
+		case "logzio_logging":
+			loggingToAdd = buildLogzioLogging(logArray)
+		case "elastic_logging":
+			loggingToAdd = buildElasticLogging(logArray)
+		default:
+			continue
+		}
+
+		if loggingToAdd != nil {
+			loggings = append(loggings, *loggingToAdd)
+		}
+	}
+
+	return loggings
 }

@@ -12,7 +12,7 @@ Manages an [Org's external logging configuration](https://docs.controlplane.com/
 
 ### Required
 
-**Only one** of the following logging blocks can be defined:
+You can define up to **three** logging blocks:
 
 - **s3_logging** (Block List, Max: 1) ([see below](#nestedblock--s3_logging)).
 - **coralogix_logging** (Block List, Max: 1) ([see below](#nestedblock--coralogix_logging)).
@@ -327,6 +327,101 @@ resource "cpln_org_logging" "new" {
       credentials = cpln_secret.opaque.self_link
       cloud_id    = "my-cloud-id"
     }
+  }
+}
+```
+
+### Use Of Three Unique Loggings
+
+
+```terraform
+resource "cpln_secret" "aws" {
+
+  name        = "aws-random-tbd"
+  description = "aws description aws-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "aws"
+  }
+
+  aws {
+    secret_key = "AKIAIOSFODNN7EXAMPLE"
+    access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    role_arn   = "arn:awskey"
+  }
+}
+
+resource "cpln_secret" "opaque-coralogix" {
+
+  name        = "opaque-random-coralogix-tbd"
+  description = "opaque description opaque-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog" {
+
+  name        = "opaque-random-datadog-tbd"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "tf-logging" {
+  s3_logging {
+
+    bucket = "test-bucket"
+    region = "us-east1"
+    prefix = "/"
+
+    // AWS Secret Only
+    credentials = cpln_secret.aws.self_link
+  }
+
+  coralogix_logging {
+
+    // Valid clusters
+    // coralogix.com, coralogix.us, app.coralogix.in, app.eu2.coralogix.com, app.coralogixsg.com
+    cluster = "coralogix.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+
+    // Supported variables for App and Subsystem are:
+    // {org}, {gvc}, {workload}, {location}
+    app       = "{workload}"
+    subsystem = "{org}"
+  }
+
+  datadog_logging {
+
+    // Valid Hosts
+    // http-intake.logs.datadoghq.com, http-intake.logs.us3.datadoghq.com,
+    // http-intake.logs.us5.datadoghq.com, http-intake.logs.datadoghq.eu
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
   }
 }
 ```

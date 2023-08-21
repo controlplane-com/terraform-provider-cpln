@@ -80,8 +80,9 @@ type Logging struct {
 
 // OrgSpec - Organization Spec
 type OrgSpec struct {
-	Logging *Logging `json:"logging,omitempty"`
-	Tracing *Tracing `json:"tracing,omitempty"`
+	Logging      *Logging   `json:"logging,omitempty"`
+	ExtraLogging *[]Logging `json:"extraLogging,omitempty"`
+	Tracing      *Tracing   `json:"tracing,omitempty"`
 }
 
 type UpdateSpec struct {
@@ -89,7 +90,8 @@ type UpdateSpec struct {
 }
 
 type ReplaceLogging struct {
-	Logging *Logging `json:"$replace/logging"`
+	Logging      *Logging   `json:"$replace/logging"`
+	ExtraLogging *[]Logging `json:"$replace/extraLogging"`
 }
 
 type ReplaceTracing struct {
@@ -120,11 +122,19 @@ func (c *Client) GetOrg() (*Org, int, error) {
 }
 
 // UpdateOrgLogging - Update an existing Org Logging
-func (c *Client) UpdateOrgLogging(log *Logging) (*Org, int, error) {
+func (c *Client) UpdateOrgLogging(extraLogging *[]Logging) (*Org, int, error) {
+
+	var logging *Logging
+
+	if extraLogging != nil && len(*extraLogging) > 0 {
+		logging = &(*extraLogging)[0]
+		*extraLogging = (*extraLogging)[1:]
+	}
 
 	spec := UpdateSpec{
 		Spec: ReplaceLogging{
-			Logging: log,
+			Logging:      logging,
+			ExtraLogging: extraLogging,
 		},
 	}
 
