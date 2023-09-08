@@ -259,3 +259,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.6 - Added volume sets. Added GPU to workload. Added external firewall outbound allow ports. Add domain host prefix.
 - v1.1.7 - Update all resources to allow import. Updated docs with import details and syntax.
 - v1.1.8 - Add to secret the output `dictionary_as_env`. Updated import docs. Initial logic for the deprecation of the `port` container attribute. Updated SDK to v2.27.0.
+- v1.1.9 - Fix issue with volume set status.locations. 
