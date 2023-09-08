@@ -63,12 +63,14 @@ Optional:
 
 <a id="nestedblock--identity_matcher"></a>
 
-Executes the expression against the users' claims to decide whether a user belongs to this group.
-This method is useful for managing the grouping of users loggined with SAML providers.
+### `identity_matcher`
 
 Required:
 
 - **expression** (String) Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged in with SAML providers.
+
+Optional:
+
 - **language** (String) Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`.
 
 ## Outputs
