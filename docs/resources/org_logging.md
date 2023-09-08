@@ -6,7 +6,7 @@ description: |-
 
 # cpln_org_logging (Resource)
 
-Manages an [Org's external logging configuration](https://docs.controlplane.com/reference/org#external-logging).
+Manages an [Org's external logging configuration](https://docs.controlplane.com/external-logging/overview).
 
 ## Declaration
 
