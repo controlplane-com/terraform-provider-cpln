@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	client "terraform-provider-cpln/internal/provider/client"
@@ -378,12 +379,20 @@ func flattenVolumeSetStatus(status *client.VolumeSetStatus) []interface{} {
 	}
 }
 
-func flattenVolumeSetStatusLocations(locations *[]string) []interface{} {
+func flattenVolumeSetStatusLocations(locations *[]interface{}) []interface{} {
 
 	result := make([]interface{}, len(*locations))
 
 	for i, location := range *locations {
-		result[i] = location
+
+		jsonData, err := json.Marshal(location)
+
+		if err != nil {
+			result[i] = fmt.Sprintf("Error serializing to JSON: %s", err)
+
+		} else {
+			result[i] = string(jsonData)
+		}
 	}
 
 	return result

@@ -18,9 +18,9 @@ type VolumeSetSpec struct {
 }
 
 type VolumeSetStatus struct {
-	ParentID       *string   `json:"parentID,omitempty"`
-	UsedByWorkload *string   `json:"usedByWorkload,omitempty"`
-	Locations      *[]string `json:"locations,omitempty"`
+	ParentID       *string        `json:"parentID,omitempty"`
+	UsedByWorkload *string        `json:"usedByWorkload,omitempty"`
+	Locations      *[]interface{} `json:"locations,omitempty"`
 }
 
 type VolumeSetSnapshots struct {
