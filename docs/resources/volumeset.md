@@ -17,7 +17,7 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 - **name** (String) Name of the Volume Set.
 - **gvc** (String) Name of the associated GVC.
 - **initial_capacity** (Integer) The initial size in GB of volumes in this set. Minimum value: `10`.
-- **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `premium-low-latency-ssd`
+- **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`
 - **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`
 
 ### Optional
@@ -87,7 +87,7 @@ resource "cpln_volume_set" "new" {
 
     gvc 			  = cpln_gvc.new.name
     initial_capacity  = 1000
-    performance_class = "premium-low-latency-ssd"
+    performance_class = "high-throughput-ssd"
     file_system_type  = "xfs"
 
     snapshots {
