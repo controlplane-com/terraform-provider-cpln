@@ -17,7 +17,7 @@
                 "TF_ACC": "1",
                 // "VALIDATE_DOMAINS": false,
                 "CPLN_ENDPOINT": "https://api.test.cpln.io",
-                "CPLN_PROFILE": "terraform",
+                "CPLN_PROFILE": "default",
                 "GOOGLE_APPLICATION_CREDENTIALS": "/home/eric/cpln-test-ed241af8c626.json",
                 "GOOGLE_PROJECT": "cpln-test",
                 "CPLN_ORG": "terraform-test-org",
