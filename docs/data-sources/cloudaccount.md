@@ -19,7 +19,7 @@ Use this data source to access information about an existing [Cloud Account](htt
 data "cpln_cloud_account" "this" {}
 
 output "cloud_account" {
-  value = data.cpln_cloud_account.this
+  value = data.cpln_cloud_account.this.aws_identifiers
 }
 ```
 
