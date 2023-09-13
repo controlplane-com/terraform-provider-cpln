@@ -58,10 +58,11 @@ func Provider() *schema.Provider {
 
 		DataSourcesMap: map[string]*schema.Resource{
 			// "cpln_gvcs": dataSourceGvcs(),
-			"cpln_gvc":       dataSourceGvc(),
-			"cpln_location":  dataSourceLocation(),
-			"cpln_locations": dataSourceLocations(),
-			"cpln_org":       dataSourceOrg(),
+			"cpln_cloud_account": dataSourceCloudAccount(),
+			"cpln_gvc":           dataSourceGvc(),
+			"cpln_location":      dataSourceLocation(),
+			"cpln_locations":     dataSourceLocations(),
+			"cpln_org":           dataSourceOrg(),
 		},
 
 		ConfigureContextFunc: providerConfigure,
