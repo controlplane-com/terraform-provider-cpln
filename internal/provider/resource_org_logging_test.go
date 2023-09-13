@@ -12,7 +12,7 @@ import (
 
 func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 
-	var testLogging client.Logging
+	var testLogging []client.Logging
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t, "ORG_LOGGING") },
@@ -23,49 +23,63 @@ func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 				Config: testAccControlPlaneOrgS3(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "s3_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgCoralogix(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "coralogix_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgDatadog(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "datadog_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgLogzio(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "logzio_logging"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "logzio_logging-different_listener_host"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgElasticAWS(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "elastic_logging-aws"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 			{
 				Config: testAccControlPlaneOrgElasticCloud(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging, "elastic_logging-elastic_cloud"),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgThreeUniqueLoggings(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgTwoUniqueLoggings(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
 				),
 			},
 		},
@@ -176,6 +190,23 @@ func testAccControlPlaneOrgDatadog() string {
         }
     }
 
+	resource "cpln_secret" "opaque-1" {
+
+        name = "opaque-random-datadog-tbd-1"
+        description = "opaque description" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "opaque"
+        }
+
+        opaque {
+            payload = "opaque_secret_payload"
+            encoding = "plain"
+        }
+    }
+
     resource "cpln_org_logging" "tf-logging" {
 
         datadog_logging {
@@ -188,6 +219,13 @@ func testAccControlPlaneOrgDatadog() string {
             // Opaque Secret Only
             credentials = cpln_secret.opaque.self_link  
         }
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-1.self_link  
+		}
     }       
     `
 }
@@ -344,7 +382,204 @@ func testAccControlPlaneOrgElasticCloud() string {
     `
 }
 
-func testAccCheckControlPlaneLoggingExists(resourceName string, logging *client.Logging) resource.TestCheckFunc {
+func testAccControlPlaneOrgThreeUniqueLoggings() string {
+	return `
+
+	resource "cpln_secret" "aws" {
+		name = "aws-random-tbd"
+		description = "aws description aws-random-tbd" 
+							
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "aws"
+		}
+			
+		aws {
+			secret_key = "AKIAIOSFODNN7EXAMPLE"
+			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+			role_arn = "arn:awskey" 
+		}
+	}
+
+	resource "cpln_secret" "opaque-coralogix" {
+
+		name = "opaque-random-coralogix-tbd"
+		description = "opaque description opaque-random-tbd" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_secret" "opaque-datadog" {
+
+		name = "opaque-random-datadog-tbd"
+		description = "opaque description" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_secret" "opaque-datadog-1" {
+
+		name = "opaque-random-datadog-tbd-1"
+		description = "opaque description" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_org_logging" "tf-logging" {
+
+		s3_logging {
+			bucket = "test-bucket"
+			region = "us-east1"
+			prefix = "/"
+
+			// AWS Secret Only
+			credentials = cpln_secret.aws.self_link
+		}
+
+
+		coralogix_logging {
+			cluster = "coralogix.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-coralogix.self_link
+
+			app = "{workload}"
+			subsystem = "{org}"
+		}
+
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-datadog.self_link  
+		}
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-datadog-1.self_link  
+		}
+	}
+
+	`
+}
+
+func testAccControlPlaneOrgTwoUniqueLoggings() string {
+	return `
+
+	resource "cpln_secret" "opaque-coralogix" {
+
+		name = "opaque-random-coralogix-tbd"
+		description = "opaque description opaque-random-tbd" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_secret" "opaque-datadog" {
+
+		name = "opaque-random-datadog-tbd"
+		description = "opaque description" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_secret" "opaque-datadog-1" {
+
+		name = "opaque-random-datadog-tbd-1"
+		description = "opaque description" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+			secret_type = "opaque"
+		}
+
+		opaque {
+			payload = "opaque_secret_payload"
+			encoding = "plain"
+		}
+	}
+
+	resource "cpln_org_logging" "tf-logging" {
+
+		coralogix_logging {
+			cluster = "coralogix.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-coralogix.self_link
+
+			app = "{workload}"
+			subsystem = "{org}"
+		}
+
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-datadog.self_link  
+		}
+
+		datadog_logging {
+			host = "http-intake.logs.datadoghq.com"
+
+			// Opaque Secret Only
+			credentials = cpln_secret.opaque-datadog-1.self_link  
+		}
+	}
+
+	`
+}
+
+func testAccCheckControlPlaneLoggingExists(resourceName string, loggings *[]client.Logging) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		TestLogger.Printf("Inside testAccCheckControlPlaneLoggingExists. Resources Length: %d", len(s.RootModule().Resources))
 
@@ -354,67 +589,149 @@ func testAccCheckControlPlaneLoggingExists(resourceName string, logging *client.
 			return fmt.Errorf("Resource not found: %s", s)
 		}
 
-		client := testAccProvider.Meta().(*client.Client)
-		org, _, err := client.GetOrg()
+		c := testAccProvider.Meta().(*client.Client)
+		org, _, err := c.GetOrg()
 
 		if err != nil {
 			return err
 		}
 
-		*logging = *org.Spec.Logging
+		if org.Spec == nil {
+			return fmt.Errorf("Org spec is nil")
+		}
+
+		_loggings := []client.Logging{}
+
+		if org.Spec.Logging != nil {
+			_loggings = append(_loggings, *org.Spec.Logging)
+		}
+
+		if org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0 {
+			_loggings = append(_loggings, *org.Spec.ExtraLogging...)
+		}
+
+		*loggings = _loggings
 
 		return nil
 	}
 }
 
-func testAccCheckControlPlaneLoggingAttributes(logging *client.Logging, loggingType string) resource.TestCheckFunc {
+func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		var expectedValue interface{}
-		var toTestValue interface{}
-
-		switch loggingType {
-		case "s3_logging":
-			value, _, _ := generateTestS3Logging()
-			expectedValue = value
-			toTestValue = logging.S3
-
-		case "coralogix_logging":
-			value, _, _ := generateTestCoralogixLogging()
-			expectedValue = value
-			toTestValue = logging.Coralogix
-
-		case "datadog_logging":
-			value, _, _ := generateTestDatadogLogging()
-			expectedValue = value
-			toTestValue = logging.Datadog
-
-		case "logzio_logging":
-			value, _, _ := generateTestLogzioLogging(loggingType)
-			expectedValue = value
-			toTestValue = logging.Logzio
-
-		case "logzio_logging-different_listener_host":
-			value, _, _ := generateTestLogzioLogging(loggingType)
-			expectedValue = value
-			toTestValue = logging.Logzio
-
-		case "elastic_logging-aws":
-			value, _, _ := generateTestElasticLogging()
-			expectedValue = value.AWS
-			toTestValue = logging.Elastic.AWS
-
-		case "elastic_logging-elastic_cloud":
-			value, _, _ := generateTestElasticLogging()
-			expectedValue = value.ElasticCloud
-			toTestValue = logging.Elastic.ElasticCloud
-
-		default:
-			return nil
+		if loggings == nil || len(*loggings) == 0 {
+			return fmt.Errorf("Logging Attributes: Loggings were nil or empty")
 		}
 
-		if diff := deep.Equal(expectedValue, toTestValue); diff != nil {
-			return fmt.Errorf("%s attributes do not match. Diff: %s", loggingType, diff)
+		var s3TestValue, coralogixTestValue, dataDogTestValue,
+			logzioTestvalue, elasticTestValue []client.Logging
+
+		for _, logging := range *loggings {
+
+			var loggingType string
+
+			// Determine logging type
+			if logging.S3 != nil {
+				loggingType = "s3_logging"
+			} else if logging.Coralogix != nil {
+				loggingType = "coralogix_logging"
+			} else if logging.Datadog != nil {
+				loggingType = "datadog_logging"
+			} else if logging.Logzio != nil {
+				loggingType = "logzio_logging"
+
+				if *logging.Logzio.ListenerHost == "listener-nl.logz.io" {
+					loggingType = "logzio_logging-different_listener_host"
+				}
+			} else if logging.Elastic != nil && logging.Elastic.AWS != nil {
+				loggingType = "elastic_logging-aws"
+			} else if logging.Elastic != nil && logging.Elastic.ElasticCloud != nil {
+				loggingType = "elastic_logging-elastic_cloud"
+			} else {
+				return fmt.Errorf("Logging Attributes: We were not able to determine logging type")
+			}
+
+			switch loggingType {
+			case "s3_logging":
+
+				temp := client.Logging{
+					S3: logging.S3,
+				}
+				s3TestValue = append(s3TestValue, temp)
+
+			case "coralogix_logging":
+
+				temp := client.Logging{
+					Coralogix: logging.Coralogix,
+				}
+
+				coralogixTestValue = append(coralogixTestValue, temp)
+
+			case "datadog_logging":
+
+				temp := client.Logging{
+					Datadog: logging.Datadog,
+				}
+
+				dataDogTestValue = append(dataDogTestValue, temp)
+
+			case "logzio_logging":
+
+				temp := client.Logging{
+					Logzio: logging.Logzio,
+				}
+
+				logzioTestvalue = append(logzioTestvalue, temp)
+
+			case "elastic_logging":
+
+				temp := client.Logging{
+					Elastic: logging.Elastic,
+				}
+
+				elasticTestValue = append(elasticTestValue, temp)
+
+			default:
+				return nil
+			}
+		}
+
+		for _, logging := range loggingNames {
+
+			var expectedValue interface{}
+			var toTestValue interface{}
+
+			switch logging {
+			case "s3_logging":
+				expectedValue, _, _ = generateTestS3Logging()
+				toTestValue = s3TestValue
+
+			case "coralogix_logging":
+				expectedValue, _, _ = generateTestCoralogixLogging()
+				toTestValue = coralogixTestValue
+
+			case "datadog_logging":
+				expectedValue, _, _ = generateTestDatadogLogging2()
+				toTestValue = dataDogTestValue
+
+			case "logzio_logging":
+				expectedValue, _, _ = generateTestLogzioLogging("")
+				toTestValue = logzioTestvalue
+
+			case "elastic_logging":
+				expectedValue, _, _ = generateTestElasticLogging()
+				toTestValue = elasticTestValue
+
+			default:
+				return nil
+			}
+
+			if toTestValue != nil && len(toTestValue.([]client.Logging)) > 0 {
+
+				if diff := deep.Equal(expectedValue, toTestValue); diff != nil {
+					return fmt.Errorf("%s attributes do not match. Diff: %s", logging, diff)
+				}
+			}
 		}
 
 		return nil
@@ -445,7 +762,7 @@ func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
 
 		org, _, _ := c.GetOrg()
 
-		if org.Spec.Logging != nil {
+		if org.Spec.Logging != nil || (org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0) {
 			return fmt.Errorf("Org Spec Logging still exists. Org Name: %s", *org.Name)
 		}
 	}
@@ -457,14 +774,14 @@ func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
 // Build Functions //
 func TestControlPlane_BuildS3Logging(t *testing.T) {
 	s3Logging, expectedS3Logging, _ := generateTestS3Logging()
-	if diff := deep.Equal(s3Logging, &expectedS3Logging); diff != nil {
+	if diff := deep.Equal(s3Logging, expectedS3Logging); diff != nil {
 		t.Errorf("Coralogix Logging was not built correctly. Diff: %s", diff)
 	}
 }
 
 func TestControlPlane_BuildCoralogixLogging(t *testing.T) {
 	coralogixLogging, expectedCoralogixLogging, _ := generateTestCoralogixLogging()
-	if diff := deep.Equal(coralogixLogging, &expectedCoralogixLogging); diff != nil {
+	if diff := deep.Equal(coralogixLogging, expectedCoralogixLogging); diff != nil {
 		t.Errorf("Coralogix Logging was not built correctly. Diff: %s", diff)
 	}
 }
@@ -478,21 +795,21 @@ func TestControlPlane_BuildDatadogLogging(t *testing.T) {
 
 func TestControlPlane_BuildLogzioLogging(t *testing.T) {
 	logzioLogging, expectedLogzioLogging, _ := generateTestLogzioLogging("logzio_logging")
-	if diff := deep.Equal(logzioLogging, &expectedLogzioLogging); diff != nil {
+	if diff := deep.Equal(logzioLogging, expectedLogzioLogging); diff != nil {
 		t.Errorf("Logzio Logging was not built correctly. Diff: %s", diff)
 	}
 }
 
 func TestControlPlane_BuildLogzioLogging_DifferentListenerHost(t *testing.T) {
 	logzio, expectedLogzioLogging, _ := generateTestLogzioLogging("logzio_logging-different_listener_host")
-	if diff := deep.Equal(logzio, &expectedLogzioLogging); diff != nil {
+	if diff := deep.Equal(logzio, expectedLogzioLogging); diff != nil {
 		t.Errorf("Logzio Logging with different listener host was not built correctly. Diff: %s", diff)
 	}
 }
 
 func TestControlPlane_BuildElasticLogging(t *testing.T) {
 	elasticLogging, expectedElasticLogging, _ := generateTestElasticLogging()
-	if diff := deep.Equal(elasticLogging, &expectedElasticLogging); diff != nil {
+	if diff := deep.Equal(elasticLogging, expectedElasticLogging); diff != nil {
 		t.Errorf("AWS Logging was not built correctly. Diff: %s", diff)
 	}
 }
@@ -512,40 +829,60 @@ func TestControlPlane_BuildElasticCloudLogging(t *testing.T) {
 }
 
 /*** Generate Functions ***/
-func generateTestS3Logging() (*client.S3Logging, client.S3Logging, []interface{}) {
+func generateTestS3Logging() ([]client.Logging, []client.Logging, []interface{}) {
+
 	bucket := "test-bucket"
 	region := "us-east1"
 	prefix := "/"
 	credentials := "/org/terraform-test-org/secret/aws-random-tbd"
 
 	flattened := generateFlatTestS3Logging(bucket, region, prefix, credentials)
-	s3Logging := buildS3Logging(flattened).S3
-	expectedS3Logging := client.S3Logging{
+	s3Logging := buildS3Logging(flattened)
+
+	expectedS3 := client.S3Logging{
 		Bucket:      &bucket,
 		Prefix:      &prefix,
 		Region:      &region,
 		Credentials: &credentials,
 	}
 
-	return s3Logging, expectedS3Logging, flattened
+	expectedS3Logging := client.Logging{
+		S3: &expectedS3,
+	}
+
+	output := []client.Logging{
+		expectedS3Logging,
+	}
+
+	return s3Logging, output, flattened
 }
 
-func generateTestCoralogixLogging() (*client.CoralogixLogging, client.CoralogixLogging, []interface{}) {
+func generateTestCoralogixLogging() ([]client.Logging, []client.Logging, []interface{}) {
+
 	cluster := "coralogix.com"
 	credentials := "/org/terraform-test-org/secret/opaque-random-coralogix-tbd"
 	app := "{workload}"
 	subsystem := "{org}"
 
 	flattened := generateFlatTestCoralogixLogging(cluster, credentials, app, subsystem)
-	coralogixLogging := buildCoralogixLogging(flattened).Coralogix
-	expectedCoralogixLogging := client.CoralogixLogging{
+	coralogixLogging := buildCoralogixLogging(flattened)
+
+	expectedCoralogix := client.CoralogixLogging{
 		Cluster:     &cluster,
 		Credentials: &credentials,
 		App:         &app,
 		Subsystem:   &subsystem,
 	}
 
-	return coralogixLogging, expectedCoralogixLogging, flattened
+	expectedS3Logging := client.Logging{
+		Coralogix: &expectedCoralogix,
+	}
+
+	output := []client.Logging{
+		expectedS3Logging,
+	}
+
+	return coralogixLogging, output, flattened
 }
 
 func generateTestDatadogLogging() (*client.DatadogLogging, client.DatadogLogging, []interface{}) {
@@ -553,7 +890,7 @@ func generateTestDatadogLogging() (*client.DatadogLogging, client.DatadogLogging
 	credentials := "/org/terraform-test-org/secret/opaque-random-datadog-tbd"
 
 	flattened := generateFlatTestDatadogLogging(host, credentials)
-	datadogLogging := buildDatadogLogging(flattened).Datadog
+	datadogLogging := buildDatadogLogging(flattened)[0].Datadog
 	expectedDatadogLogging := client.DatadogLogging{
 		Host:        &host,
 		Credentials: &credentials,
@@ -562,7 +899,45 @@ func generateTestDatadogLogging() (*client.DatadogLogging, client.DatadogLogging
 	return datadogLogging, expectedDatadogLogging, flattened
 }
 
-func generateTestLogzioLogging(loggingType string) (*client.LogzioLogging, client.LogzioLogging, []interface{}) {
+func generateTestDatadogLogging2() ([]client.Logging, []client.Logging, []interface{}) {
+
+	host := "http-intake.logs.datadoghq.com"
+	credentials := "/org/terraform-test-org/secret/opaque-random-datadog-tbd"
+
+	host2 := "http-intake.logs.datadoghq.com"
+	credentials2 := "/org/terraform-test-org/secret/opaque-random-datadog-tbd-1"
+
+	flattened := generateFlatTestDatadogLogging2(host, credentials, host2, credentials2)
+	datadogLogging := buildDatadogLogging(flattened)
+
+	expectedDatadogLogging1 := client.DatadogLogging{
+		Host:        &host,
+		Credentials: &credentials,
+	}
+
+	expectedDatadogLogging2 := client.DatadogLogging{
+		Host:        &host2,
+		Credentials: &credentials2,
+	}
+
+	log1 := client.Logging{
+		Datadog: &expectedDatadogLogging1,
+	}
+
+	log2 := client.Logging{
+		Datadog: &expectedDatadogLogging2,
+	}
+
+	output := []client.Logging{
+		log1,
+		log2,
+	}
+
+	return datadogLogging, output, flattened
+}
+
+func generateTestLogzioLogging(loggingType string) ([]client.Logging, []client.Logging, []interface{}) {
+
 	listenerHost := "listener.logz.io"
 	credentials := "/org/terraform-test-org/secret/opaque-random-datadog-tbd"
 
@@ -571,16 +946,25 @@ func generateTestLogzioLogging(loggingType string) (*client.LogzioLogging, clien
 	}
 
 	flattened := generateFlatTestLogzioLogging(listenerHost, credentials)
-	logzio := buildLogzioLogging(flattened).Logzio
+	logzio := buildLogzioLogging(flattened)
+
 	expectedLogzioLogging := client.LogzioLogging{
 		ListenerHost: &listenerHost,
 		Credentials:  &credentials,
 	}
 
-	return logzio, expectedLogzioLogging, flattened
+	expectedS3Logging := client.Logging{
+		Logzio: &expectedLogzioLogging,
+	}
+
+	output := []client.Logging{
+		expectedS3Logging,
+	}
+
+	return logzio, output, flattened
 }
 
-func generateTestElasticLogging() (*client.ElasticLogging, client.ElasticLogging, []interface{}) {
+func generateTestElasticLogging() ([]client.Logging, []client.Logging, []interface{}) {
 	_, expectedAWSLogging, flattenedAWSLogging := generateTestAWSLogging()
 	_, expectedElasticCloudLogging, flattenedElasticCloudLogging := generateTestElasticCloudLogging()
 
@@ -591,7 +975,15 @@ func generateTestElasticLogging() (*client.ElasticLogging, client.ElasticLogging
 		ElasticCloud: &expectedElasticCloudLogging,
 	}
 
-	return elasticLogging.Elastic, expectedElasticLogging, flattened
+	expectedS3Logging := client.Logging{
+		Elastic: &expectedElasticLogging,
+	}
+
+	output := []client.Logging{
+		expectedS3Logging,
+	}
+
+	return elasticLogging, output, flattened
 }
 
 func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interface{}) {
@@ -669,6 +1061,23 @@ func generateFlatTestDatadogLogging(host string, credentials string) []interface
 
 	return []interface{}{
 		spec,
+	}
+}
+
+func generateFlatTestDatadogLogging2(host, credential, host2, credential2 string) []interface{} {
+	spec := map[string]interface{}{
+		"host":        host,
+		"credentials": credential,
+	}
+
+	spec2 := map[string]interface{}{
+		"host":        host2,
+		"credentials": credential2,
+	}
+
+	return []interface{}{
+		spec,
+		spec2,
 	}
 }
 

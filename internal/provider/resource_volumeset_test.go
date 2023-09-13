@@ -175,7 +175,7 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 
 		gvc 			  = cpln_gvc.new.name
 		initial_capacity  = 1000
-		performance_class = "premium-low-latency-ssd"
+		performance_class = "high-throughput-ssd"
 		file_system_type  = "xfs"
 
 		snapshots {
@@ -222,7 +222,7 @@ func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name stri
 
 		gvc 			  = cpln_gvc.new.name
 		initial_capacity  = 1010
-		performance_class = "premium-low-latency-ssd"
+		performance_class = "high-throughput-ssd"
 		file_system_type  = "xfs"
 
 		snapshots {
@@ -374,7 +374,7 @@ func generateTestVolumeSetSpec(state string) *client.VolumeSetSpec {
 
 	if isAllAttributes {
 		initialCapacity = 1000
-		performanceClass = "premium-low-latency-ssd"
+		performanceClass = "high-throughput-ssd"
 		fileSystemType = "xfs"
 
 	}
