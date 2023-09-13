@@ -1623,10 +1623,12 @@ func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []int
 			if container.Ports != nil {
 
 				if legacyPort {
-					c["port"] = (*container.Ports)[0].Number
+					c["port"] = *((*container.Ports)[0].Number)
 				} else {
 					c["ports"] = flattenPortSpec(container.Ports)
 				}
+			} else if container.Port != nil {
+				c["port"] = *container.Port
 			}
 
 			c["cpu"] = *container.CPU
