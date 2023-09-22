@@ -180,6 +180,9 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 
 func (c *Client) DeleteResource(id string) error {
 
+	// Add a delay to allow any referenced resources to be deleting
+	time.Sleep(5 * time.Second)
+
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/org/%s/%s", c.HostURL, c.Org, id), nil)
 	if err != nil {
 		return err

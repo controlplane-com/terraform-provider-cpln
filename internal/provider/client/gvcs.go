@@ -17,8 +17,9 @@ type Gvcs struct {
 // Gvc - Global Virtual Cloud
 type Gvc struct {
 	Base
-	Spec  *GvcSpec `json:"spec,omitempty"`
-	Alias *string  `json:"alias,omitempty"`
+	Spec        *GvcSpec `json:"spec,omitempty"`
+	SpecReplace *GvcSpec `json:"$replace/spec,omitempty"`
+	Alias       *string  `json:"alias,omitempty"`
 }
 
 // GvcSpec - GVC Spec
@@ -29,14 +30,6 @@ type GvcSpec struct {
 	Tracing         *Tracing         `json:"tracing,omitempty"`
 	Env             *[]NameValue     `json:"env,omitempty"`
 	LoadBalancer    *LoadBalancer    `json:"loadBalancer,omitempty"`
-	Update          bool             `json:"-"`
-}
-
-type GvcSpecUpdate struct {
-	StaticPlacement *StaticPlacement `json:"staticPlacement,omitempty"`
-	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
-	Domain          *string          `json:"domain"`
-	Tracing         *Tracing         `json:"tracing,omitempty"`
 }
 
 // StaticPlacement - Static Placement
@@ -48,20 +41,6 @@ type StaticPlacement struct {
 // LoadBalancer - Load Balancer
 type LoadBalancer struct {
 	Dedicated *bool `json:"dedicated,omitempty"`
-}
-
-func (g GvcSpec) MarshalJSON() ([]byte, error) {
-
-	type localGvcSpec GvcSpec
-
-	if g.Update && (g.Domain == nil || *g.Domain == "") {
-		return json.Marshal(GvcSpecUpdate{
-			StaticPlacement: g.StaticPlacement,
-			PullSecretLinks: g.PullSecretLinks,
-			Domain:          g.Domain,
-		})
-	}
-	return json.Marshal(localGvcSpec(g))
 }
 
 // GetGvcs - Get All Gvcs
