@@ -12,9 +12,10 @@ Manages an Org's tracing configuration.
 
 ### Required
 
-At least one of the following tracing blocks are required:
+Only one of the following tracing blocks can be defined:
 
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
+- **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
 
 <a id="nestedblock--lightstep_tracing"></a>
 
@@ -29,7 +30,14 @@ Optional:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
 
-~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to `true`.
+<a id="nestedblock--otel_tracing"></a>
+
+### `otel_tracing`
+
+Required:
+
+- **sampling** (Int) Sampling percentage.
+- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
 
 ## Example Usage
 
@@ -62,6 +70,20 @@ resource "cpln_org_tracing" "new" {
 
     // Opaque Secret Only
     credentials = cpln_secret.opaque.self_link
+  }
+}
+```
+
+### Otel
+
+```terraform
+
+resource "cpln_org_tracing" "new" {
+
+  otel_tracing {
+
+    sampling = 50
+    endpoint = "test.cpln.local:8080"
   }
 }
 ```

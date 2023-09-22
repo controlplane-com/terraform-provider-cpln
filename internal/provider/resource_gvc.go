@@ -21,12 +21,18 @@ func resourceGvc() *schema.Resource {
 		DeleteContext: resourceGvcDelete,
 		Schema:        GvcSchema(),
 		Importer:      &schema.ResourceImporter{},
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, v interface{}) error {
+			// Check if both attributes are set
+			if len(diff.Get("lightstep_tracing").([]interface{})) > 0 && len(diff.Get("otel_tracing").([]interface{})) > 0 {
+				return fmt.Errorf("only one of lightstep_tracing and otel_tracing can be specified")
+			}
+			return nil
+		},
 	}
 }
 
 func GvcSchema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
-
 		"cpln_id": {
 			Type:     schema.TypeString,
 			Computed: true,
@@ -86,6 +92,7 @@ func GvcSchema() map[string]*schema.Schema {
 			Computed: true,
 		},
 		"lightstep_tracing": client.LightstepSchema(),
+		"otel_tracing":      client.OtelSchema(),
 		"load_balancer": {
 			Type:     schema.TypeList,
 			Optional: true,
@@ -112,10 +119,9 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 	gvc.Description = GetString(d.Get("description"))
 	gvc.Tags = GetStringMap(d.Get("tags"))
 
-	if d.Get("domain") != nil {
-		gvc.Spec = &client.GvcSpec{}
-		gvc.Spec.Domain = GetString(d.Get("domain"))
-	}
+	gvc.Spec = &client.GvcSpec{}
+
+	gvc.Spec.Domain = GetString(d.Get("domain"))
 
 	gvcEnv := []client.NameValue{}
 	keys, envMap := MapSortHelper(d.Get("env"))
@@ -133,34 +139,19 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 	}
 
 	if len(keys) > 0 {
-		if gvc.Spec == nil {
-			gvc.Spec = &client.GvcSpec{}
-		}
 		gvc.Spec.Env = &gvcEnv
 	}
 
 	c := m.(*client.Client)
 
-	buildLocations(c.Org, d.Get("locations"), &gvc)
-	buildPullSecrets(c.Org, d.Get("pull_secrets"), &gvc)
+	buildLocations(c.Org, d.Get("locations"), gvc.Spec)
+	buildPullSecrets(c.Org, d.Get("pull_secrets"), gvc.Spec)
+	gvc.Spec.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}))
 
-	if d.Get("load_balancer") != nil {
-		loadBalancer := buildLoadBalancer(d.Get("load_balancer").([]interface{}))
-		if gvc.Spec == nil {
-			gvc.Spec = &client.GvcSpec{}
-		}
+	gvc.Spec.Tracing = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
 
-		gvc.Spec.LoadBalancer = loadBalancer
-	}
-
-	traceArray := d.Get("lightstep_tracing").([]interface{})
-	if len(traceArray) == 1 {
-
-		if gvc.Spec == nil {
-			gvc.Spec = &client.GvcSpec{}
-		}
-
-		gvc.Spec.Tracing = buildLightStepTracing(traceArray)
+	if gvc.Spec.Tracing == nil {
+		gvc.Spec.Tracing = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
 	}
 
 	newGvc, code, err := c.CreateGvc(gvc)
@@ -199,62 +190,26 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "load_balancer") {
+	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "load_balancer") {
 
 		c := m.(*client.Client)
 
 		gvcToUpdate := client.Gvc{}
 		gvcToUpdate.Name = GetString(d.Get("name"))
+		gvcToUpdate.Description = GetDescriptionString(d.Get("description"), *gvcToUpdate.Name)
+		gvcToUpdate.Tags = GetTagChanges(d)
 
-		if d.HasChange("description") {
-			gvcToUpdate.Description = GetDescriptionString(d.Get("description"), *gvcToUpdate.Name)
-		}
+		gvcToUpdate.SpecReplace = &client.GvcSpec{}
+		gvcToUpdate.SpecReplace.Domain = GetString(d.Get("domain"))
+		buildLocations(c.Org, d.Get("locations"), gvcToUpdate.SpecReplace)
+		buildPullSecrets(c.Org, d.Get("pull_secrets"), gvcToUpdate.SpecReplace)
+		gvcToUpdate.SpecReplace.Env = GetGVCEnvChanges(d)
+		gvcToUpdate.SpecReplace.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}))
 
-		if d.HasChange("domain") {
-			gvcToUpdate.Spec = &client.GvcSpec{}
-			gvcToUpdate.Spec.Update = true
-			gvcToUpdate.Spec.Domain = GetString(d.Get("domain"))
-		}
+		gvcToUpdate.SpecReplace.Tracing = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
 
-		if d.HasChange("locations") {
-			buildLocations(c.Org, d.Get("locations"), &gvcToUpdate)
-		}
-
-		if d.HasChange("pull_secrets") {
-			buildPullSecrets(c.Org, d.Get("pull_secrets"), &gvcToUpdate)
-		}
-
-		if d.HasChange("tags") {
-			gvcToUpdate.Tags = GetTagChanges(d)
-		}
-
-		if d.HasChange("env") {
-			if gvcToUpdate.Spec == nil {
-				gvcToUpdate.Spec = &client.GvcSpec{}
-			}
-			gvcToUpdate.Spec.Env = GetGVCEnvChanges(d)
-		}
-
-		if d.HasChange("lightstep_tracing") {
-			traceArray := d.Get("lightstep_tracing").([]interface{})
-
-			if len(traceArray) == 1 {
-
-				if gvcToUpdate.Spec == nil {
-					gvcToUpdate.Spec = &client.GvcSpec{}
-				}
-
-				gvcToUpdate.Spec.Tracing = buildLightStepTracing(traceArray)
-			}
-		}
-
-		if d.HasChange("load_balancer") {
-			if gvcToUpdate.Spec == nil {
-				gvcToUpdate.Spec = &client.GvcSpec{}
-				gvcToUpdate.Spec.Update = true
-			}
-
-			gvcToUpdate.Spec.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}))
+		if gvcToUpdate.SpecReplace.Tracing == nil {
+			gvcToUpdate.SpecReplace.Tracing = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
 		}
 
 		updatedGvc, _, err := c.UpdateGvc(gvcToUpdate)
@@ -364,11 +319,21 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		}
 	}
 
+	if gvc.Spec != nil && gvc.Spec.Tracing != nil && gvc.Spec.Tracing.Provider != nil && gvc.Spec.Tracing.Provider.Otel != nil {
+		if err := d.Set("otel_tracing", flattenOtelTracing(gvc.Spec.Tracing)); err != nil {
+			return diag.FromErr(err)
+		}
+	} else {
+		if err := d.Set("otel_tracing", nil); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	return nil
 }
 
 /*** Build ***/
-func buildLocations(org string, locations interface{}, gvc *client.Gvc) {
+func buildLocations(org string, locations interface{}, gvcSpec *client.GvcSpec) {
 
 	l := []string{}
 
@@ -378,18 +343,14 @@ func buildLocations(org string, locations interface{}, gvc *client.Gvc) {
 		}
 	}
 
-	if gvc.Spec == nil {
-		gvc.Spec = &client.GvcSpec{}
+	if gvcSpec.StaticPlacement == nil {
+		gvcSpec.StaticPlacement = &client.StaticPlacement{}
 	}
 
-	if gvc.Spec.StaticPlacement == nil {
-		gvc.Spec.StaticPlacement = &client.StaticPlacement{}
-	}
-
-	gvc.Spec.StaticPlacement.LocationLinks = &l
+	gvcSpec.StaticPlacement.LocationLinks = &l
 }
 
-func buildPullSecrets(org string, pullSecrets interface{}, gvc *client.Gvc) {
+func buildPullSecrets(org string, pullSecrets interface{}, gvcSpec *client.GvcSpec) {
 
 	l := []string{}
 
@@ -399,11 +360,7 @@ func buildPullSecrets(org string, pullSecrets interface{}, gvc *client.Gvc) {
 		}
 	}
 
-	if gvc.Spec == nil {
-		gvc.Spec = &client.GvcSpec{}
-	}
-
-	gvc.Spec.PullSecretLinks = &l
+	gvcSpec.PullSecretLinks = &l
 }
 
 func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {

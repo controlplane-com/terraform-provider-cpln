@@ -245,7 +245,8 @@ func TestControlPlane_BuildLocations(t *testing.T) {
 
 	stringFunc := schema.HashSchema(StringSchema())
 	unitTestGvc := client.Gvc{}
-	buildLocations(org, schema.NewSet(stringFunc, locations), &unitTestGvc)
+	unitTestGvc.Spec = &client.GvcSpec{}
+	buildLocations(org, schema.NewSet(stringFunc, locations), unitTestGvc.Spec)
 
 	testLocation := []string{}
 
@@ -269,7 +270,8 @@ func TestControlPlane_BuildPullSecrets(t *testing.T) {
 
 	stringFunc := schema.HashSchema(StringSchema())
 	unitTestGvc := client.Gvc{}
-	buildPullSecrets(org, schema.NewSet(stringFunc, pullSecrets), &unitTestGvc)
+	unitTestGvc.Spec = &client.GvcSpec{}
+	buildPullSecrets(org, schema.NewSet(stringFunc, pullSecrets), unitTestGvc.Spec)
 
 	testPullSecrets := []string{}
 

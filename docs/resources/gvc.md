@@ -22,8 +22,11 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **domain** (String) Custom domain name used by associated workloads.
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
-- **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
+- **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
+- **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
+
+~> **Note** Only one of the tracing blocks can be defined.
 
 <a id="nestedblock--lightstep_tracing"></a>
 
@@ -38,7 +41,14 @@ Optional:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
 
-~> **Note** The workload that the endpoint is pointing to must have the tag `cpln/tracingDisabled` set to `true`.
+<a id="nestedblock--otel_tracing"></a>
+
+### `otel_tracing`
+
+Required:
+
+- **sampling** (Int) Sampling percentage.
+- **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
 
 <a id="nestedblock--load_balancer"></a>
 
@@ -66,11 +76,6 @@ resource "cpln_secret" "docker" {
     terraform_generated = "true"
     acceptance_test     = "true"
     secret_type         = "docker"
-  }
-
-  env = {
-    env_var_key          = "env_var_value"
-    workload_can_inherit = "true"
   }
 
   docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
@@ -107,6 +112,11 @@ resource "cpln_gvc" "example" {
   tags = {
     terraform_generated = "true"
     example             = "true"
+  }
+
+  env = {
+    env_var_key          = "env_var_value"
+    workload_can_inherit = "true"
   }
 
   lightstep_tracing {

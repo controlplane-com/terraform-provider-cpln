@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"fmt"
 
 	client "terraform-provider-cpln/internal/provider/client"
 
@@ -37,8 +38,21 @@ func resourceOrgTracing() *schema.Resource {
 				},
 			},
 			"lightstep_tracing": client.LightstepSchema(),
+			"otel_tracing":      client.OtelSchema(),
 		},
 		Importer: &schema.ResourceImporter{},
+		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, v interface{}) error {
+			// Check if both attributes are set
+			if len(diff.Get("lightstep_tracing").([]interface{})) > 0 && len(diff.Get("otel_tracing").([]interface{})) > 0 {
+				return fmt.Errorf("only one of lightstep_tracing and otel_tracing can be specified")
+			}
+
+			if len(diff.Get("lightstep_tracing").([]interface{})) < 1 && len(diff.Get("otel_tracing").([]interface{})) < 1 {
+				return fmt.Errorf("one of lightstep_tracing or otel_tracing must be specified")
+			}
+
+			return nil
+		},
 	}
 }
 
@@ -50,9 +64,10 @@ func resourceOrgTracingCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	var traceCreate *client.Tracing
 
-	traceArray := d.Get("lightstep_tracing").([]interface{})
-	if len(traceArray) == 1 {
-		traceCreate = buildLightStepTracing(traceArray)
+	traceCreate = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
+
+	if traceCreate == nil {
+		traceCreate = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
 	}
 
 	org, _, err := c.UpdateOrgTracing(traceCreate)
@@ -92,6 +107,12 @@ func setOrgTracing(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 
 	if org.Spec != nil && org.Spec.Tracing != nil && org.Spec.Tracing.Provider != nil && org.Spec.Tracing.Provider.Lightstep != nil {
 		if err := d.Set("lightstep_tracing", flattenLightstepTracing(org.Spec.Tracing)); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	if org.Spec != nil && org.Spec.Tracing != nil && org.Spec.Tracing.Provider != nil && org.Spec.Tracing.Provider.Otel != nil {
+		if err := d.Set("otel_tracing", flattenOtelTracing(org.Spec.Tracing)); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -139,22 +160,58 @@ func buildLightStepTracing(tracing []interface{}) *client.Tracing {
 	return nil
 }
 
+func flattenOtelTracing(trace *client.Tracing) []interface{} {
+
+	if trace != nil {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["sampling"] = *trace.Sampling
+		outputMap["endpoint"] = *trace.Provider.Otel.Endpoint
+
+		output := make([]interface{}, 1)
+		output[0] = outputMap
+
+		return output
+	}
+
+	return nil
+}
+
+func buildOtelTracing(tracing []interface{}) *client.Tracing {
+
+	if len(tracing) == 1 {
+
+		trace := tracing[0].(map[string]interface{})
+
+		iTrace := &client.OtelTelemetry{}
+		iTrace.Endpoint = GetString(trace["endpoint"])
+
+		return &client.Tracing{
+			Sampling: GetInt(trace["sampling"]),
+			Provider: &client.Provider{
+				Otel: iTrace,
+			},
+		}
+	}
+
+	return nil
+}
+
 func resourceOrgTracingUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceOrgTracingUpdate")
 
-	if d.HasChanges("lightstep_tracing") {
+	if d.HasChanges("lightstep_tracing", "otel_tracing") {
 
 		c := m.(*client.Client)
 
 		var traceUpdate *client.Tracing
 
-		if d.HasChange("lightstep_tracing") {
-			traceArray := d.Get("lightstep_tracing").([]interface{})
+		traceUpdate = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
 
-			if traceArray != nil {
-				traceUpdate = buildLightStepTracing(traceArray)
-			}
+		if traceUpdate == nil {
+			traceUpdate = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
 		}
 
 		org, _, err := c.UpdateOrgTracing(traceUpdate)

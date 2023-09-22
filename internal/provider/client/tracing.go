@@ -33,7 +33,6 @@ func LightstepSchema() *schema.Schema {
 		Type:     schema.TypeList,
 		Optional: true,
 		MaxItems: 1,
-		// ExactlyOneOf: []string{"lightstep_tracing"},
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"sampling": {
