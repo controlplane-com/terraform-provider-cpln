@@ -951,7 +951,9 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 		argArray := []string{}
 
 		for _, value := range c["args"].([]interface{}) {
-			argArray = append(argArray, value.(string))
+			if value != nil {
+				argArray = append(argArray, value.(string))
+			}
 		}
 
 		if len(argArray) > 0 {
