@@ -14,7 +14,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 
 - **name** (String) Name of the Workload.
 - **gvc** (String) Name of the associated GVC.
-- **type** (String) Workload Type. Either `serverless`, `standard`, or `cron`.
+- **type** (String) Workload Type. Either `serverless`, `standard`, `stateful`, or `cron`.
 - **container** (Block List) ([see below](#nestedblock--container)).
 - **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 
@@ -41,7 +41,7 @@ Required:
 - **name** (String) Name of the container.
 
   - The following rules apply to the name of a container:
-    - Cannot be: 'istio-proxy', 'queue-proxy', 'istio-validation'.
+    - Cannot be: 'istio-proxy', 'queue-proxy', or 'istio-validation'.
     - Cannot start with: `cpln_`.
 
 - **image** (String) The full image and tag path.
@@ -371,8 +371,6 @@ Read-Only:
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
 
-
-
 ## Example Usage - Serverless
 
 ```terraform
@@ -429,7 +427,7 @@ resource "cpln_workload" "new" {
     ports {
 			protocol = "http"
 			number   = "8080"
-		} 
+		}
 
     command = "override-command"
     working_directory = "/usr"
@@ -863,7 +861,7 @@ resource "cpln_workload" "new" {
     ports {
 			protocol = "http"
 			number   = "8080"
-		} 
+		}
 
     gpu_nvidia {
       model    = "t4"
@@ -978,6 +976,7 @@ resource "cpln_workload" "new" {
 }
 
 ```
+
 ## Import Syntax
 
 The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
