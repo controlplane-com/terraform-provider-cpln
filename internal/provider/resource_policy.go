@@ -129,8 +129,8 @@ func resourcePolicyCreate(ctx context.Context, d *schema.ResourceData, m interfa
 
 	gvc := d.Get("gvc").(string)
 
-	if (*policy.TargetKind == "identity" || *policy.TargetKind == "workload") && gvc == "" {
-		return diag.FromErr(fmt.Errorf("target kind of 'identity' or 'workload' requires the 'gvc' property"))
+	if (*policy.TargetKind == "identity" || *policy.TargetKind == "workload" || *policy.TargetKind == "volumeset") && gvc == "" {
+		return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", *policy.TargetKind))
 	}
 
 	c := m.(*client.Client)
@@ -238,8 +238,8 @@ func resourcePolicyUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 		gvc := d.Get("gvc").(string)
 		targetKind := d.Get("target_kind").(string)
 
-		if (targetKind == "identity" || targetKind == "workload") && gvc == "" {
-			return diag.FromErr(fmt.Errorf("target kind of 'identity' or 'workload' requires the 'gvc' property"))
+		if (targetKind == "identity" || targetKind == "workload" || targetKind == "volumeset") && gvc == "" {
+			return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", targetKind))
 		}
 
 		policyToUpdate := client.Policy{}
@@ -280,7 +280,7 @@ func buildTargetLinks(org, gvc, kind string, targets interface{}, policy *client
 
 		for _, t := range targetArray.List() {
 
-			if kind == "identity" || kind == "workload" {
+			if kind == "identity" || kind == "workload" || kind == "volumeset" {
 				targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/gvc/%s/%s/%s", org, gvc, kind, t))
 			} else {
 				targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/%s/%s", org, kind, t))
