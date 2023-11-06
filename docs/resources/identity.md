@@ -187,6 +187,7 @@ The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Identity.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **status** (Map of String) Key-value map of identity status. Available fields: `objectName`.
 
 ## Example Usage
 
@@ -398,6 +399,10 @@ resource "cpln_identity" "example" {
     data    = 2
     payload = 3
   }
+}
+
+output "status_objectName" {
+  value = cpln_identity.example.status.objectName
 }
 ```
 

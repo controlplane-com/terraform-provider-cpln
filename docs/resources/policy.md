@@ -19,7 +19,7 @@ Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 - **description** (String) Description of the Policy.
 - **tags** (Map of String) Key-value map of resource tags.
 - **target_kind** (String) The kind of resource to target (e.g., gvc, serviceaccount, etc.).
-- **gvc** (String) The GVC for 'identity', 'workload' and 'volumeset' target kinds only.
+- **gvc** (String) The GVC for `identity`, `workload` and `volumeset` target kinds only.
 
 - **target** (String) Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.
 - **target_links** (List of String) List of the targets this policy will be applied to. Not used if `target` is set to `all`.

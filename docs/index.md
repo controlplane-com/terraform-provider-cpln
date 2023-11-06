@@ -2,7 +2,6 @@
 page_title: "Provider: cpln"
 subcategory: ""
 description: |-
-  
 ---
 
 # Control Plane Terraform Provider
@@ -16,22 +15,24 @@ Each header below (i.e., `cpln_agent`) corresponds to a resource within the Cont
 Authenticate using one of the following methods:
 
 1. CLI
-  - [Install the CLI](https://docs.controlplane.com/reference/cli#installation) and execute the command `cpln login`. After a successful login, the Terraform provider will use the `default` profile to authenticate. To use a different profile, set the `profile` variable when initializing the provider or set the `CPLN_PROFILE` environment variable.
+
+- [Install the CLI](https://docs.controlplane.com/reference/cli#installation) and execute the command `cpln login`. After a successful login, the Terraform provider will use the `default` profile to authenticate. To use a different profile, set the `profile` variable when initializing the provider or set the `CPLN_PROFILE` environment variable.
 
 2. Token
-  - The `token` variable can be set when initializing the provider or by setting the `CPLN_TOKEN` environment variable.
-  - The value of `token` can be either:
-      - The output of running the command `cpln profile token PROFILE_NAME`, or
-      - In the case of a [Service Account](https://docs.controlplane.com/reference/serviceaccount), the value of one of it's [keys](https://docs.controlplane.com/reference/serviceaccount#keys)
 
-~> **Note** To perform automated tasks using Terraform, the preferred method is to use a `Service Account` and one of it's `keys` as the `token` value. 
+- The `token` variable can be set when initializing the provider or by setting the `CPLN_TOKEN` environment variable.
+- The value of `token` can be either:
+  - The output of running the command `cpln profile token PROFILE_NAME`, or
+  - In the case of a [Service Account](https://docs.controlplane.com/reference/serviceaccount), the value of one of it's [keys](https://docs.controlplane.com/reference/serviceaccount#keys)
 
+~> **Note** To perform automated tasks using Terraform, the preferred method is to use a `Service Account` and one of it's `keys` as the `token` value.
 
 ## Provider Declaration
 
 ### Required
 
 - **org** (String) The Control Plane org that this provider will perform actions against. Can be specified with the `CPLN_ORG` environment variable.
+
 ### Optional
 
 - **endpoint** (String) The Control Plane Data Service API endpoint. Default is: "https://api.cpln.io". Can be specified with the `CPLN_ENDPOINT` environment variable.
@@ -47,7 +48,7 @@ terraform {
   required_providers {
     cpln = {
       source = "controlplane-com/cpln"
-      version = "1.1.12"
+      version = "1.1.13"
     }
   }
 }
@@ -64,12 +65,11 @@ provider "cpln" {
   endpoint = var.endpoint
 
   # Optional
-  # Can use CPLN_PROFILE Environment Variable  
+  # Can use CPLN_PROFILE Environment Variable
   profile = var.profile
 
   # Optional
-  # Can use CPLN_TOKEN Environment Variable 
+  # Can use CPLN_TOKEN Environment Variable
   token = var.token
 }
 ```
-
