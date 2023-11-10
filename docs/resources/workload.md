@@ -28,7 +28,6 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
-- **sidecar** (Block List, Max: 1) ([see below](#nestedblock--sidecar))
 - **support_dynamic_tags** (Boolean) Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.
 
 <a id="nestedblock--container"></a>
@@ -335,14 +334,6 @@ Required:
 
 - **file_system_group_id** (Number) The group id assigned to any mounted volume
 
-<a id="nestedblock--sidecar"></a>
-
-### `sidecar`
-
-Required:
-
-- **envoy** (string) // TODO: Add description
-
 ## Outputs
 
 The following attributes are exported:
@@ -560,42 +551,6 @@ resource "cpln_workload" "new" {
     file_system_group_id = 1
   }
 
-  sidecar {
-    envoy = jsonencode({
-      "http": [
-        {
-          "excludedWorkloads": [
-            "workloadAuthorizor-1"
-          ],
-          "name": "envoy.filters.http.ext_authz",
-          "priority": 1,
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-            "failure_mode_allow": false,
-            "http_service": {
-              "authorization_response": {
-                "allowed_upstream_headers": {
-                  "patterns": [
-                    {
-                      "prefix": "random-header"
-                    }
-                  ]
-                }
-              },
-              "path_prefix": "",
-              "server_uri": {
-                "cluster": "external.auth",
-                "timeout": "0.5s",
-                "uri": "workloadAuthorizor-1.some-gvc.cpln.local:8080"
-              }
-            },
-            "include_peer_certificate": true,
-            "transport_api_version": "V3"
-          }
-        }
-      ]
-    })
-  }
 }
 ```
 
@@ -730,42 +685,6 @@ resource "cpln_workload" "new" {
     file_system_group_id = 1
   }
 
-  sidecar {
-    envoy = jsonencode({
-      "http": [
-        {
-          "excludedWorkloads": [
-            "workloadAuthorizor-1"
-          ],
-          "name": "envoy.filters.http.ext_authz",
-          "priority": 1,
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-            "failure_mode_allow": false,
-            "http_service": {
-              "authorization_response": {
-                "allowed_upstream_headers": {
-                  "patterns": [
-                    {
-                      "prefix": "random-header"
-                    }
-                  ]
-                }
-              },
-              "path_prefix": "",
-              "server_uri": {
-                "cluster": "external.auth",
-                "timeout": "0.5s",
-                "uri": "workloadAuthorizor-1.some-gvc.cpln.local:8080"
-              }
-            },
-            "include_peer_certificate": true,
-            "transport_api_version": "V3"
-          }
-        }
-      ]
-    })
-  }
 }
 
 ```
@@ -875,43 +794,6 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
-  }
-
-  sidecar {
-    envoy = jsonencode({
-      "http": [
-        {
-          "excludedWorkloads": [
-            "workloadAuthorizor-1"
-          ],
-          "name": "envoy.filters.http.ext_authz",
-          "priority": 1,
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-            "failure_mode_allow": false,
-            "http_service": {
-              "authorization_response": {
-                "allowed_upstream_headers": {
-                  "patterns": [
-                    {
-                      "prefix": "random-header"
-                    }
-                  ]
-                }
-              },
-              "path_prefix": "",
-              "server_uri": {
-                "cluster": "external.auth",
-                "timeout": "0.5s",
-                "uri": "workloadAuthorizor-1.some-gvc.cpln.local:8080"
-              }
-            },
-            "include_peer_certificate": true,
-            "transport_api_version": "V3"
-          }
-        }
-      ]
-    })
   }
 
   job {
@@ -1094,42 +976,7 @@ resource "cpln_workload" "new" {
     file_system_group_id = 1
   }
 
-  sidecar {
-    envoy = jsonencode({
-      "http": [
-        {
-          "excludedWorkloads": [
-            "workloadAuthorizor-1"
-          ],
-          "name": "envoy.filters.http.ext_authz",
-          "priority": 1,
-          "typed_config": {
-            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-            "failure_mode_allow": false,
-            "http_service": {
-              "authorization_response": {
-                "allowed_upstream_headers": {
-                  "patterns": [
-                    {
-                      "prefix": "random-header"
-                    }
-                  ]
-                }
-              },
-              "path_prefix": "",
-              "server_uri": {
-                "cluster": "external.auth",
-                "timeout": "0.5s",
-                "uri": "workloadAuthorizor-1.some-gvc.cpln.local:8080"
-              }
-            },
-            "include_peer_certificate": true,
-            "transport_api_version": "V3"
-          }
-        }
-      ]
-    })
-  }
+
 }
 
 ```
