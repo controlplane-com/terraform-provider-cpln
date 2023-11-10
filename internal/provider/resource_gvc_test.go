@@ -44,26 +44,26 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50", gvcEnvoyJson),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50", gvcEnvoyJson, 1),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(50, gvcEnvoyJson, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(50, gvcEnvoyJson, 1, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated),
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
 				),
 			},
@@ -71,7 +71,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 	})
 }
 
-func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string) string {
+func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string, trustedProxies int) string {
 
 	return fmt.Sprintf(`
 
@@ -141,13 +141,14 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 
 		load_balancer {
 			dedicated = true
+			trusted_proxies = %d
 		}
 
 		sidecar {
 			envoy = jsonencode(%s)
 		}
 
-	  }`, random, random2, name, description, sampling, envoy)
+	  }`, random, random2, name, description, sampling, trustedProxies, envoy)
 }
 
 func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client.Gvc) resource.TestCheckFunc {
@@ -185,7 +186,7 @@ func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client
 	}
 }
 
-func testAccCheckControlPlaneGvcAttributes(sampling int, envoy string, gvc *client.Gvc) resource.TestCheckFunc {
+func testAccCheckControlPlaneGvcAttributes(sampling int, envoy string, trustedProxies int, gvc *client.Gvc) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		tags := *gvc.Tags
 
@@ -202,7 +203,7 @@ func testAccCheckControlPlaneGvcAttributes(sampling int, envoy string, gvc *clie
 			return fmt.Errorf("GVC Tracing mismatch. Diff: %s", diff)
 		}
 
-		expectedLoadBalancer, _, _ := generateTestLoadBalancer()
+		expectedLoadBalancer, _, _ := generateTestLoadBalancer(trustedProxies)
 		if diff := deep.Equal(expectedLoadBalancer, gvc.Spec.LoadBalancer); diff != nil {
 			return fmt.Errorf("LoadBalancer attributes do not match. Diff: %s", diff)
 		}
@@ -298,7 +299,7 @@ func TestControlPlane_BuildPullSecrets(t *testing.T) {
 }
 
 func TestControlPlane_BuildLoadBalancer(t *testing.T) {
-	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer()
+	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1)
 	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
 		t.Errorf("LoadBalancer was not built correctly, Diff: %s", diff)
 	}
@@ -368,7 +369,7 @@ func TestControlPlane_FlattenPullSecrets(t *testing.T) {
 }
 
 func TestControlPlane_FlattenLoadBalancer(t *testing.T) {
-	_, expectedLoadBalancer, expectedFlatten := generateTestLoadBalancer()
+	_, expectedLoadBalancer, expectedFlatten := generateTestLoadBalancer(1)
 	flattenLoadBalancer := flattenLoadBalancer(expectedLoadBalancer)
 
 	if diff := deep.Equal(expectedFlatten, flattenLoadBalancer); diff != nil {
@@ -376,14 +377,24 @@ func TestControlPlane_FlattenLoadBalancer(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenGvcSidecar(t *testing.T) {
+	_, expectedSidecar, expectedFlatten := generateTestGvcSidecar(gvcEnvoyJson)
+	flattenSidecar := flattenGvcSidecar(expectedSidecar)
+
+	if diff := deep.Equal(expectedFlatten, flattenSidecar); diff != nil {
+		t.Errorf("Sidecar was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 /*** Generate ***/
-func generateTestLoadBalancer() (*client.LoadBalancer, *client.LoadBalancer, []interface{}) {
+func generateTestLoadBalancer(trustedProxies int) (*client.LoadBalancer, *client.LoadBalancer, []interface{}) {
 	dedicated := true
 
-	flatten := generateFlatTestLoadBalancer(dedicated)
+	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies)
 	loadBalancer := buildLoadBalancer(flatten)
 	expectedLoadBalancer := &client.LoadBalancer{
 		Dedicated: &dedicated,
+		TrustedProxies: &trustedProxies,
 	}
 
 	return loadBalancer, expectedLoadBalancer, flatten
@@ -404,9 +415,10 @@ func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client
 }
 
 // Flatten //
-func generateFlatTestLoadBalancer(dedicated bool) []interface{} {
+func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int) []interface{} {
 	spec := map[string]interface{}{
 		"dedicated": dedicated,
+		"trusted_proxies": trustedProxies,
 	}
 
 	return []interface{}{

@@ -118,6 +118,11 @@ func GvcSchema() map[string]*schema.Schema {
 						Type:     schema.TypeBool,
 						Required: true,
 					},
+					"trusted_proxies": {
+						Type: schema.TypeInt,
+						Optional: true,
+						Default: 0,
+					},
 				},
 			},
 		},
@@ -397,6 +402,10 @@ func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {
 		Dedicated: GetBool(spec["dedicated"].(bool)),
 	}
 
+	if spec["trusted_proxies"] != nil {
+		output.TrustedProxies = GetInt(spec["trusted_proxies"].(int))
+	}
+
 	return &output
 }
 
@@ -472,6 +481,10 @@ func flattenLoadBalancer(gvcSpec *client.LoadBalancer) []interface{} {
 
 	loadBalancer := map[string]interface{}{
 		"dedicated": *gvcSpec.Dedicated,
+	}
+
+	if gvcSpec.TrustedProxies != nil {
+		loadBalancer["trusted_proxies"] = *gvcSpec.TrustedProxies
 	}
 
 	return []interface{}{
