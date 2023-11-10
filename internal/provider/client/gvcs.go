@@ -46,7 +46,8 @@ type GvcSidecar struct {
 
 // LoadBalancer - Load Balancer
 type LoadBalancer struct {
-	Dedicated *bool `json:"dedicated,omitempty"`
+	Dedicated      *bool `json:"dedicated,omitempty"`
+	TrustedProxies *int  `json:"trustedProxies,omitempty"`
 }
 
 // GetGvcs - Get All Gvcs
