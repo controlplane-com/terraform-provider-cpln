@@ -550,6 +550,7 @@ resource "cpln_workload" "new" {
   security_options {
     file_system_group_id = 1
   }
+
 }
 ```
 
@@ -683,6 +684,7 @@ resource "cpln_workload" "new" {
   security_options {
     file_system_group_id = 1
   }
+
 }
 
 ```
@@ -973,6 +975,8 @@ resource "cpln_workload" "new" {
   security_options {
     file_system_group_id = 1
   }
+
+
 }
 
 ```

@@ -34,6 +34,7 @@ type WorkloadSpec struct {
 	Job                *JobSpec         `json:"job,omitempty"`
 	SecurityOptions    *SecurityOptions `json:"securityOptions,omitempty"`
 	SupportDynamicTags *bool            `json:"supportDynamicTags,omitempty"`
+	Sidecar			   *WorkloadSidecar `json:"sidecar,omitempty"`
 }
 
 // ContainerSpec - Workload Container Definition
@@ -218,6 +219,11 @@ type RolloutOptions struct {
 // Security Options
 type SecurityOptions struct {
 	FileSystemGroupID *int `json:"filesystemGroupId,omitempty"`
+}
+
+// WorkloadSidecar - Workload Sidecar
+type WorkloadSidecar struct {
+	Envoy *any `json:"envoy,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {

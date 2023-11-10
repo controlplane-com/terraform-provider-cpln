@@ -2,7 +2,9 @@ package cpln
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"regexp"
@@ -560,6 +562,19 @@ func resourceWorkload() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"sidecar": {
+				Type: schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"envoy": {
+							Type: schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -643,6 +658,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 	if d.Get("support_dynamic_tags") != nil {
 		workload.Spec.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
+	}
+
+	if d.Get("sidecar") != nil {
+		workload.Spec.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
 	}
 
 	newWorkload, code, err := c.CreateWorkload(workload, gvcName)
@@ -730,7 +749,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar") {
 
 		if checkLegacyPort(d.Get("container").([]interface{})) {
 			var diags diag.Diagnostics
@@ -764,6 +783,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace.RolloutOptions = buildRolloutOptions(d.Get("rollout_options").([]interface{}))
 		workloadToUpdate.SpecReplace.SecurityOptions = buildSecurityOptions(d.Get("security_options").([]interface{}))
 		workloadToUpdate.SpecReplace.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
+		workloadToUpdate.SpecReplace.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
 
 		if d.Get("identity_link") != nil {
 
@@ -869,6 +889,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org
 		}
 
 		if err := d.Set("support_dynamic_tags", workload.Spec.SupportDynamicTags); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("sidecar", flattenWorkloadSidecar(workload.Spec.Sidecar)); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -1533,6 +1557,27 @@ func buildCommand(exec []interface{}) *[]string {
 	return nil
 }
 
+func buildWorkloadSidecar(specs []interface{}) *client.WorkloadSidecar {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+	
+	spec := specs[0].(map[string]interface{})
+	output := client.WorkloadSidecar{}
+
+	// Attempt to unmarshal `envoy`
+	var envoy interface{}
+	err := json.Unmarshal([]byte(spec["envoy"].(string)), &envoy)
+	if err != nil {
+		log.Fatalf("Error occurred during unmarshaling 'envoy' value. Error: %s", err.Error())
+	}
+
+	// Set envoy
+	output.Envoy = &envoy
+
+	return &output
+}
+
 /*** Flatten ***/
 
 func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
@@ -2166,6 +2211,26 @@ func flattenSecurityOptions(spec *client.SecurityOptions) []interface{} {
 
 	return []interface{}{
 		securityOptions,
+	}
+}
+
+func flattenWorkloadSidecar(spec *client.WorkloadSidecar) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	// Attempt to marshal `envoy`
+	jsonOut, err := json.Marshal(*spec.Envoy)
+	if err != nil {
+		log.Fatalf("Error occurred during marshaling 'envoy' value. Error: %s", err.Error())
+	}
+
+	sidecar := map[string]interface{}{
+		"envoy": string(jsonOut),
+	}
+
+	return []interface{}{
+		sidecar,
 	}
 }
 

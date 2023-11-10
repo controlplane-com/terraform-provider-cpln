@@ -131,6 +131,7 @@ resource "cpln_gvc" "example" {
   load_balancer {
     dedicated = true
   }
+
 }
 
 ```

@@ -28,6 +28,7 @@ type GvcSpec struct {
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain,omitempty"`
 	Tracing         *Tracing         `json:"tracing,omitempty"`
+	Sidecar			*GvcSidecar		 `json:"sidecar,omitempty"`
 	Env             *[]NameValue     `json:"env,omitempty"`
 	LoadBalancer    *LoadBalancer    `json:"loadBalancer,omitempty"`
 }
@@ -36,6 +37,11 @@ type GvcSpec struct {
 type StaticPlacement struct {
 	LocationLinks *[]string `json:"locationLinks,omitempty"`
 	LocationQuery *Query    `json:"locationQuery,omitempty"`
+}
+
+// GvcSidecar - GVC Sidecar
+type GvcSidecar struct {
+	Envoy *any `json:"envoy,omitempty"`
 }
 
 // LoadBalancer - Load Balancer
