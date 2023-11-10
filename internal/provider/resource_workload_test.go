@@ -1,6 +1,7 @@
 package cpln
 
 import (
+	"encoding/json"
 	"fmt"
 	client "terraform-provider-cpln/internal/provider/client"
 	"testing"
@@ -12,6 +13,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
+
+const workloadEnvoyJson = `{"http":[{"excludedWorkloads":["workloadAuthorizor-1"],"name":"envoy.filters.http.ext_authz","priority":1,"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz","failure_mode_allow":false,"http_service":{"authorization_response":{"allowed_upstream_headers":{"patterns":[{"prefix":"random-header"}]}},"path_prefix":"","server_uri":{"cluster":"external.auth","timeout":"0.5s","uri":"workloadAuthorizor-1.some-gvc.cpln.local:8080"}},"include_peer_certificate":true,"transport_api_version":"V3"}}]}`
+const workloadEnvoyJsonUpdated = `{"http":[{"excludedWorkloads":["workloadAuthorizor-2"],"name":"envoy.filters.http.ext_authz","priority":1,"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz","failure_mode_allow":false,"http_service":{"authorization_response":{"allowed_upstream_headers":{"patterns":[{"prefix":"random-header"}]}},"path_prefix":"","server_uri":{"cluster":"external.auth","timeout":"0.5s","uri":"workloadAuthorizor-2.some-gvc.cpln.local:8080"}},"include_peer_certificate":true,"transport_api_version":"V3"}}]}`
 
 /*** Acc Tests ***/
 
@@ -29,67 +33,67 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 		CheckDestroy: testAccCheckControlPlaneWorkloadCheckDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests"),
+				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests"),
+				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests"),
+				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests"),
+				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests Updated"),
+				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests Updated", workloadEnvoyJsonUpdated),
 			},
 			{
-				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests"),
+				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneCronWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests Updated"),
+				Config: testAccControlPlaneCronWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests Updated", workloadEnvoyJsonUpdated),
 			},
 			{
-				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests"),
+				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson),
 				),
 			},
 			{
-				Config: testAccControlPlaneGpuWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description updated using terraform for acceptance tests"),
+				Config: testAccControlPlaneGpuWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description updated using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 			},
 		},
 	})
 }
 
-func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string) string {
+func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneWorkload")
 
@@ -308,12 +312,16 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		security_options {
 			file_system_group_id = 1
 		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
 	  }
 	  
-	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
-func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string) string {
+func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneWorkload")
 
@@ -535,11 +543,15 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		security_options {
 			file_system_group_id = 1
 		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
 	  }
-	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
-func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string) string {
+func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneCronWorkload")
 
@@ -694,12 +706,15 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  file_system_group_id = 1
 		}
 	  
+		sidecar {
+			envoy = jsonencode(%s)
+		}
 	  }
 	  
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
-func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string) string {
+func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
 	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
 
 	return fmt.Sprintf(`
@@ -884,11 +899,15 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 		security_options {
 			file_system_group_id = 1
 		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
 	}
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
-func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string) string {
+func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
 	TestLogger.Printf("Inside testAccControlPlaneGpuWorkloadUpdate")
 
 	return fmt.Sprintf(`
@@ -1064,8 +1083,12 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 		security_options {
 			file_system_group_id = 1
 		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
 	}
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
 func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName string, workload *client.Workload) resource.TestCheckFunc {
@@ -1101,7 +1124,7 @@ func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName 
 	}
 }
 
-func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string) resource.TestCheckFunc {
+func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		tags := *workload.Tags
@@ -1151,11 +1174,16 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("SecurityOptions mismatch, Diff: %s", diff)
 		}
 
+		expectedSidecar, _, _ := generateTestWorkloadSidecar(envoy)
+		if diff := deep.Equal(expectedSidecar, workload.Spec.Sidecar); diff != nil {
+			return fmt.Errorf("Sidecar mismatch, Diff: %s", diff)
+		}
+
 		return nil
 	}
 }
 
-func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, workloadName, workloadDescription string) string {
+func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneCronWorkload")
 
@@ -1326,8 +1354,11 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 			file_system_group_id = 1
 		}
 		
+		sidecar {
+			envoy = jsonencode(%s)
+		}
 	  }
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription)
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
 func testAccCheckControlPlaneWorkloadCheckDestroy(s *terraform.State) error {
@@ -1427,6 +1458,32 @@ func TestControlPlane_BuildSecurityOptions(t *testing.T) {
 	securityOptions, expectedSecurityOptions, _ := generateTestSecurityOptions()
 	if diff := deep.Equal(securityOptions, expectedSecurityOptions); diff != nil {
 		t.Errorf("SecurityOptions was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildJobSpec(t *testing.T) {
+	jobSpec, expectedJobSpec, _ := generateTestJobSpec()
+
+	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
+		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildJobSpec_Empty(t *testing.T) {
+	jobSpec := buildJobSpec([]interface{}{
+		map[string]interface{}{},
+	})
+	expectedJobSpec := client.JobSpec{}
+
+	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
+		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildWorkloadSidecar(t *testing.T) {
+	sidecar, expectedSidecar, _ := generateTestWorkloadSidecar(workloadEnvoyJson)
+	if diff := deep.Equal(sidecar, expectedSidecar); diff != nil {
+		t.Errorf("Workload Sidecar was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -1531,6 +1588,15 @@ func TestControlPlane_FlattenSecurityOptions(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenSecurityOptions); diff != nil {
 		t.Errorf("SecurityOptions was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenWorkloadSidecar(t *testing.T) {
+	_, expectedSidecar, expectedFlatten := generateTestWorkloadSidecar(workloadEnvoyJson)
+	flattenSidecar := flattenWorkloadSidecar(expectedSidecar)
+
+	if diff := deep.Equal(expectedFlatten, flattenSidecar); diff != nil {
+		t.Errorf("Workload Sidecar was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -1852,6 +1918,20 @@ func generateTestSecurityOptions() (*client.SecurityOptions, *client.SecurityOpt
 	return securityOptions, expectedSecurityOptions, flatten
 }
 
+func generateTestWorkloadSidecar(stringifiedJson string) (*client.WorkloadSidecar, *client.WorkloadSidecar, []interface{}) {
+	// Attempt to unmarshal `envoy`
+	var envoy interface{}
+	json.Unmarshal([]byte(stringifiedJson), &envoy)
+
+	flatten := generateFlatTestWorkloadSidecar(stringifiedJson)
+	sidecar := buildWorkloadSidecar(flatten)
+	expectedSidecar := &client.WorkloadSidecar{
+		Envoy: &envoy,
+	}
+
+	return sidecar, expectedSidecar, flatten
+}
+
 // Flatten //
 func generateFlatTestContainer(workloadType string) []interface{} {
 
@@ -2110,25 +2190,6 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 	}
 }
 
-func TestControlPlane_BuildJobSpec(t *testing.T) {
-	jobSpec, expectedJobSpec, _ := generateTestJobSpec()
-
-	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
-		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildJobSpec_Empty(t *testing.T) {
-	jobSpec := buildJobSpec([]interface{}{
-		map[string]interface{}{},
-	})
-	expectedJobSpec := client.JobSpec{}
-
-	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
-		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
-	}
-}
-
 func generateTestJobSpec() (*client.JobSpec, client.JobSpec, []interface{}) {
 	schedule := "* * * * *"
 	concurrencyPolicy := "Forbid"
@@ -2178,6 +2239,16 @@ func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas 
 func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
 	spec := map[string]interface{}{
 		"file_system_group_id": fileSystemGroupId,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestWorkloadSidecar(envoy string) []interface{} {
+	spec := map[string]interface{}{
+		"envoy": envoy,
 	}
 
 	return []interface{}{

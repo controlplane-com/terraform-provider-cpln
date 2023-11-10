@@ -1,6 +1,7 @@
 package cpln
 
 import (
+	"encoding/json"
 	"fmt"
 	client "terraform-provider-cpln/internal/provider/client"
 	"testing"
@@ -15,6 +16,9 @@ import (
 
 // TODO:
 // Add to TestAcc: Add test for locations and tags
+
+const gvcEnvoyJson = `{"http":[{"excludedWorkloads":["workloadAuthorizor-1"],"name":"envoy.filters.http.ext_authz","priority":1,"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz","failure_mode_allow":false,"http_service":{"authorization_response":{"allowed_upstream_headers":{"patterns":[{"prefix":"random-header"}]}},"path_prefix":"","server_uri":{"cluster":"external.auth","timeout":"0.5s","uri":"workloadAuthorizor-1.some-gvc.cpln.local:8080"}},"include_peer_certificate":true,"transport_api_version":"V3"}}]}`
+const gvcEnvoyJsonUpdated = `{"http":[{"excludedWorkloads":["workloadAuthorizor-2"],"name":"envoy.filters.http.ext_authz","priority":1,"typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz","failure_mode_allow":false,"http_service":{"authorization_response":{"allowed_upstream_headers":{"patterns":[{"prefix":"random-header"}]}},"path_prefix":"","server_uri":{"cluster":"external.auth","timeout":"0.5s","uri":"workloadAuthorizor-2.some-gvc.cpln.local:8080"}},"include_peer_certificate":true,"transport_api_version":"V3"}}]}`
 
 /*** Acc Tests ***/
 func TestAccControlPlaneGvc_basic(t *testing.T) {
@@ -40,26 +44,26 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50"),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50", gvcEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(50, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(50, gvcEnvoyJson, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75"),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75"),
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
 				),
 			},
@@ -67,7 +71,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 	})
 }
 
-func testAccControlPlaneGvc(random, random2, name, description, sampling string) string {
+func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string) string {
 
 	return fmt.Sprintf(`
 
@@ -139,7 +143,11 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string)
 			dedicated = true
 		}
 
-	  }`, random, random2, name, description, sampling)
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+
+	  }`, random, random2, name, description, sampling, envoy)
 }
 
 func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client.Gvc) resource.TestCheckFunc {
@@ -177,7 +185,7 @@ func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client
 	}
 }
 
-func testAccCheckControlPlaneGvcAttributes(sampling int, gvc *client.Gvc) resource.TestCheckFunc {
+func testAccCheckControlPlaneGvcAttributes(sampling int, envoy string, gvc *client.Gvc) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		tags := *gvc.Tags
 
@@ -197,6 +205,11 @@ func testAccCheckControlPlaneGvcAttributes(sampling int, gvc *client.Gvc) resour
 		expectedLoadBalancer, _, _ := generateTestLoadBalancer()
 		if diff := deep.Equal(expectedLoadBalancer, gvc.Spec.LoadBalancer); diff != nil {
 			return fmt.Errorf("LoadBalancer attributes do not match. Diff: %s", diff)
+		}
+
+		expectedSidecar, _, _ := generateTestGvcSidecar(envoy)
+		if diff := deep.Equal(expectedSidecar, gvc.Spec.Sidecar); diff != nil {
+			return fmt.Errorf("Sidecar attributes do not match. Diff: %s", diff)
 		}
 
 		return nil
@@ -291,6 +304,13 @@ func TestControlPlane_BuildLoadBalancer(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildGvcSidecar(t *testing.T) {
+	sidecar, expectedSidecar, _ := generateTestGvcSidecar(gvcEnvoyJson)
+	if diff := deep.Equal(sidecar, expectedSidecar); diff != nil {
+		t.Errorf("GVC Sidecar was not built correctly, Diff: %s", diff)
+	}
+}
+
 // Flatten //
 func TestControlPlane_FlattenLocations(t *testing.T) {
 
@@ -369,10 +389,34 @@ func generateTestLoadBalancer() (*client.LoadBalancer, *client.LoadBalancer, []i
 	return loadBalancer, expectedLoadBalancer, flatten
 }
 
+func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client.GvcSidecar, []interface{}) {
+	// Attempt to unmarshal `envoy`
+	var envoy interface{}
+	json.Unmarshal([]byte(stringifiedJson), &envoy)
+
+	flatten := generateFlatTestGvcSidecar(stringifiedJson)
+	sidecar := buildGvcSidecar(flatten)
+	expectedSidecar := &client.GvcSidecar{
+		Envoy: &envoy,
+	}
+
+	return sidecar, expectedSidecar, flatten
+}
+
 // Flatten //
 func generateFlatTestLoadBalancer(dedicated bool) []interface{} {
 	spec := map[string]interface{}{
 		"dedicated": dedicated,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestGvcSidecar(envoy string) []interface{} {
+	spec := map[string]interface{}{
+		"envoy": envoy,
 	}
 
 	return []interface{}{

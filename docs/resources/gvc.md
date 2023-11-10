@@ -23,6 +23,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
+- **sidecar** (Block List, Max: 1) ([see below](#nestedblock--sidecar))
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
 
@@ -57,6 +58,14 @@ Required:
 Required:
 
 - **dedicated** (Boolean) Creates a dedicated load balancer in each location and enables additional Domain features: custom ports, protocols and wildcard hostnames. Charges apply for each location.
+
+<a id="nestedblock--sidecar"></a>
+
+### `sidecar`
+
+Required:
+
+- **envoy** (string) // TODO: Add description
 
 ## Outputs
 
@@ -130,6 +139,43 @@ resource "cpln_gvc" "example" {
 
   load_balancer {
     dedicated = true
+  }
+
+  sidecar {
+    envoy = jsonencode({
+      "http": [
+        {
+          "excludedWorkloads": [
+            "workloadAuthorizor-1"
+          ],
+          "name": "envoy.filters.http.ext_authz",
+          "priority": 1,
+          "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+            "failure_mode_allow": false,
+            "http_service": {
+              "authorization_response": {
+                "allowed_upstream_headers": {
+                  "patterns": [
+                    {
+                      "prefix": "random-header"
+                    }
+                  ]
+                }
+              },
+              "path_prefix": "",
+              "server_uri": {
+                "cluster": "external.auth",
+                "timeout": "0.5s",
+                "uri": "workloadAuthorizor-1.some-gvc.cpln.local:8080"
+              }
+            },
+            "include_peer_certificate": true,
+            "transport_api_version": "V3"
+          }
+        }
+      ]
+    })
   }
 }
 

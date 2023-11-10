@@ -2,7 +2,9 @@ package cpln
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	client "terraform-provider-cpln/internal/provider/client"
@@ -93,6 +95,19 @@ func GvcSchema() map[string]*schema.Schema {
 		},
 		"lightstep_tracing": client.LightstepSchema(),
 		"otel_tracing":      client.OtelSchema(),
+		"sidecar": {
+			Type: schema.TypeList,
+			Optional: true,
+			MaxItems: 1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"envoy": {
+						Type: schema.TypeString,
+						Required: true,
+					},
+				},
+			},
+		},
 		"load_balancer": {
 			Type:     schema.TypeList,
 			Optional: true,
@@ -154,6 +169,10 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 		gvc.Spec.Tracing = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
 	}
 
+	if d.Get("sidecar") != nil {
+		gvc.Spec.Sidecar = buildGvcSidecar(d.Get("sidecar").([]interface{}))
+	}
+
 	newGvc, code, err := c.CreateGvc(gvc)
 
 	if code == 409 {
@@ -190,7 +209,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "load_balancer") {
+	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "load_balancer", "sidecar") {
 
 		c := m.(*client.Client)
 
@@ -205,6 +224,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 		buildPullSecrets(c.Org, d.Get("pull_secrets"), gvcToUpdate.SpecReplace)
 		gvcToUpdate.SpecReplace.Env = GetGVCEnvChanges(d)
 		gvcToUpdate.SpecReplace.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}))
+		gvcToUpdate.SpecReplace.Sidecar = buildGvcSidecar(d.Get("sidecar").([]interface{}))
 
 		gvcToUpdate.SpecReplace.Tracing = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
 
@@ -264,6 +284,10 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 	}
 
 	if err := d.Set("load_balancer", flattenLoadBalancer(gvc.Spec.LoadBalancer)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("sidecar", flattenGvcSidecar(gvc.Spec.Sidecar)); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -376,6 +400,27 @@ func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {
 	return &output
 }
 
+func buildGvcSidecar(specs []interface{}) *client.GvcSidecar {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+	
+	spec := specs[0].(map[string]interface{})
+	output := client.GvcSidecar{}
+
+	// Attempt to unmarshal `envoy`
+	var envoy interface{}
+	err := json.Unmarshal([]byte(spec["envoy"].(string)), &envoy)
+	if err != nil {
+		log.Fatalf("Error occurred during unmarshaling 'envoy' value. Error: %s", err.Error())
+	}
+
+	// Set envoy
+	output.Envoy = &envoy
+
+	return &output
+}
+
 /*** Flatten ***/
 func flattenDomain(gvcSpec *client.GvcSpec) *string {
 
@@ -431,5 +476,25 @@ func flattenLoadBalancer(gvcSpec *client.LoadBalancer) []interface{} {
 
 	return []interface{}{
 		loadBalancer,
+	}
+}
+
+func flattenGvcSidecar(gvcSpec *client.GvcSidecar) []interface{} {
+	if gvcSpec == nil {
+		return nil
+	}
+
+	// Attempt to marshal `envoy`
+	jsonOut, err := json.Marshal(*gvcSpec.Envoy)
+	if err != nil {
+		log.Fatalf("Error occurred during marshaling 'envoy' value. Error: %s", err.Error())
+	}
+
+	sidecar := map[string]interface{}{
+		"envoy": string(jsonOut),
+	}
+
+	return []interface{}{
+		sidecar,
 	}
 }
