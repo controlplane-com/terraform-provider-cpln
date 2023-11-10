@@ -54,7 +54,6 @@ func resourceSecret() *schema.Resource {
 			"dictionary": {
 				Type:         schema.TypeMap,
 				Optional:     true,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -68,7 +67,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -90,7 +88,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -115,7 +112,6 @@ func resourceSecret() *schema.Resource {
 				Type:             schema.TypeString,
 				Optional:         true,
 				Sensitive:        true,
-				ForceNew:         true,
 				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "nats_account", "opaque", "tls", "userpass"},
 				DiffSuppressFunc: diffSuppressJSON,
 			},
@@ -123,7 +119,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -151,7 +146,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -187,7 +181,6 @@ func resourceSecret() *schema.Resource {
 				Type:             schema.TypeString,
 				Optional:         true,
 				Sensitive:        true,
-				ForceNew:         true,
 				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "nats_account", "opaque", "tls", "userpass"},
 				DiffSuppressFunc: diffSuppressJSON,
 			},
@@ -195,7 +188,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -223,7 +215,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -250,7 +241,6 @@ func resourceSecret() *schema.Resource {
 				Type:             schema.TypeString,
 				Optional:         true,
 				Sensitive:        true,
-				ForceNew:         true,
 				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "nats_account", "opaque", "tls", "userpass"},
 				DiffSuppressFunc: diffSuppressJSON,
 			},
@@ -258,7 +248,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -279,7 +268,6 @@ func resourceSecret() *schema.Resource {
 				Type:         schema.TypeList,
 				Optional:     true,
 				MaxItems:     1,
-				ForceNew:     true,
 				ExactlyOneOf: secretDataObjectsNames,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -370,6 +358,7 @@ func getSecretType(d *schema.ResourceData) *string {
 
 func buildData(secretType string, data interface{}, secret *client.Secret, update bool) error {
 
+	var dataToSet *interface{}
 	secret.Type = &secretType
 
 	dataType := "unknown"
@@ -393,11 +382,9 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 	if dataType == "string" && (secretType == "gcp" || secretType == "docker" || secretType == "azure_sdk") {
 
 		dataString := dType.(string)
-		secret.Data = GetInterface(dataString)
-		return nil
-	}
-
-	if dataType == "interface" {
+		dataToSet = GetInterface(dataString)
+		
+	} else if dataType == "interface" {
 
 		dataArray := dType.([]interface{})
 
@@ -486,7 +473,7 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 					dataMap,
 				}
 
-				secret.Data = &output[0]
+				dataToSet = &output[0]
 
 			} else {
 
@@ -498,14 +485,22 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 					}
 				}
 
-				secret.Data = GetInterface(sData)
+				dataToSet = GetInterface(sData)
 			}
 		}
-
-		return nil
 	}
 
-	return fmt.Errorf("invalid secret input or data type. Secret type: %s", secretType)
+	if dataToSet == nil {
+		return fmt.Errorf("invalid secret input or data type. Secret type: %s", secretType)
+	}
+
+	if update {
+		secret.DataReplace = dataToSet
+	} else {
+		secret.Data = dataToSet
+	}
+
+	return nil
 }
 
 func resourceSecretRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
