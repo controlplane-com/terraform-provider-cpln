@@ -264,4 +264,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.11 - Add Otel tracing to org and gvc.
 - v1.1.12 - Fix bug when passing null container command args.
 - v1.1.13 - Update dependencies. Add to a volume set policy that a gvc is required.
-- v1.1.14 -
+- v1.1.14 - Fix bug with secrets when updating.
