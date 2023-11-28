@@ -48,13 +48,7 @@ func GetTags(tags *map[string]interface{}) map[string]interface{} {
 			continue
 		}
 
-		switch t := v.(type) {
-
-		case bool:
-			stringTypes[k] = strconv.FormatBool(t)
-		default:
-			stringTypes[k] = t
-		}
+		stringTypes[k] = fmt.Sprintf("%v", v)
 	}
 
 	return stringTypes

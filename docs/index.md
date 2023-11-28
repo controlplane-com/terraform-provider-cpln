@@ -48,7 +48,7 @@ terraform {
   required_providers {
     cpln = {
       source = "controlplane-com/cpln"
-      version = "1.1.14"
+      version = "1.1.15"
     }
   }
 }

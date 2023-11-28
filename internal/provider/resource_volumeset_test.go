@@ -26,10 +26,20 @@ func TestAccControlPlaneVolumeSet_basic(t *testing.T) {
 	// Update variables
 	descriptionUpdated := "Volume Set description updated using Terraform"
 
+	ep := resource.ExternalProvider{
+		Source:            "time",
+		VersionConstraint: "0.9.2",
+	}
+
+	eps := map[string]resource.ExternalProvider{
+		"time": ep,
+	}
+
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "VOLUME-SET") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneVolumeSetCheckDestroy,
+		PreCheck:          func() { testAccPreCheck(t, "VOLUME-SET") },
+		Providers:         testAccProviders,
+		ExternalProviders: eps,
+		CheckDestroy:      testAccCheckControlPlaneVolumeSetCheckDestroy,
 		Steps: []resource.TestStep{
 			{
 				// Required Only
@@ -79,7 +89,14 @@ func testAccControlPlaneVolumeSet_requiredOnly(gvcName string, name string, desc
 
 	return fmt.Sprintf(`
 
+	resource "time_sleep" "wait_30_seconds" {
+	  	destroy_duration = "30s"
+	}
+
 	resource "cpln_gvc" "new" {
+
+		depends_on = [time_sleep.wait_30_seconds]
+
 		name        = "%s"
 		description = "This is a GVC description"
 	  
@@ -114,7 +131,14 @@ func testAccControlPlaneVolumeSet_requiredOnlyUpdated(gvcName string, name strin
 
 	return fmt.Sprintf(`
 
+	resource "time_sleep" "wait_30_seconds" {
+	  	destroy_duration = "30s"
+	}
+
 	resource "cpln_gvc" "new" {
+
+		depends_on = [time_sleep.wait_30_seconds]
+
 		name        = "%s"
 		description = "This is a GVC description"
 	  
@@ -149,8 +173,15 @@ func testAccControlPlaneVolumeSet_requiredOnlyUpdated(gvcName string, name strin
 func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, description string) string {
 
 	return fmt.Sprintf(`
+
+	resource "time_sleep" "wait_30_seconds" {
+	  	destroy_duration = "30s"
+	}
 	
 	resource "cpln_gvc" "new" {
+
+		depends_on = [time_sleep.wait_30_seconds]
+
 		name        = "%s"
 		description = "This is a GVC description"
 	  
@@ -196,8 +227,15 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name string, description string) string {
 
 	return fmt.Sprintf(`
+
+	resource "time_sleep" "wait_30_seconds" {
+	  	destroy_duration = "30s"
+	}
 	
 	resource "cpln_gvc" "new" {
+
+		depends_on = [time_sleep.wait_30_seconds]
+
 		name        = "%s"
 		description = "This is a GVC description"
 	  

@@ -30,7 +30,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 
 	ep := resource.ExternalProvider{
 		Source:            "time",
-		VersionConstraint: "0.7.2",
+		VersionConstraint: "0.9.2",
 	}
 
 	eps := map[string]resource.ExternalProvider{
@@ -393,7 +393,7 @@ func generateTestLoadBalancer(trustedProxies int) (*client.LoadBalancer, *client
 	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies)
 	loadBalancer := buildLoadBalancer(flatten)
 	expectedLoadBalancer := &client.LoadBalancer{
-		Dedicated: &dedicated,
+		Dedicated:      &dedicated,
 		TrustedProxies: &trustedProxies,
 	}
 
@@ -417,7 +417,7 @@ func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client
 // Flatten //
 func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int) []interface{} {
 	spec := map[string]interface{}{
-		"dedicated": dedicated,
+		"dedicated":       dedicated,
 		"trusted_proxies": trustedProxies,
 	}
 
