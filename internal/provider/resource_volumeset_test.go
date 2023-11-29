@@ -91,6 +91,8 @@ func testAccControlPlaneVolumeSet_requiredOnly(gvcName string, name string, desc
 
 	resource "cpln_gvc" "new" {
 
+		depends_on = [time_sleep.wait_120_seconds]
+
 		name        = "%s"
 		description = "This is a GVC description"
 	  
@@ -102,14 +104,11 @@ func testAccControlPlaneVolumeSet_requiredOnly(gvcName string, name string, desc
 		}
 	}
 
-	resource "time_sleep" "wait_30_seconds" {
-		depends_on = [cpln_gvc.new]
-		destroy_duration = "30s"
+	resource "time_sleep" "wait_120_seconds" {
+		destroy_duration = "120s"
     }
 	
 	resource "cpln_volume_set" "new" {
-
-		depends_on = [time_sleep.wait_30_seconds]
 
 		name 		= "%s"
 		description = "%s"
@@ -134,7 +133,7 @@ func testAccControlPlaneVolumeSet_requiredOnlyUpdated(gvcName string, name strin
 
 	resource "cpln_gvc" "new" {
 
-		depends_on = [time_sleep.wait_30_seconds]
+		depends_on = [time_sleep.wait_120_seconds]
 
 		name        = "%s"
 		description = "This is a GVC description"
@@ -147,15 +146,12 @@ func testAccControlPlaneVolumeSet_requiredOnlyUpdated(gvcName string, name strin
 		}
 	}
 	
-	resource "time_sleep" "wait_30_seconds" {
-		depends_on = [cpln_gvc.new]
-		destroy_duration = "30s"
+	resource "time_sleep" "wait_120_seconds" {
+		destroy_duration = "120s"
     }
 	
 	resource "cpln_volume_set" "new" {
 
-		depends_on = [time_sleep.wait_30_seconds]
-		
 		name 		= "%s"
 		description = "%s"
 
@@ -180,7 +176,7 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 
 	resource "cpln_gvc" "new" {
 
-		depends_on = [time_sleep.wait_30_seconds]
+		depends_on = [time_sleep.wait_120_seconds]
 
 		name        = "%s"
 		description = "This is a GVC description"
@@ -193,15 +189,12 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 		}
 	}
 
-	resource "time_sleep" "wait_30_seconds" {
-		depends_on = [cpln_gvc.new]
-		destroy_duration = "30s"
+	resource "time_sleep" "wait_120_seconds" {
+		destroy_duration = "120s"
     }
 	
 	resource "cpln_volume_set" "new" {
 
-		depends_on = [time_sleep.wait_30_seconds]
-		
 		name 		= "%s"
 		description = "%s"
 
@@ -237,7 +230,7 @@ func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name stri
 
 	resource "cpln_gvc" "new" {
 
-		depends_on = [time_sleep.wait_30_seconds]
+		depends_on = [time_sleep.wait_120_seconds]
 
 		name        = "%s"
 		description = "This is a GVC description"
@@ -250,15 +243,10 @@ func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name stri
 		}
 	}
 
-	resource "time_sleep" "wait_30_seconds" {
-		depends_on = [cpln_gvc.new]
-		destroy_duration = "30s"
+	resource "time_sleep" "wait_120_seconds" {
+		destroy_duration = "120s"
     }
 	
-	resource "cpln_volume_set" "new" {
-
-		depends_on = [time_sleep.wait_30_seconds]
-
 	resource "cpln_volume_set" "new" {
 		
 		name 		= "%s"
