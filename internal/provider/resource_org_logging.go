@@ -16,9 +16,9 @@ var loggingNames = []string{
 func resourceOrgLogging() *schema.Resource {
 
 	return &schema.Resource{
-		CreateContext: resourceOrgCreate,
-		ReadContext:   resourceOrgRead,
-		UpdateContext: resourceOrgUpdate,
+		CreateContext: resourceOrgLoggingCreate,
+		ReadContext:   resourceOrgLoggingRead,
+		UpdateContext: resourceOrgLoggingUpdate,
 		DeleteContext: resourceOrgLoggingDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
@@ -192,7 +192,7 @@ func resourceOrgLogging() *schema.Resource {
 	}
 }
 
-func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOrgLoggingCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceOrgCreate")
 
@@ -209,10 +209,10 @@ func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{
 		return diag.FromErr(err)
 	}
 
-	return setOrg(d, org)
+	return setOrgLogging(d, org)
 }
 
-func resourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOrgLoggingRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceOrgtRead")
 
@@ -223,10 +223,10 @@ func resourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{})
 		return diag.FromErr(err)
 	}
 
-	return setOrg(d, org)
+	return setOrgLogging(d, org)
 }
 
-func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOrgLoggingUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	// log.Printf("[INFO] Method: resourceOrgUpdate")
 
@@ -247,7 +247,7 @@ func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 			return diag.FromErr(err)
 		}
 
-		return setOrg(d, org)
+		return setOrgLogging(d, org)
 	}
 
 	return nil
@@ -627,7 +627,7 @@ func flattenElasticCloudLogging(log *client.ElasticCloudLogging) []interface{} {
 }
 
 /*** Helper Functions ***/
-func setOrg(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
+func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 
 	if org == nil {
 		d.SetId("")

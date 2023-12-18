@@ -48,6 +48,7 @@ func Provider() *schema.Provider {
 			"cpln_identity":            resourceIdentity(),
 			"cpln_org_logging":         resourceOrgLogging(),
 			"cpln_org_tracing":         resourceOrgTracing(),
+			"cpln_org":                 resourceOrg(),
 			"cpln_policy":              resourcePolicy(),
 			"cpln_secret":              resourceSecret(),
 			"cpln_service_account":     resourceServiceAccount(),

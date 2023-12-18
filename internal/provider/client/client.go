@@ -49,12 +49,18 @@ func NewClient(org, host, profile, token *string) (*Client, error) {
 	return &c, nil
 }
 
-func (c *Client) doRequest(req *http.Request, contentType string) ([]byte, int, error) {
+func (c *Client) doRequest(req *http.Request, contentType string, optionalTokens ...string) ([]byte, int, error) {
 
 	// WSL TO GET IP: cat /etc/resolv.conf
 	// os.Setenv("HTTP_PROXY", "http://172.17.80.1:8888")
 
-	req.Header.Set("Authorization", c.Token)
+	clientToken := c.Token
+
+	if len(optionalTokens) > 0 {
+		clientToken = optionalTokens[0]
+	}
+
+	req.Header.Set("Authorization", clientToken)
 
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
