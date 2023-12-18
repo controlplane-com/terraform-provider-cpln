@@ -6,9 +6,9 @@ description: |-
 
 # cpln_volume_set (Resource)
 
-A [volume set](https://docs.controlplane.com/reference/volume-sets) is a collection of storage volumes. Each volume set can be used by at most one [stateful workload](https://docs.controlplane.com/reference/workload#stateful). Volumes are not deleted until the volume set is deleted.
+A [volume set](https://docs.controlplane.com/reference/volumeset) is a collection of storage volumes. Each volume set can be used by at most one [stateful workload](https://docs.controlplane.com/reference/workload#stateful). Volumes are not deleted until the volume set is deleted.
 
-Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference/volume-sets) for additional details.
+Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference/volumeset) for additional details.
 
 ## Declaration
 
