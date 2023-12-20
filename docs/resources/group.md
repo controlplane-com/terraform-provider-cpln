@@ -24,7 +24,7 @@ Groups membership can contain [users](https://docs.controlplane.com/reference/us
 - **user_ids_and_emails** (List of String) List of either the user ID or email address for a user that exists within the configured org. Group membership will fail if the user ID / email does not exist within the org.
 
 - **member_query** (Block List, Max: 1) ([see below](#nestedblock--member_query)).
-- **identity_matcher** (Block List, Max: 1) ([see below](#nestedblock--identity_matcher).
+- **identity_matcher** (Block List, Max: 1) ([see below](#nestedblock--identity_matcher)).
 
 <a id="nestedblock--member_query"></a>
 
@@ -82,6 +82,29 @@ The following attributes are exported:
 
 ## Example Usage
 
+-> The `identity_matcher` expressions (evaluated when using SAML authentication) for the JMESPath and JavaScript example resources below are based on the following JSON that was provided to Control Plane from the domain IdP (identity provider).
+
+**Provided JSON from SAML IdP**
+
+```javascript
+{
+  "identities": {
+    "saml.example.com": [
+      "user@example.com"
+    ],
+    "email": [
+      "user@example.com"
+    ]
+  },
+  "sign_in_provider": "saml.example.com",
+  "sign_in_attributes": {
+    "orgPath": "/",
+    "memberOf": "developers"
+  }
+```
+
+**Example Terraform**
+
 ```terraform
 resource "cpln_service_account" "example" {
 
@@ -97,7 +120,7 @@ resource "cpln_service_account" "example" {
 resource "cpln_group" "example" {
 
   name        = "group-example"
-  description = "group description ${var.random-name}"
+  description = "group example"
 
   tags = {
     terraform_generated = "true"
@@ -126,7 +149,7 @@ resource "cpln_group" "example" {
 resource "cpln_group" "example_jmespath" {
 
   name        = "group-example"
-  description = "group description ${var.random-name}"
+  description = "group jmespath"
 
   tags = {
     terraform_generated = "true"
@@ -134,7 +157,7 @@ resource "cpln_group" "example_jmespath" {
   }
 
   identity_matcher {
-    expression = "groups"
+    expression = "contains(sign_in_attributes.memberOf, 'developers')"
     language = "jmespath"
   }
 }
@@ -142,7 +165,7 @@ resource "cpln_group" "example_jmespath" {
 resource "cpln_group" "example_javascript" {
 
   name        = "group-example"
-  description = "group description ${var.random-name}"
+  description = "group javascript"
 
   tags = {
     terraform_generated = "true"
@@ -150,7 +173,7 @@ resource "cpln_group" "example_javascript" {
   }
 
   identity_matcher {
-    expression = "if ($.includes('groups')) { const y = $.groups; }"
+    expression = "if ($.sign_in_attributes) { $.sign_in_attributes.memberOf.includes('developers'); }"
     language = "javascript"
   }
 }
