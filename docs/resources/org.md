@@ -6,14 +6,14 @@ description: |-
 
 # cpln_org (Resource)
 
-Manage an [organization](https://cpln-docs-test.web.app/reference/org).
+Manage an [organization](https://docs.controlplane.com/reference/org).
 
 ## Declaration
 
 ### Optional
 
-- **account_id** (String) Only effictive on creation, the account id that will be used to create the organization.
-- **org_invitees** (List of String) Only effictive on creation, the list of emails that will receive an invitation to the organization as superusers.
+- **account_id** (String) Only effective on creation, the account id that will be used to create the organization.
+- **org_invitees** (List of String) Only effective on creation, the list of emails that will receive an invitation to the organization as superusers.
 - **session_timeout_seconds** (Int) This timeout setting (in seconds) specifies when the console UI will automatically sign out. Default: 900. (15 minutes)
 - **auth_config** (Block List, Max: 1) ([see below](#nestedblock--auth_config)).
 - **observability** (Block List, Max: 1) ([see below](#nestedblock--observability)).
@@ -74,8 +74,8 @@ resource "cpln_org" "example" {
     session_timeout_seconds = 1200
 
     auth_config {
-        domain_auto_members = ["saml-1@mail.com", "saml-2@mail.com"]
-        saml_only           = true
+        domain_auto_members = ["example.com"]
+        saml_only           = false
     }
 
     observability {

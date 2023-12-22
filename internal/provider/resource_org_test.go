@@ -58,8 +58,8 @@ func TestControlPlane_FlattenOrgObservability(t *testing.T) {
 // Build //
 func generateTestOrgAuthConfig() *client.AuthConfig {
 
-	domainAutoMembers := []string{"majid@controlplane.com", "eric@controlplane.com"}
-	samlOnly := true
+	domainAutoMembers := []string{"example.com"}
+	samlOnly := false
 
 	expectedAuthConfig := client.AuthConfig{
 		DomainAutoMembers: &domainAutoMembers,

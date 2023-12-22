@@ -401,6 +401,17 @@ func PortValidator(val interface{}, key string) (warns []string, errs []error) {
 	return
 }
 
+func ObservabilityValidator(val interface{}, key string) (warns []string, errs []error) {
+
+	v := val.(int)
+
+	if v < 0 {
+		errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
+	}
+
+	return
+}
+
 func CpuMemoryValidator(val interface{}, key string) (warns []string, errs []error) {
 
 	v := val.(string)

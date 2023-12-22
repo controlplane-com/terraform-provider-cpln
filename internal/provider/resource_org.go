@@ -2,7 +2,6 @@ package cpln
 
 import (
 	"context"
-	"fmt"
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -30,10 +29,8 @@ func orgSchema() map[string]*schema.Schema {
 			Computed: true,
 		},
 		"name": {
-			Type:         schema.TypeString,
-			Required:     true,
-			ForceNew:     true,
-			ValidateFunc: NameValidator,
+			Type:     schema.TypeString,
+			Computed: true,
 		},
 		"description": {
 			Type:             schema.TypeString,
@@ -69,6 +66,11 @@ func orgSchema() map[string]*schema.Schema {
 				},
 			},
 		},
+		"create_org": {
+			Type:     schema.TypeBool,
+			Optional: true,
+			Default:  false,
+		},
 		"account_id": {
 			Type:     schema.TypeString,
 			Optional: true,
@@ -100,7 +102,8 @@ func orgSchema() map[string]*schema.Schema {
 					},
 					"saml_only": {
 						Type:     schema.TypeBool,
-						Required: true,
+						Optional: true,
+						Default:  false,
 					},
 				},
 			},
@@ -112,16 +115,22 @@ func orgSchema() map[string]*schema.Schema {
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"logs_retention_days": {
-						Type:     schema.TypeInt,
-						Required: true,
+						Type:         schema.TypeInt,
+						Default:      30,
+						Optional:     true,
+						ValidateFunc: ObservabilityValidator,
 					},
 					"metrics_retention_days": {
-						Type:     schema.TypeInt,
-						Required: true,
+						Type:         schema.TypeInt,
+						Default:      30,
+						Optional:     true,
+						ValidateFunc: ObservabilityValidator,
 					},
 					"traces_retention_days": {
-						Type:     schema.TypeInt,
-						Required: true,
+						Type:         schema.TypeInt,
+						Default:      30,
+						Optional:     true,
+						ValidateFunc: ObservabilityValidator,
 					},
 				},
 			},
@@ -131,19 +140,21 @@ func orgSchema() map[string]*schema.Schema {
 
 func importStateOrg(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 
-	c := m.(*client.Client)
+	// TODO: Need to review and implement
+
+	// c := m.(*client.Client)
 
 	// Get then set account id
-	account, _, err := c.GetOrgAccount(d.Id())
+	// account, _, err := c.GetOrgAccount(d.Id())
 
-	if err != nil {
-		return nil, fmt.Errorf("import org %s failed. Error: %s", d.Id(), err)
-	}
+	// if err != nil {
+	// 	return nil, fmt.Errorf("import org %s failed. Error: %s", d.Id(), err)
+	// }
 
-	d.Set("account_id", account.ID)
+	// d.Set("account_id", account.ID)
 
-	// Set invitees to empty
-	d.Set("invitees", []interface{}{})
+	// // Set invitees to empty
+	// d.Set("invitees", []interface{}{})
 
 	return []*schema.ResourceData{d}, nil
 }
@@ -153,66 +164,74 @@ func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	c := m.(*client.Client)
 	org := client.Org{}
 
-	org.Name = GetString(d.Get("name"))
+	// org.Name = GetString(d.Get("name"))
+	org.Name = &c.Org
 	org.Description = GetString(d.Get("description"))
 	org.Tags = GetStringMap(d.Get("tags"))
 
-	accountId := d.Get("account_id").(string)
-	invitees := []string{}
+	// createOrg := GetBool(d.Get("create_org"))
 
-	for _, value := range d.Get("invitees").(*schema.Set).List() {
-		invitees = append(invitees, value.(string))
+	// if *createOrg {
+
+	// accountId := d.Get("account_id").(string)
+	// invitees := []string{}
+
+	// for _, value := range d.Get("invitees").(*schema.Set).List() {
+	// 	invitees = append(invitees, value.(string))
+	// }
+
+	// if accountId == "" {
+	// 	return diag.FromErr(fmt.Errorf("account id must not be empty"))
+	// }
+
+	// if len(invitees) == 0 {
+	// 	return diag.FromErr(fmt.Errorf("invitees must not be empty"))
+	// }
+
+	// createOrgRequest := client.CreateOrgRequest{
+	// 	Org:      &org,
+	// 	Invitees: &invitees,
+	// }
+
+	// // Make the request to create the org
+	// createdOrg, code, err := c.CreateOrg(accountId, createOrgRequest)
+
+	// if code == 409 {
+	// 	return ResourceExistsHelper()
+	// }
+
+	// if err != nil {
+	// 	return diag.FromErr(fmt.Errorf("org %s cannot be created. Error: %s", *org.Name, err))
+	// }
+
+	// }
+
+	org.SpecReplace = &client.OrgSpec{
+		AuthConfig:            buildAuthConfig(d.Get("auth_config").([]interface{})),
+		Observability:         buildObservability(d.Get("observability").([]interface{})),
+		SessionTimeoutSeconds: GetInt(d.Get("session_timeout_seconds").(int)),
 	}
 
-	if accountId == "" {
-		return diag.FromErr(fmt.Errorf("account id must not be empty"))
-	}
-
-	if len(invitees) == 0 {
-		return diag.FromErr(fmt.Errorf("invitees must not be empty"))
-	}
-
-	createOrgRequest := client.CreateOrgRequest{
-		Org:      &org,
-		Invitees: &invitees,
-	}
-
-	// Make the request to create the org
-	createdOrg, code, err := c.CreateOrg(accountId, createOrgRequest)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("org %s cannot be created. Error: %s", *org.Name, err))
-	}
-
-	createdOrg.SpecReplace = &client.OrgSpec{
-		AuthConfig:    buildAuthConfig(d.Get("auth_config").([]interface{})),
-		Observability: buildObservability(d.Get("observability").([]interface{})),
-	}
-
-	if d.Get("session_timeout_seconds") != nil {
-		createdOrg.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
-	}
+	// if d.Get("session_timeout_seconds") != nil {
+	// 	createdOrg.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
+	// }
 
 	// Make the request to update the org
-	updatedOrg, _, err := c.UpdateOrg(*createdOrg)
+	updatedOrg, _, err := c.UpdateOrg(org)
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	// Set invitees
-	flattenedInvitees := []interface{}{}
+	// // Set invitees
+	// flattenedInvitees := []interface{}{}
 
-	for _, value := range invitees {
-		flattenedInvitees = append(flattenedInvitees, value)
-	}
+	// for _, value := range invitees {
+	// 	flattenedInvitees = append(flattenedInvitees, value)
+	// }
 
-	if err := d.Set("invitees", flattenedInvitees); err != nil {
-		return diag.FromErr(err)
-	}
+	// if err := d.Set("invitees", flattenedInvitees); err != nil {
+	// 	return diag.FromErr(err)
+	// }
 
 	return setOrg(d, updatedOrg)
 }
@@ -230,7 +249,9 @@ func resourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{})
 }
 
 func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
 	if d.HasChanges("description", "tags", "session_timeout_seconds", "auth_config", "observability") {
+
 		c := m.(*client.Client)
 
 		orgToUpdate := client.Org{
@@ -262,17 +283,18 @@ func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 
 func resourceOrgDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	c := m.(*client.Client)
-	org := client.Org{
-		SpecReplace: &client.OrgSpec{},
-	}
+	// c := m.(*client.Client)
 
-	org.Name = GetString(d.Get("name"))
+	// org := client.Org{
+	// 	SpecReplace: &client.OrgSpec{},
+	// }
 
-	_, _, err := c.UpdateOrg(org)
-	if err != nil {
-		return diag.FromErr(err)
-	}
+	// org.Name = GetString(d.Get("name"))
+
+	// _, _, err := c.UpdateOrg(org)
+	// if err != nil {
+	// 	return diag.FromErr(err)
+	// }
 
 	d.SetId("")
 
