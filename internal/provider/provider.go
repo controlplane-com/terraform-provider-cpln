@@ -35,6 +35,11 @@ func Provider() *schema.Provider {
 				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("CPLN_TOKEN", ""),
 			},
+			"refresh_token": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("CPLN_REFRESH_TOKEN", ""),
+			},
 		},
 
 		ResourcesMap: map[string]*schema.Resource{
@@ -76,10 +81,11 @@ func providerConfigure(_ context.Context, d *schema.ResourceData) (interface{}, 
 	host := d.Get("endpoint").(string)
 	profile := d.Get("profile").(string)
 	token := d.Get("token").(string)
+	refreshToken := d.Get("refresh_token").(string)
 
 	var diags diag.Diagnostics
 
-	httpClient, err := client.NewClient(&org, &host, &profile, &token)
+	httpClient, err := client.NewClient(&org, &host, &profile, &token, &refreshToken)
 
 	if err != nil {
 		return nil, diag.FromErr(err)
