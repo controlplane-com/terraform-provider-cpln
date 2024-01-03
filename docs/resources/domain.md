@@ -108,6 +108,49 @@ Optional:
 The following attributes are exported:
 
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **status** (Block List, Max: 1) ([see below](#nestedblock--status))
+
+<a id="nestedblock--status"></a>
+
+### `status`
+
+Status of the domain.
+
+Read-Only:
+
+- **endpoints** (Block List) ([see below](#nestedblock--status--endpoints))
+- **status** (String) // TODO: Add Description
+- **warning** (String) // TODO: Add Description
+- **locations** (Block List) ([see below](#nestedblock--status--locations))
+- **fingerprint** (String) // TODO: Add Description
+- **dns_config** (Block List) ([see below](#nestedblock--status--dns_config))
+
+<a id="nestedblock--status--endpoints"></a>
+
+### `status.endpoints`
+
+// TODO: Add Description
+
+- **url** (String) // TODO: Add Description
+- **workload_link** (String) // TODO: Add Description
+
+<a id="nestedblock--status--locations"></a>
+
+### `status.locations`
+
+// TODO: Add Description
+
+- **name** (String) // TODO: Add Description
+- **certificate_status** (String) // TODO: Add Description
+
+<a id="nestedblock--status--dns_config"></a>
+
+### `status.dns_config`
+
+- **type** (String) // TODO: Add Description
+- **ttl** (Number) // TODO: Add Description
+- **host** (String) // TODO: Add Description
+- **value** (String) // TODO: Add Description
 
 ## Example Usage
 

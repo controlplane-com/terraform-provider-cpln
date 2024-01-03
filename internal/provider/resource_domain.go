@@ -18,6 +18,10 @@ func resourceDomain() *schema.Resource {
 		UpdateContext: resourceDomainUpdate,
 		DeleteContext: resourceDomainDelete,
 		Schema: map[string]*schema.Schema{
+			"cpln_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -176,6 +180,82 @@ func resourceDomain() *schema.Resource {
 												},
 											},
 										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"status": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"endpoints": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"url": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+									"workload_link": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+						"status": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"warning": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"locations": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"name": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+									"certificate_status": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+						"fingerprint": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"dns_config": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"type": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+									"ttl": {
+										Type:     schema.TypeInt,
+										Optional: true,
+									},
+									"host": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+									"value": {
+										Type:     schema.TypeString,
+										Optional: true,
 									},
 								},
 							},
@@ -487,6 +567,7 @@ func buildCertificate(specs []interface{}) *client.DomainCertificate {
 
 /*** Flatten Functions ***/
 // Spec Related //
+
 func flattenDomainSpec(domainSpec *client.DomainSpec) []interface{} {
 
 	if domainSpec == nil {
@@ -621,6 +702,137 @@ func flattenCertificate(certificate *client.DomainCertificate) []interface{} {
 	}
 }
 
+func flattenDomainStatus(status *client.DomainStatus) []interface{} {
+	if status == nil {
+		return nil
+	}
+
+	spec := make(map[string]interface{})
+
+	endpoints := flattenDomainStatusEndpoints(status.Endpoints)
+	if endpoints != nil {
+		spec["endpoints"] = endpoints
+	}
+
+	if status.Status != nil {
+		spec["status"] = *status.Status
+	}
+
+	if status.Warning != nil {
+		spec["warning"] = *status.Warning
+	}
+
+	locations := flattenDomainStatusLocations(status.Locations)
+	if locations != nil {
+		spec["locations"] = locations
+	}
+
+	if status.Fingerprint != nil {
+		spec["fingerprint"] = *status.Fingerprint
+	}
+
+	dnsConfig := flattenDomainStatusDnsConfig(status.DnsConfig)
+	if dnsConfig != nil {
+		spec["dns_config"] = dnsConfig
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenDomainStatusEndpoints(endpoints *[]client.DomainEndpoint) []interface{} {
+	if endpoints == nil || len(*endpoints) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, endpoint := range *endpoints {
+		if endpoint.URL == nil && endpoint.WorkloadLink == nil {
+			continue
+		}
+
+		spec := make(map[string]interface{})
+
+		if endpoint.URL != nil {
+			spec["url"] = *endpoint.URL
+		}
+
+		if endpoint.WorkloadLink != nil {
+			spec["workload_link"] = *endpoint.WorkloadLink
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenDomainStatusLocations(locations *[]client.DomainStatusLocation) []interface{} {
+	if locations == nil || len(*locations) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, location := range *locations {
+		if location.Name == nil && location.CertificateStatus == nil {
+			continue
+		}
+
+		spec := make(map[string]interface{})
+
+		if location.Name != nil {
+			spec["name"] = *location.Name
+		}
+
+		if location.CertificateStatus != nil {
+			spec["certificate_status"] = *location.CertificateStatus
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenDomainStatusDnsConfig(configs *[]client.DnsConfigRecord) []interface{} {
+	if configs == nil || len(*configs) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, config := range *configs {
+		if config.Type == nil && config.TTL == nil && config.Host == nil && config.Value == nil {
+			continue
+		}
+
+		spec := make(map[string]interface{})
+
+		if config.Type != nil {
+			spec["type"] = *config.Type
+		}
+
+		if config.TTL != nil {
+			spec["ttl"] = *config.TTL
+		}
+
+		if config.Host != nil {
+			spec["host"] = *config.Host
+		}
+
+		if config.Value != nil {
+			spec["value"] = *config.Value
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
 /*** Helper Functions ***/
 func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
 
@@ -648,6 +860,10 @@ func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
 	}
 
 	if err := d.Set("spec", flattenDomainSpec(domain.Spec)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("status", flattenDomainStatus(domain.Status)); err != nil {
 		return diag.FromErr(err)
 	}
 
