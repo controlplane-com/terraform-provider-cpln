@@ -35,6 +35,7 @@ Optional:
 
 - **create_final_snapshot** (Boolean) If true, a volume snapshot will be created immediately before deletion of any volume in this set. Default: `true`
 - **retention_duration** (String) The default retention period for volume snapshots. This string should contain a floating point number followed by either d, h, or m. For example, "10d" would retain snapshots for 10 days.
+- **schedule** (String) A standard cron schedule expression used to determine when your job should execute.
 
 <a id="nestedblock--autoscaling"></a>
 
@@ -93,6 +94,7 @@ resource "cpln_volume_set" "new" {
     snapshots {
         create_final_snapshot = false
         retention_duration    = "2d"
+        schedule              = "* * 1 * 1"
     }
 
     autoscaling {

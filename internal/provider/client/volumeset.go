@@ -26,6 +26,7 @@ type VolumeSetStatus struct {
 type VolumeSetSnapshots struct {
 	CreateFinalSnapshot *bool   `json:"createFinalSnapshot,omitempty"`
 	RetentionDuration   *string `json:"retentionDuration,omitempty"`
+	Schedule            *string `json:"schedule,omitempty"`
 }
 
 type VolumeSetScaling struct {
