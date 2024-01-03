@@ -105,6 +105,10 @@ func resourceVolumeSet() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
+						"schedule": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
 					},
 				},
 			},
@@ -330,6 +334,10 @@ func buildVolumeSetSnapshots(specs []interface{}) *client.VolumeSetSnapshots {
 		output.RetentionDuration = GetString(spec["retention_duration"])
 	}
 
+	if spec["schedule"] != nil {
+		output.Schedule = GetString(spec["schedule"])
+	}
+
 	return &output
 }
 
@@ -412,6 +420,10 @@ func flattenVolumeSetSnapshots(snapshots *client.VolumeSetSnapshots) []interface
 
 	if snapshots.RetentionDuration != nil {
 		spec["retention_duration"] = *snapshots.RetentionDuration
+	}
+
+	if snapshots.Schedule != nil {
+		spec["schedule"] = *snapshots.Schedule
 	}
 
 	return []interface{}{

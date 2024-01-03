@@ -212,6 +212,7 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 		snapshots {
 			create_final_snapshot = true
 			retention_duration    = "1d"
+			schedule 			  = "* * 1 * 1"
 		}
 
 		autoscaling {
@@ -266,6 +267,7 @@ func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name stri
 		snapshots {
 			create_final_snapshot = false
 			retention_duration    = "2d"
+			schedule 			  = "* 10 1-4 * 1,3"
 		}
 
 		autoscaling {
@@ -448,17 +450,20 @@ func generateTestVolumeSetSnapshots(state string) (*client.VolumeSetSnapshots, *
 
 	createFinalSnapshot := true
 	retentionDuration := "1d"
+	schedule := "* * 1 * 1"
 
 	if strings.Contains(state, "update") {
 		createFinalSnapshot = false
 		retentionDuration = "2d"
+		schedule = "* 10 1-4 * 1,3"
 	}
 
-	flattened := generateFlatTestVolumeSetSnapshots(createFinalSnapshot, retentionDuration)
+	flattened := generateFlatTestVolumeSetSnapshots(createFinalSnapshot, retentionDuration, schedule)
 	snapshots := buildVolumeSetSnapshots(flattened)
 	expectedSnapshot := client.VolumeSetSnapshots{
 		CreateFinalSnapshot: &createFinalSnapshot,
 		RetentionDuration:   &retentionDuration,
+		Schedule:            &schedule,
 	}
 
 	return snapshots, &expectedSnapshot, flattened
@@ -488,11 +493,12 @@ func generateTestVolumeSetAutoscaling(state string) (*client.VolumeSetScaling, *
 }
 
 // Flatten //
-func generateFlatTestVolumeSetSnapshots(createFinalSnapshot bool, retentionDuration string) []interface{} {
+func generateFlatTestVolumeSetSnapshots(createFinalSnapshot bool, retentionDuration string, schedule string) []interface{} {
 
 	spec := map[string]interface{}{
 		"create_final_snapshot": createFinalSnapshot,
 		"retention_duration":    retentionDuration,
+		"schedule":              schedule,
 	}
 
 	return []interface{}{
