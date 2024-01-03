@@ -64,6 +64,7 @@ func flattenLocationData(locationItems *[]client.Location) []interface{} {
 			location["cloud_provider"] = locationItem.Provider
 			location["region"] = locationItem.Region
 			location["enabled"] = locationItem.Spec.Enabled
+			location["geo"] = flattenLocationGeo(locationItem.Status.Geo)
 			location["ip_ranges"] = flattenIpRanges(locationItem.Status.IpRanges)
 			location["self_link"] = GetSelfLink(locationItem.Links)
 

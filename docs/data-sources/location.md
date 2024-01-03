@@ -2,11 +2,11 @@
 page_title: "cpln_location Data Source - terraform-provider-cpln"
 subcategory: "Location"
 description: |-
-  
 ---
+
 # cpln_location (Data Source)
 
-Use this data source to access information about a [Location](https://docs.controlplane.com/reference/location) within Control Plane. 
+Use this data source to access information about a [Location](https://docs.controlplane.com/reference/location) within Control Plane.
 
 ## Required
 
@@ -23,9 +23,22 @@ The following attributes are exported:
 - **cloud_provider** (String) Cloud Provider of the location.
 - **region** (String) Region of the location.
 - **enabled** (Boolean) Indication if location is enabled.
+- **geo** (Block List, Max: 1) ([see below](#nestedblock--geo))
 - **ip_ranges** (List of String) A list of IP ranges of the location.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
+<a id="nestedblock--geo"></a>
+
+### `geo`
+
+Location geographical details
+
+- **lat** (Number) Latitude.
+- **lon** (Number) Longitude.
+- **country** (String)
+- **state** (String)
+- **city** (String)
+- **continent** (String)
 
 ## Example Usage
 
