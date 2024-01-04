@@ -249,6 +249,10 @@ func resourceWorkload() *schema.Resource {
 											return
 										},
 									},
+									"recovery_policy": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
 									"path": {
 										Type:     schema.TypeString,
 										Required: true,
@@ -563,13 +567,13 @@ func resourceWorkload() *schema.Resource {
 				Default:  false,
 			},
 			"sidecar": {
-				Type: schema.TypeList,
+				Type:     schema.TypeList,
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"envoy": {
-							Type: schema.TypeString,
+							Type:     schema.TypeString,
 							Required: true,
 						},
 					},
@@ -1086,11 +1090,13 @@ func buildVolumeSpec(volumes []interface{}) *[]client.VolumeSpec {
 			v := value.(map[string]interface{})
 
 			uri := v["uri"].(string)
+			recoveryPolicy := v["recovery_policy"].(string)
 			path := v["path"].(string)
 
 			localVolume := client.VolumeSpec{
-				Uri:  &uri,
-				Path: &path,
+				Uri:            &uri,
+				RecoveryPolicy: &recoveryPolicy,
+				Path:           &path,
 			}
 
 			output = append(output, localVolume)
@@ -1161,6 +1167,18 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 				if len(commands) > 0 {
 					output.Exec = &client.Exec{}
 					output.Exec.Command = &commands
+				}
+			}
+		}
+
+		if hc["grpc"] != nil {
+			grpc := hc["grpc"].([]interface{})
+
+			if len(grpc) > 0 {
+				output.GRPC = &client.GRPC{}
+
+				if grpc[0] != nil {
+					output.GRPC.Port = GetPortInt(grpc[0].(map[string]interface{})["port"].(int))
 				}
 			}
 		}
@@ -1561,7 +1579,7 @@ func buildWorkloadSidecar(specs []interface{}) *client.WorkloadSidecar {
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
-	
+
 	spec := specs[0].(map[string]interface{})
 	output := client.WorkloadSidecar{}
 
@@ -1758,6 +1776,10 @@ func flattenVolumeSpec(volumes *[]client.VolumeSpec) []interface{} {
 				v["uri"] = *volume.Uri
 			}
 
+			if volume.RecoveryPolicy != nil {
+				v["recovery_policy"] = *volume.RecoveryPolicy
+			}
+
 			if volume.Path != nil {
 				v["path"] = *volume.Path
 			}
@@ -1867,6 +1889,16 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 			e := make(map[string]interface{})
 			e["command"] = *healthCheck.Exec.Command
 			hc["exec"] = []interface{}{e}
+		}
+
+		if healthCheck.GRPC != nil {
+			g := make(map[string]interface{})
+
+			if healthCheck.GRPC.Port != nil && *healthCheck.GRPC.Port > 0 {
+				g["port"] = *healthCheck.GRPC.Port
+			}
+
+			hc["grpc"] = []interface{}{g}
 		}
 
 		if healthCheck.TCPSocket != nil {
@@ -2469,6 +2501,19 @@ func healthCheckSpec() *schema.Resource {
 							Required: true,
 							MinItems: 1,
 							Elem:     StringSchema(),
+						},
+					},
+				},
+			},
+			"grpc": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"port": {
+							Type:     schema.TypeInt,
+							Optional: true,
 						},
 					},
 				},

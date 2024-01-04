@@ -87,6 +87,13 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneGrpcWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"grpc", "Workload with a grpc protocol created using terraform for acceptance tests", workloadEnvoyJson),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"grpc", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson),
+				),
+			},
+			{
 				Config: testAccControlPlaneGpuWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description updated using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 			},
 		},
@@ -174,11 +181,13 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 	  
 		  volume {
 			uri  = "s3://bucket"
+			recovery_policy = "retain"
 			path = "/testpath01"
 		  }
 	  
 		  volume {
 			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
 			path = "/testpath02"
 		  }
 	  
@@ -429,11 +438,13 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 
 		  volume {
 			uri  = "s3://bucket"
+			recovery_policy = "retain"
 			path = "/testpath01"
 		  }
 
 		  volume {
 			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
 			path = "/testpath02"
 		  }
 
@@ -623,11 +634,13 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	  
 		  volume {
 			uri  = "s3://bucket"
+			recovery_policy = "retain"
 			path = "/testpath01"
 		  }
 	  
 		  volume {
 			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
 			path = "/testpath02"
 		  }
 	  
@@ -796,11 +809,13 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 	  
 			volume {
 				uri  = "s3://bucket"
+				recovery_policy = "retain"
 				path = "/testpath01"
 			}
 	  
 		  	volume {
 				uri  = "azureblob://storageAccount/container"
+				recovery_policy = "recycle"
 				path = "/testpath02"
 		  	}
 			
@@ -907,6 +922,236 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
+func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"	
+		description = "%s"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+	}
+	  
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		identity_link = cpln_identity.new.self_link
+
+		type = "standard"
+		
+		support_dynamic_tags = true
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+		  memory = "128Mi"
+		  cpu = "50m"	  
+
+		  ports {
+		    protocol = "http"
+			number   = "80" 
+		  }
+
+		  ports {
+			protocol = "http2"
+			number   = "8080" 
+	      }
+
+		  ports {
+			protocol = "grpc"
+			number   = "3000" 
+	      }
+
+		  ports {
+			protocol = "tcp"
+			number   = "3001" 
+	      }
+
+
+		  command = "override-command"
+		  working_directory = "/usr"
+	  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  lifecycle {
+	  
+			post_start {
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
+			}
+		  }
+
+		  volume {
+			uri  = "s3://bucket"
+			recovery_policy = "retain"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+
+		  readiness_probe {
+
+			grpc {
+			  port = 3000
+			}
+
+			// exec {
+			// 	command = ["test1", "test2"]
+			// }
+	  
+			period_seconds       = 11
+			timeout_seconds      = 2
+			failure_threshold    = 4
+			success_threshold    = 2
+			initial_delay_seconds = 1
+		  }
+
+		  liveness_probe {
+
+			http_get {
+				path = "/path"
+				port = 8282
+				scheme = "HTTPS"
+				http_headers = {
+					header-name-01 = "header-value-01"
+					header-name-02 = "header-value-02"
+				}
+			}
+	  
+			period_seconds       = 10
+			timeout_seconds      = 3
+			failure_threshold    = 5
+			success_threshold    = 1
+			initial_delay_seconds = 2
+		  }
+		}
+	 	  	  
+		options {
+		  capacity_ai = false
+		  timeout_seconds = 30
+		  suspend = false
+	  
+		  autoscaling {
+			metric = "cpu"
+			target = 60
+			max_scale = 3
+			min_scale = 2
+			max_concurrency = 500
+			scale_to_zero_delay = 400
+		  }
+		}
+
+		// locations = ["aws-eu-central-1", "aws-us-west-2", "azure-eastus2", "azure-eastus2"]
+
+		// local_options {
+		// 	location = "aws-eu-central-1"
+		// 	capacity_ai = true
+		// 	timeout_seconds = 30
+		
+		// 	autoscaling {
+		// 	  metric = "concurrency"
+		// 	  target = 100
+		// 	  max_scale = 3
+		// 	  min_scale = 2
+		// 	  max_concurrency = 500
+		// 	  scale_to_zero_delay = 400
+		// 	}
+		// }
+	  
+		firewall_spec {
+		  external {
+			inbound_allow_cidr =  ["0.0.0.0/0"]
+			outbound_allow_cidr =  []
+			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
+		  }
+		  internal { 
+			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+			inbound_allow_type = "none"
+			inbound_allow_workload = []
+		  }
+		}
+		
+		rollout_options {
+			min_ready_seconds = 2
+			max_unavailable_replicas = "10"
+			max_surge_replicas = "20"
+		}
+		
+		security_options {
+			file_system_group_id = 1
+		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+}
+
 func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
 	TestLogger.Printf("Inside testAccControlPlaneGpuWorkloadUpdate")
 
@@ -990,11 +1235,13 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 	  
 			volume {
 				uri  = "s3://bucket"
+				recovery_policy = "retain"
 				path = "/testpath01"
 			}
 	  
 		  	volume {
 				uri  = "azureblob://storageAccount/container"
+				recovery_policy = "recycle"
 				path = "/testpath02"
 		  	}
 			
@@ -1162,7 +1409,7 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			}
 		}
 
-		if workloadType == "standard" {
+		if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
 			expectedRolloutOptions, _, _ := generateTestRolloutOptions()
 			if diff := deep.Equal(expectedRolloutOptions, workload.Spec.RolloutOptions); diff != nil {
 				return fmt.Errorf("RolloutOptions mismatch, Diff: %s", diff)
@@ -1253,11 +1500,13 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 
 		  volume {
 			uri  = "s3://bucket"
+			recovery_policy = "retain"
 			path = "/testpath01"
 		  }
 
 		  volume {
 			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
 			path = "/testpath02"
 		  }
 
@@ -1541,6 +1790,18 @@ func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
+
+	containers := generateTestContainers("standard-readiness-grpc")
+	flattenedContainer := flattenContainer(containers, false)
+
+	flatContainer := generateFlatTestContainer("standard-readiness-grpc")
+
+	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
+		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenGpu(t *testing.T) {
 	gpu, _, flattenedGpu := generateTestGpuNvidia()
 	expectedFlattenedGpu := flattenGpuNvidia(gpu)
@@ -1637,7 +1898,7 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 			},
 		}
 
-	} else if workloadType == "standard" {
+	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
 		newContainer.Ports = &[]client.PortSpec{
 			{
 				Protocol: GetString("http"),
@@ -1676,12 +1937,14 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	newContainer.Volumes = &[]client.VolumeSpec{
 		{
-			Uri:  GetString("s3://bucket"),
-			Path: GetString("/testpath01"),
+			Uri:            GetString("s3://bucket"),
+			RecoveryPolicy: GetString("retain"),
+			Path:           GetString("/testpath01"),
 		},
 		{
-			Uri:  GetString("azureblob://storageAccount/container"),
-			Path: GetString("/testpath02"),
+			Uri:            GetString("azureblob://storageAccount/container"),
+			RecoveryPolicy: GetString("recycle"),
+			Path:           GetString("/testpath02"),
 		},
 	}
 
@@ -1711,17 +1974,32 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	if workloadType != "cron" {
 
-		newContainer.ReadinessProbe = &client.HealthCheckSpec{
+		if workloadType == "standard-readiness-grpc" {
+			newContainer.ReadinessProbe = &client.HealthCheckSpec{
 
-			InitialDelaySeconds: GetInt(1),
-			PeriodSeconds:       GetInt(11),
-			TimeoutSeconds:      GetInt(2),
-			SuccessThreshold:    GetInt(2),
-			FailureThreshold:    GetInt(4),
+				InitialDelaySeconds: GetInt(1),
+				PeriodSeconds:       GetInt(11),
+				TimeoutSeconds:      GetInt(2),
+				SuccessThreshold:    GetInt(2),
+				FailureThreshold:    GetInt(4),
 
-			TCPSocket: &client.TCPSocket{
-				Port: GetInt(8181),
-			},
+				GRPC: &client.GRPC{
+					Port: GetInt(3000),
+				},
+			}
+		} else {
+			newContainer.ReadinessProbe = &client.HealthCheckSpec{
+
+				InitialDelaySeconds: GetInt(1),
+				PeriodSeconds:       GetInt(11),
+				TimeoutSeconds:      GetInt(2),
+				SuccessThreshold:    GetInt(2),
+				FailureThreshold:    GetInt(4),
+
+				TCPSocket: &client.TCPSocket{
+					Port: GetInt(8181),
+				},
+			}
 		}
 
 		newContainer.LivenessProbe = &client.HealthCheckSpec{
@@ -1792,7 +2070,7 @@ func generateTestOptions(workloadType string) *client.Options {
 		}
 	}
 
-	if workloadType == "standard" {
+	if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
 		return &client.Options{
 			CapacityAI:     GetBool(false),
 			TimeoutSeconds: GetInt(30),
@@ -1957,7 +2235,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 			port_01,
 		}
 
-	} else if workloadType == "standard" {
+	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
 
 		port_01 := make(map[string]interface{})
 		port_01["protocol"] = "http"
@@ -1997,10 +2275,12 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 
 	volume_01 := make(map[string]interface{})
 	volume_01["uri"] = "s3://bucket"
+	volume_01["recovery_policy"] = "retain"
 	volume_01["path"] = "/testpath01"
 
 	volume_02 := make(map[string]interface{})
 	volume_02["uri"] = "azureblob://storageAccount/container"
+	volume_01["recovery_policy"] = "recycle"
 	volume_02["path"] = "/testpath02"
 
 	c["volume"] = []interface{}{
@@ -2056,11 +2336,19 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	readiness["success_threshold"] = 2
 	readiness["failure_threshold"] = 4
 
-	tcpSocket := make(map[string]interface{})
-	tcpSocket["port"] = 8181
+	if workloadType == "standard-readiness-grpc" {
+		gRPC := make(map[string]interface{})
+		gRPC["port"] = 3000
 
-	tcpSocketAsInterface := []interface{}{tcpSocket}
-	readiness["tcp_socket"] = tcpSocketAsInterface
+		grpcAsInterface := []interface{}{gRPC}
+		readiness["grpc"] = grpcAsInterface
+	} else {
+		tcpSocket := make(map[string]interface{})
+		tcpSocket["port"] = 8181
+
+		tcpSocketAsInterface := []interface{}{tcpSocket}
+		readiness["tcp_socket"] = tcpSocketAsInterface
+	}
 
 	c["readiness_probe"] = []interface{}{readiness}
 

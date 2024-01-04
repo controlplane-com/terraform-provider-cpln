@@ -104,6 +104,7 @@ Optional:
 - **exec** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--exec)).
 - **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--http_get)).
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--tcp_socket)).
+- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--grpc)).
 
 <a id="nestedblock--container--liveness_probe--exec"></a>
 
@@ -132,6 +133,14 @@ Optional:
 
 - **port** (Number) TCP Socket Port.
 
+<a id="nestedblock--container--liveness_probe--grpc"></a>
+
+### `container.liveness_probe.grpc`
+
+Optional:
+
+- **port** (Number) gRPC Port.
+
 <a id="nestedblock--container--readiness_probe"></a>
 
 ### `container.readiness_probe`
@@ -147,6 +156,7 @@ Optional:
 - **exec** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--exec)).
 - **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--http_get)).
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--tcp_socket)).
+- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--grpc)).
 
 <a id="nestedblock--container--readiness_probe--exec"></a>
 
@@ -175,6 +185,14 @@ Optional:
 
 - **port** (Number) TCP Socket Port.
 
+<a id="nestedblock--container--readiness_probe--grpc"></a>
+
+### `container.readiness_probe.grpc`
+
+Optional:
+
+- **port** (Number) gRPC Port.
+
 <a id="nestedblock--container--volume"></a>
 
 ### `container.volume`
@@ -182,6 +200,7 @@ Optional:
 Required:
 
 - **uri** (String) URI of volume at cloud provider.
+- **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`.
 - **path** (String) File path added to workload pointing to the volume.
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
@@ -291,6 +310,7 @@ Optional:
 Optional:
 
 - **metric** (String) Valid values: `concurrency`, `cpu`, `latency`, or `rps`.
+- **metric_percentile** (String) For metrics represented as a distribution (e.g. latency) a percentile within the distribution must be chosen as the target.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
@@ -350,10 +370,12 @@ Status of the workload.
 
 Read-Only:
 
+- **parent_id** (String) ID of the parent object.
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
+- **internal_name** (String) // TODO: Add description
 - **health_check** (List of Object) ([see below](#nestedobjatt--status--health_check)).
-- **parent_id** (String) ID of the parent object.
+- **current_replica_count** (Number) // TODO: Add description
 
 <a id="nestedobjatt--status--health_check"></a>
 
@@ -489,8 +511,9 @@ resource "cpln_workload" "new" {
     }
 
     volume {
-      uri  = "s3://bucket"
-      path = "/s3"
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/s3"
     }
   }
 
@@ -636,6 +659,19 @@ resource "cpln_workload" "new" {
         }
       }
     }
+
+    readiness_probe {
+
+			grpc {
+			  port = 3000
+			}
+
+			period_seconds        = 11
+			timeout_seconds       = 2
+			failure_threshold     = 4
+			success_threshold     = 2
+			initial_delay_seconds = 1
+    }
   }
 
   options {
@@ -750,13 +786,15 @@ resource "cpln_workload" "new" {
     args = ["arg-01", "arg-02"]
 
     volume {
-      uri  = "s3://bucket"
-      path = "/testpath01"
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
     }
 
     volume {
-      uri  = "azureblob://storageAccount/container"
-      path = "/testpath02"
+      uri             = "azureblob://storageAccount/container"
+      recovery_policy = "recycle"
+      path            = "/testpath02"
     }
 
     metrics {
@@ -881,13 +919,15 @@ resource "cpln_workload" "new" {
     args = ["arg-01", "arg-02"]
 
     volume {
-      uri  = "s3://bucket"
-      path = "/testpath01"
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
     }
 
     volume {
-      uri  = "azureblob://storageAccount/container"
-      path = "/testpath02"
+      uri             = "azureblob://storageAccount/container"
+      recovery_policy = "recycle"
+      path            = "/testpath02"
     }
 
     metrics {
