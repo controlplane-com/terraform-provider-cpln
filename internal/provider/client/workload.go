@@ -239,6 +239,7 @@ type RolloutOptions struct {
 	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
 	MaxUnavailableReplicas *string `json:"maxUnavailableReplicas,omitempty"`
 	MaxSurgeReplicas       *string `json:"maxSurgeReplicas,omitempty"`
+	ScalingPolicy          *string `json:"scalingPolicy,omitempty"`
 }
 
 // Security Options

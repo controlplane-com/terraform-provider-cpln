@@ -343,6 +343,7 @@ Optional:
 - **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
+- **scaling_policy** (String) // TODO: Add description
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
 
@@ -715,6 +716,7 @@ resource "cpln_workload" "new" {
     min_ready_seconds = 2
     max_unavailable_replicas = "10"
     max_surge_replicas = "20"
+    scaling_policy = "Parallel"
   }
 
   security_options {

@@ -544,6 +544,11 @@ func resourceWorkload() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
+						"scaling_policy": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "OrderedReady",
+						},
 					},
 				},
 			},
@@ -1530,6 +1535,10 @@ func buildRolloutOptions(specs []interface{}) *client.RolloutOptions {
 		output.MaxSurgeReplicas = GetString(spec["max_surge_replicas"].(string))
 	}
 
+	if spec["scaling_policy"] != nil {
+		output.ScalingPolicy = GetString(spec["scaling_policy"].(string))
+	}
+
 	return &output
 }
 
@@ -2225,6 +2234,10 @@ func flattenRolloutOptions(spec *client.RolloutOptions) []interface{} {
 
 	if spec.MaxSurgeReplicas != nil {
 		rolloutOptions["max_surge_replicas"] = *spec.MaxSurgeReplicas
+	}
+
+	if spec.ScalingPolicy != nil {
+		rolloutOptions["scaling_policy"] = *spec.ScalingPolicy
 	}
 
 	return []interface{}{

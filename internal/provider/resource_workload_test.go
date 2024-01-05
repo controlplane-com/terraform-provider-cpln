@@ -549,6 +549,7 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 			min_ready_seconds = 2
 			max_unavailable_replicas = "10"
 			max_surge_replicas = "20"
+			scaling_policy = "Parallel"
 		}
 		
 		security_options {
@@ -1140,6 +1141,7 @@ func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescr
 			min_ready_seconds = 2
 			max_unavailable_replicas = "10"
 			max_surge_replicas = "20"
+			scaling_policy = "Parallel"
 		}
 		
 		security_options {
@@ -2171,13 +2173,15 @@ func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOption
 	minReadySeconds := 2
 	maxUnavailableReplicas := "10"
 	maxSurgeReplicas := "20"
+	scalingPolicy := "Parallel"
 
-	flatten := generateFlatTestRolloutOptions(minReadySeconds, maxUnavailableReplicas, maxSurgeReplicas)
+	flatten := generateFlatTestRolloutOptions(minReadySeconds, maxUnavailableReplicas, maxSurgeReplicas, scalingPolicy)
 	rolloutOptions := buildRolloutOptions(flatten)
 	expectedRolloutOptions := &client.RolloutOptions{
 		MinReadySeconds:        &minReadySeconds,
 		MaxUnavailableReplicas: &maxUnavailableReplicas,
 		MaxSurgeReplicas:       &maxSurgeReplicas,
+		ScalingPolicy:          &scalingPolicy,
 	}
 
 	return rolloutOptions, expectedRolloutOptions, flatten
@@ -2512,11 +2516,12 @@ func generateFlatTestJobSpec(schedule string, concurrencyPolicy string, historyL
 	}
 }
 
-func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas string, maxSurgeReplicas string) []interface{} {
+func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas string, maxSurgeReplicas string, scalingPolicy string) []interface{} {
 	spec := map[string]interface{}{
 		"min_ready_seconds":        minReadySeconds,
 		"max_unavailable_replicas": maxUnavailableReplicas,
 		"max_surge_replicas":       maxSurgeReplicas,
+		"scaling_policy":           scalingPolicy,
 	}
 
 	return []interface{}{
