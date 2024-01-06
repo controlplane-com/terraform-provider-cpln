@@ -160,10 +160,10 @@ type ResolvedImage struct {
 }
 
 type ResolvedImageManifest struct {
-	Image     *string      `json:"image,omitempty"`
-	MediaType *string      `json:"mediaType,omitempty"`
-	Digest    *string      `json:"digest,omitempty"`
-	Platform  *interface{} `json:"platform,omitempty"`
+	Image     *string             `json:"image,omitempty"`
+	MediaType *string             `json:"mediaType,omitempty"`
+	Digest    *string             `json:"digest,omitempty"`
+	Platform  *map[string]*string `json:"platform,omitempty"`
 }
 
 // HealthCheckSpec - Health Check Spec (used my readiness and liveness probes)

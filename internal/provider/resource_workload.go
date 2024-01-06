@@ -481,10 +481,6 @@ func resourceWorkload() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
-						"current_replica_count": {
-							Type:     schema.TypeInt,
-							Optional: true,
-						},
 						"health_check": {
 							Type:     schema.TypeList,
 							Optional: true,
@@ -517,6 +513,65 @@ func resourceWorkload() *schema.Resource {
 									"last_checked": {
 										Type:     schema.TypeString,
 										Optional: true,
+									},
+								},
+							},
+						},
+						"current_replica_count": {
+							Type:     schema.TypeInt,
+							Optional: true,
+						},
+						"resolved_images": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"resolved_for_version": {
+										Type:     schema.TypeInt,
+										Optional: true,
+									},
+									"resolved_at": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+									"images": {
+										Type:     schema.TypeList,
+										Optional: true,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"digest": {
+													Type:     schema.TypeString,
+													Optional: true,
+												},
+												"manifests": {
+													Type:     schema.TypeList,
+													Optional: true,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"image": {
+																Type:     schema.TypeString,
+																Optional: true,
+															},
+															"media_type": {
+																Type:     schema.TypeString,
+																Optional: true,
+															},
+															"digest": {
+																Type:     schema.TypeString,
+																Optional: true,
+															},
+															"platform": {
+																Type:     schema.TypeMap,
+																Optional: true,
+																Elem: &schema.Schema{
+																	Type: schema.TypeString,
+																},
+															},
+														},
+													},
+												},
+											},
+										},
 									},
 								},
 							},
@@ -1667,6 +1722,11 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 			fs["health_check"] = healthCheck
 		}
 
+		resolvedImages := flattenWorkloadStatusResolvedImages(status.ResolvedImages)
+		if resolvedImages != nil {
+			fs["resolved_images"] = resolvedImages
+		}
+
 		output := []interface{}{
 			fs,
 		}
@@ -1675,6 +1735,94 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenWorkloadStatusResolvedImages(resolvedImages *client.ResolvedImages) []interface{} {
+	if resolvedImages == nil {
+		return nil
+	}
+
+	output := make(map[string]interface{})
+
+	if resolvedImages.ResolvedForVersion != nil {
+		output["resolved_for_version"] = *resolvedImages.ResolvedForVersion
+	}
+
+	if resolvedImages.ResolvedAt != nil {
+		output["resolved_at"] = *resolvedImages.ResolvedAt
+	}
+
+	if resolvedImages.Images != nil {
+		output["images"] = flattenWorkloadStatusImages(resolvedImages.Images)
+	}
+
+	return []interface{}{
+		output,
+	}
+}
+
+func flattenWorkloadStatusImages(images *[]client.ResolvedImage) []interface{} {
+	if images == nil || len(*images) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, image := range *images {
+
+		spec := make(map[string]interface{})
+
+		if image.Digest != nil {
+			spec["digest"] = *image.Digest
+		}
+
+		if image.Manifests != nil {
+			spec["manifests"] = flattenWorkloadStatusManifest(image.Manifests)
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenWorkloadStatusManifest(manifests *[]client.ResolvedImageManifest) []interface{} {
+	if manifests == nil || len(*manifests) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, manifest := range *manifests {
+
+		spec := make(map[string]interface{})
+
+		if manifest.Image != nil {
+			spec["image"] = *manifest.Image
+		}
+
+		if manifest.MediaType != nil {
+			spec["media_type"] = *manifest.MediaType
+		}
+
+		if manifest.Digest != nil {
+			spec["digest"] = *manifest.Digest
+		}
+
+		if manifest.Platform != nil {
+			platform := make(map[string]interface{})
+
+			for key, value := range *manifest.Platform {
+				platform[key] = fmt.Sprintf("%v", value)
+			}
+
+			spec["platform"] = platform
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
 }
 
 func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []interface{} {

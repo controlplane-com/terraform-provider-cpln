@@ -375,10 +375,11 @@ Read-Only:
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
 - **internal_name** (String) // TODO: Add description
-- **health_check** (List of Object) ([see below](#nestedobjatt--status--health_check)).
 - **current_replica_count** (Number) // TODO: Add description
+- **health_check** (Block List) ([see below](#nestedblock--status--health_check)).
+- **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
 
-<a id="nestedobjatt--status--health_check"></a>
+<a id="nestedblock--status--health_check"></a>
 
 ### `status.health_check`
 
@@ -393,6 +394,38 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
+
+<a id="nestedblock--status--resolved_images"></a>
+
+### `status.resolved_images`
+
+// TODO: Add description
+
+Read-Only:
+
+- **resolved_for_version** (Number) // TODO: Add description
+- **resolved_at** (String) // TODO: Add description
+- **images** (Block List) ([see below](#nestedblock--status--resolved_images--images)).
+
+<a id="nestedblock--status--resolved_images--images"></a>
+
+### `status.resolved_images.images`
+
+// TODO: Add description
+
+- **digest** (String) // TODO: Add description
+- **manifests** (Block List) ([see below](#nestedblock--status--resolved_images--images--manifests))
+
+<a id="nestedblock--status--resolved_images--images--manifests"></a>
+
+### `status.resolved_images.images.manifests`
+
+// TODO: Add description
+
+- **image** (String) // TODO: Add description
+- **media_type** (String) // TODO: Add description
+- **digest** (String) // TODO: Add description
+- **platform** (Map of String) Key-value map of strings // TODO: Complete description
 
 ## Example Usage - Serverless
 
