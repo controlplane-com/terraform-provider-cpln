@@ -13,23 +13,32 @@ import (
 
 // Client - Simple API Client
 type Client struct {
-	HostURL    string
-	Org        string
-	HTTPClient *http.Client
-	Token      string
+	HostURL      string
+	Org          string
+	HTTPClient   *http.Client
+	Token        string
+	RefreshToken string
 }
 
 // NewClient - Instantiate a new API Client
-func NewClient(org, host, profile, token *string) (*Client, error) {
+func NewClient(org, host, profile, token, refreshToken *string) (*Client, error) {
 
 	c := Client{
-		HTTPClient: &http.Client{Timeout: 90 * time.Second},
-		HostURL:    *host,
-		Org:        *org,
-		Token:      *token,
+		HTTPClient:   &http.Client{Timeout: 90 * time.Second},
+		HostURL:      *host,
+		Org:          *org,
+		Token:        *token,
+		RefreshToken: *refreshToken,
 	}
 
-	if c.Token == "" {
+	if c.RefreshToken != "" {
+
+		err := c.MakeAuthorizationHeader()
+
+		if err != nil {
+			return nil, fmt.Errorf("unable to obtain access token using the refresh token. Error: %s", err)
+		}
+	} else if c.Token == "" {
 
 		out, err := exec.Command("cpln", "profile", "token", *profile).Output()
 
@@ -49,12 +58,18 @@ func NewClient(org, host, profile, token *string) (*Client, error) {
 	return &c, nil
 }
 
-func (c *Client) doRequest(req *http.Request, contentType string) ([]byte, int, error) {
+func (c *Client) doRequest(req *http.Request, contentType string, optionalTokens ...string) ([]byte, int, error) {
 
 	// WSL TO GET IP: cat /etc/resolv.conf
 	// os.Setenv("HTTP_PROXY", "http://172.17.80.1:8888")
 
-	req.Header.Set("Authorization", c.Token)
+	clientToken := c.Token
+
+	if len(optionalTokens) > 0 {
+		clientToken = optionalTokens[0]
+	}
+
+	req.Header.Set("Authorization", clientToken)
 
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -180,7 +195,7 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 
 func (c *Client) DeleteResource(id string) error {
 
-	// Add a delay to allow any referenced resources to be deleting
+	// Add a delay to allow any referenced resources to be deleted.
 	time.Sleep(5 * time.Second)
 
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/org/%s/%s", c.HostURL, c.Org, id), nil)
