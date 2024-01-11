@@ -6,8 +6,47 @@ import (
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/go-test/deep"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
+
+func TestAccControlPlaneOrg_basic(t *testing.T) {
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t, "ORG") },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckControlPlaneOrgCheckDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccControlPlaneOrg(),
+			},
+		},
+	})
+}
+
+func testAccControlPlaneOrg() string {
+
+	TestLogger.Printf("Inside testAccControlPlaneOrg")
+
+	return `
+	  resource "cpln_org" "example" {
+  
+		session_timeout_seconds = 50000
+		description = "testing"
+
+		tags = {
+			terraform_generated = "true"
+			example             = "true"
+    	}
+	  
+		observability {
+		  logs_retention_days    = 55
+		  metrics_retention_days = 65
+		  traces_retention_days  = 75
+		}
+	  }
+    `
+}
 
 /*** Unit Tests ***/
 // Build //

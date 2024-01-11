@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"fmt"
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -66,11 +67,6 @@ func orgSchema() map[string]*schema.Schema {
 				},
 			},
 		},
-		"create_org": {
-			Type:     schema.TypeBool,
-			Optional: true,
-			Default:  false,
-		},
 		"account_id": {
 			Type:     schema.TypeString,
 			Optional: true,
@@ -110,7 +106,7 @@ func orgSchema() map[string]*schema.Schema {
 		},
 		"observability": {
 			Type:     schema.TypeList,
-			Optional: true,
+			Required: true,
 			MaxItems: 1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
@@ -139,99 +135,70 @@ func orgSchema() map[string]*schema.Schema {
 }
 
 func importStateOrg(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-
-	// TODO: Need to review and implement
-
-	// c := m.(*client.Client)
-
-	// Get then set account id
-	// account, _, err := c.GetOrgAccount(d.Id())
-
-	// if err != nil {
-	// 	return nil, fmt.Errorf("import org %s failed. Error: %s", d.Id(), err)
-	// }
-
-	// d.Set("account_id", account.ID)
-
-	// // Set invitees to empty
-	// d.Set("invitees", []interface{}{})
-
 	return []*schema.ResourceData{d}, nil
 }
 
 func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	c := m.(*client.Client)
-	org := client.Org{}
 
-	// org.Name = GetString(d.Get("name"))
-	org.Name = &c.Org
-	org.Description = GetString(d.Get("description"))
-	org.Tags = GetStringMap(d.Get("tags"))
+	currentOrg, _, err := c.GetOrg()
 
-	// createOrg := GetBool(d.Get("create_org"))
+	if err != nil {
 
-	// if *createOrg {
+		accountId := d.Get("account_id").(string)
+		invitees := []string{}
 
-	// accountId := d.Get("account_id").(string)
-	// invitees := []string{}
+		for _, value := range d.Get("invitees").(*schema.Set).List() {
+			invitees = append(invitees, value.(string))
+		}
 
-	// for _, value := range d.Get("invitees").(*schema.Set).List() {
-	// 	invitees = append(invitees, value.(string))
-	// }
+		if accountId != "" && len(invitees) > 0 {
 
-	// if accountId == "" {
-	// 	return diag.FromErr(fmt.Errorf("account id must not be empty"))
-	// }
+			org := client.Org{}
 
-	// if len(invitees) == 0 {
-	// 	return diag.FromErr(fmt.Errorf("invitees must not be empty"))
-	// }
+			org.Name = &c.Org
+			org.Description = GetString(d.Get("description"))
+			org.Tags = GetStringMap(d.Get("tags"))
 
-	// createOrgRequest := client.CreateOrgRequest{
-	// 	Org:      &org,
-	// 	Invitees: &invitees,
-	// }
+			createOrgRequest := client.CreateOrgRequest{
+				Org:      &org,
+				Invitees: &invitees,
+			}
 
-	// // Make the request to create the org
-	// createdOrg, code, err := c.CreateOrg(accountId, createOrgRequest)
+			responseCode := 0
 
-	// if code == 409 {
-	// 	return ResourceExistsHelper()
-	// }
+			// Make the request to create the org
+			currentOrg, responseCode, err = c.CreateOrg(accountId, createOrgRequest)
 
-	// if err != nil {
-	// 	return diag.FromErr(fmt.Errorf("org %s cannot be created. Error: %s", *org.Name, err))
-	// }
+			if err != nil {
+				if responseCode == 409 {
+					currentOrg = &client.Org{}
+					currentOrg.Name = &c.Org
+				} else {
+					return diag.FromErr(fmt.Errorf("org %s cannot be created. Error: %s", *org.Name, err))
+				}
+			}
 
-	// }
+		} else {
+			return diag.FromErr(err)
+		}
+	}
 
-	org.SpecReplace = &client.OrgSpec{
+	currentOrg.Description = GetString(d.Get("description"))
+	currentOrg.Tags = GetStringMap(d.Get("tags"))
+	currentOrg.Spec = nil
+	currentOrg.SpecReplace = &client.OrgSpec{
 		AuthConfig:            buildAuthConfig(d.Get("auth_config").([]interface{})),
 		Observability:         buildObservability(d.Get("observability").([]interface{})),
 		SessionTimeoutSeconds: GetInt(d.Get("session_timeout_seconds").(int)),
 	}
 
-	// if d.Get("session_timeout_seconds") != nil {
-	// 	createdOrg.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
-	// }
-
 	// Make the request to update the org
-	updatedOrg, _, err := c.UpdateOrg(org)
+	updatedOrg, _, err := c.UpdateOrg(*currentOrg)
 	if err != nil {
 		return diag.FromErr(err)
 	}
-
-	// // Set invitees
-	// flattenedInvitees := []interface{}{}
-
-	// for _, value := range invitees {
-	// 	flattenedInvitees = append(flattenedInvitees, value)
-	// }
-
-	// if err := d.Set("invitees", flattenedInvitees); err != nil {
-	// 	return diag.FromErr(err)
-	// }
 
 	return setOrg(d, updatedOrg)
 }
@@ -261,11 +228,7 @@ func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 		orgToUpdate.Name = GetString(d.Get("name"))
 		orgToUpdate.Description = GetDescriptionString(d.Get("description"), *orgToUpdate.Name)
 		orgToUpdate.Tags = GetTagChanges(d)
-
-		if d.Get("session_timeout_seconds") != nil {
-			orgToUpdate.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
-		}
-
+		orgToUpdate.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
 		orgToUpdate.SpecReplace.AuthConfig = buildAuthConfig(d.Get("auth_config").([]interface{}))
 		orgToUpdate.SpecReplace.Observability = buildObservability(d.Get("observability").([]interface{}))
 
@@ -283,18 +246,29 @@ func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 
 func resourceOrgDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	// c := m.(*client.Client)
+	c := m.(*client.Client)
 
-	// org := client.Org{
-	// 	SpecReplace: &client.OrgSpec{},
-	// }
+	org := client.Org{
+		Base: client.Base{
+			Name:        GetString(d.Get("name")),
+			Description: GetString(d.Get("name")),
+			TagsReplace: GetStringMap(nil),
+		},
+		SpecReplace: &client.OrgSpec{
+			SessionTimeoutSeconds: GetInt(900),
+			Observability: &client.Observability{
+				LogsRetentionDays:    GetInt(30),
+				MetricsRetentionDays: GetInt(30),
+				TracesRetentionDays:  GetInt(30),
+			},
+			AuthConfig: nil,
+		},
+	}
 
-	// org.Name = GetString(d.Get("name"))
-
-	// _, _, err := c.UpdateOrg(org)
-	// if err != nil {
-	// 	return diag.FromErr(err)
-	// }
+	_, _, err := c.UpdateOrg(org)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	d.SetId("")
 
@@ -361,18 +335,14 @@ func buildAuthConfig(specs []interface{}) *client.AuthConfig {
 }
 
 func buildObservability(specs []interface{}) *client.Observability {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
 
 	spec := specs[0].(map[string]interface{})
-	output := client.Observability{
+
+	return &client.Observability{
 		LogsRetentionDays:    GetInt(spec["logs_retention_days"].(int)),
 		MetricsRetentionDays: GetInt(spec["metrics_retention_days"].(int)),
 		TracesRetentionDays:  GetInt(spec["traces_retention_days"].(int)),
 	}
-
-	return &output
 }
 
 /*** Flatten ***/

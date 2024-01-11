@@ -8,6 +8,7 @@ type Base struct {
 	// Version      *int                    `json:"version,omitempty"`
 	Description *string                 `json:"description,omitempty"`
 	Tags        *map[string]interface{} `json:"tags,omitempty"`
+	TagsReplace *map[string]interface{} `json:"$replace/tags,omitempty"`
 	// Created      *string                 `json:"created,omitempty"`
 	// LastModified *string                 `json:"lastModified,omitempty"`
 	Links *[]Link `json:"links,omitempty"`
