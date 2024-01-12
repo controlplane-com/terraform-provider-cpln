@@ -75,6 +75,7 @@ At least one of the following logging blocks are required:
 
 - **aws** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--aws)).
 - **elastic_cloud** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--elastic_cloud)).
+- **generic** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--generic)).
 
 <a id="nestedblock--elastic_logging--aws"></a>
 
@@ -95,6 +96,17 @@ Required:
 - **type** (String) Logging Type.
 - **credentials** (String) Full Link to a secret of type `userpass`.
 - **cloud_id** (String) // [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
+
+<a id="nestedblock--elastic_logging--generic"></a>
+
+Required:
+
+- **host** (String) A valid AWS ElasticSearch host (must end with es.amazonaws.com).
+- **port** (Number) Port. Default: 443
+- **path** (String) Logging path.
+- **index** (String) Logging Index.
+- **type** (String) Logging Type.
+- **credentials** (String) Full Link to a secret of type `aws`.
 
 <a id="nestedblock--logzio_logging"></a>
 
