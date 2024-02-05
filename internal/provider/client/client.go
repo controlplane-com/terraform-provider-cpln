@@ -1,6 +1,7 @@
 package cpln
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,16 +36,29 @@ func NewClient(org, host, profile, token, refreshToken *string) (*Client, error)
 
 		err := c.MakeAuthorizationHeader()
 
+		// Handle error
 		if err != nil {
 			return nil, fmt.Errorf("unable to obtain access token using the refresh token. Error: %s", err)
 		}
 	} else if c.Token == "" {
+		// Create command
+		cmd := exec.Command("cpln", "profile", "token", *profile)
 
-		out, err := exec.Command("cpln", "profile", "token", *profile).Output()
+		// Create buffers for stdout and stderr
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
 
+		// Run the command
+		err := cmd.Run()
+
+		// Handle error
 		if err != nil {
-			return nil, fmt.Errorf("unable to obtain access token. Verify cpln is installed and added to PATH. Error: %s", err)
+			return nil, fmt.Errorf("unable to obtain access token. Verify cpln is installed and added to PATH. Error: %s. Stderr: %s. Stderr: %s", err, stderr.String(), stderr.String())
 		}
+
+		// Handle token
+		out := stdout.String()
 
 		if strings.TrimSpace(string(out)) == "" {
 			return nil, fmt.Errorf("empty access token")
