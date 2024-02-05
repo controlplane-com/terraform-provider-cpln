@@ -25,6 +25,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
+- **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
 
 ~> **Note** Only one of the tracing blocks can be defined.
 
@@ -40,6 +41,7 @@ Required:
 Optional:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
+- **custom_tags** (Map of String) Key-value map.
 
 <a id="nestedblock--otel_tracing"></a>
 
@@ -49,6 +51,22 @@ Required:
 
 - **sampling** (Int) Sampling percentage.
 - **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
+
+Optional:
+
+- **custom_tags** (Map of String) Key-value map.
+
+<a id="nestedblock--controlplane_tracing"></a>
+
+### `controlplane_tracing`
+
+Required:
+
+- **sampling** (Int) Sampling percentage.
+
+Optional:
+
+- **custom_tags** (Map of String) Key-value map.
 
 <a id="nestedblock--load_balancer"></a>
 

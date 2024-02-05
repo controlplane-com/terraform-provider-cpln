@@ -25,8 +25,8 @@ func resourceGvc() *schema.Resource {
 		Importer:      &schema.ResourceImporter{},
 		CustomizeDiff: func(ctx context.Context, diff *schema.ResourceDiff, v interface{}) error {
 			// Check if both attributes are set
-			if len(diff.Get("lightstep_tracing").([]interface{})) > 0 && len(diff.Get("otel_tracing").([]interface{})) > 0 {
-				return fmt.Errorf("only one of lightstep_tracing and otel_tracing can be specified")
+			if len(diff.Get("lightstep_tracing").([]interface{})) > 0 && len(diff.Get("otel_tracing").([]interface{})) > 0 && len(diff.Get("controlplane_tracing").([]interface{})) > 0 {
+				return fmt.Errorf("only one of lightstep_tracing, otel_tracing or controlplane_tracing can be specified")
 			}
 			return nil
 		},
@@ -93,16 +93,17 @@ func GvcSchema() map[string]*schema.Schema {
 			Type:     schema.TypeString,
 			Computed: true,
 		},
-		"lightstep_tracing": client.LightstepSchema(),
-		"otel_tracing":      client.OtelSchema(),
+		"lightstep_tracing":    client.LightstepSchema(false),
+		"otel_tracing":         client.OtelSchema(false),
+		"controlplane_tracing": client.ControlPlaneTracingSchema(false),
 		"sidecar": {
-			Type: schema.TypeList,
+			Type:     schema.TypeList,
 			Optional: true,
 			MaxItems: 1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"envoy": {
-						Type: schema.TypeString,
+						Type:     schema.TypeString,
 						Required: true,
 					},
 				},
@@ -119,9 +120,9 @@ func GvcSchema() map[string]*schema.Schema {
 						Required: true,
 					},
 					"trusted_proxies": {
-						Type: schema.TypeInt,
+						Type:     schema.TypeInt,
 						Optional: true,
-						Default: 0,
+						Default:  0,
 					},
 				},
 			},
@@ -174,6 +175,10 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 		gvc.Spec.Tracing = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
 	}
 
+	if gvc.Spec.Tracing == nil {
+		gvc.Spec.Tracing = buildControlPlaneTracing(d.Get("controlplane_tracing").([]interface{}))
+	}
+
 	if d.Get("sidecar") != nil {
 		gvc.Spec.Sidecar = buildGvcSidecar(d.Get("sidecar").([]interface{}))
 	}
@@ -214,7 +219,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "load_balancer", "sidecar") {
+	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "controlplane_tracing", "load_balancer", "sidecar") {
 
 		c := m.(*client.Client)
 
@@ -235,6 +240,10 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 		if gvcToUpdate.SpecReplace.Tracing == nil {
 			gvcToUpdate.SpecReplace.Tracing = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
+		}
+
+		if gvcToUpdate.SpecReplace.Tracing == nil {
+			gvcToUpdate.SpecReplace.Tracing = buildControlPlaneTracing(d.Get("controlplane_tracing").([]interface{}))
 		}
 
 		updatedGvc, _, err := c.UpdateGvc(gvcToUpdate)
@@ -358,6 +367,16 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		}
 	}
 
+	if gvc.Spec != nil && gvc.Spec.Tracing != nil && gvc.Spec.Tracing.Provider != nil && gvc.Spec.Tracing.Provider.ControlPlane != nil {
+		if err := d.Set("controlplane_tracing", flattenControlPlaneTracing(gvc.Spec.Tracing)); err != nil {
+			return diag.FromErr(err)
+		}
+	} else {
+		if err := d.Set("controlplane_tracing", nil); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	return nil
 }
 
@@ -413,7 +432,7 @@ func buildGvcSidecar(specs []interface{}) *client.GvcSidecar {
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
-	
+
 	spec := specs[0].(map[string]interface{})
 	output := client.GvcSidecar{}
 
