@@ -36,6 +36,7 @@ func NewClient(org, host, profile, token, refreshToken *string) (*Client, error)
 
 		err := c.MakeAuthorizationHeader()
 
+		// Handle error
 		if err != nil {
 			return nil, fmt.Errorf("unable to obtain access token using the refresh token. Error: %s", err)
 		}
@@ -53,7 +54,7 @@ func NewClient(org, host, profile, token, refreshToken *string) (*Client, error)
 
 		// Handle error
 		if err != nil {
-			return nil, fmt.Errorf("unable to obtain access token. Verify cpln is installed and added to PATH. Error: %s. Stderr: %s", err, stderr.String())
+			return nil, fmt.Errorf("unable to obtain access token. Verify cpln is installed and added to PATH. Error: %s. Stderr: %s. Stderr: %s", err, stderr.String(), stderr.String())
 		}
 
 		// Handle token
