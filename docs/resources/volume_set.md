@@ -35,7 +35,7 @@ Optional:
 
 - **create_final_snapshot** (Boolean) If true, a volume snapshot will be created immediately before deletion of any volume in this set. Default: `true`
 - **retention_duration** (String) The default retention period for volume snapshots. This string should contain a floating point number followed by either d, h, or m. For example, "10d" would retain snapshots for 10 days.
-- **schedule** (String) A standard cron schedule expression used to determine when your job should execute. (i.e., `0 * * * *` Every hour).
+- **schedule** (String) A standard cron schedule expression used to determine when a snapshot will be taken. (i.e., 0 \* \* \* \* Every hour). Note: snapshots cannot be scheduled more often than once per hour.
 
 ~> Use a tool, such as [Crontab Guru](https://crontab.guru/), to easily generate a cron schedule expression.
 
@@ -61,7 +61,7 @@ Required:
 
 - **parent_id** (String) The GVC ID.
 - **used_by_workload** (String) The url of the workload currently using this volume set (if any).
-- **binding_id** (String) Uniquely identifies the connection between the volume set and its workload. Every time a new connection is made, a new id is generated (e.g., If a workload is updated to remove the volume set, then updated again to reattach it, the volume set will have a new a new binding id).
+- **binding_id** (String) Uniquely identifies the connection between the volume set and its workload. Every time a new connection is made, a new id is generated (e.g., If a workload is updated to remove the volume set, then updated again to reattach it, the volume set will have a new binding id).
 - **locations** (List of String) Contains a list of actual volumes grouped by location.
 
 ## Example Usage
