@@ -37,10 +37,10 @@ Location geographical details
 
 - **lat** (Number) Latitude.
 - **lon** (Number) Longitude.
-- **country** (String)
-- **state** (String)
-- **city** (String)
-- **continent** (String)
+- **country** (String) Country.
+- **state** (String) State.
+- **city** (String) City.
+- **continent** (String) Continent.
 
 ## Example Usage
 
@@ -48,6 +48,6 @@ Location geographical details
 data "cpln_locations" "locations" { }
 
 output "locations" {
-  value = data.cpln_location.locations.locations
+  value = data.cpln_locations.locations.locations
 }
 ```
