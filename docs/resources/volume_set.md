@@ -35,7 +35,7 @@ Optional:
 
 - **create_final_snapshot** (Boolean) If true, a volume snapshot will be created immediately before deletion of any volume in this set. Default: `true`
 - **retention_duration** (String) The default retention period for volume snapshots. This string should contain a floating point number followed by either d, h, or m. For example, "10d" would retain snapshots for 10 days.
-- **schedule** (String) A standard cron schedule expression used to determine when a snapshot will be taken. (i.e., 0 \* \* \* \* Every hour). Note: snapshots cannot be scheduled more often than once per hour.
+- **schedule** (String) A standard cron schedule expression used to determine when a snapshot will be taken. (i.e., `0 * * * *` Every hour). Note: snapshots cannot be scheduled more often than once per hour.
 
 ~> Use a tool, such as [Crontab Guru](https://crontab.guru/), to easily generate a cron schedule expression.
 
