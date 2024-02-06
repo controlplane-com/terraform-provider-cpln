@@ -59,6 +59,7 @@ Required:
 
 - **parent_id** (String) The GVC ID.
 - **used_by_workload** (String) The url of the workload currently using this volume set (if any).
+- **binding_id** (String) // TODO: Add description
 - **locations** (List of String) Contains a list of actual volumes grouped by location.
 
 ## Example Usage
