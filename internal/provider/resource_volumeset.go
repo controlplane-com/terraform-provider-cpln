@@ -60,6 +60,10 @@ func resourceVolumeSet() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"binding_id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 						"locations": {
 							Type:     schema.TypeSet,
 							Elem:     &schema.Schema{Type: schema.TypeString},
@@ -376,6 +380,10 @@ func flattenVolumeSetStatus(status *client.VolumeSetStatus) []interface{} {
 
 	if status.UsedByWorkload != nil {
 		spec["used_by_workload"] = *status.UsedByWorkload
+	}
+
+	if status.BindingID != nil {
+		spec["binding_id"] = *status.BindingID
 	}
 
 	if status.Locations != nil {

@@ -20,6 +20,7 @@ type VolumeSetSpec struct {
 type VolumeSetStatus struct {
 	ParentID       *string        `json:"parentID,omitempty"`
 	UsedByWorkload *string        `json:"usedByWorkload,omitempty"`
+	BindingID      *string        `json:"bindingId,omitempty"`
 	Locations      *[]interface{} `json:"locations,omitempty"`
 }
 
