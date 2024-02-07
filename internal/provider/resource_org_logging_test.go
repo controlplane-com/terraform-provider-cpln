@@ -319,9 +319,9 @@ func testAccControlPlaneOrgElasticAWS() string {
 
 	return `
 
-	resource "cpln_secret" "opaque" {
+	resource "cpln_secret" "aws" {
 
-        name = "opaque-random-elastic-logging-aws-tbd"
+        name = "aws-random-elastic-logging-aws-tbd"
         description = "opaque description" 
         
         tags = {
@@ -330,10 +330,11 @@ func testAccControlPlaneOrgElasticAWS() string {
             secret_type = "opaque"
         }
 
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
+        aws {
+			secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
+			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
+			role_arn = "arn:awskeyupdate"
+		}
     }
 
     resource "cpln_org_logging" "tf-logging" {
@@ -344,7 +345,7 @@ func testAccControlPlaneOrgElasticAWS() string {
 				port = 8080
 				index = "my-index"
 				type = "my-type"
-				credentials = cpln_secret.opaque.self_link
+				credentials = cpln_secret.aws.self_link
 				region = "us-east-1"
 			}
         }
@@ -357,11 +358,10 @@ func testAccControlPlaneOrgElasticCloud() string {
 	TestLogger.Printf("Inside testAccControlPlaneOrgElasticCloud")
 
 	return `
+	resource "cpln_secret" "userpass" {
 
-	resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-elastic-logging-elastic-cloud-tbd"
-        description = "opaque description" 
+        name = "userpass-random-elastic-logging-elastic-cloud-tbd"
+        description = "userpass description" 
         
         tags = {
             terraform_generated = "true"
@@ -369,10 +369,11 @@ func testAccControlPlaneOrgElasticCloud() string {
             secret_type = "opaque"
         }
 
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
+        userpass {
+			username = "cpln_username"
+			password = "cpln_password"
+			encoding = "plain"
+		}
     }
 
     resource "cpln_org_logging" "tf-logging" {
@@ -381,7 +382,7 @@ func testAccControlPlaneOrgElasticCloud() string {
 			elastic_cloud {
 				index = "my-index"
 				type = "my-type"
-				credentials = cpln_secret.opaque.self_link
+				credentials = cpln_secret.userpass.self_link
 				cloud_id = "my-cloud-id"
 			}
         }
@@ -395,10 +396,10 @@ func testAccControlPlaneOrgElasticGeneric() string {
 
 	return `
 
-	resource "cpln_secret" "opaque" {
+	resource "cpln_secret" "userpass" {
 
-        name = "opaque-random-elastic-logging-generic-tbd"
-        description = "opaque description" 
+        name = "userpass-random-elastic-logging-generic-tbd"
+        description = "userpass description" 
         
         tags = {
             terraform_generated = "true"
@@ -406,10 +407,11 @@ func testAccControlPlaneOrgElasticGeneric() string {
             secret_type = "opaque"
         }
 
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
+        userpass {
+			username = "cpln_username"
+			password = "cpln_password"
+			encoding = "plain"
+		}
     }
 
     resource "cpln_org_logging" "tf-logging" {
@@ -421,7 +423,7 @@ func testAccControlPlaneOrgElasticGeneric() string {
 				path  = "/var/log/elasticsearch/"
 				index = "my-index"
 				type  = "my-type"
-				credentials = cpln_secret.opaque.self_link
+				credentials = cpln_secret.userpass.self_link
 			}
         }
     }
@@ -1085,7 +1087,7 @@ func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interfac
 	port := 8080
 	index := "my-index"
 	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/opaque-random-elastic-logging-aws-tbd"
+	credentials := "/org/terraform-test-org/secret/aws-random-elastic-logging-aws-tbd"
 	region := "us-east-1"
 
 	flattened := generateFlatTestAWSLogging(host, port, index, loggingType, credentials, region)
@@ -1105,7 +1107,7 @@ func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interfac
 func generateTestElasticCloudLogging() (*client.ElasticCloudLogging, client.ElasticCloudLogging, []interface{}) {
 	index := "my-index"
 	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/opaque-random-elastic-logging-elastic-cloud-tbd"
+	credentials := "/org/terraform-test-org/secret/userpass-random-elastic-logging-elastic-cloud-tbd"
 	cloudId := "my-cloud-id"
 
 	flattened := generateFlatTestElasticCloudLogging(index, loggingType, credentials, cloudId)
@@ -1126,7 +1128,7 @@ func generateTestGenericLogging() (*client.GenericLogging, client.GenericLogging
 	path := "/var/log/elasticsearch/"
 	index := "my-index"
 	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/opaque-random-elastic-logging-generic-tbd"
+	credentials := "/org/terraform-test-org/secret/userpass-random-elastic-logging-generic-tbd"
 
 	flattened := generateFlatTestGenericLogging(host, port, path, index, loggingType, credentials)
 	genericLogging := buildGenericLogging(flattened)

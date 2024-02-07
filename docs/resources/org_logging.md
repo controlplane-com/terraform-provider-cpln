@@ -278,20 +278,21 @@ resource "cpln_org_logging" "new" {
 ### Elastic - AWS
 
 ```terraform
-resource "cpln_secret" "opaque" {
+resource "cpln_secret" "aws" {
 
-  name        = "opaque-random-elastic-logging-aws-tbd"
-  description = "opaque description"
+  name        = "aws-random-elastic-logging-aws"
+  description = "aws description"
 
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
-    secret_type         = "opaque"
+    secret_type         = "aws"
   }
 
-  opaque {
-    payload  = "opaque_secret_payload"
-    encoding = "plain"
+  aws {
+    secret_key = "AKIAIOSFODNN7EXAMPLE"
+    access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    role_arn   = "arn:awskey"
   }
 }
 
@@ -303,7 +304,7 @@ resource "cpln_org_logging" "new" {
       port        = 8080
       index       = "my-index"
       type        = "my-type"
-      credentials = cpln_secret.opaque.self_link
+      credentials = cpln_secret.aws.self_link
       region      = "us-east-1"
     }
   }
@@ -313,19 +314,12 @@ resource "cpln_org_logging" "new" {
 ### Elastic - Elastic Cloud
 
 ```terraform
-resource "cpln_secret" "opaque" {
+resource "cpln_secret" "userpass" {
+  name = "example"
 
-  name        = "opaque-random-elastic-logging-elastic-cloud-tbd"
-  description = "opaque description"
-
-  tags = {
-    terraform_generated = "true"
-    acceptance_test     = "true"
-    secret_type         = "opaque"
-  }
-
-  opaque {
-    payload  = "opaque_secret_payload"
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
     encoding = "plain"
   }
 }
@@ -336,8 +330,36 @@ resource "cpln_org_logging" "new" {
     elastic_cloud {
       index       = "my-index"
       type        = "my-type"
-      credentials = cpln_secret.opaque.self_link
+      credentials = cpln_secret.userpass.self_link
       cloud_id    = "my-cloud-id"
+    }
+  }
+}
+```
+
+### Elastic - Generic
+
+```terraform
+resource "cpln_secret" "userpass" {
+  name = "example"
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "new" {
+
+  elastic_logging {
+    generic {
+      host  = "example.com"
+      port  = 9200
+      path  = "/var/log/elasticsearch/"
+      index = "my-index"
+      type  = "my-type"
+      credentials = cpln_secret.userpass.self_link
     }
   }
 }
