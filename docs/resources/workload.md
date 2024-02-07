@@ -375,7 +375,7 @@ Read-Only:
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
 - **internal_name** (String) Internal hostname for the workload. Used for service-to-service requests.
-- **current_replica_count** (Number) // TODO: Add description
+- **current_replica_count** (Number) Current amount of replicas deployed.
 - **health_check** (Block List) ([see below](#nestedblock--status--health_check)).
 - **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
 
@@ -413,7 +413,7 @@ Read-Only:
 
 // TODO: Add description
 
-- **digest** (String) // TODO: Add description
+- **digest** (String) A unique SHA256 hash value that identifies a specific image content. This digest serves as a fingerprint of the image's content, ensuring the image you pull or run is exactly what you expect, without any modifications or corruptions.
 - **manifests** (Block List) ([see below](#nestedblock--status--resolved_images--images--manifests))
 
 <a id="nestedblock--status--resolved_images--images--manifests"></a>
@@ -423,9 +423,9 @@ Read-Only:
 // TODO: Add description
 
 - **image** (String) // TODO: Add description
-- **media_type** (String) // TODO: Add description
-- **digest** (String) // TODO: Add description
-- **platform** (Map of String) Key-value map of strings // TODO: Complete description
+- **media_type** (String) The MIME type used in the Docker Registry HTTP API to specify the format of the data being sent or received. Docker uses media types to distinguish between different kinds of JSON objects and binary data formats within the registry protocol, enabling the Docker client and registry to understand and process different components of Docker images correctly.
+- **digest** (String) A SHA256 hash that uniquely identifies the specific image manifest.
+- **platform** (Map of String) Key-value map of strings. The combination of the operating system and architecture for which the image is built.
 
 ## Example Usage - Serverless
 
