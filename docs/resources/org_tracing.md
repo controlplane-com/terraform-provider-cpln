@@ -16,6 +16,7 @@ Only one of the following tracing blocks can be defined:
 
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
+- **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
 
 <a id="nestedblock--lightstep_tracing"></a>
 
@@ -23,12 +24,13 @@ Only one of the following tracing blocks can be defined:
 
 Required:
 
-- **sampling** (Int) Sampling percentage.
+- **sampling** (Int) Determines what percentage of requests should be traced.
 - **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
 
 Optional:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
+- **custom_tags** (Map of String) Key-value map of custom tags.
 
 <a id="nestedblock--otel_tracing"></a>
 
@@ -36,8 +38,24 @@ Optional:
 
 Required:
 
-- **sampling** (Int) Sampling percentage.
+- **sampling** (Int) Determines what percentage of requests should be traced.
 - **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
+
+Optional:
+
+- **custom_tags** (Map of String) Key-value map of custom tags.
+
+<a id="nestedblock--controlplane_tracing"></a>
+
+### `controlplane_tracing`
+
+Required:
+
+- **sampling** (Int) Determines what percentage of requests should be traced.
+
+Optional:
+
+- **custom_tags** (Map of String) Key-value map of custom tags.
 
 ## Example Usage
 
@@ -70,6 +88,10 @@ resource "cpln_org_tracing" "new" {
 
     // Opaque Secret Only
     credentials = cpln_secret.opaque.self_link
+
+    custom_tags = {
+      key = "value"
+    }
   }
 }
 ```
@@ -84,6 +106,27 @@ resource "cpln_org_tracing" "new" {
 
     sampling = 50
     endpoint = "test.cpln.local:8080"
+
+    custom_tags = {
+      key = "value"
+    }
+  }
+}
+```
+
+### Control Plane
+
+```terraform
+
+resource "cpln_org_tracing" "new" {
+
+  controlplane_tracing {
+
+    sampling = 50
+
+    custom_tags = {
+      key = "value"
+    }
   }
 }
 ```
