@@ -77,7 +77,7 @@ Containers which attempt to use these ports will not be able to bind:
 
 Required:
 
-- **protocol** (String) Protocol. Choice of: `http`, `http2`, or `grpc`.
+- **protocol** (String) Protocol. Choice of: `http`, `http2`, `tcp`, or `grpc`.
 - **number** (String) Port to expose.
 
 <a id="nestedblock--container--gpu_nvidia"></a>
@@ -343,7 +343,7 @@ Optional:
 - **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
-- **scaling_policy** (String) // TODO: Add description
+- **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update), `Parallel`. Default: `OrderedReady`.
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
 
@@ -374,7 +374,7 @@ Read-Only:
 - **parent_id** (String) ID of the parent object.
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
-- **internal_name** (String) // TODO: Add description
+- **internal_name** (String) Internal hostname for the workload. Used for service-to-service requests.
 - **current_replica_count** (Number) // TODO: Add description
 - **health_check** (Block List) ([see below](#nestedblock--status--health_check)).
 - **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
@@ -1050,8 +1050,6 @@ resource "cpln_workload" "new" {
   security_options {
     file_system_group_id = 1
   }
-
-
 }
 
 ```

@@ -252,6 +252,7 @@ func resourceWorkload() *schema.Resource {
 									"recovery_policy": {
 										Type:     schema.TypeString,
 										Optional: true,
+										Default:  "retain",
 									},
 									"path": {
 										Type:     schema.TypeString,
