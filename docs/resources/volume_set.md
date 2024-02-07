@@ -97,7 +97,7 @@ resource "cpln_volume_set" "new" {
     snapshots {
         create_final_snapshot = false
         retention_duration    = "2d"
-        schedule              = "* * 1 * 1"
+        schedule              = "0 * * * *"
     }
 
     autoscaling {
