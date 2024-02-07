@@ -81,7 +81,7 @@ At least one of the following logging blocks are required:
 
 Required:
 
-- **host** (String) A valid AWS ElasticSearch host (must end with es.amazonaws.com).
+- **host** (String) A valid AWS ElasticSearch hostname (must end with es.amazonaws.com).
 - **port** (Number) Port. Default: 443
 - **index** (String) Logging Index.
 - **type** (String) Logging Type.
@@ -101,12 +101,12 @@ Required:
 
 Required:
 
-- **host** (String) A valid AWS ElasticSearch host (must end with es.amazonaws.com).
+- **host** (String) A valid Elastic Search provider hostname.
 - **port** (Number) Port. Default: 443
 - **path** (String) Logging path.
 - **index** (String) Logging Index.
 - **type** (String) Logging Type.
-- **credentials** (String) Full Link to a secret of type `aws`.
+- **credentials** (String) Full Link to a secret of type `userpass`.
 
 <a id="nestedblock--logzio_logging"></a>
 
