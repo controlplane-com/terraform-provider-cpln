@@ -24,13 +24,13 @@ Only one of the following tracing blocks can be defined:
 
 Required:
 
-- **sampling** (Int) Sampling percentage.
+- **sampling** (Int) Determines what percentage of requests should be traced.
 - **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
 
 Optional:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
-- **custom_tags** (Map of String) Key-value map.
+- **custom_tags** (Map of String) Key-value map of custom tags.
 
 <a id="nestedblock--otel_tracing"></a>
 
@@ -38,12 +38,12 @@ Optional:
 
 Required:
 
-- **sampling** (Int) Sampling percentage.
+- **sampling** (Int) Determines what percentage of requests should be traced.
 - **endpoint** (String) Tracing Endpoint Workload. Either the canonical endpoint or the internal endpoint.
 
 Optional:
 
-- **custom_tags** (Map of String) Key-value map.
+- **custom_tags** (Map of String) Key-value map of custom tags.
 
 <a id="nestedblock--controlplane_tracing"></a>
 
@@ -51,11 +51,11 @@ Optional:
 
 Required:
 
-- **sampling** (Int) Sampling percentage.
+- **sampling** (Int) Determines what percentage of requests should be traced.
 
 Optional:
 
-- **custom_tags** (Map of String) Key-value map.
+- **custom_tags** (Map of String) Key-value map of custom tags.
 
 ## Example Usage
 
