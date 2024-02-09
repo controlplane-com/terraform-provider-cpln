@@ -69,6 +69,7 @@ Optional:
 - **repos** (Set of String) List of ECR repositories.
 - **role_arn** (String) Role ARN provided by AWS.
 - **secret_key** (String, Sensitive) Secret Key provided by AWS.
+- **external_id** (String) // Add description
 
 <a id="nestedblock--keypair"></a>
 
@@ -357,6 +358,9 @@ resource "cpln_secret" "ecr" {
 
     # Required
     repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"]
+
+    # Optional
+    external_id = "ExampleExternalID-2024-02-09-abc123XYZ-update"
   }
 }
 
