@@ -95,7 +95,7 @@ Required:
 - **index** (String) Logging Index.
 - **type** (String) Logging Type.
 - **credentials** (String) Full Link to a secret of type `userpass`.
-- **cloud_id** (String) // [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
+- **cloud_id** (String) [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
 
 <a id="nestedblock--elastic_logging--generic"></a>
 
