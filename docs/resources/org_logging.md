@@ -304,6 +304,8 @@ resource "cpln_org_logging" "new" {
       port        = 8080
       index       = "my-index"
       type        = "my-type"
+
+      // AWS Secret Only
       credentials = cpln_secret.aws.self_link
       region      = "us-east-1"
     }
@@ -330,6 +332,8 @@ resource "cpln_org_logging" "new" {
     elastic_cloud {
       index       = "my-index"
       type        = "my-type"
+
+      // UserPass Secret Only
       credentials = cpln_secret.userpass.self_link
       cloud_id    = "my-cloud-id"
     }
@@ -359,6 +363,8 @@ resource "cpln_org_logging" "new" {
       path  = "/var/log/elasticsearch/"
       index = "my-index"
       type  = "my-type"
+
+      // UserPass Secret Only
       credentials = cpln_secret.userpass.self_link
     }
   }
