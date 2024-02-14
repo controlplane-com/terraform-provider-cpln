@@ -69,6 +69,13 @@ func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneOrgElasticGeneric(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
 				Config: testAccControlPlaneOrgThreeUniqueLoggings(),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
@@ -312,9 +319,9 @@ func testAccControlPlaneOrgElasticAWS() string {
 
 	return `
 
-	resource "cpln_secret" "opaque" {
+	resource "cpln_secret" "aws" {
 
-        name = "opaque-random-elastic-logging-aws-tbd"
+        name = "aws-random-elastic-logging-aws-tbd"
         description = "opaque description" 
         
         tags = {
@@ -323,10 +330,11 @@ func testAccControlPlaneOrgElasticAWS() string {
             secret_type = "opaque"
         }
 
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
+        aws {
+			secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
+			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
+			role_arn = "arn:awskeyupdate"
+		}
     }
 
     resource "cpln_org_logging" "tf-logging" {
@@ -337,7 +345,7 @@ func testAccControlPlaneOrgElasticAWS() string {
 				port = 8080
 				index = "my-index"
 				type = "my-type"
-				credentials = cpln_secret.opaque.self_link
+				credentials = cpln_secret.aws.self_link
 				region = "us-east-1"
 			}
         }
@@ -350,11 +358,10 @@ func testAccControlPlaneOrgElasticCloud() string {
 	TestLogger.Printf("Inside testAccControlPlaneOrgElasticCloud")
 
 	return `
+	resource "cpln_secret" "userpass" {
 
-	resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-elastic-logging-elastic-cloud-tbd"
-        description = "opaque description" 
+        name = "userpass-random-elastic-logging-elastic-cloud-tbd"
+        description = "userpass description" 
         
         tags = {
             terraform_generated = "true"
@@ -362,10 +369,11 @@ func testAccControlPlaneOrgElasticCloud() string {
             secret_type = "opaque"
         }
 
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
+        userpass {
+			username = "cpln_username"
+			password = "cpln_password"
+			encoding = "plain"
+		}
     }
 
     resource "cpln_org_logging" "tf-logging" {
@@ -374,8 +382,48 @@ func testAccControlPlaneOrgElasticCloud() string {
 			elastic_cloud {
 				index = "my-index"
 				type = "my-type"
-				credentials = cpln_secret.opaque.self_link
+				credentials = cpln_secret.userpass.self_link
 				cloud_id = "my-cloud-id"
+			}
+        }
+    }
+    `
+}
+
+func testAccControlPlaneOrgElasticGeneric() string {
+
+	TestLogger.Printf("Inside testAccControlPlaneOrgElasticGeneric")
+
+	return `
+
+	resource "cpln_secret" "userpass" {
+
+        name = "userpass-random-elastic-logging-generic-tbd"
+        description = "userpass description" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "opaque"
+        }
+
+        userpass {
+			username = "cpln_username"
+			password = "cpln_password"
+			encoding = "plain"
+		}
+    }
+
+    resource "cpln_org_logging" "tf-logging" {
+
+        elastic_logging {
+			generic {
+				host  = "example.com"
+				port  = 9200
+				path  = "/var/log/elasticsearch/"
+				index = "my-index"
+				type  = "my-type"
+				credentials = cpln_secret.userpass.self_link
 			}
         }
     }
@@ -643,10 +691,14 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 				if *logging.Logzio.ListenerHost == "listener-nl.logz.io" {
 					loggingType = "logzio_logging-different_listener_host"
 				}
-			} else if logging.Elastic != nil && logging.Elastic.AWS != nil {
-				loggingType = "elastic_logging-aws"
-			} else if logging.Elastic != nil && logging.Elastic.ElasticCloud != nil {
-				loggingType = "elastic_logging-elastic_cloud"
+			} else if logging.Elastic != nil {
+				if logging.Elastic.AWS != nil {
+					loggingType = "elastic_logging-aws"
+				} else if logging.Elastic.ElasticCloud != nil {
+					loggingType = "elastic_logging-elastic_cloud"
+				} else if logging.Elastic.Generic != nil {
+					loggingType = "elastic_logging-generic"
+				}
 			} else {
 				return fmt.Errorf("Logging Attributes: We were not able to determine logging type")
 			}
@@ -683,7 +735,9 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 
 				logzioTestvalue = append(logzioTestvalue, temp)
 
-			case "elastic_logging":
+			case "elastic_logging-aws":
+			case "elastic_logging-elastic_cloud":
+			case "elastic_logging-generic":
 
 				temp := client.Logging{
 					Elastic: logging.Elastic,
@@ -719,7 +773,21 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 				toTestValue = logzioTestvalue
 
 			case "elastic_logging":
-				expectedValue, _, _ = generateTestElasticLogging()
+				var loggingType string
+
+				if elasticTestValue != nil {
+					if elasticTestValue[0].Elastic.AWS != nil {
+						loggingType = "elastic_logging-aws"
+					} else if elasticTestValue[0].Elastic.ElasticCloud != nil {
+						loggingType = "elastic_logging-elastic_cloud"
+					} else if elasticTestValue[0].Elastic.Generic != nil {
+						loggingType = "elastic_logging-generic"
+					} else {
+						return fmt.Errorf("Logging Attributes: Unable to get logging type from elastic logging")
+					}
+				}
+
+				expectedValue, _, _ = generateTestElasticLogging(loggingType)
 				toTestValue = elasticTestValue
 
 			default:
@@ -772,6 +840,7 @@ func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
 
 /*** Unit Tests ***/
 // Build Functions //
+
 func TestControlPlane_BuildS3Logging(t *testing.T) {
 	s3Logging, expectedS3Logging, _ := generateTestS3Logging()
 	if diff := deep.Equal(s3Logging, expectedS3Logging); diff != nil {
@@ -808,7 +877,7 @@ func TestControlPlane_BuildLogzioLogging_DifferentListenerHost(t *testing.T) {
 }
 
 func TestControlPlane_BuildElasticLogging(t *testing.T) {
-	elasticLogging, expectedElasticLogging, _ := generateTestElasticLogging()
+	elasticLogging, expectedElasticLogging, _ := generateTestElasticLogging("")
 	if diff := deep.Equal(elasticLogging, expectedElasticLogging); diff != nil {
 		t.Errorf("AWS Logging was not built correctly. Diff: %s", diff)
 	}
@@ -828,7 +897,15 @@ func TestControlPlane_BuildElasticCloudLogging(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildGenericLogging(t *testing.T) {
+	genericLogging, expectedGenericLogging, _ := generateTestGenericLogging()
+	if diff := deep.Equal(genericLogging, &expectedGenericLogging); diff != nil {
+		t.Errorf("Elastic Generic Logging was not built correctly. Diff: %s", diff)
+	}
+}
+
 /*** Generate Functions ***/
+
 func generateTestS3Logging() ([]client.Logging, []client.Logging, []interface{}) {
 
 	bucket := "test-bucket"
@@ -964,23 +1041,42 @@ func generateTestLogzioLogging(loggingType string) ([]client.Logging, []client.L
 	return logzio, output, flattened
 }
 
-func generateTestElasticLogging() ([]client.Logging, []client.Logging, []interface{}) {
-	_, expectedAWSLogging, flattenedAWSLogging := generateTestAWSLogging()
-	_, expectedElasticCloudLogging, flattenedElasticCloudLogging := generateTestElasticCloudLogging()
+func generateTestElasticLogging(loggingType string) ([]client.Logging, []client.Logging, []interface{}) {
+	var expectedAWSLogging client.AWSLogging
+	var expectedElasticCloudLogging client.ElasticCloudLogging
+	var expectedGenericLogging client.GenericLogging
 
-	flattened := generateFlatTestElasticLogging(flattenedAWSLogging, flattenedElasticCloudLogging)
+	var flattenedAWSLogging []interface{}
+	var flattenedElasticCloudLogging []interface{}
+	var flattenedGenericLogging []interface{}
+
+	switch loggingType {
+	case "elastic_logging-aws":
+		_, expectedAWSLogging, flattenedAWSLogging = generateTestAWSLogging()
+	case "elastic_logging-elastic_cloud":
+		_, expectedElasticCloudLogging, flattenedElasticCloudLogging = generateTestElasticCloudLogging()
+	case "elastic_logging-generic":
+		_, expectedGenericLogging, flattenedGenericLogging = generateTestGenericLogging()
+	default:
+		_, expectedAWSLogging, flattenedAWSLogging = generateTestAWSLogging()
+		_, expectedElasticCloudLogging, flattenedElasticCloudLogging = generateTestElasticCloudLogging()
+		_, expectedGenericLogging, flattenedGenericLogging = generateTestGenericLogging()
+	}
+
+	flattened := generateFlatTestElasticLogging(flattenedAWSLogging, flattenedElasticCloudLogging, flattenedGenericLogging)
 	elasticLogging := buildElasticLogging(flattened)
 	expectedElasticLogging := client.ElasticLogging{
 		AWS:          &expectedAWSLogging,
 		ElasticCloud: &expectedElasticCloudLogging,
+		Generic:      &expectedGenericLogging,
 	}
 
-	expectedS3Logging := client.Logging{
+	expectedLogging := client.Logging{
 		Elastic: &expectedElasticLogging,
 	}
 
 	output := []client.Logging{
-		expectedS3Logging,
+		expectedLogging,
 	}
 
 	return elasticLogging, output, flattened
@@ -991,7 +1087,7 @@ func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interfac
 	port := 8080
 	index := "my-index"
 	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/opaque-random-elastic-logging-aws-tbd"
+	credentials := "/org/terraform-test-org/secret/aws-random-elastic-logging-aws-tbd"
 	region := "us-east-1"
 
 	flattened := generateFlatTestAWSLogging(host, port, index, loggingType, credentials, region)
@@ -1011,7 +1107,7 @@ func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interfac
 func generateTestElasticCloudLogging() (*client.ElasticCloudLogging, client.ElasticCloudLogging, []interface{}) {
 	index := "my-index"
 	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/opaque-random-elastic-logging-elastic-cloud-tbd"
+	credentials := "/org/terraform-test-org/secret/userpass-random-elastic-logging-elastic-cloud-tbd"
 	cloudId := "my-cloud-id"
 
 	flattened := generateFlatTestElasticCloudLogging(index, loggingType, credentials, cloudId)
@@ -1026,7 +1122,30 @@ func generateTestElasticCloudLogging() (*client.ElasticCloudLogging, client.Elas
 	return elasticCloudLogging, expectedElasticCloudLogging, flattened
 }
 
+func generateTestGenericLogging() (*client.GenericLogging, client.GenericLogging, []interface{}) {
+	host := "example.com"
+	port := 9200
+	path := "/var/log/elasticsearch/"
+	index := "my-index"
+	loggingType := "my-type"
+	credentials := "/org/terraform-test-org/secret/userpass-random-elastic-logging-generic-tbd"
+
+	flattened := generateFlatTestGenericLogging(host, port, path, index, loggingType, credentials)
+	genericLogging := buildGenericLogging(flattened)
+	expectedGenericLogging := client.GenericLogging{
+		Host:        &host,
+		Port:        &port,
+		Path:        &path,
+		Index:       &index,
+		Type:        &loggingType,
+		Credentials: &credentials,
+	}
+
+	return genericLogging, expectedGenericLogging, flattened
+}
+
 /*** Flatten Functions ***/
+
 func generateFlatTestS3Logging(bucket string, region string, prefix string, credentials string) []interface{} {
 	spec := map[string]interface{}{
 		"bucket":      bucket,
@@ -1092,10 +1211,19 @@ func generateFlatTestLogzioLogging(listenerHost string, credentials string) []in
 	}
 }
 
-func generateFlatTestElasticLogging(awsLogging []interface{}, elasticCloudLogging []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"aws":           awsLogging,
-		"elastic_cloud": elasticCloudLogging,
+func generateFlatTestElasticLogging(awsLogging []interface{}, elasticCloudLogging []interface{}, genericLogging []interface{}) []interface{} {
+	spec := make(map[string]interface{})
+
+	if awsLogging != nil {
+		spec["aws"] = awsLogging
+	}
+
+	if elasticCloudLogging != nil {
+		spec["elastic_cloud"] = elasticCloudLogging
+	}
+
+	if genericLogging != nil {
+		spec["generic"] = genericLogging
 	}
 
 	return []interface{}{
@@ -1124,6 +1252,21 @@ func generateFlatTestElasticCloudLogging(index string, loggingType string, crede
 		"type":        loggingType,
 		"credentials": credentials,
 		"cloud_id":    cloudId,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestGenericLogging(host string, port int, path string, index string, loggingType string, credentials string) []interface{} {
+	spec := map[string]interface{}{
+		"host":        host,
+		"port":        port,
+		"path":        path,
+		"index":       index,
+		"type":        loggingType,
+		"credentials": credentials,
 	}
 
 	return []interface{}{

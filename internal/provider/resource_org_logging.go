@@ -2,12 +2,15 @@ package cpln
 
 import (
 	"context"
+	"sync"
 
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
+
+var resourceLock = &sync.Mutex{}
 
 var loggingNames = []string{
 	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging",
@@ -184,6 +187,39 @@ func resourceOrgLogging() *schema.Resource {
 								},
 							},
 						},
+						"generic": {
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"host": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"port": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+									"path": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"index": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"type": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"credentials": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -194,9 +230,22 @@ func resourceOrgLogging() *schema.Resource {
 
 func resourceOrgLoggingCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
+	resourceLock.Lock()
+	defer resourceLock.Unlock()
+
 	// log.Printf("[INFO] Method: resourceOrgCreate")
 
 	c := m.(*client.Client)
+
+	currentOrg, _, err := c.GetOrg()
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if currentOrg.Spec != nil && currentOrg.Spec.Logging != nil {
+		return diag.Errorf("only one 'cpln_org_logging' resource can be declared")
+	}
 
 	loggings := buildMultipleLoggings(d, loggingNames...)
 
@@ -414,6 +463,10 @@ func buildElasticLogging(logging []interface{}) []client.Logging {
 					result.ElasticCloud = buildElasticCloudLogging(log["elastic_cloud"].([]interface{}))
 				}
 
+				if log["generic"] != nil {
+					result.Generic = buildGenericLogging(log["generic"].([]interface{}))
+				}
+
 				tempLogging := client.Logging{
 					Elastic: result,
 				}
@@ -466,6 +519,23 @@ func buildElasticCloudLogging(logging []interface{}) *client.ElasticCloudLogging
 	}
 
 	return result
+}
+
+func buildGenericLogging(specs []interface{}) *client.GenericLogging {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+
+	return &client.GenericLogging{
+		Host:        GetString(spec["host"].(string)),
+		Port:        GetInt(spec["port"].(int)),
+		Path:        GetString(spec["path"].(string)),
+		Index:       GetString(spec["index"].(string)),
+		Type:        GetString(spec["type"].(string)),
+		Credentials: GetString(spec["credentials"].(string)),
+	}
 }
 
 /*** Flatten Functions ***/
@@ -579,6 +649,10 @@ func flattenElasticLogging(logs []client.ElasticLogging) []interface{} {
 				result["elastic_cloud"] = flattenElasticCloudLogging(log.ElasticCloud)
 			}
 
+			if log.Generic != nil {
+				result["generic"] = flattenGenericLogging(log.Generic)
+			}
+
 			output[l] = result
 		}
 
@@ -596,12 +670,12 @@ func flattenAWSLogging(log *client.AWSLogging) []interface{} {
 
 	result := make(map[string]interface{})
 
-	result["host"] = log.Host
-	result["port"] = log.Port
-	result["index"] = log.Index
-	result["type"] = log.Type
-	result["credentials"] = log.Credentials
-	result["region"] = log.Region
+	result["host"] = *log.Host
+	result["port"] = *log.Port
+	result["index"] = *log.Index
+	result["type"] = *log.Type
+	result["credentials"] = *log.Credentials
+	result["region"] = *log.Region
 
 	return []interface{}{
 		result,
@@ -616,13 +690,32 @@ func flattenElasticCloudLogging(log *client.ElasticCloudLogging) []interface{} {
 
 	result := make(map[string]interface{})
 
-	result["index"] = log.Index
-	result["type"] = log.Type
-	result["credentials"] = log.Credentials
-	result["cloud_id"] = log.CloudID
+	result["index"] = *log.Index
+	result["type"] = *log.Type
+	result["credentials"] = *log.Credentials
+	result["cloud_id"] = *log.CloudID
 
 	return []interface{}{
 		result,
+	}
+}
+
+func flattenGenericLogging(logging *client.GenericLogging) []interface{} {
+	if logging == nil {
+		return nil
+	}
+
+	output := make(map[string]interface{})
+
+	output["host"] = *logging.Host
+	output["port"] = *logging.Port
+	output["path"] = *logging.Path
+	output["index"] = *logging.Index
+	output["type"] = *logging.Type
+	output["credentials"] = *logging.Credentials
+
+	return []interface{}{
+		output,
 	}
 }
 
