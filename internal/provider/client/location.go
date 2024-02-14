@@ -40,8 +40,9 @@ type LocationStatus struct {
 type LocationGeo struct {
 	Lat       *float32 `json:"lat,omitempty"`
 	Lon       *float32 `json:"lon,omitempty"`
-	State     *string  `json:"state,omitempty"`
 	Country   *string  `json:"country,omitempty"`
+	State     *string  `json:"state,omitempty"`
+	City      *string  `json:"city,omitempty"`
 	Continent *string  `json:"continent,omitempty"`
 }
 
@@ -79,6 +80,7 @@ func LocationSchema() map[string]*schema.Schema {
 			Type:     schema.TypeBool,
 			Computed: true,
 		},
+		"geo": GeoSchema(),
 		"ip_ranges": {
 			Type:     schema.TypeSet,
 			Computed: true,
@@ -127,6 +129,7 @@ func LocationsSchema() map[string]*schema.Schema {
 			Type:     schema.TypeBool,
 			Computed: true,
 		},
+		"geo": GeoSchema(),
 		"ip_ranges": {
 			Type:     schema.TypeSet,
 			Computed: true,
@@ -137,6 +140,41 @@ func LocationsSchema() map[string]*schema.Schema {
 		"self_link": {
 			Type:     schema.TypeString,
 			Computed: true,
+		},
+	}
+}
+
+func GeoSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Computed: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"lat": {
+					Type:     schema.TypeFloat,
+					Optional: true,
+				},
+				"lon": {
+					Type:     schema.TypeFloat,
+					Optional: true,
+				},
+				"country": {
+					Type:     schema.TypeString,
+					Optional: true,
+				},
+				"state": {
+					Type:     schema.TypeString,
+					Optional: true,
+				},
+				"city": {
+					Type:     schema.TypeString,
+					Optional: true,
+				},
+				"continent": {
+					Type:     schema.TypeString,
+					Optional: true,
+				},
+			},
 		},
 	}
 }

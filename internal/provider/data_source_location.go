@@ -57,6 +57,10 @@ func setLocation(d *schema.ResourceData, location *client.Location) diag.Diagnos
 		return diag.FromErr(err)
 	}
 
+	if err := d.Set("geo", flattenLocationGeo(location.Status.Geo)); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if err := d.Set("ip_ranges", flattenIpRanges(location.Status.IpRanges)); err != nil {
 		return diag.FromErr(err)
 	}
@@ -66,6 +70,42 @@ func setLocation(d *schema.ResourceData, location *client.Location) diag.Diagnos
 	}
 
 	return nil
+}
+
+func flattenLocationGeo(geo *client.LocationGeo) []interface{} {
+	if geo == nil {
+		return nil
+	}
+
+	spec := make(map[string]interface{})
+
+	if geo.Lat != nil {
+		spec["lat"] = *geo.Lat
+	}
+
+	if geo.Lon != nil {
+		spec["lon"] = *geo.Lon
+	}
+
+	if geo.Country != nil {
+		spec["country"] = *geo.Country
+	}
+
+	if geo.State != nil {
+		spec["state"] = *geo.State
+	}
+
+	if geo.City != nil {
+		spec["city"] = *geo.City
+	}
+
+	if geo.Continent != nil {
+		spec["continent"] = *geo.Continent
+	}
+
+	return []interface{}{
+		spec,
+	}
 }
 
 func flattenIpRanges(ipRanges *[]string) []interface{} {
