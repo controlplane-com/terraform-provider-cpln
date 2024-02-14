@@ -2,12 +2,15 @@ package cpln
 
 import (
 	"context"
+	"sync"
 
 	client "terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
+
+var resourceLock = &sync.Mutex{}
 
 var loggingNames = []string{
 	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging",
@@ -227,9 +230,22 @@ func resourceOrgLogging() *schema.Resource {
 
 func resourceOrgLoggingCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
+	resourceLock.Lock()
+	defer resourceLock.Unlock()
+
 	// log.Printf("[INFO] Method: resourceOrgCreate")
 
 	c := m.(*client.Client)
+
+	currentOrg, _, err := c.GetOrg()
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if currentOrg.Spec != nil && currentOrg.Spec.Logging != nil {
+		return diag.Errorf("only one 'cpln_org_logging' resource can be declared")
+	}
 
 	loggings := buildMultipleLoggings(d, loggingNames...)
 

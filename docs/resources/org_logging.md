@@ -12,7 +12,7 @@ Manages an [Org's external logging configuration](https://docs.controlplane.com/
 
 ### Required
 
-You can define up to **three** logging blocks:
+You can define up to **four** logging blocks:
 
 - **s3_logging** (Block List, Max: 1) ([see below](#nestedblock--s3_logging)).
 - **coralogix_logging** (Block List, Max: 1) ([see below](#nestedblock--coralogix_logging)).
