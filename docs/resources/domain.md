@@ -49,7 +49,7 @@ Optional:
 
 - **dns_mode** (String) In `cname` dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently `cname` dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In `ns` dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: `cname`, `ns`. Default: `cname`.
 - **gvc_link** (String) This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. **Do not include if path based routing is used.**
-- **accept_all_hosts** (Boolean) // TODO: Add description
+- **accept_all_hosts** (Boolean) Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled. 
 
 <a id="nestedblock--spec-ports"></a>
 
@@ -125,7 +125,6 @@ Read-Only:
 - **status** (String) Status of Domain. Possible values: `initializing`, `ready`, `pendingDnsConfig`, `pendingCertificate`, `usedByGvc`.
 - **warning** (String) Warning message.
 - **locations** (Block List) ([see below](#nestedblock--status--locations))
-- **fingerprint** (String) // TODO: Add Description
 - **dns_config** (Block List) ([see below](#nestedblock--status--dns_config))
 
 <a id="nestedblock--status--endpoints"></a>
