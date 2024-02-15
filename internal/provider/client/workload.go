@@ -34,7 +34,7 @@ type WorkloadSpec struct {
 	Job                *JobSpec         `json:"job,omitempty"`
 	SecurityOptions    *SecurityOptions `json:"securityOptions,omitempty"`
 	SupportDynamicTags *bool            `json:"supportDynamicTags,omitempty"`
-	Sidecar			   *WorkloadSidecar `json:"sidecar,omitempty"`
+	Sidecar            *WorkloadSidecar `json:"sidecar,omitempty"`
 }
 
 // ContainerSpec - Workload Container Definition
@@ -134,6 +134,7 @@ type WorkloadStatus struct {
 	InternalName        *string            `json:"internalName,omitempty"`
 	CurrentReplicaCount *int               `json:"currentReplicaCount,omitempty"`
 	HealthCheck         *HealthCheckStatus `json:"healthCheck,omitempty"`
+	ResolvedImages      *ResolvedImages    `json:"resolvedImages,omitempty"`
 }
 
 // HealthCheckStatus - Health Check Status
@@ -147,9 +148,28 @@ type HealthCheckStatus struct {
 	LastChecked *string `json:"lastChecked,omitempty"`
 }
 
+type ResolvedImages struct {
+	ResolvedForVersion *int             `json:"resolvedForVersion,omitempty"`
+	ResolvedAt         *string          `json:"resolvedAt,omitempty"`
+	Images             *[]ResolvedImage `json:"images,omitempty"`
+}
+
+type ResolvedImage struct {
+	Digest    *string                  `json:"digest,omitempty"`
+	Manifests *[]ResolvedImageManifest `json:"manifests,omitempty"`
+}
+
+type ResolvedImageManifest struct {
+	Image     *string             `json:"image,omitempty"`
+	MediaType *string             `json:"mediaType,omitempty"`
+	Digest    *string             `json:"digest,omitempty"`
+	Platform  *map[string]*string `json:"platform,omitempty"`
+}
+
 // HealthCheckSpec - Health Check Spec (used my readiness and liveness probes)
 type HealthCheckSpec struct {
 	Exec                *Exec      `json:"exec,omitempty"`
+	GRPC                *GRPC      `json:"grpc,omitempty"`
 	TCPSocket           *TCPSocket `json:"tcpSocket,omitempty"`
 	HTTPGet             *HTTPGet   `json:"httpGet,omitempty"`
 	InitialDelaySeconds *int       `json:"initialDelaySeconds,omitempty"`
@@ -161,8 +181,9 @@ type HealthCheckSpec struct {
 
 // VolumeSpec - Volume Spec
 type VolumeSpec struct {
-	Uri  *string `json:"uri,omitempty"`
-	Path *string `json:"path,omitempty"`
+	Uri            *string `json:"uri,omitempty"`
+	RecoveryPolicy *string `json:"recoveryPolicy,omitempty"`
+	Path           *string `json:"path,omitempty"`
 }
 
 // Metrics - Metrics
@@ -174,6 +195,10 @@ type Metrics struct {
 // Exec - Exec
 type Exec struct {
 	Command *[]string `json:"command,omitempty"`
+}
+
+type GRPC struct {
+	Port *int `json:"port,omitempty"`
 }
 
 // TCPSocket - TCPSocket
@@ -214,6 +239,7 @@ type RolloutOptions struct {
 	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
 	MaxUnavailableReplicas *string `json:"maxUnavailableReplicas,omitempty"`
 	MaxSurgeReplicas       *string `json:"maxSurgeReplicas,omitempty"`
+	ScalingPolicy          *string `json:"scalingPolicy,omitempty"`
 }
 
 // Security Options

@@ -24,7 +24,7 @@
         "CPLN_ORG": "terraform-test-org",
         "CPLN_REFRESH_TOKEN": ""
       },
-      "args": ["-test.run", "TestAccControlPlaneSecret_basic", "-test.v"]
+      "args": ["-test.run", "TestAccControlPlaneWorkload_basic", "-test.v"]
     }
   ]
 }

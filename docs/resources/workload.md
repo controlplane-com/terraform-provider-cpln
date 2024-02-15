@@ -77,7 +77,7 @@ Containers which attempt to use these ports will not be able to bind:
 
 Required:
 
-- **protocol** (String) Protocol. Choice of: `http`, `http2`, or `grpc`.
+- **protocol** (String) Protocol. Choice of: `http`, `http2`, `tcp`, or `grpc`.
 - **number** (String) Port to expose.
 
 <a id="nestedblock--container--gpu_nvidia"></a>
@@ -104,6 +104,7 @@ Optional:
 - **exec** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--exec)).
 - **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--http_get)).
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--tcp_socket)).
+- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--grpc)).
 
 <a id="nestedblock--container--liveness_probe--exec"></a>
 
@@ -132,6 +133,14 @@ Optional:
 
 - **port** (Number) TCP Socket Port.
 
+<a id="nestedblock--container--liveness_probe--grpc"></a>
+
+### `container.liveness_probe.grpc`
+
+Optional:
+
+- **port** (Number) gRPC Port.
+
 <a id="nestedblock--container--readiness_probe"></a>
 
 ### `container.readiness_probe`
@@ -147,6 +156,7 @@ Optional:
 - **exec** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--exec)).
 - **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--http_get)).
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--tcp_socket)).
+- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--grpc)).
 
 <a id="nestedblock--container--readiness_probe--exec"></a>
 
@@ -175,6 +185,14 @@ Optional:
 
 - **port** (Number) TCP Socket Port.
 
+<a id="nestedblock--container--readiness_probe--grpc"></a>
+
+### `container.readiness_probe.grpc`
+
+Optional:
+
+- **port** (Number) gRPC Port.
+
 <a id="nestedblock--container--volume"></a>
 
 ### `container.volume`
@@ -182,6 +200,7 @@ Optional:
 Required:
 
 - **uri** (String) URI of volume at cloud provider.
+- **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**
 - **path** (String) File path added to workload pointing to the volume.
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
@@ -291,6 +310,7 @@ Optional:
 Optional:
 
 - **metric** (String) Valid values: `concurrency`, `cpu`, `latency`, or `rps`.
+- **metric_percentile** (String) For metrics represented as a distribution (e.g. latency) a percentile within the distribution must be chosen as the target.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
@@ -323,6 +343,7 @@ Optional:
 - **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
+- **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
 
@@ -350,12 +371,15 @@ Status of the workload.
 
 Read-Only:
 
+- **parent_id** (String) ID of the parent object.
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
-- **health_check** (List of Object) ([see below](#nestedobjatt--status--health_check)).
-- **parent_id** (String) ID of the parent object.
+- **internal_name** (String) Internal hostname for the workload. Used for service-to-service requests.
+- **current_replica_count** (Number) Current amount of replicas deployed.
+- **health_check** (Block List) ([see below](#nestedblock--status--health_check)).
+- **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
 
-<a id="nestedobjatt--status--health_check"></a>
+<a id="nestedblock--status--health_check"></a>
 
 ### `status.health_check`
 
@@ -370,6 +394,34 @@ Read-Only:
 - **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
+
+<a id="nestedblock--status--resolved_images"></a>
+
+### `status.resolved_images`
+
+Resolved images for workloads with dynamic tags enabled.
+
+Read-Only:
+
+- **resolved_for_version** (Number) Workload version the images were resolved for.
+- **resolved_at** (String) UTC Time when the images were resolved.
+- **images** (Block List) ([see below](#nestedblock--status--resolved_images--images)).
+
+<a id="nestedblock--status--resolved_images--images"></a>
+
+### `status.resolved_images.images`
+
+- **digest** (String) A unique SHA256 hash value that identifies a specific image content. This digest serves as a fingerprint of the image's content, ensuring the image you pull or run is exactly what you expect, without any modifications or corruptions.
+- **manifests** (Block List) ([see below](#nestedblock--status--resolved_images--images--manifests))
+
+<a id="nestedblock--status--resolved_images--images--manifests"></a>
+
+### `status.resolved_images.images.manifests`
+
+- **image** (String) The name and tag of the resolved image.
+- **media_type** (String) The MIME type used in the Docker Registry HTTP API to specify the format of the data being sent or received. Docker uses media types to distinguish between different kinds of JSON objects and binary data formats within the registry protocol, enabling the Docker client and registry to understand and process different components of Docker images correctly.
+- **digest** (String) A SHA256 hash that uniquely identifies the specific image manifest.
+- **platform** (Map of String) Key-value map of strings. The combination of the operating system and architecture for which the image is built.
 
 ## Example Usage - Serverless
 
@@ -489,8 +541,8 @@ resource "cpln_workload" "new" {
     }
 
     volume {
-      uri  = "s3://bucket"
-      path = "/s3"
+      uri             = "s3://bucket"
+      path            = "/s3"
     }
   }
 
@@ -636,6 +688,19 @@ resource "cpln_workload" "new" {
         }
       }
     }
+
+    readiness_probe {
+
+			grpc {
+			  port = 3000
+			}
+
+			period_seconds        = 11
+			timeout_seconds       = 2
+			failure_threshold     = 4
+			success_threshold     = 2
+			initial_delay_seconds = 1
+    }
   }
 
   options {
@@ -679,6 +744,7 @@ resource "cpln_workload" "new" {
     min_ready_seconds = 2
     max_unavailable_replicas = "10"
     max_surge_replicas = "20"
+    scaling_policy = "Parallel"
   }
 
   security_options {
@@ -750,13 +816,13 @@ resource "cpln_workload" "new" {
     args = ["arg-01", "arg-02"]
 
     volume {
-      uri  = "s3://bucket"
-      path = "/testpath01"
+      uri             = "s3://bucket"
+      path            = "/testpath01"
     }
 
     volume {
-      uri  = "azureblob://storageAccount/container"
-      path = "/testpath02"
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
     }
 
     metrics {
@@ -881,13 +947,13 @@ resource "cpln_workload" "new" {
     args = ["arg-01", "arg-02"]
 
     volume {
-      uri  = "s3://bucket"
-      path = "/testpath01"
+      uri             = "s3://bucket"
+      path            = "/testpath01"
     }
 
     volume {
-      uri  = "azureblob://storageAccount/container"
-      path = "/testpath02"
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
     }
 
     metrics {
@@ -975,8 +1041,6 @@ resource "cpln_workload" "new" {
   security_options {
     file_system_group_id = 1
   }
-
-
 }
 
 ```
