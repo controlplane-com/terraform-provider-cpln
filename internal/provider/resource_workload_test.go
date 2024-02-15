@@ -2284,7 +2284,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 
 	volume_02 := make(map[string]interface{})
 	volume_02["uri"] = "azureblob://storageAccount/container"
-	volume_01["recovery_policy"] = "recycle"
+	volume_02["recovery_policy"] = "recycle"
 	volume_02["path"] = "/testpath02"
 
 	c["volume"] = []interface{}{

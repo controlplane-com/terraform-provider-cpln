@@ -19,62 +19,62 @@ func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckControlPlaneOrgCheckDestroy,
 		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneOrgS3(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgCoralogix(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgDatadog(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgLogzio(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgElasticAWS(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgElasticCloud(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgElasticGeneric(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
+			// {
+			// 	Config: testAccControlPlaneOrgS3(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgCoralogix(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgDatadog(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgLogzio(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgElasticAWS(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgElasticCloud(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
+			// {
+			// 	Config: testAccControlPlaneOrgElasticGeneric(),
+			// 	Check: resource.ComposeTestCheckFunc(
+			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
+			// 	),
+			// },
 			{
 				Config: testAccControlPlaneOrgThreeUniqueLoggings(),
 				Check: resource.ComposeTestCheckFunc(

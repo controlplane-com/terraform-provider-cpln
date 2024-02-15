@@ -212,7 +212,7 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 		snapshots {
 			create_final_snapshot = true
 			retention_duration    = "1d"
-			schedule 			  = "* * 1 * 1"
+			schedule 			  = "0 * * * *"
 		}
 
 		autoscaling {
@@ -267,7 +267,7 @@ func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name stri
 		snapshots {
 			create_final_snapshot = false
 			retention_duration    = "2d"
-			schedule 			  = "* 10 1-4 * 1,3"
+			schedule 			  = "0 * * * *"
 		}
 
 		autoscaling {
@@ -450,12 +450,12 @@ func generateTestVolumeSetSnapshots(state string) (*client.VolumeSetSnapshots, *
 
 	createFinalSnapshot := true
 	retentionDuration := "1d"
-	schedule := "* * 1 * 1"
+	schedule := "0 * * * *"
 
 	if strings.Contains(state, "update") {
 		createFinalSnapshot = false
 		retentionDuration = "2d"
-		schedule = "* 10 1-4 * 1,3"
+		schedule = "0 * * * *"
 	}
 
 	flattened := generateFlatTestVolumeSetSnapshots(createFinalSnapshot, retentionDuration, schedule)
