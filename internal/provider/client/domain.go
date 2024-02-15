@@ -28,11 +28,12 @@ type DomainSpec struct {
 }
 
 type DomainStatus struct {
-	EndPoints   *[]DomainEndPoint       `json:"endPoints,omitempty"`
-	Status      *string                 `json:"status,omitempty"` // Enum: "initializing", "ready", "pendingDnsConfig", "pendingCertificate", "usedByGvc"
+	Endpoints   *[]DomainEndpoint       `json:"endPoints,omitempty"`
+	Status      *string                 `json:"status,omitempty"`
 	Warning     *string                 `json:"warning,omitempty"`
 	Locations   *[]DomainStatusLocation `json:"locations,omitempty"`
 	Fingerprint *string                 `json:"fingerprint,omitempty"`
+	DnsConfig   *[]DnsConfigRecord      `json:"dnsConfig,omitempty"`
 }
 
 /*** Spec Related ***/
@@ -77,14 +78,21 @@ type DomainCertificate struct {
 }
 
 /*** Status Related ***/
-type DomainEndPoint struct {
+type DomainEndpoint struct {
 	URL          *string `json:"url,omitempty"`
 	WorkloadLink *string `json:"workloadLink,omitempty"`
 }
 
 type DomainStatusLocation struct {
 	Name              *string `json:"name,omitempty"`
-	CertificateStatus *string `json:"certificateStatus,omitempty"` // Enum: "initializing", "ready", "pendingDnsConfig", "pendingCertificate "
+	CertificateStatus *string `json:"certificateStatus,omitempty"`
+}
+
+type DnsConfigRecord struct {
+	Type  *string `json:"type,omitempty"`
+	TTL   *int    `json:"ttl,omitempty"`
+	Host  *string `json:"host,omitempty"`
+	Value *string `json:"value,omitempty"`
 }
 
 // GetDomain - Get Domain by name
