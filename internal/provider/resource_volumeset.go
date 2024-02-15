@@ -60,6 +60,10 @@ func resourceVolumeSet() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"binding_id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
 						"locations": {
 							Type:     schema.TypeSet,
 							Elem:     &schema.Schema{Type: schema.TypeString},
@@ -102,6 +106,10 @@ func resourceVolumeSet() *schema.Resource {
 							Default:  true,
 						},
 						"retention_duration": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"schedule": {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
@@ -330,6 +338,10 @@ func buildVolumeSetSnapshots(specs []interface{}) *client.VolumeSetSnapshots {
 		output.RetentionDuration = GetString(spec["retention_duration"])
 	}
 
+	if spec["schedule"] != nil {
+		output.Schedule = GetString(spec["schedule"])
+	}
+
 	return &output
 }
 
@@ -368,6 +380,10 @@ func flattenVolumeSetStatus(status *client.VolumeSetStatus) []interface{} {
 
 	if status.UsedByWorkload != nil {
 		spec["used_by_workload"] = *status.UsedByWorkload
+	}
+
+	if status.BindingID != nil {
+		spec["binding_id"] = *status.BindingID
 	}
 
 	if status.Locations != nil {
@@ -412,6 +428,10 @@ func flattenVolumeSetSnapshots(snapshots *client.VolumeSetSnapshots) []interface
 
 	if snapshots.RetentionDuration != nil {
 		spec["retention_duration"] = *snapshots.RetentionDuration
+	}
+
+	if snapshots.Schedule != nil {
+		spec["schedule"] = *snapshots.Schedule
 	}
 
 	return []interface{}{

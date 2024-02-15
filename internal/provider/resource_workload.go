@@ -249,6 +249,11 @@ func resourceWorkload() *schema.Resource {
 											return
 										},
 									},
+									"recovery_policy": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "retain",
+									},
 									"path": {
 										Type:     schema.TypeString,
 										Required: true,
@@ -477,10 +482,6 @@ func resourceWorkload() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 						},
-						"current_replica_count": {
-							Type:     schema.TypeInt,
-							Optional: true,
-						},
 						"health_check": {
 							Type:     schema.TypeList,
 							Optional: true,
@@ -517,6 +518,65 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
+						"current_replica_count": {
+							Type:     schema.TypeInt,
+							Optional: true,
+						},
+						"resolved_images": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"resolved_for_version": {
+										Type:     schema.TypeInt,
+										Optional: true,
+									},
+									"resolved_at": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+									"images": {
+										Type:     schema.TypeList,
+										Optional: true,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"digest": {
+													Type:     schema.TypeString,
+													Optional: true,
+												},
+												"manifests": {
+													Type:     schema.TypeList,
+													Optional: true,
+													Elem: &schema.Resource{
+														Schema: map[string]*schema.Schema{
+															"image": {
+																Type:     schema.TypeString,
+																Optional: true,
+															},
+															"media_type": {
+																Type:     schema.TypeString,
+																Optional: true,
+															},
+															"digest": {
+																Type:     schema.TypeString,
+																Optional: true,
+															},
+															"platform": {
+																Type:     schema.TypeMap,
+																Optional: true,
+																Elem: &schema.Schema{
+																	Type: schema.TypeString,
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -539,6 +599,11 @@ func resourceWorkload() *schema.Resource {
 						"max_surge_replicas": {
 							Type:     schema.TypeString,
 							Optional: true,
+						},
+						"scaling_policy": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "OrderedReady",
 						},
 					},
 				},
@@ -563,13 +628,13 @@ func resourceWorkload() *schema.Resource {
 				Default:  false,
 			},
 			"sidecar": {
-				Type: schema.TypeList,
+				Type:     schema.TypeList,
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"envoy": {
-							Type: schema.TypeString,
+							Type:     schema.TypeString,
 							Required: true,
 						},
 					},
@@ -1086,11 +1151,13 @@ func buildVolumeSpec(volumes []interface{}) *[]client.VolumeSpec {
 			v := value.(map[string]interface{})
 
 			uri := v["uri"].(string)
+			recoveryPolicy := v["recovery_policy"].(string)
 			path := v["path"].(string)
 
 			localVolume := client.VolumeSpec{
-				Uri:  &uri,
-				Path: &path,
+				Uri:            &uri,
+				RecoveryPolicy: &recoveryPolicy,
+				Path:           &path,
 			}
 
 			output = append(output, localVolume)
@@ -1161,6 +1228,18 @@ func buildHealthCheckSpec(healthCheck []interface{}) *client.HealthCheckSpec {
 				if len(commands) > 0 {
 					output.Exec = &client.Exec{}
 					output.Exec.Command = &commands
+				}
+			}
+		}
+
+		if hc["grpc"] != nil {
+			grpc := hc["grpc"].([]interface{})
+
+			if len(grpc) > 0 {
+				output.GRPC = &client.GRPC{}
+
+				if grpc[0] != nil {
+					output.GRPC.Port = GetPortInt(grpc[0].(map[string]interface{})["port"].(int))
 				}
 			}
 		}
@@ -1512,6 +1591,10 @@ func buildRolloutOptions(specs []interface{}) *client.RolloutOptions {
 		output.MaxSurgeReplicas = GetString(spec["max_surge_replicas"].(string))
 	}
 
+	if spec["scaling_policy"] != nil {
+		output.ScalingPolicy = GetString(spec["scaling_policy"].(string))
+	}
+
 	return &output
 }
 
@@ -1561,7 +1644,7 @@ func buildWorkloadSidecar(specs []interface{}) *client.WorkloadSidecar {
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
-	
+
 	spec := specs[0].(map[string]interface{})
 	output := client.WorkloadSidecar{}
 
@@ -1640,6 +1723,11 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 			fs["health_check"] = healthCheck
 		}
 
+		resolvedImages := flattenWorkloadStatusResolvedImages(status.ResolvedImages)
+		if resolvedImages != nil {
+			fs["resolved_images"] = resolvedImages
+		}
+
 		output := []interface{}{
 			fs,
 		}
@@ -1648,6 +1736,94 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 	}
 
 	return nil
+}
+
+func flattenWorkloadStatusResolvedImages(resolvedImages *client.ResolvedImages) []interface{} {
+	if resolvedImages == nil {
+		return nil
+	}
+
+	output := make(map[string]interface{})
+
+	if resolvedImages.ResolvedForVersion != nil {
+		output["resolved_for_version"] = *resolvedImages.ResolvedForVersion
+	}
+
+	if resolvedImages.ResolvedAt != nil {
+		output["resolved_at"] = *resolvedImages.ResolvedAt
+	}
+
+	if resolvedImages.Images != nil {
+		output["images"] = flattenWorkloadStatusImages(resolvedImages.Images)
+	}
+
+	return []interface{}{
+		output,
+	}
+}
+
+func flattenWorkloadStatusImages(images *[]client.ResolvedImage) []interface{} {
+	if images == nil || len(*images) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, image := range *images {
+
+		spec := make(map[string]interface{})
+
+		if image.Digest != nil {
+			spec["digest"] = *image.Digest
+		}
+
+		if image.Manifests != nil {
+			spec["manifests"] = flattenWorkloadStatusManifest(image.Manifests)
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenWorkloadStatusManifest(manifests *[]client.ResolvedImageManifest) []interface{} {
+	if manifests == nil || len(*manifests) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, manifest := range *manifests {
+
+		spec := make(map[string]interface{})
+
+		if manifest.Image != nil {
+			spec["image"] = *manifest.Image
+		}
+
+		if manifest.MediaType != nil {
+			spec["media_type"] = *manifest.MediaType
+		}
+
+		if manifest.Digest != nil {
+			spec["digest"] = *manifest.Digest
+		}
+
+		if manifest.Platform != nil {
+			platform := make(map[string]interface{})
+
+			for key, value := range *manifest.Platform {
+				platform[key] = fmt.Sprintf("%v", value)
+			}
+
+			spec["platform"] = platform
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
 }
 
 func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []interface{} {
@@ -1756,6 +1932,10 @@ func flattenVolumeSpec(volumes *[]client.VolumeSpec) []interface{} {
 
 			if volume.Uri != nil {
 				v["uri"] = *volume.Uri
+			}
+
+			if volume.RecoveryPolicy != nil {
+				v["recovery_policy"] = *volume.RecoveryPolicy
 			}
 
 			if volume.Path != nil {
@@ -1867,6 +2047,16 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 			e := make(map[string]interface{})
 			e["command"] = *healthCheck.Exec.Command
 			hc["exec"] = []interface{}{e}
+		}
+
+		if healthCheck.GRPC != nil {
+			g := make(map[string]interface{})
+
+			if healthCheck.GRPC.Port != nil && *healthCheck.GRPC.Port > 0 {
+				g["port"] = *healthCheck.GRPC.Port
+			}
+
+			hc["grpc"] = []interface{}{g}
 		}
 
 		if healthCheck.TCPSocket != nil {
@@ -2195,6 +2385,10 @@ func flattenRolloutOptions(spec *client.RolloutOptions) []interface{} {
 		rolloutOptions["max_surge_replicas"] = *spec.MaxSurgeReplicas
 	}
 
+	if spec.ScalingPolicy != nil {
+		rolloutOptions["scaling_policy"] = *spec.ScalingPolicy
+	}
+
 	return []interface{}{
 		rolloutOptions,
 	}
@@ -2469,6 +2663,19 @@ func healthCheckSpec() *schema.Resource {
 							Required: true,
 							MinItems: 1,
 							Elem:     StringSchema(),
+						},
+					},
+				},
+			},
+			"grpc": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"port": {
+							Type:     schema.TypeInt,
+							Optional: true,
 						},
 					},
 				},

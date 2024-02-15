@@ -16,20 +16,44 @@ type OtelTelemetry struct {
 	Endpoint *string `json:"endpoint,omitempty"`
 }
 
+type ControlPlaneTracing struct{}
+
 type Provider struct {
-	Otel      *OtelTelemetry    `json:"otel,omitempty"`
-	Lightstep *LightstepTracing `json:"lightstep,omitempty"`
+	Otel         *OtelTelemetry       `json:"otel,omitempty"`
+	Lightstep    *LightstepTracing    `json:"lightstep,omitempty"`
+	ControlPlane *ControlPlaneTracing `json:"controlplane,omitempty"`
+}
+
+type CustomTag struct {
+	Literal *CustomTagValue `json:"literal,omitempty"`
+}
+
+type CustomTagValue struct {
+	Value *string `json:"value,omitempty"`
 }
 
 // Tracing - Tracing
 type Tracing struct {
-	Sampling *int      `json:"sampling,omitempty"`
-	Provider *Provider `json:"provider,omitempty"`
+	Sampling   *int                  `json:"sampling,omitempty"`
+	Provider   *Provider             `json:"provider,omitempty"`
+	CustomTags *map[string]CustomTag `json:"customTags,omitempty"`
 }
 
-func LightstepSchema() *schema.Schema {
+var tracingOptions = []string{"lightstep_tracing", "otel_tracing", "controlplane_tracing"}
 
+func CustomTagsSchema() *schema.Schema {
 	return &schema.Schema{
+		Type:     schema.TypeMap,
+		Optional: true,
+		Elem: &schema.Schema{
+			Type: schema.TypeString,
+		},
+	}
+}
+
+func LightstepSchema(isExactlyOneOf bool) *schema.Schema {
+
+	schema := schema.Schema{
 		Type:     schema.TypeList,
 		Optional: true,
 		MaxItems: 1,
@@ -48,13 +72,20 @@ func LightstepSchema() *schema.Schema {
 					Type:     schema.TypeString,
 					Optional: true,
 				},
+				"custom_tags": CustomTagsSchema(),
 			},
 		},
 	}
+
+	if isExactlyOneOf {
+		schema.ExactlyOneOf = tracingOptions
+	}
+
+	return &schema
 }
 
-func OtelSchema() *schema.Schema {
-	return &schema.Schema{
+func OtelSchema(isExactlyOneOf bool) *schema.Schema {
+	schema := schema.Schema{
 		Type:     schema.TypeList,
 		Optional: true,
 		MaxItems: 1,
@@ -69,9 +100,40 @@ func OtelSchema() *schema.Schema {
 					Type:     schema.TypeString,
 					Required: true,
 				},
+				"custom_tags": CustomTagsSchema(),
 			},
 		},
 	}
+
+	if isExactlyOneOf {
+		schema.ExactlyOneOf = tracingOptions
+	}
+
+	return &schema
+}
+
+func ControlPlaneTracingSchema(isExactlyOneOf bool) *schema.Schema {
+	schema := schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		MaxItems: 1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"sampling": {
+					Type:         schema.TypeInt,
+					Required:     true,
+					ValidateFunc: validateSamplingFunc,
+				},
+				"custom_tags": CustomTagsSchema(),
+			},
+		},
+	}
+
+	if isExactlyOneOf {
+		schema.ExactlyOneOf = tracingOptions
+	}
+
+	return &schema
 }
 
 func validateSamplingFunc(val interface{}, key string) (warns []string, errs []error) {

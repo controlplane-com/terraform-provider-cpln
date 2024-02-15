@@ -165,6 +165,10 @@ func resourceSecret() *schema.Resource {
 							Default:      "",
 							ValidateFunc: AwsRoleArnValidator,
 						},
+						"external_id": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
 						"repos": {
 							Type:     schema.TypeSet,
 							Required: true,
@@ -383,7 +387,7 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 
 		dataString := dType.(string)
 		dataToSet = GetInterface(dataString)
-		
+
 	} else if dataType == "interface" {
 
 		dataArray := dType.([]interface{})
@@ -410,6 +414,12 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 				}
 
 				if secretType == "ecr" {
+
+					if secretData["external_id"] != nil && secretData["external_id"] != "" {
+						dataMap["externalId"] = secretData["external_id"]
+					} else if update {
+						dataMap["externalId"] = nil
+					}
 
 					repos := []string{}
 
@@ -680,6 +690,7 @@ func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
 					bData["role_arn"] = secretData["roleArn"]
 
 					if *secret.Type == "ecr" {
+						bData["external_id"] = secretData["externalId"]
 						bData["repos"] = secretData["repos"]
 					}
 				}

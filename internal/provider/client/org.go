@@ -58,6 +58,7 @@ type LogzioLogging struct {
 type ElasticLogging struct {
 	AWS          *AWSLogging          `json:"aws,omitempty"`
 	ElasticCloud *ElasticCloudLogging `json:"elasticCloud,omitempty"`
+	Generic      *GenericLogging      `json:"generic,omitempty"`
 }
 
 type AWSLogging struct {
@@ -74,6 +75,15 @@ type ElasticCloudLogging struct {
 	Type        *string `json:"type,omitempty"`
 	Credentials *string `json:"credentials,omitempty"`
 	CloudID     *string `json:"cloudId,omitempty"`
+}
+
+type GenericLogging struct {
+	Host        *string `json:"host,omitempty"`
+	Port        *int    `json:"port,omitempty"`
+	Path        *string `json:"path,omitempty"`
+	Index       *string `json:"index,omitempty"`
+	Type        *string `json:"type,omitempty"`
+	Credentials *string `json:"credentials,omitempty"`
 }
 
 // Logging - Logging
