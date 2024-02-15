@@ -4,13 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // Org - Organization
 type Org struct {
 	Base
-	Spec   *OrgSpec   `json:"spec,omitempty"`
-	Status *OrgStatus `json:"status,omitempty"`
+	Spec        *OrgSpec   `json:"spec,omitempty"`
+	SpecReplace *OrgSpec   `json:"$replace/spec,omitempty"`
+	Status      *OrgStatus `json:"status,omitempty"`
+}
+
+type CreateOrgRequest struct {
+	Org      *Org      `json:"org,omitempty"`
+	Invitees *[]string `json:"invitees,omitempty"`
 }
 
 // OrgStatus - Organization Status
@@ -51,6 +58,7 @@ type LogzioLogging struct {
 type ElasticLogging struct {
 	AWS          *AWSLogging          `json:"aws,omitempty"`
 	ElasticCloud *ElasticCloudLogging `json:"elasticCloud,omitempty"`
+	Generic      *GenericLogging      `json:"generic,omitempty"`
 }
 
 type AWSLogging struct {
@@ -69,6 +77,15 @@ type ElasticCloudLogging struct {
 	CloudID     *string `json:"cloudId,omitempty"`
 }
 
+type GenericLogging struct {
+	Host        *string `json:"host,omitempty"`
+	Port        *int    `json:"port,omitempty"`
+	Path        *string `json:"path,omitempty"`
+	Index       *string `json:"index,omitempty"`
+	Type        *string `json:"type,omitempty"`
+	Credentials *string `json:"credentials,omitempty"`
+}
+
 // Logging - Logging
 type Logging struct {
 	S3        *S3Logging        `json:"s3,omitempty"`
@@ -78,11 +95,27 @@ type Logging struct {
 	Elastic   *ElasticLogging   `json:"elastic,omitempty"`
 }
 
+// AuthConfig - AuthConfig
+type AuthConfig struct {
+	DomainAutoMembers *[]string `json:"domainAutoMembers,omitempty"`
+	SamlOnly          *bool     `json:"samlOnly,omitempty"`
+}
+
+// Observability - Observability
+type Observability struct {
+	LogsRetentionDays    *int `json:"logsRetentionDays,omitempty"`
+	MetricsRetentionDays *int `json:"metricsRetentionDays,omitempty"`
+	TracesRetentionDays  *int `json:"tracesRetentionDays,omitempty"`
+}
+
 // OrgSpec - Organization Spec
 type OrgSpec struct {
-	Logging      *Logging   `json:"logging,omitempty"`
-	ExtraLogging *[]Logging `json:"extraLogging,omitempty"`
-	Tracing      *Tracing   `json:"tracing,omitempty"`
+	Logging               *Logging       `json:"logging,omitempty"`
+	ExtraLogging          *[]Logging     `json:"extraLogging,omitempty"`
+	Tracing               *Tracing       `json:"tracing,omitempty"`
+	SessionTimeoutSeconds *int           `json:"sessionTimeoutSeconds,omitempty"`
+	AuthConfig            *AuthConfig    `json:"authConfig,omitempty"`
+	Observability         *Observability `json:"observability,omitempty"`
 }
 
 type UpdateSpec struct {
@@ -98,7 +131,7 @@ type ReplaceTracing struct {
 	Tracing *Tracing `json:"$replace/tracing"`
 }
 
-// GetOrg - Get Organziation By Name
+// GetOrg - Get Organization By Name
 func (c *Client) GetOrg() (*Org, int, error) {
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/org/%s", c.HostURL, c.Org), nil)
@@ -119,6 +152,115 @@ func (c *Client) GetOrg() (*Org, int, error) {
 	}
 
 	return &org, code, nil
+}
+
+// GetSpecificOrg - Get Organization By Name
+func (c *Client) GetSpecificOrg(name string) (*Org, int, error) {
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/org/%s", c.HostURL, name), nil)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	body, code, err := c.doRequest(req, "")
+	if err != nil {
+		return nil, code, err
+	}
+
+	org := Org{}
+	err = json.Unmarshal(body, &org)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return &org, code, nil
+}
+
+func (c *Client) GetOrgAccount(orgName string) (*Account, int, error) {
+
+	billingNgEndpoint, code, err := c.GetBillingNgEndpoint()
+	if err != nil {
+		return nil, code, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/org/%s/account", billingNgEndpoint, orgName), nil)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Add Bearer prefix if it doesn't exist on the token
+	tokenWithBearer := c.Token
+	if !strings.HasPrefix(strings.ToLower(c.Token), "bearer ") {
+		tokenWithBearer = "Bearer " + c.Token
+	}
+
+	body, code, err := c.doRequest(req, "", tokenWithBearer)
+	if err != nil {
+		return nil, code, err
+	}
+
+	account := Account{}
+	err = json.Unmarshal(body, &account)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return &account, code, nil
+}
+
+// CreateOrg - Create Organization
+func (c *Client) CreateOrg(accountId string, createOrg CreateOrgRequest) (*Org, int, error) {
+
+	g, err := json.Marshal(createOrg)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	billingNgEndpoint, code, err := c.GetBillingNgEndpoint()
+	if err != nil {
+		return nil, code, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/account/%s/org", billingNgEndpoint, accountId), strings.NewReader(string(g)))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Add Bearer prefix if it doesn't exist on the token
+	tokenWithBearer := c.Token
+	if !strings.HasPrefix(strings.ToLower(c.Token), "bearer ") {
+		tokenWithBearer = "Bearer " + c.Token
+	}
+
+	_, code, err = c.doRequest(req, "application/json", tokenWithBearer)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return c.GetSpecificOrg(*createOrg.Org.Name)
+}
+
+// UpdateOrg - Update Organization
+func (c *Client) UpdateOrg(org Org) (*Org, int, error) {
+
+	g, err := json.Marshal(org)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/org/%s", c.HostURL, *org.Name), strings.NewReader(string(g)))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	_, code, err := c.doRequest(req, "application/json")
+	if err != nil {
+		return nil, code, err
+	}
+
+	return c.GetSpecificOrg(*org.Name)
 }
 
 // UpdateOrgLogging - Update an existing Org Logging

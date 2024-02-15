@@ -38,17 +38,19 @@ func GetTags(tags *map[string]interface{}) map[string]interface{} {
 
 	stringTypes := make(map[string]interface{})
 
-	for k, v := range *tags {
+	if tags != nil {
+		for k, v := range *tags {
 
-		// Remove certain server side generated tags
-		if strings.HasPrefix(k, "cpln/deployTimestamp") || strings.HasPrefix(k, "cpln/aws") ||
-			strings.HasPrefix(k, "cpln/azure") || strings.HasPrefix(k, "cpln/docker") ||
-			strings.HasPrefix(k, "cpln/gcp") || strings.HasPrefix(k, "cpln/tls") {
+			// Remove certain server side generated tags
+			if strings.HasPrefix(k, "cpln/deployTimestamp") || strings.HasPrefix(k, "cpln/aws") ||
+				strings.HasPrefix(k, "cpln/azure") || strings.HasPrefix(k, "cpln/docker") ||
+				strings.HasPrefix(k, "cpln/gcp") || strings.HasPrefix(k, "cpln/tls") {
 
-			continue
+				continue
+			}
+
+			stringTypes[k] = fmt.Sprintf("%v", v)
 		}
-
-		stringTypes[k] = fmt.Sprintf("%v", v)
 	}
 
 	return stringTypes
@@ -396,6 +398,17 @@ func PortValidator(val interface{}, key string) (warns []string, errs []error) {
 
 	if v < 80 || v > 65535 {
 		errs = append(errs, fmt.Errorf("%q must be between 80 and 65535 inclusive, got: %d", key, v))
+	}
+
+	return
+}
+
+func ObservabilityValidator(val interface{}, key string) (warns []string, errs []error) {
+
+	v := val.(int)
+
+	if v < 0 {
+		errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
 	}
 
 	return

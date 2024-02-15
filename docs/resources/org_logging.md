@@ -12,7 +12,7 @@ Manages an [Org's external logging configuration](https://docs.controlplane.com/
 
 ### Required
 
-You can define up to **three** logging blocks:
+You can define up to **four** logging blocks:
 
 - **s3_logging** (Block List, Max: 1) ([see below](#nestedblock--s3_logging)).
 - **coralogix_logging** (Block List, Max: 1) ([see below](#nestedblock--coralogix_logging)).
@@ -75,12 +75,13 @@ At least one of the following logging blocks are required:
 
 - **aws** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--aws)).
 - **elastic_cloud** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--elastic_cloud)).
+- **generic** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging--generic)).
 
 <a id="nestedblock--elastic_logging--aws"></a>
 
 Required:
 
-- **host** (String) A valid AWS ElasticSearch host (must end with es.amazonaws.com).
+- **host** (String) A valid AWS ElasticSearch hostname (must end with es.amazonaws.com).
 - **port** (Number) Port. Default: 443
 - **index** (String) Logging Index.
 - **type** (String) Logging Type.
@@ -94,7 +95,18 @@ Required:
 - **index** (String) Logging Index.
 - **type** (String) Logging Type.
 - **credentials** (String) Full Link to a secret of type `userpass`.
-- **cloud_id** (String) // [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
+- **cloud_id** (String) [Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)
+
+<a id="nestedblock--elastic_logging--generic"></a>
+
+Required:
+
+- **host** (String) A valid Elastic Search provider hostname.
+- **port** (Number) Port. Default: 443
+- **path** (String) Logging path.
+- **index** (String) Logging Index.
+- **type** (String) Logging Type.
+- **credentials** (String) Full Link to a secret of type `userpass`.
 
 <a id="nestedblock--logzio_logging"></a>
 
@@ -266,20 +278,21 @@ resource "cpln_org_logging" "new" {
 ### Elastic - AWS
 
 ```terraform
-resource "cpln_secret" "opaque" {
+resource "cpln_secret" "aws" {
 
-  name        = "opaque-random-elastic-logging-aws-tbd"
-  description = "opaque description"
+  name        = "aws-random-elastic-logging-aws"
+  description = "aws description"
 
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
-    secret_type         = "opaque"
+    secret_type         = "aws"
   }
 
-  opaque {
-    payload  = "opaque_secret_payload"
-    encoding = "plain"
+  aws {
+    secret_key = "AKIAIOSFODNN7EXAMPLE"
+    access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    role_arn   = "arn:awskey"
   }
 }
 
@@ -291,7 +304,9 @@ resource "cpln_org_logging" "new" {
       port        = 8080
       index       = "my-index"
       type        = "my-type"
-      credentials = cpln_secret.opaque.self_link
+
+      // AWS Secret Only
+      credentials = cpln_secret.aws.self_link
       region      = "us-east-1"
     }
   }
@@ -301,19 +316,12 @@ resource "cpln_org_logging" "new" {
 ### Elastic - Elastic Cloud
 
 ```terraform
-resource "cpln_secret" "opaque" {
+resource "cpln_secret" "userpass" {
+  name = "example"
 
-  name        = "opaque-random-elastic-logging-elastic-cloud-tbd"
-  description = "opaque description"
-
-  tags = {
-    terraform_generated = "true"
-    acceptance_test     = "true"
-    secret_type         = "opaque"
-  }
-
-  opaque {
-    payload  = "opaque_secret_payload"
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
     encoding = "plain"
   }
 }
@@ -324,8 +332,40 @@ resource "cpln_org_logging" "new" {
     elastic_cloud {
       index       = "my-index"
       type        = "my-type"
-      credentials = cpln_secret.opaque.self_link
+
+      // UserPass Secret Only
+      credentials = cpln_secret.userpass.self_link
       cloud_id    = "my-cloud-id"
+    }
+  }
+}
+```
+
+### Elastic - Generic
+
+```terraform
+resource "cpln_secret" "userpass" {
+  name = "example"
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "new" {
+
+  elastic_logging {
+    generic {
+      host  = "example.com"
+      port  = 9200
+      path  = "/var/log/elasticsearch/"
+      index = "my-index"
+      type  = "my-type"
+
+      // UserPass Secret Only
+      credentials = cpln_secret.userpass.self_link
     }
   }
 }
