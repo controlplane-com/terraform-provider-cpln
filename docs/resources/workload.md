@@ -200,7 +200,7 @@ Optional:
 Required:
 
 - **uri** (String) URI of volume at cloud provider.
-- **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`.
+- **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**
 - **path** (String) File path added to workload pointing to the volume.
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
@@ -343,7 +343,7 @@ Optional:
 - **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
-- **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update), `Parallel`. Default: `OrderedReady`.
+- **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
 
@@ -399,19 +399,17 @@ Read-Only:
 
 ### `status.resolved_images`
 
-// TODO: Add description
+Resolved images for workloads with dynamic tags enabled.
 
 Read-Only:
 
-- **resolved_for_version** (Number) // TODO: Add description
-- **resolved_at** (String) // TODO: Add description
+- **resolved_for_version** (Number) Workload version the images were resolved for.
+- **resolved_at** (String) UTC Time when the images were resolved.
 - **images** (Block List) ([see below](#nestedblock--status--resolved_images--images)).
 
 <a id="nestedblock--status--resolved_images--images"></a>
 
 ### `status.resolved_images.images`
-
-// TODO: Add description
 
 - **digest** (String) A unique SHA256 hash value that identifies a specific image content. This digest serves as a fingerprint of the image's content, ensuring the image you pull or run is exactly what you expect, without any modifications or corruptions.
 - **manifests** (Block List) ([see below](#nestedblock--status--resolved_images--images--manifests))
@@ -420,9 +418,7 @@ Read-Only:
 
 ### `status.resolved_images.images.manifests`
 
-// TODO: Add description
-
-- **image** (String) // TODO: Add description
+- **image** (String) The name and tag of the resolved image.
 - **media_type** (String) The MIME type used in the Docker Registry HTTP API to specify the format of the data being sent or received. Docker uses media types to distinguish between different kinds of JSON objects and binary data formats within the registry protocol, enabling the Docker client and registry to understand and process different components of Docker images correctly.
 - **digest** (String) A SHA256 hash that uniquely identifies the specific image manifest.
 - **platform** (Map of String) Key-value map of strings. The combination of the operating system and architecture for which the image is built.
@@ -546,7 +542,6 @@ resource "cpln_workload" "new" {
 
     volume {
       uri             = "s3://bucket"
-      recovery_policy = "retain"
       path            = "/s3"
     }
   }
@@ -822,13 +817,11 @@ resource "cpln_workload" "new" {
 
     volume {
       uri             = "s3://bucket"
-      recovery_policy = "retain"
       path            = "/testpath01"
     }
 
     volume {
       uri             = "azureblob://storageAccount/container"
-      recovery_policy = "recycle"
       path            = "/testpath02"
     }
 
@@ -955,13 +948,11 @@ resource "cpln_workload" "new" {
 
     volume {
       uri             = "s3://bucket"
-      recovery_policy = "retain"
       path            = "/testpath01"
     }
 
     volume {
       uri             = "azureblob://storageAccount/container"
-      recovery_policy = "recycle"
       path            = "/testpath02"
     }
 
