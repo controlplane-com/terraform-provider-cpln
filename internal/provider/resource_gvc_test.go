@@ -377,7 +377,7 @@ func TestControlPlane_FlattenLoadBalancer(t *testing.T) {
 	}
 }
 
-func TODO_FIX_TestControlPlane_FlattenGvcSidecar(t *testing.T) {
+func TestControlPlane_FlattenGvcSidecar(t *testing.T) {
 	_, expectedSidecar, expectedFlatten := generateTestGvcSidecar(gvcEnvoyJson)
 	flattenSidecar := flattenGvcSidecar(expectedSidecar)
 
@@ -403,9 +403,11 @@ func generateTestLoadBalancer(trustedProxies int) (*client.LoadBalancer, *client
 func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client.GvcSidecar, []interface{}) {
 	// Attempt to unmarshal `envoy`
 	var envoy interface{}
-	json.Unmarshal([]byte(stringifiedJson), &envoy)
 
-	flatten := generateFlatTestGvcSidecar(stringifiedJson)
+	json.Unmarshal([]byte(stringifiedJson), &envoy)
+	jsonOut, _ := json.Marshal(envoy)
+
+	flatten := generateFlatTestGvcSidecar(string(jsonOut))
 	sidecar := buildGvcSidecar(flatten)
 	expectedSidecar := &client.GvcSidecar{
 		Envoy: &envoy,
