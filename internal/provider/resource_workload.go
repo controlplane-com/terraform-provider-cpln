@@ -156,6 +156,16 @@ func resourceWorkload() *schema.Resource {
 							Default:      "128Mi",
 							ValidateFunc: CpuMemoryValidator,
 						},
+						"min_cpu": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: CpuMemoryValidator,
+						},
+						"min_memory": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: CpuMemoryValidator,
+						},
 						"working_directory": {
 							Type:     schema.TypeString,
 							Optional: true,
@@ -1020,6 +1030,14 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 			newContainer.GPU = buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
 		}
 
+		if c["min_cpu"] != nil {
+			newContainer.MinCPU = GetString(c["min_cpu"].(string))
+		}
+
+		if c["min_memory"] != nil {
+			newContainer.MinMemory = GetString(c["min_memory"].(string))
+		}
+
 		if c["port"] != nil && c["port"].(int) > 0 {
 			// newContainer.Port = GetPortInt(c["port"])
 
@@ -1859,6 +1877,14 @@ func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []int
 
 			if container.GPU != nil && container.GPU.Nvidia != nil {
 				c["gpu_nvidia"] = flattenGpuNvidia(container.GPU)
+			}
+
+			if container.MinCPU != nil {
+				c["min_cpu"] = *container.MinCPU
+			}
+
+			if container.MinMemory != nil {
+				c["min_memory"] = *container.MinMemory
 			}
 
 			if container.Command != nil {
@@ -2787,6 +2813,9 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 			return diag.FromErr(fmt.Errorf("rollout options are only available when workload type is 'standard'"))
 		}
 
+		hasMinCpu := false
+		hasMinMemory := false
+
 		for _, c := range *workloadSpec.Containers {
 
 			if *workloadSpec.Type == "cron" {
@@ -2811,17 +2840,25 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 					return diag.FromErr(fmt.Errorf("capacity AI must be disabled when using GPUs. Please remove the GPU selection from the containers or disable Capacity AI"))
 				}
 			}
+
+			if c.MinCPU != nil {
+				hasMinCpu = true
+			}
+
+			if c.MinMemory != nil {
+				hasMinMemory = true
+			}
 		}
 
 		if workloadSpec.DefaultOptions != nil {
-			if e := validateOptions(*workloadSpec.Type, "", workloadSpec.DefaultOptions); e != nil {
+			if e := validateOptions(*workloadSpec.Type, "", workloadSpec.DefaultOptions, hasMinCpu, hasMinMemory); e != nil {
 				return e
 			}
 		}
 
 		if workloadSpec.LocalOptions != nil && len(*workloadSpec.LocalOptions) > 0 {
 			for _, o := range *workloadSpec.LocalOptions {
-				if e := validateOptions(*workloadSpec.Type, "local_options - ", &o); e != nil {
+				if e := validateOptions(*workloadSpec.Type, "local_options - ", &o, hasMinCpu, hasMinMemory); e != nil {
 					return e
 				}
 			}
@@ -2831,12 +2868,20 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 	return nil
 }
 
-func validateOptions(workloadType, errorMsg string, options *client.Options) diag.Diagnostics {
+func validateOptions(workloadType, errorMsg string, options *client.Options, hasMinCpu bool, hasMinMemory bool) diag.Diagnostics {
 
 	if options != nil && options.AutoScaling != nil {
 		if workloadType == "cron" {
 			if options.CapacityAI != nil && *options.CapacityAI {
 				return diag.FromErr(fmt.Errorf(errorMsg + "capacity AI must be false when workload type is 'cron'"))
+			}
+
+			if hasMinCpu {
+				return diag.FromErr(fmt.Errorf("min_cpu is not allowed for workload of type cron"))
+			}
+
+			if hasMinMemory {
+				return diag.FromErr(fmt.Errorf("min_memory is not allowed for workload of type cron"))
 			}
 
 			if options.AutoScaling.MinScale != nil && *options.AutoScaling.MinScale != 1 {
@@ -2849,6 +2894,16 @@ func validateOptions(workloadType, errorMsg string, options *client.Options) dia
 		} else {
 			if options.AutoScaling.Metric == nil || strings.TrimSpace(*options.AutoScaling.Metric) == "" {
 				return diag.FromErr(fmt.Errorf(errorMsg + "scaling strategy metric is required"))
+			}
+
+			if options.CapacityAI == nil || !*options.CapacityAI {
+				if hasMinCpu {
+					return diag.FromErr(fmt.Errorf("capacity AI must be enabled to include minimum CPU value"))
+				}
+
+				if hasMinMemory {
+					return diag.FromErr(fmt.Errorf("capacity AI must be enabled to include minimum memory value"))
+				}
 			}
 		}
 	}

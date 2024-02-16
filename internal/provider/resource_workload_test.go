@@ -94,6 +94,13 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneMinCpuMemoryWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson),
+				),
+			},
+			{
 				Config: testAccControlPlaneGpuWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description updated using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 			},
 		},
@@ -1154,6 +1161,196 @@ func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescr
 	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
+func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"	
+		description = "%s"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+	}
+	  
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		type = "serverless"
+		support_dynamic_tags = true
+
+		identity_link = cpln_identity.new.self_link
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+
+		  cpu = "50m"
+		  memory = "128Mi"
+
+		  min_cpu = "50m"
+		  min_memory = "128Mi"
+
+		  ports {
+		    protocol = "http"
+			number   = "8080" 
+		  }
+
+		  command = "override-command"
+		  working_directory = "/usr"
+	  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  lifecycle {
+	  
+			post_start {
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
+			}
+		  }
+
+		  volume {
+			uri  = "s3://bucket"
+			recovery_policy = "retain"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+
+		  readiness_probe {
+	  
+			tcp_socket {
+			  port = 8181
+			}
+	  
+			period_seconds        = 11
+			timeout_seconds       = 2
+			failure_threshold     = 4
+			success_threshold     = 2
+			initial_delay_seconds = 1
+		  }
+	  
+		  liveness_probe {
+	  
+			http_get {
+			  path   = "/path"
+			  port   = 8282
+			  scheme = "HTTPS"
+			  http_headers = {
+				header-name-01 = "header-value-01"
+				header-name-02 = "header-value-02"
+			  }
+			}
+	  
+			period_seconds        = 10
+			timeout_seconds       = 3
+			failure_threshold     = 5
+			success_threshold     = 1
+			initial_delay_seconds = 2
+		  }
+		}
+	 	  	  
+		options {
+		  capacity_ai     = true
+		  timeout_seconds = 30
+		  suspend         = false
+	  
+		  autoscaling {
+			metric              = "concurrency"
+			target              = 100
+			max_scale           = 3
+			min_scale           = 2
+			max_concurrency     = 500
+			scale_to_zero_delay = 400
+		  }
+		}
+	  
+		firewall_spec {
+		  external {
+			inbound_allow_cidr =  ["0.0.0.0/0"]
+			outbound_allow_cidr =  []
+			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
+		  }
+		  internal { 
+			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+			inbound_allow_type = "none"
+			inbound_allow_workload = []
+		  }
+		}
+
+		security_options {
+			file_system_group_id = 1
+		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+}
+
 func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
 	TestLogger.Printf("Inside testAccControlPlaneGpuWorkloadUpdate")
 
@@ -1667,6 +1864,17 @@ func TestControlPlane_BuildContainersStandard(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildContainersWithMinCpuMemory(t *testing.T) {
+
+	unitTestWorkload := client.Workload{}
+	unitTestWorkload.Spec = &client.WorkloadSpec{}
+	buildContainers(generateFlatTestContainer("serverless-min-cpu-memory"), unitTestWorkload.Spec)
+
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory")); diff != nil {
+		t.Errorf("Container was not built correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_BuildGPU(t *testing.T) {
 	gpu, expectedGpu, _ := generateTestGpuNvidia()
 	if diff := deep.Equal(gpu, expectedGpu); diff != nil {
@@ -1804,6 +2012,18 @@ func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
+
+	containers := generateTestContainers("serverless-min-cpu-memory")
+	flattenedContainer := flattenContainer(containers, false)
+
+	flatContainer := generateFlatTestContainer("serverless-min-cpu-memory")
+
+	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
+		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenGpu(t *testing.T) {
 	gpu, _, flattenedGpu := generateTestGpuNvidia()
 	expectedFlattenedGpu := flattenGpuNvidia(gpu)
@@ -1900,6 +2120,16 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 			},
 		}
 
+	} else if workloadType == "serverless-min-cpu-memory" {
+		newContainer.MinCPU = GetString("50m")
+		newContainer.MinMemory = GetString("128Mi")
+
+		newContainer.Ports = &[]client.PortSpec{
+			{
+				Protocol: GetString("http"),
+				Number:   GetInt(8080),
+			},
+		}
 	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
 		newContainer.Ports = &[]client.PortSpec{
 			{
@@ -2053,6 +2283,24 @@ func generateTestGpuNvidia() (*client.GpuResource, *client.GpuResource, []interf
 }
 
 func generateTestOptions(workloadType string) *client.Options {
+
+	if workloadType == "serverless-min-cpu-memory" {
+		return &client.Options{
+			CapacityAI:     GetBool(true),
+			TimeoutSeconds: GetInt(30),
+			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
+
+			AutoScaling: &client.AutoScaling{
+				Metric:           GetString("concurrency"),
+				Target:           GetInt(100),
+				MaxScale:         GetInt(3),
+				MinScale:         GetInt(2),
+				MaxConcurrency:   GetInt(500),
+				ScaleToZeroDelay: GetInt(400),
+			},
+		}
+	}
 
 	if workloadType == "serverless-gpu" {
 		return &client.Options{
@@ -2239,6 +2487,17 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 			port_01,
 		}
 
+	} else if workloadType == "serverless-min-cpu-memory" {
+		c["min_cpu"] = "50m"
+		c["min_memory"] = "128Mi"
+
+		port_01 := make(map[string]interface{})
+		port_01["protocol"] = "http"
+		port_01["number"] = 8080
+
+		c["ports"] = []interface{}{
+			port_01,
+		}
 	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
 
 		port_01 := make(map[string]interface{})

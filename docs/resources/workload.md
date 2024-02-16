@@ -62,6 +62,8 @@ Containers which attempt to use these ports will not be able to bind:
 - **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
 - **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
 - **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
+- **min_cpu** (String) Minimum CPU when capacity AI is enabled.
+- **min_memory** (String) Minimum memory when capacity AI is enabled.
 - **gpu_nvidia** (Block List, Max: 1) ([see below](#nestedblock--container--gpu_nvidia))
 - **liveness_probe** (Block List, Max: 1) Liveness Probe ([see below](#nestedblock--container--liveness_probe)).
 - **readiness_probe** (Block List, Max: 1) Readiness Probe ([see below](#nestedblock--container--readiness_probe)).
@@ -476,6 +478,9 @@ resource "cpln_workload" "new" {
     memory = "128Mi"
     cpu    = "50m"
 
+    min_memory = "56Mi"
+    min_cpu    = "25m"
+
     ports {
 			protocol = "http"
 			number   = "8080"
@@ -547,7 +552,7 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = false
+    capacity_ai     = true
     timeout_seconds = 30
     suspend         = false
 

@@ -48,6 +48,8 @@ type ContainerSpec struct {
 	LivenessProbe    *HealthCheckSpec `json:"livenessProbe,omitempty"`
 	CPU              *string          `json:"cpu,omitempty"`
 	GPU              *GpuResource     `json:"gpu,omitempty"`
+	MinCPU           *string          `json:"minCpu,omitempty"`
+	MinMemory        *string          `json:"minMemory,omitempty"`
 	Env              *[]NameValue     `json:"env,omitempty"`
 	Args             *[]string        `json:"args,omitempty"`
 	Volumes          *[]VolumeSpec    `json:"volumes,omitempty"`
