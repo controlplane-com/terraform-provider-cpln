@@ -1854,7 +1854,7 @@ func TestControlPlane_FlattenSecurityOptions(t *testing.T) {
 	}
 }
 
-func TODO_FIX_TestControlPlane_FlattenWorkloadSidecar(t *testing.T) {
+func TestControlPlane_FlattenWorkloadSidecar(t *testing.T) {
 	_, expectedSidecar, expectedFlatten := generateTestWorkloadSidecar(workloadEnvoyJson)
 	flattenSidecar := flattenWorkloadSidecar(expectedSidecar)
 
@@ -2204,8 +2204,9 @@ func generateTestWorkloadSidecar(stringifiedJson string) (*client.WorkloadSideca
 	// Attempt to unmarshal `envoy`
 	var envoy interface{}
 	json.Unmarshal([]byte(stringifiedJson), &envoy)
+	jsonOut, _ := json.Marshal(envoy)
 
-	flatten := generateFlatTestWorkloadSidecar(stringifiedJson)
+	flatten := generateFlatTestWorkloadSidecar(string(jsonOut))
 	sidecar := buildWorkloadSidecar(flatten)
 	expectedSidecar := &client.WorkloadSidecar{
 		Envoy: &envoy,
