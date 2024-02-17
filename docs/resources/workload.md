@@ -568,7 +568,7 @@ resource "cpln_workload" "new" {
   local_options {
 
     location        = "aws-us-west-2"
-    capacity_ai     = false
+    capacity_ai     = true
     timeout_seconds = 30
     suspend         = false
 
