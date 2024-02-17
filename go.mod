@@ -1,4 +1,4 @@
-module terraform-provider-cpln
+module github.com/controlplane-com/terraform-provider-cpln
 
 go 1.20
 
