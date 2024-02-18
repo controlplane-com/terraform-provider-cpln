@@ -3,7 +3,8 @@ package cpln
 import (
 	"context"
 	"fmt"
-	client "terraform-provider-cpln/internal/provider/client"
+
+	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"

@@ -3,8 +3,9 @@ package cpln
 import (
 	"fmt"
 	"os"
-	client "terraform-provider-cpln/internal/provider/client"
 	"testing"
+
+	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 
 	"github.com/go-test/deep"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
