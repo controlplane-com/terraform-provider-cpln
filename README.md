@@ -268,4 +268,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.15 - Fix issue with tag values that were stored as number types.
 - v1.1.16 - Add org creation. Add org properties.
 - v1.1.17 - Add schedule to volume set.  Add status to domain output. Add Control Plane tracing and custom tags to tracing. Add external ID to ECR secret. Add generic elastic to org logging. Add geo properties to locations. Add missing properties to workload.
+- v1.1.18 - Add min CPU and Memory to container. 
 

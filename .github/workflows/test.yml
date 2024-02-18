@@ -2,7 +2,7 @@ name: Run-Acc-And-Unit-Tests
 on:
   push:
     branches-ignore:
-      - 'v*'
+      - "v*"
 
   workflow_dispatch:
 
@@ -28,7 +28,7 @@ jobs:
         run: go build -v ./...
 
       - name: Run Tests
-        run: go test -v ./...
+        run: go test -v ./... -timeout 30m
         env:
           TF_ACC: true
           CPLN_ORG: terraform-test-org
