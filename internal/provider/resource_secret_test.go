@@ -272,7 +272,8 @@ EOT
 		aws {
 			secret_key = "AKIAIOSFODNN7EXAMPLE"
 			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey" 
+			role_arn = "arn:awskey"
+			external_id = "ExampleExternalID-2024-02-09-abc123XYZ"
 		}
 	}
 
@@ -316,7 +317,7 @@ EOT
 			secret_key = "AKIAIOSFODNN7EXAMPLE"
 			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 			role_arn = "arn:awskey"
-			external_id = "ExampleExternalID-2024-02-09-abc123XYZ-update"
+			external_id = "ExampleExternalID-2024-02-09-abc123XYZ"
 
 			repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"]
 		}
@@ -592,6 +593,7 @@ EOT
 			secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
 			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
 			role_arn = "arn:awskeyupdate"
+			external_id = "ExampleExternalID-2024-02-09-abc123XYZ-update"
 		}
 	}
 
