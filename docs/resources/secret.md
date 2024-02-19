@@ -47,6 +47,7 @@ Optional:
 - **access_key** (String, Sensitive) Access Key provided by AWS.
 - **role_arn** (String) Role ARN provided by AWS.
 - **secret_key** (String, Sensitive) Secret Key provided by AWS.
+- **external_id** (String) AWS IAM Role External ID.
 
 <a id="nestedblock--azure_connector"></a>
 
@@ -276,6 +277,9 @@ resource "cpln_secret" "aws" {
 
     # Optional
     role_arn = "arn:awskey"
+    
+    # Optional
+    external_id = "ExampleExternalID-2024-02-09-abc123XYZ"
   }
 }
 
@@ -360,7 +364,7 @@ resource "cpln_secret" "ecr" {
     repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"]
 
     # Optional
-    external_id = "ExampleExternalID-2024-02-09-abc123XYZ-update"
+    external_id = "ExampleExternalID-2024-02-09-abc123XYZ"
   }
 }
 
