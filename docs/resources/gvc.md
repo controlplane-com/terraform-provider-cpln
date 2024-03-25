@@ -84,6 +84,8 @@ Optional:
 
 The following attributes are exported:
 
+- **cpln_id** (String) ID, in GUID format, of the GVC.
+- **alias** (String) The alias name of the GVC.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage
