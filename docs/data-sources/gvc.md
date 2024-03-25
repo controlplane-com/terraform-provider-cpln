@@ -64,7 +64,9 @@ The following attributes are exported:
 ## Example Usage
 
 ```terraform
-data "cpln_gvc" "gvc" {}
+data "cpln_gvc" "gvc" {
+  name = "gvc-example"
+}
 
 output "gvc_id" {
   value = data.cpln_gvc.gvc.id
