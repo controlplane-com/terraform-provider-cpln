@@ -20,28 +20,33 @@ func resourceServiceAccountKey() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"service_account_name": {
 				Type:         schema.TypeString,
+				Description:  "The name of an existing Service Account this key will belong to.",
 				ForceNew:     true,
 				Required:     true,
 				ValidateFunc: NameValidator,
 			},
 			"description": {
-				Type:     schema.TypeString,
-				ForceNew: true,
-				Required: true,
+				Type:        schema.TypeString,
+				Description: "Description of the Service Account Key.",
+				ForceNew:    true,
+				Required:    true,
 				// ValidateFunc: DescriptionValidator,
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The generated name of the key.",
+				Computed:    true,
 			},
 			"created": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The timestamp, in UTC, when the key was created.",
+				Computed:    true,
 			},
 			"key": {
-				Type:      schema.TypeString,
-				Sensitive: true,
-				Computed:  true,
+				Type:        schema.TypeString,
+				Description: "The generated key.",
+				Sensitive:   true,
+				Computed:    true,
 			},
 		},
 		Importer: &schema.ResourceImporter{

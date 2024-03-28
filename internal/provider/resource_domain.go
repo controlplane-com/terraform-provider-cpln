@@ -19,32 +19,37 @@ func resourceDomain() *schema.Resource {
 		DeleteContext: resourceDomainDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the Domain.",
+				Computed:    true,
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:        schema.TypeString,
+				Description: "Domain name. (e.g., `example.com` / `test.example.com`). Control Plane will validate the existence of the domain with DNS. Create and Update will fail if the required DNS entries cannot be validated.",
+				Required:    true,
+				ForceNew:    true,
 				// TODO validate domain name
 			},
 			"description": {
 				Type:             schema.TypeString,
+				Description:      "Description of the domain name.",
 				Optional:         true,
 				ValidateFunc:     DescriptionDomainValidator,
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of resource tags.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 				ValidateFunc: TagValidator,
 			},
 			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
 			},
 			"spec": {
 				Type:     schema.TypeList,
@@ -53,18 +58,21 @@ func resourceDomain() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"dns_mode": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "cname",
+							Type:        schema.TypeString,
+							Description: "In `cname` dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently `cname` dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In `ns` dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: `cname`, `ns`. Default: `cname`.",
+							Optional:    true,
+							Default:     "cname",
 						},
 						"gvc_link": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. **Do not include if path based routing is used.**",
+							Optional:    true,
 						},
 						"accept_all_hosts": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+							Type:        schema.TypeBool,
+							Description: "Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled.",
+							Optional:    true,
+							Default:     false,
 						},
 						"ports": {
 							Type:     schema.TypeList,
@@ -72,14 +80,16 @@ func resourceDomain() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"number": {
-										Type:     schema.TypeInt,
-										Optional: true,
-										Default:  443,
+										Type:        schema.TypeInt,
+										Description: "Port to expose externally. Values: `80`, `443`. Default: `443`.",
+										Optional:    true,
+										Default:     443,
 									},
 									"protocol": {
-										Type:     schema.TypeString,
-										Optional: true,
-										Default:  "http2",
+										Type:        schema.TypeString,
+										Description: "Allowed protocol. Valid values: `http`, `http2`, `tcp`. Default: `http2`.",
+										Optional:    true,
+										Default:     "http2",
 									},
 									"cors": {
 										Type:     schema.TypeList,
@@ -88,28 +98,32 @@ func resourceDomain() *schema.Resource {
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"allow_origins": {
-													Type:     schema.TypeList,
-													Optional: true,
+													Type:        schema.TypeList,
+													Description: "Determines which origins are allowed to access a particular resource on a server from a web browser.",
+													Optional:    true,
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"exact": {
-																Type:     schema.TypeString,
-																Required: true,
+																Type:        schema.TypeString,
+																Description: "Value of allowed origin.",
+																Required:    true,
 															},
 														},
 													},
 												},
 												"allow_methods": {
-													Type:     schema.TypeSet,
-													Optional: true,
+													Type:        schema.TypeSet,
+													Description: "Specifies the HTTP methods (such as `GET`, `POST`, `PUT`, `DELETE`, etc.) that are allowed for a cross-origin request to a specific resource.",
+													Optional:    true,
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 														// TODO Disregard uppercase lowercase
 													},
 												},
 												"allow_headers": {
-													Type:     schema.TypeSet,
-													Optional: true,
+													Type:        schema.TypeSet,
+													Description: "Specifies the custom HTTP headers that are allowed in a cross-origin request to a specific resource.",
+													Optional:    true,
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 														// TODO Disregard uppercase lowercase
@@ -124,14 +138,16 @@ func resourceDomain() *schema.Resource {
 													},
 												},
 												"max_age": {
-													Type:     schema.TypeString,
-													Optional: true,
-													Default:  "24h",
+													Type:        schema.TypeString,
+													Description: "Maximum amount of time that a preflight request result can be cached by the client browser. Input is expected as a duration string (i.e, 24h, 20m, etc.).",
+													Optional:    true,
+													Default:     "24h",
 												},
 												"allow_credentials": {
-													Type:     schema.TypeBool,
-													Optional: true,
-													Default:  false,
+													Type:        schema.TypeBool,
+													Description: "Determines whether the client-side code (typically running in a web browser) is allowed to include credentials (such as cookies, HTTP authentication, or client-side SSL certificates) in cross-origin requests.",
+													Optional:    true,
+													Default:     false,
 												},
 											},
 										},
@@ -143,13 +159,15 @@ func resourceDomain() *schema.Resource {
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"min_protocol_version": {
-													Type:     schema.TypeString,
-													Optional: true,
-													Default:  "TLSV1_2",
+													Type:        schema.TypeString,
+													Description: "Minimum TLS version to accept. Minimum is `1.0`. Default: `1.2`.",
+													Optional:    true,
+													Default:     "TLSV1_2",
 												},
 												"cipher_suites": {
-													Type:     schema.TypeSet,
-													Optional: true,
+													Type:        schema.TypeSet,
+													Description: "Allowed cipher suites. Refer to the [Domain Reference](https://docs.controlplane.com/reference/domain#cipher-suites) for details.",
+													Optional:    true,
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 													},
@@ -167,16 +185,18 @@ func resourceDomain() *schema.Resource {
 													},
 												},
 												"client_certificate": {
-													Type:     schema.TypeList,
-													Optional: true,
-													MaxItems: 1,
-													Elem:     certificateResource(),
+													Type:        schema.TypeList,
+													Description: "The certificate authority PEM, stored as a TLS Secret, used to verify the authority of the client certificate. The only verification performed checks that the CN of the PEM matches the Domain (i.e., CN=*.DOMAIN).",
+													Optional:    true,
+													MaxItems:    1,
+													Elem:        certificateResource(),
 												},
 												"server_certificate": {
-													Type:     schema.TypeList,
-													Optional: true,
-													MaxItems: 1,
-													Elem:     certificateResource(),
+													Type:        schema.TypeList,
+													Description: "Custom Server Certificate.",
+													Optional:    true,
+													MaxItems:    1,
+													Elem:        certificateResource(),
 												},
 											},
 										},
@@ -193,28 +213,33 @@ func resourceDomain() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"endpoints": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "List of configured domain endpoints.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"url": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "URL of endpoint.",
+										Optional:    true,
 									},
 									"workload_link": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Full link to associated workload.",
+										Optional:    true,
 									},
 								},
 							},
 						},
 						"status": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Status of Domain. Possible values: `initializing`, `ready`, `pendingDnsConfig`, `pendingCertificate`, `usedByGvc`.",
+							Optional:    true,
 						},
 						"warning": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Warning message.",
+							Optional:    true,
 						},
 						"locations": {
 							Type:     schema.TypeList,
@@ -237,25 +262,30 @@ func resourceDomain() *schema.Resource {
 							Optional: true,
 						},
 						"dns_config": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "List of required DNS record entries.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"type": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The DNS record type specifies the type of data the DNS record contains. Valid values: `CNAME`, `NS`, `TXT`.",
+										Optional:    true,
 									},
 									"ttl": {
-										Type:     schema.TypeInt,
-										Optional: true,
+										Type:        schema.TypeInt,
+										Description: "Time to live (TTY) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.",
+										Optional:    true,
 									},
 									"host": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The host in DNS terminology refers to the domain or subdomain that the DNS record is associated with. It's essentially the name that is being queried or managed. For example, in a DNS record for `www.example.com`, `www` is a host in the domain `example.com`.",
+										Optional:    true,
 									},
 									"value": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The value of a DNS record contains the data the record is meant to convey, based on the type of the record.",
+										Optional:    true,
 									},
 								},
 							},
@@ -386,8 +416,9 @@ func certificateResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"secret_link": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:        schema.TypeString,
+				Description: "Full link to a TLS secret.",
+				Optional:    true,
 			},
 		},
 	}

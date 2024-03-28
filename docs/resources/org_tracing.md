@@ -57,6 +57,15 @@ Optional:
 
 - **custom_tags** (Map of String) Key-value map of custom tags.
 
+## Outputs
+
+The following attributes are exported:
+
+- **cpln_id** (String) ID, in GUID format, of the Org.
+- **name** (String) The name of Org.
+- **description** (String) The description of Org.
+- **tags** (Map of String) Key-value map of the Org's tags.
+
 ## Example Usage
 
 ### Lightstep

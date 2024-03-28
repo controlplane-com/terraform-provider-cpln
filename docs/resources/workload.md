@@ -258,7 +258,7 @@ Optional:
 
 Optional:
 
-- **inbound_allow_cidr** (List of String) he list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
+- **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 - **outbound_allow_port** (Block List) ([see below](#nestedblock--firewall_spec--external--outbound_allow_port)).
@@ -355,7 +355,7 @@ Optional:
 
 Required:
 
-- **file_system_group_id** (Number) The group id assigned to any mounted volume
+- **file_system_group_id** (Number) The group id assigned to any mounted volume.
 
 ## Outputs
 

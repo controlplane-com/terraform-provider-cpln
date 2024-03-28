@@ -62,6 +62,7 @@ Required:
 The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the organization.
+- **name** (String) The name of the organization.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (List of Object) ([see below](#nestedblock--status)).
 

@@ -18,20 +18,24 @@ func resourceOrgTracing() *schema.Resource {
 		DeleteContext: resourceOrgTracingDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the organization.",
+				Computed:    true,
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The name of the organization.",
+				Computed:    true,
 			},
 			"description": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The description of Org.",
+				Computed:    true,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Computed: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of the Org's tags.",
+				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},

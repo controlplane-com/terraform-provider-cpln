@@ -23,9 +23,9 @@ Used in conjunction with a Service Account.
 
 The following attributes are exported:
 
-- **created** (String) The timestamp, in UTC, when the key was created.
-- **key** (String, Sensitive) The generated key.
 - **name** (String) The generated name of the key.
+- **key** (String, Sensitive) The generated key.
+- **created** (String) The timestamp, in UTC, when the key was created.
 
 ## Example Usage
 

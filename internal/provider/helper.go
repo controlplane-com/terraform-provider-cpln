@@ -455,9 +455,10 @@ func QuerySchemaResource() *schema.Resource {
 			// 	Required: true,
 			// },
 			"fetch": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "items",
+				Type:        schema.TypeString,
+				Description: "Type of fetch. Specify either: `links` or `items`. Default: `items`.",
+				Optional:    true,
+				Default:     "items",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -476,9 +477,10 @@ func QuerySchemaResource() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"match": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "all",
+							Type:        schema.TypeString,
+							Description: "Type of match. Available values: `all`, `any`, `none`. Default: `all`.",
+							Optional:    true,
+							Default:     "all",
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 								v := val.(string)
@@ -491,14 +493,16 @@ func QuerySchemaResource() *schema.Resource {
 							},
 						},
 						"terms": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Terms can only contain one of the following attributes: `property`, `tag`.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"op": {
-										Type:     schema.TypeString,
-										Optional: true,
-										Default:  "=",
+										Type:        schema.TypeString,
+										Description: "Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.",
+										Optional:    true,
+										Default:     "=",
 										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 											v := val.(string)
@@ -511,20 +515,23 @@ func QuerySchemaResource() *schema.Resource {
 										},
 									},
 									"property": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Property to use for query evaluation.",
+										Optional:    true,
 									},
 									// "rel": {
 									// 	Type:     schema.TypeString,
 									// 	Optional: true,
 									// },
 									"tag": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Tag key to use for query evaluation.",
+										Optional:    true,
 									},
 									"value": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Testing value for query evaluation.",
+										Optional:    true,
 									},
 								},
 							},

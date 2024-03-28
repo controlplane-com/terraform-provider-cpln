@@ -17,32 +17,37 @@ func resourceAuditContext() *schema.Resource {
 		DeleteContext: resourceAuditContextDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the Audit Context.",
+				Computed:    true,
 			},
 			"name": {
 				Type:         schema.TypeString,
+				Description:  "Name of the Audit Context.",
 				ForceNew:     true,
 				Required:     true,
 				ValidateFunc: NameValidator,
 			},
 			"description": {
 				Type:             schema.TypeString,
+				Description:      "Description of the Audit Context.",
 				Optional:         true,
 				ValidateFunc:     DescriptionValidator,
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of resource tags.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 				ValidateFunc: TagValidator,
 			},
 			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
 			},
 		},
 		Importer: &schema.ResourceImporter{},
@@ -67,7 +72,7 @@ func resourceAuditContextCreate(ctx context.Context, d *schema.ResourceData, m i
 		return diag.FromErr(err)
 	}
 
-	return setAuditContext(d, c.Org, newAuditCtx)
+	return setAuditContext(d, newAuditCtx)
 }
 
 func resourceAuditContextRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -84,7 +89,7 @@ func resourceAuditContextRead(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
-	return setAuditContext(d, c.Org, auditCtx)
+	return setAuditContext(d, auditCtx)
 }
 
 func resourceAuditContextUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -109,7 +114,7 @@ func resourceAuditContextUpdate(ctx context.Context, d *schema.ResourceData, m i
 			return diag.FromErr(err)
 		}
 
-		return setAuditContext(d, c.Org, updatedAuditCtx)
+		return setAuditContext(d, updatedAuditCtx)
 	}
 
 	return nil
@@ -120,7 +125,7 @@ func resourceAuditContextDelete(ctx context.Context, d *schema.ResourceData, m i
 	return nil
 }
 
-func setAuditContext(d *schema.ResourceData, org string, auditCtx *client.AuditContext) diag.Diagnostics {
+func setAuditContext(d *schema.ResourceData, auditCtx *client.AuditContext) diag.Diagnostics {
 
 	if auditCtx == nil {
 		d.SetId("")
