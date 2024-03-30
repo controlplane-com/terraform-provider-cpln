@@ -66,6 +66,8 @@ func Provider() *schema.Provider {
 			// "cpln_gvcs": dataSourceGvcs(),
 			"cpln_cloud_account": dataSourceCloudAccount(),
 			"cpln_gvc":           dataSourceGvc(),
+			"cpln_image":         dataSourceImage(),
+			"cpln_images":        dataSourceImages(),
 			"cpln_location":      dataSourceLocation(),
 			"cpln_locations":     dataSourceLocations(),
 			"cpln_org":           dataSourceOrg(),
