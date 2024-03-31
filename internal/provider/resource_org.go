@@ -28,24 +28,24 @@ func orgSchema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
 		"cpln_id": {
 			Type:        schema.TypeString,
-			Description: "The ID, in GUID format, of the organization.",
+			Description: "The ID, in GUID format, of the org.",
 			Computed:    true,
 		},
 		"name": {
 			Type:        schema.TypeString,
-			Description: "The name of the organization.",
+			Description: "The name of the org.",
 			Computed:    true,
 		},
 		"description": {
 			Type:             schema.TypeString,
-			Description:      "The description of Org.",
+			Description:      "The description of org.",
 			Optional:         true,
 			ValidateFunc:     DescriptionValidator,
 			DiffSuppressFunc: DiffSuppressDescription,
 		},
 		"tags": {
 			Type:        schema.TypeMap,
-			Description: "Key-value map of the Org's tags.",
+			Description: "Key-value map of the org's tags.",
 			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
@@ -59,13 +59,13 @@ func orgSchema() map[string]*schema.Schema {
 		},
 		"status": {
 			Type:        schema.TypeList,
-			Description: "Status of the organization.",
+			Description: "Status of the org.",
 			Computed:    true,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"account_link": {
 						Type:        schema.TypeString,
-						Description: "The link of the account the organization belongs to.",
+						Description: "The link of the account the org belongs to.",
 						Optional:    true,
 					},
 					"active": {

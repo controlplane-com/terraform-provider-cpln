@@ -16,12 +16,12 @@ func dataSourceOrg() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"name": {
 				Type:        schema.TypeString,
-				Description: "The name of the organization.",
+				Description: "The name of the org.",
 				Computed:    true,
 			},
 			"cpln_id": {
 				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the organization.",
+				Description: "The ID, in GUID format, of the org.",
 				Computed:    true,
 			},
 		},

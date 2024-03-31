@@ -19,22 +19,22 @@ func resourceOrgTracing() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
 				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the organization.",
+				Description: "The ID, in GUID format, of the org.",
 				Computed:    true,
 			},
 			"name": {
 				Type:        schema.TypeString,
-				Description: "The name of the organization.",
+				Description: "The name of the org.",
 				Computed:    true,
 			},
 			"description": {
 				Type:        schema.TypeString,
-				Description: "The description of Org.",
+				Description: "The description of org.",
 				Computed:    true,
 			},
 			"tags": {
 				Type:        schema.TypeMap,
-				Description: "Key-value map of the Org's tags.",
+				Description: "Key-value map of the org's tags.",
 				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,

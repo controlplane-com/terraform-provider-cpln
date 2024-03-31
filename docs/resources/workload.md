@@ -286,7 +286,7 @@ Optional:
 
   - 'none': no access is allowed between this workload and other workloads on Control Plane.
   - 'same-gvc': workloads running on the same Global Virtual Cloud are allowed to access this workload internally.
-  - 'same-org': workloads running on the same Control Plane Organization are allowed to access this workload internally.
+  - 'same-org': workloads running on the same Control Plane org are allowed to access this workload internally.
   - 'workload-list': specific workloads provided in the 'inboundAllowWorkload' array are allowed to access this workload internally.
 
 - **inbound_allow_workload** (List of String) A list of specific workloads which are allowed to access this workload internally. This list is only used if the 'inboundAllowType' is set to 'workload-list'.

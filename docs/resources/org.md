@@ -6,7 +6,7 @@ description: |-
 
 # cpln_org (Resource)
 
-Manage an [organization](https://docs.controlplane.com/reference/org).
+Manage an [organization](https://docs.controlplane.com/reference/org) (org).
 
 ~> **Note** The target org name for this resource is referenced from the `provider` block.
 
@@ -61,8 +61,8 @@ Required:
 
 The following attributes are exported:
 
-- **cpln_id** (String) ID, in GUID format, of the organization.
-- **name** (String) The name of the organization.
+- **cpln_id** (String) ID, in GUID format, of the org.
+- **name** (String) The name of the org.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (List of Object) ([see below](#nestedblock--status)).
 
@@ -70,11 +70,11 @@ The following attributes are exported:
 
 ### `status`
 
-Status of the organization.
+Status of the org.
 
 Read-Only:
 
-- **account_link** (String) The link of the account the organization belongs to.
+- **account_link** (String) The link of the account the org belongs to.
 - **active** (Boolean) Indicates whether the org is active or not.
 
 ## Example Usage
@@ -124,10 +124,10 @@ resource "cpln_gvc" "example" {
 
 The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
 
-To update a statefile with an existing Org resource, execute the following import command:
+To update a statefile with an existing org resource, execute the following import command:
 
 ```terraform
 terraform import cpln_org.RESOURCE_NAME ORG_NAME
 ```
 
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute ORG_NAME with the corresponding Org name defined in the resource.
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute ORG_NAME with the corresponding org name defined in the resource.

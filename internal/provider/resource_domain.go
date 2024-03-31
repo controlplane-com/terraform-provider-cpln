@@ -274,7 +274,7 @@ func resourceDomain() *schema.Resource {
 									},
 									"ttl": {
 										Type:        schema.TypeInt,
-										Description: "Time to live (TTY) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.",
+										Description: "Time to live (TTL) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.",
 										Optional:    true,
 									},
 									"host": {

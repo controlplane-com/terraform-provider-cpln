@@ -153,7 +153,7 @@ List of locations where domain is deployed.
 List of required DNS record entries.
 
 - **type** (String) The DNS record type specifies the type of data the DNS record contains. Valid values: `CNAME`, `NS`, `TXT`.
-- **ttl** (Number) Time to live (TTY) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.
+- **ttl** (Number) Time to live (TTL) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.
 - **host** (String) The host in DNS terminology refers to the domain or subdomain that the DNS record is associated with. It's essentially the name that is being queried or managed. For example, in a DNS record for `www.example.com`, `www` is a host in the domain `example.com`.
 - **value** (String) The value of a DNS record contains the data the record is meant to convey, based on the type of the record.
 
