@@ -76,35 +76,35 @@ func ImageSchema() map[string]*schema.Schema {
 		},
 		"digest": {
 			Type:        schema.TypeString,
-			Description: "// TODO: Add description",
+			Description: "A unique SHA256 hash used to identify a specific image version within the image registry.",
 			Computed:    true,
 		},
 		"manifest": {
 			Type:        schema.TypeList,
-			Description: "// TODO: Add description",
+			Description: "The manifest provides configuration and layers information about the image. It plays a crucial role in the Docker image distribution system, enabling image creation, verification, and replication in a consistent and secure manner.",
 			Computed:    true,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"config": {
 						Type:        schema.TypeList,
-						Description: "// TODO: Add description",
+						Description: "The config is a JSON blob that contains the image configuration data which includes environment variables, default command to run, and other settings necessary to run the container based on this image.",
 						Computed:    true,
 						Elem:        ImageManifestConfigSchemaResource(),
 					},
 					"layers": {
 						Type:        schema.TypeList,
-						Description: "// TODO: Add description",
+						Description: "Layers lists the digests of the image's layers. These layers are filesystem changes or additions made in each step of the Docker image's creation process. The layers are stored separately and pulled as needed, which allows for efficient storage and transfer of images. Each layer is represented by a SHA256 digest, ensuring the integrity and authenticity of the image.",
 						Computed:    true,
 						Elem:        ImageManifestConfigSchemaResource(),
 					},
 					"media_type": {
 						Type:        schema.TypeString,
-						Description: "// TODO: Add description",
+						Description: "Specifies the type of the content represented in the manifest, allowing Docker clients and registries to understand how to handle the document correctly.",
 						Computed:    true,
 					},
 					"schema_version": {
 						Type:        schema.TypeInt,
-						Description: "// TODO: Add description",
+						Description: "The version of the Docker Image Manifest format.",
 						Computed:    true,
 					},
 				},
@@ -126,17 +126,17 @@ func ImageManifestConfigSchemaResource() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"size": {
 				Type:        schema.TypeInt,
-				Description: "// TODO: Add description",
+				Description: "The size of the image or layer in bytes. This helps in estimating the space required and the download time.",
 				Computed:    true,
 			},
 			"digest": {
 				Type:        schema.TypeString,
-				Description: "// TODO: Add description",
+				Description: "A unique SHA256 hash used to identify a specific image version within the image registry.",
 				Computed:    true,
 			},
 			"media_type": {
 				Type:        schema.TypeString,
-				Description: "// TODO: Add description",
+				Description: "Specifies the type of the content represented in the manifest, allowing Docker clients and registries to understand how to handle the document correctly.",
 				Computed:    true,
 			},
 		},

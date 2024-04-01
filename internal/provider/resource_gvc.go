@@ -313,8 +313,6 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		return diag.FromErr(err)
 	}
 
-	// TODO we don't have tags here?
-
 	if gvc.Spec != nil && gvc.Spec.Env != nil {
 		if len(*gvc.Spec.Env) > 0 {
 
