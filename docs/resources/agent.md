@@ -6,7 +6,7 @@ description: |-
 
 # cpln_agent (Resource)
 
-Supports the creation of an [Agent](https://docs.controlplane.com/reference/agent). Multiple agents can be created for an Org.
+Supports the creation of an [Agent](https://docs.controlplane.com/reference/agent). Multiple agents can be created for an org.
 
 Agents allow secure communication between workloads running on the Control Plane platform and TCP endpoints inside private networks such as VPCs.
 
@@ -25,6 +25,7 @@ Agents allow secure communication between workloads running on the Control Plane
 
 The following attributes are exported:
 
+- **cpln_id** (String) The ID, in GUID format, of the Agent.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **user_data** (String, Sensitive) The JSON output needed when [creating an agent](https://docs.controlplane.com/guides/agent).
 

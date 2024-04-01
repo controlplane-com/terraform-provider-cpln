@@ -49,7 +49,7 @@ Optional:
 
 - **dns_mode** (String) In `cname` dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently `cname` dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In `ns` dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: `cname`, `ns`. Default: `cname`.
 - **gvc_link** (String) This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. **Do not include if path based routing is used.**
-- **accept_all_hosts** (Boolean) Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled. 
+- **accept_all_hosts** (Boolean) Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled.
 
 <a id="nestedblock--spec-ports"></a>
 
@@ -110,6 +110,7 @@ Optional:
 
 The following attributes are exported:
 
+- **cpln_id** (String) The ID, in GUID format, of the Domain.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (Block List, Max: 1) ([see below](#nestedblock--status))
 
@@ -134,7 +135,7 @@ Read-Only:
 List of configured domain endpoints.
 
 - **url** (String) URL of endpoint.
-- **workload_link** (String) Full link to associated workload
+- **workload_link** (String) Full link to associated workload.
 
 <a id="nestedblock--status--locations"></a>
 
@@ -147,12 +148,12 @@ List of locations where domain is deployed.
 
 <a id="nestedblock--status--dns_config"></a>
 
-List of required DNS record entries.
-
 ### `status.dns_config`
 
+List of required DNS record entries.
+
 - **type** (String) The DNS record type specifies the type of data the DNS record contains. Valid values: `CNAME`, `NS`, `TXT`.
-- **ttl** (Number) Time to live (TTY) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.
+- **ttl** (Number) Time to live (TTL) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.
 - **host** (String) The host in DNS terminology refers to the domain or subdomain that the DNS record is associated with. It's essentially the name that is being queried or managed. For example, in a DNS record for `www.example.com`, `www` is a host in the domain `example.com`.
 - **value** (String) The value of a DNS record contains the data the record is meant to convey, based on the type of the record.
 

@@ -77,6 +77,7 @@ Optional:
 
 The following attributes are exported:
 
+- **cpln_id** (String) The ID, in GUID format, of the Group.
 - **origin** (String) Origin of the service account. Either `builtin` or `default`.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 

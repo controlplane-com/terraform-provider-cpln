@@ -6,7 +6,7 @@ description: |-
 
 # cpln_org_logging (Resource)
 
-Manages an [Org's external logging configuration](https://docs.controlplane.com/external-logging/overview).
+Manages an [org's external logging configuration](https://docs.controlplane.com/external-logging/overview).
 
 ## Declaration
 
@@ -125,10 +125,10 @@ Required:
 
 The following attributes are exported:
 
-- **cpln_id** (String) ID, in GUID format, of the Org.
-- **name** (String) The name of Org.
-- **description** (String) The description of Org.
-- **tags** (Map of String) Key-value map of the Org's tags.
+- **cpln_id** (String) ID, in GUID format, of the org.
+- **name** (String) The name of org.
+- **description** (String) The description of org.
+- **tags** (Map of String) Key-value map of the org's tags.
 
 ## Example Usage
 

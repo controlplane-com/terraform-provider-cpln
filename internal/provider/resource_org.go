@@ -27,62 +27,73 @@ func resourceOrg() *schema.Resource {
 func orgSchema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
 		"cpln_id": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The ID, in GUID format, of the org.",
+			Computed:    true,
 		},
 		"name": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The name of the org.",
+			Computed:    true,
 		},
 		"description": {
 			Type:             schema.TypeString,
+			Description:      "The description of org.",
 			Optional:         true,
 			ValidateFunc:     DescriptionValidator,
 			DiffSuppressFunc: DiffSuppressDescription,
 		},
 		"tags": {
-			Type:     schema.TypeMap,
-			Optional: true,
+			Type:        schema.TypeMap,
+			Description: "Key-value map of the org's tags.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 			ValidateFunc: TagValidator,
 		},
 		"self_link": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Full link to this resource. Can be referenced by other resources.",
+			Computed:    true,
 		},
 		"status": {
-			Type:     schema.TypeList,
-			Computed: true,
+			Type:        schema.TypeList,
+			Description: "Status of the org.",
+			Computed:    true,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"account_link": {
-						Type:     schema.TypeString,
-						Optional: true,
+						Type:        schema.TypeString,
+						Description: "The link of the account the org belongs to.",
+						Optional:    true,
 					},
 					"active": {
-						Type:     schema.TypeBool,
-						Optional: true,
+						Type:        schema.TypeBool,
+						Description: "Indicates whether the org is active or not.",
+						Optional:    true,
 					},
 				},
 			},
 		},
 		"account_id": {
-			Type:     schema.TypeString,
-			Optional: true,
+			Type:        schema.TypeString,
+			Description: "The associated account ID that will be used when creating the org. Only used on org creation. The account ID can be obtained from the `Org Management & Billing` page.",
+			Optional:    true,
 		},
 		"invitees": {
-			Type:     schema.TypeSet,
-			Optional: true,
+			Type:        schema.TypeSet,
+			Description: "When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"session_timeout_seconds": {
-			Type:     schema.TypeInt,
-			Optional: true,
-			Default:  900,
+			Type:        schema.TypeInt,
+			Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)",
+			Optional:    true,
+			Default:     900,
 		},
 		"auth_config": {
 			Type:     schema.TypeList,
@@ -91,40 +102,46 @@ func orgSchema() map[string]*schema.Schema {
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"domain_auto_members": {
-						Type:     schema.TypeSet,
-						Required: true,
+						Type:        schema.TypeSet,
+						Description: "List of domains which will auto-provision users when authenticating using SAML.",
+						Required:    true,
 						Elem: &schema.Schema{
 							Type: schema.TypeString,
 						},
 					},
 					"saml_only": {
-						Type:     schema.TypeBool,
-						Optional: true,
-						Default:  false,
+						Type:        schema.TypeBool,
+						Description: "Enforce SAML only authentication.",
+						Optional:    true,
+						Default:     false,
 					},
 				},
 			},
 		},
 		"observability": {
-			Type:     schema.TypeList,
-			Required: true,
-			MaxItems: 1,
+			Type:        schema.TypeList,
+			Description: "The retention period (in days) for logs, metrics, and traces. Charges apply for storage beyond the 30 day default.",
+			Required:    true,
+			MaxItems:    1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"logs_retention_days": {
 						Type:         schema.TypeInt,
+						Description:  "Log retention days. Default: 30",
 						Default:      30,
 						Optional:     true,
 						ValidateFunc: ObservabilityValidator,
 					},
 					"metrics_retention_days": {
 						Type:         schema.TypeInt,
+						Description:  "Metrics retention days. Default: 30",
 						Default:      30,
 						Optional:     true,
 						ValidateFunc: ObservabilityValidator,
 					},
 					"traces_retention_days": {
 						Type:         schema.TypeInt,
+						Description:  "Traces retention days. Default: 30",
 						Default:      30,
 						Optional:     true,
 						ValidateFunc: ObservabilityValidator,

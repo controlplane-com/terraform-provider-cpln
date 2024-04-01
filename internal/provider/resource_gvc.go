@@ -36,62 +36,72 @@ func resourceGvc() *schema.Resource {
 func GvcSchema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
 		"cpln_id": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The ID, in GUID format, of the GVC.",
+			Computed:    true,
 		},
 		"name": {
 			Type:         schema.TypeString,
+			Description:  "Name of the GVC.",
 			Required:     true,
 			ForceNew:     true,
 			ValidateFunc: NameValidator,
 		},
 		"description": {
 			Type:             schema.TypeString,
+			Description:      "Description of the GVC.",
 			Optional:         true,
 			ValidateFunc:     DescriptionValidator,
 			DiffSuppressFunc: DiffSuppressDescription,
 		},
 		"domain": {
-			Type:       schema.TypeString,
-			Optional:   true,
-			Deprecated: "Selecting a domain on a GVC will be deprecated in the future. Use the 'cpln_domain resource' instead.",
+			Type:        schema.TypeString,
+			Description: "Custom domain name used by associated workloads.",
+			Optional:    true,
+			Deprecated:  "Selecting a domain on a GVC will be deprecated in the future. Use the 'cpln_domain resource' instead.",
 		},
 		"alias": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The alias name of the GVC.",
+			Computed:    true,
 		},
 		"pull_secrets": {
-			Type:     schema.TypeSet,
-			Optional: true,
+			Type:        schema.TypeSet,
+			Description: "A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"locations": {
-			Type:     schema.TypeSet,
-			Optional: true,
+			Type:        schema.TypeSet,
+			Description: "A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"tags": {
-			Type:     schema.TypeMap,
-			Optional: true,
+			Type:        schema.TypeMap,
+			Description: "Key-value map of resource tags.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 			ValidateFunc: TagValidator,
 		},
 		"env": {
-			Type:     schema.TypeMap,
-			Optional: true,
+			Type:        schema.TypeMap,
+			Description: "Key-value array of resource env variables.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"self_link": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Full link to this resource. Can be referenced by other resources.",
+			Computed:    true,
 		},
 		"lightstep_tracing":    client.LightstepSchema(false),
 		"otel_tracing":         client.OtelSchema(false),
@@ -116,13 +126,15 @@ func GvcSchema() map[string]*schema.Schema {
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"dedicated": {
-						Type:     schema.TypeBool,
-						Required: true,
+						Type:        schema.TypeBool,
+						Description: "Creates a dedicated load balancer in each location and enables additional Domain features: custom ports, protocols and wildcard hostnames. Charges apply for each location.",
+						Required:    true,
 					},
 					"trusted_proxies": {
-						Type:     schema.TypeInt,
-						Optional: true,
-						Default:  0,
+						Type:        schema.TypeInt,
+						Description: "Controls the address used for request logging and for setting the X-Envoy-External-Address header. If set to 1, then the last address in an existing X-Forwarded-For header will be used in place of the source client IP address. If set to 2, then the second to last address in an existing X-Forwarded-For header will be used in place of the source client IP address. If the XFF header does not have at least two addresses or does not exist then the source client IP address will be used instead.",
+						Optional:    true,
+						Default:     0,
 					},
 				},
 			},
