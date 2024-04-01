@@ -19,39 +19,45 @@ func resourceGroup() *schema.Resource {
 		DeleteContext: resourceGroupDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the Group.",
+				Computed:    true,
 			},
 			"name": {
 				Type:         schema.TypeString,
+				Description:  "Name of the Group.",
 				ForceNew:     true,
 				Required:     true,
 				ValidateFunc: NameValidator,
 			},
 			"description": {
 				Type:             schema.TypeString,
+				Description:      "Description of Group.",
 				Optional:         true,
 				ValidateFunc:     DescriptionValidator,
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of resource tags.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 				ValidateFunc: TagValidator,
 			},
 			"user_ids_and_emails": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "List of either the user ID or email address for a user that exists within the configured org. Group membership will fail if the user ID / email does not exist within the org.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"service_accounts": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "List of service accounts that exists within the configured org. Group membership will fail if the service account does not exits within the org.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -73,20 +79,23 @@ func resourceGroup() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"expression": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged in with SAML providers.",
+							Required:    true,
 						},
 						"language": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "jmespath",
+							Type:        schema.TypeString,
+							Description: "Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`.",
+							Optional:    true,
+							Default:     "jmespath",
 						},
 					},
 				},
 			},
 			"origin": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Origin of the service account. Either `builtin` or `default`.",
+				Computed:    true,
 			},
 		},
 		Importer: &schema.ResourceImporter{},

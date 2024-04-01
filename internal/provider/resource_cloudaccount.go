@@ -18,24 +18,28 @@ var cloudProvidersNames = []string{
 func CloudAccountSchema() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
 		"cpln_id": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The ID, in GUID format, of the Cloud Account.",
+			Computed:    true,
 		},
 		"name": {
 			Type:         schema.TypeString,
+			Description:  "Name of the Cloud Account.",
 			Required:     true,
 			ForceNew:     true,
 			ValidateFunc: NameValidator,
 		},
 		"description": {
 			Type:             schema.TypeString,
+			Description:      "Description of the Cloud Account.",
 			Optional:         true,
 			ValidateFunc:     DescriptionValidator,
 			DiffSuppressFunc: DiffSuppressDescription,
 		},
 		"tags": {
-			Type:     schema.TypeMap,
-			Optional: true,
+			Type:        schema.TypeMap,
+			Description: "Key-value map of resource tags.",
+			Optional:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
@@ -53,9 +57,10 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"role_arn": {
-						Type:     schema.TypeString,
-						Required: true,
-						ForceNew: true,
+						Type:        schema.TypeString,
+						Description: "Amazon Resource Name (ARN) Role.",
+						Required:    true,
+						ForceNew:    true,
 						ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 							v := val.(string)
@@ -81,6 +86,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 				Schema: map[string]*schema.Schema{
 					"secret_link": {
 						Type:         schema.TypeString,
+						Description:  "Full link to an Azure secret. (e.g., /org/ORG_NAME/secret/AZURE_SECRET).",
 						Required:     true,
 						ForceNew:     true,
 						ValidateFunc: LinkValidator,
@@ -96,9 +102,10 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"project_id": {
-						Type:     schema.TypeString,
-						Required: true,
-						ForceNew: true,
+						Type:        schema.TypeString,
+						Description: "GCP project ID. Obtained from the GCP cloud console.",
+						Required:    true,
+						ForceNew:    true,
 						ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 							v := val.(string)
@@ -129,6 +136,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 				Schema: map[string]*schema.Schema{
 					"secret_link": {
 						Type:         schema.TypeString,
+						Description:  "Full link to a NATS Account Secret secret. (e.g., /org/ORG_NAME/secret/NATS_ACCOUNT_SECRET).",
 						Required:     true,
 						ForceNew:     true,
 						ValidateFunc: LinkValidator,
@@ -137,14 +145,16 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			},
 		},
 		"gcp_service_account_name": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "GCP service account name used during the configuration of the cloud account at GCP.",
+			Computed:    true,
 		},
 		"gcp_roles": {
 			Type:     schema.TypeSet,
 			Computed: true,
 			Elem: &schema.Schema{
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
+				Description: "GCP roles used during the configuration of the cloud account at GCP.",
 			},
 		},
 	}

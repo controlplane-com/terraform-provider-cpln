@@ -22,77 +22,91 @@ func resourceIdentity() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"gvc": {
 				Type:         schema.TypeString,
+				Description:  "Name of the GVC.",
 				Required:     true,
 				ForceNew:     true,
 				ValidateFunc: NameValidator,
 			},
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "ID, in GUID format, of the Identity.",
+				Computed:    true,
 			},
 			"name": {
 				Type:         schema.TypeString,
+				Description:  "Name of the Identity.",
 				Required:     true,
 				ForceNew:     true,
 				ValidateFunc: NameValidator,
 			},
 			"description": {
 				Type:             schema.TypeString,
+				Description:      "Description of the Identity.",
 				Optional:         true,
 				ValidateFunc:     DescriptionValidator,
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of resource tags.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 				ValidateFunc: TagValidator,
 			},
 			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
 			},
 			"status": {
-				Type:     schema.TypeMap,
-				Computed: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of identity status. Available fields: `objectName`.",
+				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"network_resource": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "A network resource can be configured with: - A fully qualified domain name (FQDN) and ports. - An FQDN, resolver IP, and ports. - IP's and ports.",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Name of the Network Resource.",
+							Required:    true,
 						},
 						"agent_link": {
 							Type:         schema.TypeString,
+							Description:  "Full link to referenced Agent.",
 							Required:     true,
 							ValidateFunc: LinkValidator,
 						},
 						"fqdn": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Fully qualified domain name.",
+							Optional:    true,
 						},
 						"resolver_ip": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Resolver IP.",
+							Optional:    true,
 						},
 						"ips": {
-							Type:     schema.TypeSet,
-							Optional: true,
+							Type:        schema.TypeSet,
+							Description: "List of IP addresses.",
+							Optional:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
 						},
 						"ports": {
-							Type:     schema.TypeSet,
-							Optional: true,
+							Type:        schema.TypeSet,
+							Description: "Ports to expose.",
+							Optional:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeInt,
 							},
@@ -108,20 +122,23 @@ func resourceIdentity() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
 							Type:         schema.TypeString,
+							Description:  "Full link to referenced cloud account.",
 							Required:     true,
 							ValidateFunc: LinkValidator,
 						},
 						"policy_refs": {
-							Type:     schema.TypeSet,
-							Optional: true,
+							Type:        schema.TypeSet,
+							Description: "List of policies.",
+							Optional:    true,
 							// ConflictsWith: []string{"aws_access_policy.role_name"},
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
 						},
 						"role_name": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Role name.",
+							Optional:    true,
 							// ConflictsWith: []string{"aws_access_policy.policy_refs"},
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
@@ -162,24 +179,28 @@ func resourceIdentity() *schema.Resource {
 				},
 			},
 			"gcp_access_policy": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "The GCP access policy can either contain an existing service_account or multiple bindings.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
 							Type:         schema.TypeString,
+							Description:  "Full link to referenced cloud account.",
 							Required:     true,
 							ValidateFunc: LinkValidator,
 						},
 						"scopes": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "https://www.googleapis.com/auth/cloud-platform",
+							Type:        schema.TypeString,
+							Description: "Comma delimited list of GCP scope URLs.",
+							Optional:    true,
+							Default:     "https://www.googleapis.com/auth/cloud-platform",
 						},
 						"service_account": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Name of existing GCP service account.",
+							Optional:    true,
 							// ConflictsWith: []string{"gcp_access_policy.binding"},
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
@@ -202,13 +223,15 @@ func resourceIdentity() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"resource": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Name of resource for binding.",
+										Optional:    true,
 									},
 									"roles": {
-										Type:     schema.TypeSet,
-										Optional: true,
-										MinItems: 1,
+										Type:        schema.TypeSet,
+										Description: "List of allowed roles.",
+										Optional:    true,
+										MinItems:    1,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
@@ -227,6 +250,7 @@ func resourceIdentity() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
 							Type:         schema.TypeString,
+							Description:  "Full link to referenced cloud account.",
 							Required:     true,
 							ValidateFunc: LinkValidator,
 						},
@@ -236,13 +260,15 @@ func resourceIdentity() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"scope": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Scope of roles.",
+										Optional:    true,
 									},
 									"roles": {
-										Type:     schema.TypeSet,
-										Optional: true,
-										MinItems: 1,
+										Type:        schema.TypeSet,
+										Description: "List of assigned roles.",
+										Optional:    true,
+										MinItems:    1,
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
@@ -254,9 +280,10 @@ func resourceIdentity() *schema.Resource {
 				},
 			},
 			"native_network_resource": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem:     NativeNetworkResourceSchema(),
+				Type:        schema.TypeSet,
+				Description: "~> **NOTE** The configuration of a native network resource requires the assistance of Control Plane support.",
+				Optional:    true,
+				Elem:        NativeNetworkResourceSchema(),
 			},
 			"ngs_access_policy": {
 				Type:     schema.TypeList,
@@ -266,53 +293,62 @@ func resourceIdentity() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
 							Type:         schema.TypeString,
+							Description:  "Full link to referenced cloud account.",
 							Required:     true,
 							ValidateFunc: LinkValidator,
 						},
 						"pub": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
-							Elem:     permResource(),
+							Type:        schema.TypeList,
+							Description: "Pub Permission.",
+							Optional:    true,
+							MaxItems:    1,
+							Elem:        permResource(),
 						},
 						"sub": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
-							Elem:     permResource(),
+							Type:        schema.TypeList,
+							Description: "Sub Permission.",
+							Optional:    true,
+							MaxItems:    1,
+							Elem:        permResource(),
 						},
 						"resp": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "Reponses.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"max": {
-										Type:     schema.TypeInt,
-										Optional: true,
-										Default:  1,
+										Type:        schema.TypeInt,
+										Description: "Number of responses allowed on the replyTo subject, -1 means no limit. Default: -1",
+										Optional:    true,
+										Default:     1,
 									},
 									"ttl": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Deadline to send replies on the replyTo subject [#ms(millis) | #s(econds) | m(inutes) | h(ours)]. -1 means no restriction.",
+										Optional:    true,
 									},
 								},
 							},
 						},
 						"subs": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  -1,
+							Type:        schema.TypeInt,
+							Description: "Max number of subscriptions per connection. Default: -1",
+							Optional:    true,
+							Default:     -1,
 						},
 						"data": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  -1,
+							Type:        schema.TypeInt,
+							Description: "Max number of bytes a connection can send. Default: -1",
+							Optional:    true,
+							Default:     -1,
 						},
 						"payload": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  -1,
+							Type:        schema.TypeInt,
+							Description: "Max message payload. Default: -1",
+							Optional:    true,
+							Default:     -1,
 						},
 					},
 				},
@@ -328,17 +364,20 @@ func NativeNetworkResourceSchema() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Description: "Name of the Native Network Resource.",
+				Required:    true,
 			},
 			"fqdn": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Description: "Fully qualified domain name.",
+				Required:    true,
 			},
 			"ports": {
-				Type:     schema.TypeSet,
-				Required: true,
-				MinItems: 1,
+				Type:        schema.TypeSet,
+				Description: "Ports to expose. At least one port is required.",
+				Required:    true,
+				MinItems:    1,
 				Elem: &schema.Schema{
 					Type: schema.TypeInt,
 				},
@@ -350,8 +389,9 @@ func NativeNetworkResourceSchema() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"endpoint_service_name": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Endpoint service name.",
+							Required:    true,
 						},
 					},
 				},
@@ -363,8 +403,9 @@ func NativeNetworkResourceSchema() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"target_service": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Target service name.",
+							Required:    true,
 						},
 					},
 				},
@@ -377,15 +418,17 @@ func permResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"allow": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "List of allow subjects.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"deny": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "List of deny subjects.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -438,7 +481,7 @@ func resourceIdentityCreate(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
-	return setIdentity(d, newIdentity, gvcName)
+	return setIdentity(d, newIdentity)
 }
 
 func buildNetworkResources(networkResources []interface{}, identity *client.Identity) {
@@ -1194,10 +1237,10 @@ func resourceIdentityRead(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.FromErr(err)
 	}
 
-	return setIdentity(d, identity, gvcName)
+	return setIdentity(d, identity)
 }
 
-func setIdentity(d *schema.ResourceData, identity *client.Identity, gvcName string) diag.Diagnostics {
+func setIdentity(d *schema.ResourceData, identity *client.Identity) diag.Diagnostics {
 
 	if identity == nil {
 		d.SetId("")
@@ -1305,7 +1348,7 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 			return diag.FromErr(err)
 		}
 
-		return setIdentity(d, updatedIdentity, gvcName)
+		return setIdentity(d, updatedIdentity)
 	}
 
 	return nil

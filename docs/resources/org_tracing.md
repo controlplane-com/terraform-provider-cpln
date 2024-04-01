@@ -6,7 +6,7 @@ description: |-
 
 # cpln_org_tracing (Resource)
 
-Manages an Org's tracing configuration.
+Manages an org's tracing configuration.
 
 ## Declaration
 
@@ -56,6 +56,15 @@ Required:
 Optional:
 
 - **custom_tags** (Map of String) Key-value map of custom tags.
+
+## Outputs
+
+The following attributes are exported:
+
+- **cpln_id** (String) ID, in GUID format, of the org.
+- **name** (String) The name of org.
+- **description** (String) The description of org.
+- **tags** (Map of String) Key-value map of the org's tags.
 
 ## Example Usage
 

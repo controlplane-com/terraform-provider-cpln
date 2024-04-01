@@ -258,7 +258,7 @@ Optional:
 
 Optional:
 
-- **inbound_allow_cidr** (List of String) he list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
+- **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 - **outbound_allow_port** (Block List) ([see below](#nestedblock--firewall_spec--external--outbound_allow_port)).
@@ -286,7 +286,7 @@ Optional:
 
   - 'none': no access is allowed between this workload and other workloads on Control Plane.
   - 'same-gvc': workloads running on the same Global Virtual Cloud are allowed to access this workload internally.
-  - 'same-org': workloads running on the same Control Plane Organization are allowed to access this workload internally.
+  - 'same-org': workloads running on the same Control Plane org are allowed to access this workload internally.
   - 'workload-list': specific workloads provided in the 'inboundAllowWorkload' array are allowed to access this workload internally.
 
 - **inbound_allow_workload** (List of String) A list of specific workloads which are allowed to access this workload internally. This list is only used if the 'inboundAllowType' is set to 'workload-list'.
@@ -355,7 +355,7 @@ Optional:
 
 Required:
 
-- **file_system_group_id** (Number) The group id assigned to any mounted volume
+- **file_system_group_id** (Number) The group id assigned to any mounted volume.
 
 ## Outputs
 

@@ -20,47 +20,55 @@ func resourcePolicy() *schema.Resource {
 		DeleteContext: resourcePolicyDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the Policy.",
+				Computed:    true,
 			},
 			"name": {
 				Type:         schema.TypeString,
+				Description:  "Name of the Policy.",
 				Required:     true,
 				ForceNew:     true,
 				ValidateFunc: NameValidator,
 			},
 			"description": {
 				Type:             schema.TypeString,
+				Description:      "Description of the Policy.",
 				Optional:         true,
 				ValidateFunc:     DescriptionValidator,
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
 				Type:         schema.TypeMap,
+				Description:  "Key-value map of resource tags.",
 				Optional:     true,
 				Elem:         StringSchema(),
 				ValidateFunc: TagValidator,
 			},
 			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
 			},
 			"target_kind": {
-				Type:     schema.TypeString,
-				ForceNew: true,
-				Required: true,
+				Type:        schema.TypeString,
+				Description: "The kind of resource to target (e.g., gvc, serviceaccount, etc.).",
+				ForceNew:    true,
+				Required:    true,
 				// ValidateFunc: KindValidator,
 			},
 			"gvc": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Description: "The GVC for `identity`, `workload` and `volumeset` target kinds only.",
+				Optional:    true,
+				Default:     "",
 			},
 			"target_links": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				MaxItems: 200,
-				Elem:     StringSchema(),
+				Type:        schema.TypeSet,
+				Description: "List of the targets this policy will be applied to. Not used if `target` is set to `all`.",
+				Optional:    true,
+				MaxItems:    200,
+				Elem:        StringSchema(),
 			},
 			"target_query": {
 				Type:     schema.TypeList,
@@ -69,8 +77,9 @@ func resourcePolicy() *schema.Resource {
 				Elem:     QuerySchemaResource(),
 			},
 			"target": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:        schema.TypeString,
+				Description: "Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.",
+				Optional:    true,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -83,9 +92,9 @@ func resourcePolicy() *schema.Resource {
 				},
 			},
 			"origin": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Origin of the Policy. Either `builtin` or `default`.",
+				Computed:    true,
 			},
 			"binding": {
 				Type:     schema.TypeSet,
@@ -103,16 +112,18 @@ func BindingResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"permissions": {
-				Type:     schema.TypeSet,
-				Required: true,
-				Elem:     StringSchema(),
+				Type:        schema.TypeSet,
+				Description: "List of permissions to allow.",
+				Required:    true,
+				Elem:        StringSchema(),
 			},
 			"principal_links": {
-				Type:     schema.TypeSet,
-				Required: true,
-				MinItems: 1,
-				MaxItems: 200,
-				Elem:     StringSchema(),
+				Type:        schema.TypeSet,
+				Description: "List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `gvc/GVC_NAME/identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`.",
+				Required:    true,
+				MinItems:    1,
+				MaxItems:    200,
+				Elem:        StringSchema(),
 			},
 		},
 	}

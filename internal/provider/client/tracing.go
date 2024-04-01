@@ -43,8 +43,9 @@ var tracingOptions = []string{"lightstep_tracing", "otel_tracing", "controlplane
 
 func CustomTagsSchema() *schema.Schema {
 	return &schema.Schema{
-		Type:     schema.TypeMap,
-		Optional: true,
+		Type:        schema.TypeMap,
+		Description: "Key-value map of custom tags.",
+		Optional:    true,
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
@@ -61,16 +62,19 @@ func LightstepSchema(isExactlyOneOf bool) *schema.Schema {
 			Schema: map[string]*schema.Schema{
 				"sampling": {
 					Type:         schema.TypeInt,
+					Description:  "Determines what percentage of requests should be traced.",
 					Required:     true,
 					ValidateFunc: validateSamplingFunc,
 				},
 				"endpoint": {
-					Type:     schema.TypeString,
-					Required: true,
+					Type:        schema.TypeString,
+					Description: "Tracing Endpoint Workload. Either the canonical endpoint or internal endpoint.",
+					Required:    true,
 				},
 				"credentials": {
-					Type:     schema.TypeString,
-					Optional: true,
+					Type:        schema.TypeString,
+					Description: "Full link to referenced Opaque Secret.",
+					Optional:    true,
 				},
 				"custom_tags": CustomTagsSchema(),
 			},
@@ -93,12 +97,14 @@ func OtelSchema(isExactlyOneOf bool) *schema.Schema {
 			Schema: map[string]*schema.Schema{
 				"sampling": {
 					Type:         schema.TypeInt,
+					Description:  "Determines what percentage of requests should be traced.",
 					Required:     true,
 					ValidateFunc: validateSamplingFunc,
 				},
 				"endpoint": {
-					Type:     schema.TypeString,
-					Required: true,
+					Type:        schema.TypeString,
+					Description: "Tracing Endpoint Workload. Either the canonical endpoint or internal endpoint.",
+					Required:    true,
 				},
 				"custom_tags": CustomTagsSchema(),
 			},
@@ -121,6 +127,7 @@ func ControlPlaneTracingSchema(isExactlyOneOf bool) *schema.Schema {
 			Schema: map[string]*schema.Schema{
 				"sampling": {
 					Type:         schema.TypeInt,
+					Description:  "Determines what percentage of requests should be traced.",
 					Required:     true,
 					ValidateFunc: validateSamplingFunc,
 				},

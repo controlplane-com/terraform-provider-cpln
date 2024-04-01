@@ -25,101 +25,121 @@ func resourceOrgLogging() *schema.Resource {
 		DeleteContext: resourceOrgLoggingDelete,
 		Schema: map[string]*schema.Schema{
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the org.",
+				Computed:    true,
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The name of the org.",
+				Computed:    true,
 			},
 			"description": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The description of org.",
+				Computed:    true,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Computed: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of the org's tags.",
+				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"s3_logging": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "[Documentation Reference](https://docs.controlplane.com/external-logging/s3)",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"bucket": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Name of S3 bucket.",
+							Required:    true,
 						},
 						"region": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "AWS region where bucket is located.",
+							Required:    true,
 						},
 						"prefix": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "/",
+							Type:        schema.TypeString,
+							Description: "Bucket path prefix. Default: \"/\".",
+							Optional:    true,
+							Default:     "/",
 						},
 						"credentials": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Full link to referenced AWS Secret.",
+							Required:    true,
 						},
 					},
 				},
 			},
 			"coralogix_logging": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "[Documentation Reference](https://docs.controlplane.com/external-logging/coralogix)",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cluster": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Coralogix cluster URI.",
+							Required:    true,
 						},
 						"credentials": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Full link to referenced Opaque Secret.",
+							Required:    true,
 						},
 						"app": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "App name to be displayed in Coralogix dashboard.",
+							Required:    true,
 						},
 						"subsystem": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Subsystem name to be displayed in Coralogix dashboard.",
+							Required:    true,
 						},
 					},
 				},
 			},
 			"datadog_logging": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "[Documentation Reference](https://docs.controlplane.com/external-logging/datadog)",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"host": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Datadog host URI.",
+							Required:    true,
 						},
 						"credentials": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Full link to referenced Opaque Secret.",
+							Required:    true,
 						},
 					},
 				},
 			},
 			"logzio_logging": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "[Documentation Reference](https://docs.controlplane.com/external-logging/logz-io)",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"listener_host": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Logzio listener host URI.",
+							Required:    true,
 						},
 						"credentials": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Full link to referenced Opaque Secret.",
+							Required:    true,
 						},
 					},
 				},
@@ -136,28 +156,34 @@ func resourceOrgLogging() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"host": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "A valid AWS ElasticSearch hostname (must end with es.amazonaws.com).",
+										Required:    true,
 									},
 									"port": {
-										Type:     schema.TypeInt,
-										Required: true,
+										Type:        schema.TypeInt,
+										Description: "Port. Default: 443",
+										Required:    true,
 									},
 									"index": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging Index.",
+										Required:    true,
 									},
 									"type": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging Type.",
+										Required:    true,
 									},
 									"credentials": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Full Link to a secret of type `aws`.",
+										Required:    true,
 									},
 									"region": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Valid AWS region.",
+										Required:    true,
 									},
 								},
 							},
@@ -169,20 +195,24 @@ func resourceOrgLogging() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"index": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging Index.",
+										Required:    true,
 									},
 									"type": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging Type.",
+										Required:    true,
 									},
 									"credentials": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Full Link to a secret of type `userpass`.",
+										Required:    true,
 									},
 									"cloud_id": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "[Cloud ID](https://www.elastic.co/guide/en/cloud/current/ec-cloud-id.html)",
+										Required:    true,
 									},
 								},
 							},
@@ -194,28 +224,34 @@ func resourceOrgLogging() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"host": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "A valid Elastic Search provider hostname.",
+										Required:    true,
 									},
 									"port": {
-										Type:     schema.TypeInt,
-										Required: true,
+										Type:        schema.TypeInt,
+										Description: "Port. Default: 443",
+										Required:    true,
 									},
 									"path": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging path.",
+										Required:    true,
 									},
 									"index": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging Index.",
+										Required:    true,
 									},
 									"type": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Logging Type.",
+										Required:    true,
 									},
 									"credentials": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Full Link to a secret of type `userpass`.",
+										Required:    true,
 									},
 								},
 							},
@@ -249,7 +285,7 @@ func resourceOrgLoggingCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	loggings := buildMultipleLoggings(d, loggingNames...)
 
-	if e := orgLoggingValidate(d, loggings); e != nil {
+	if e := orgLoggingValidate(loggings); e != nil {
 		return e
 	}
 
@@ -286,7 +322,7 @@ func resourceOrgLoggingUpdate(ctx context.Context, d *schema.ResourceData, m int
 		// Build regardless of changes
 		loggings := buildMultipleLoggings(d, loggingNames...)
 
-		if e := orgLoggingValidate(d, loggings); e != nil {
+		if e := orgLoggingValidate(loggings); e != nil {
 			return e
 		}
 
@@ -798,7 +834,7 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 	return nil
 }
 
-func orgLoggingValidate(d *schema.ResourceData, loggings []client.Logging) diag.Diagnostics {
+func orgLoggingValidate(loggings []client.Logging) diag.Diagnostics {
 
 	// Max of 4 external logging providers
 	if len(loggings) > 4 {

@@ -28,29 +28,34 @@ func resourceWorkload() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"gvc": {
 				Type:         schema.TypeString,
+				Description:  "Name of the associated GVC.",
 				Required:     true,
 				ForceNew:     true,
 				ValidateFunc: NameValidator,
 			},
 			"cpln_id": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "The ID, in GUID format, of the Workload.",
+				Computed:    true,
 			},
 			"name": {
 				Type:         schema.TypeString,
+				Description:  "Name of the Workload.",
 				Required:     true,
 				ForceNew:     true,
 				ValidateFunc: NameValidator,
 			},
 			"description": {
 				Type:             schema.TypeString,
+				Description:      "Description of the Workload.",
 				Optional:         true,
 				ValidateFunc:     DescriptionValidator,
 				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:        schema.TypeMap,
+				Description: "Key-value map of resource tags.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -58,15 +63,18 @@ func resourceWorkload() *schema.Resource {
 			},
 			"identity_link": {
 				Type:         schema.TypeString,
+				Description:  "Full link to an Identity.",
 				Optional:     true,
 				ValidateFunc: LinkValidator,
 			},
 			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
 			},
 			"type": {
 				Type:         schema.TypeString,
+				Description:  "Workload Type. Either `serverless`, `standard`, `stateful`, or `cron`.",
 				ForceNew:     true,
 				Required:     true,
 				ValidateFunc: WorkloadTypeValidator,
@@ -79,8 +87,9 @@ func resourceWorkload() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Name of the container.",
+							Required:    true,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 								warns, errs = NameValidator(val, key)
@@ -100,11 +109,13 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"image": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "The full image and tag path.",
+							Required:    true,
 						},
 						"port": {
 							Type:         schema.TypeInt,
+							Description:  "The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`. Used by `serverless` Workload type. **DEPRECATED - Use `ports`.**",
 							Optional:     true,
 							ValidateFunc: PortValidator,
 							Deprecated:   "The 'port' attribute will be deprecated in the next major version. Use the 'ports' attribute instead.",
@@ -116,19 +127,22 @@ func resourceWorkload() *schema.Resource {
 								Schema: map[string]*schema.Schema{
 									"protocol": {
 										Type:         schema.TypeString,
+										Description:  "Protocol. Choice of: `http`, `http2`, `tcp`, or `grpc`.",
 										Optional:     true,
 										ValidateFunc: PortProtocolValidator,
 										Default:      "http",
 									},
 									"number": {
-										Type:     schema.TypeInt,
-										Required: true,
+										Type:        schema.TypeInt,
+										Description: "Port to expose.",
+										Required:    true,
 									},
 								},
 							},
 						},
 						"cpu": {
 							Type:         schema.TypeString,
+							Description:  "Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: \"50m\".",
 							Optional:     true,
 							Default:      "50m",
 							ValidateFunc: CpuMemoryValidator,
@@ -140,35 +154,41 @@ func resourceWorkload() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"model": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "GPU Model (i.e.: t4)",
+										Required:    true,
 									},
 									"quantity": {
-										Type:     schema.TypeInt,
-										Required: true,
+										Type:        schema.TypeInt,
+										Description: "Number of GPUs.",
+										Required:    true,
 									},
 								},
 							},
 						},
 						"memory": {
 							Type:         schema.TypeString,
+							Description:  "Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: \"128Mi\".",
 							Optional:     true,
 							Default:      "128Mi",
 							ValidateFunc: CpuMemoryValidator,
 						},
 						"min_cpu": {
 							Type:         schema.TypeString,
+							Description:  "Minimum CPU when capacity AI is enabled.",
 							Optional:     true,
 							ValidateFunc: CpuMemoryValidator,
 						},
 						"min_memory": {
 							Type:         schema.TypeString,
+							Description:  "Minimum memory when capacity AI is enabled.",
 							Optional:     true,
 							ValidateFunc: CpuMemoryValidator,
 						},
 						"working_directory": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Override the working directory. Must be an absolute path.",
+							Optional:    true,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 								v := val.(string)
@@ -182,12 +202,14 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"command": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Override the entry point.",
+							Optional:    true,
 						},
 						"env": {
-							Type:     schema.TypeMap,
-							Optional: true,
+							Type:        schema.TypeMap,
+							Description: "Name-Value list of environment variables.",
+							Optional:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
@@ -214,38 +236,44 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"inherit_env": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+							Type:        schema.TypeBool,
+							Description: "Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.",
+							Optional:    true,
+							Default:     false,
 						},
 						"args": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Command line arguments passed to the container at runtime.",
+							Optional:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
 						},
 						"liveness_probe": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
-							Elem:     healthCheckSpec(),
+							Type:        schema.TypeList,
+							Description: "Liveness Probe",
+							Optional:    true,
+							MaxItems:    1,
+							Elem:        healthCheckSpec(),
 						},
 						"readiness_probe": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
-							Elem:     healthCheckSpec(),
+							Type:        schema.TypeList,
+							Description: "Readiness Probe",
+							Optional:    true,
+							MaxItems:    1,
+							Elem:        healthCheckSpec(),
 						},
 						"volume": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 5,
+							Type:        schema.TypeList,
+							Description: "[Reference Page](https://docs.controlplane.com/reference/workload#volumes).",
+							Optional:    true,
+							MaxItems:    5,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"uri": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "URI of volume at cloud provider.",
+										Required:    true,
 										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 											v := val.(string)
@@ -260,13 +288,15 @@ func resourceWorkload() *schema.Resource {
 										},
 									},
 									"recovery_policy": {
-										Type:     schema.TypeString,
-										Optional: true,
-										Default:  "retain",
+										Type:        schema.TypeString,
+										Description: "Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**",
+										Optional:    true,
+										Default:     "retain",
 									},
 									"path": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "File path added to workload pointing to the volume.",
+										Required:    true,
 										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 											v := val.(string)
@@ -290,27 +320,31 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"metrics": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "[Reference Page](https://docs.controlplane.com/reference/workload#metrics).",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"port": {
 										Type:         schema.TypeInt,
+										Description:  "Port from container emitting custom metrics",
 										Required:     true,
 										ValidateFunc: PortValidator,
 									},
 									"path": {
-										Type:     schema.TypeString,
-										Required: true,
+										Type:        schema.TypeString,
+										Description: "Path from container emitting custom metrics",
+										Required:    true,
 									},
 								},
 							},
 						},
 						"lifecycle": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "Lifecycle [Reference Page](https://docs.controlplane.com/reference/workload#lifecycle).",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"post_start": {
@@ -338,24 +372,28 @@ func resourceWorkload() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"capacity_ai": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  true,
+							Type:        schema.TypeBool,
+							Description: "Capacity AI. Default: `true`.",
+							Optional:    true,
+							Default:     true,
 						},
 						"debug": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+							Type:        schema.TypeBool,
+							Description: "Debug mode. Default: `false`",
+							Optional:    true,
+							Default:     false,
 						},
 						"suspend": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+							Type:        schema.TypeBool,
+							Description: "Workload suspend. Default: `false`",
+							Optional:    true,
+							Default:     false,
 						},
 						"timeout_seconds": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  5,
+							Type:        schema.TypeInt,
+							Description: "Timeout in seconds. Default: `5`.",
+							Optional:    true,
+							Default:     5,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 								v := val.(int)
 								if v < 1 || v > 3600 {
@@ -379,28 +417,33 @@ func resourceWorkload() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"location": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Valid only for `local_options`. Override options for a specific location.",
+							Required:    true,
 						},
 						"capacity_ai": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  true,
+							Type:        schema.TypeBool,
+							Description: "Capacity AI. Default: `true`.",
+							Optional:    true,
+							Default:     true,
 						},
 						"debug": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+							Type:        schema.TypeBool,
+							Description: "Debug mode. Default: `false`",
+							Optional:    true,
+							Default:     false,
 						},
 						"suspend": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+							Type:        schema.TypeBool,
+							Description: "Workload suspend. Default: `false`",
+							Optional:    true,
+							Default:     false,
 						},
 						"timeout_seconds": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  5,
+							Type:        schema.TypeInt,
+							Description: "Timeout in seconds. Default: `5`.",
+							Optional:    true,
+							Default:     5,
 							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 								v := val.(int)
 								if v < 1 || v > 3600 {
@@ -419,9 +462,10 @@ func resourceWorkload() *schema.Resource {
 				},
 			},
 			"firewall_spec": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Control of inbound and outbound access to the workload for external (public) and internal (service to service) traffic. Access is restricted by default.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"external": {
@@ -431,119 +475,143 @@ func resourceWorkload() *schema.Resource {
 							Elem:     ExternalFirewallResource(),
 						},
 						"internal": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
-							Elem:     InternalFirewallResource(),
+							Type:        schema.TypeList,
+							Description: "The internal firewall is used to control access between workloads.",
+							Optional:    true,
+							MaxItems:    1,
+							Elem:        InternalFirewallResource(),
 						},
 					},
 				},
 			},
 			"job": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "[Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"schedule": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) used to determine when your job should execute.",
+							Required:    true,
 						},
 						"concurrency_policy": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "Forbid",
+							Type:        schema.TypeString,
+							Description: "Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`",
+							Optional:    true,
+							Default:     "Forbid",
 						},
 						"history_limit": {
-							Type:     schema.TypeInt,
-							Optional: true,
-							Default:  5,
+							Type:        schema.TypeInt,
+							Description: "The maximum number of completed job instances to display. This should be an integer between 1 and 10. Default: `5`",
+							Optional:    true,
+							Default:     5,
 						},
 						"restart_policy": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "Never",
+							Type:        schema.TypeString,
+							Description: "Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`",
+							Optional:    true,
+							Default:     "Never",
 						},
 						"active_deadline_seconds": {
-							Type:     schema.TypeInt,
-							Optional: true,
+							Type:        schema.TypeInt,
+							Description: "The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.",
+							Optional:    true,
 						},
 					},
 				},
 			},
 			"status": {
-				Type:     schema.TypeList,
-				Computed: true,
+				Type:        schema.TypeList,
+				Description: "Status of the workload.",
+				Computed:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"parent_id": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "ID of the parent object.",
+							Optional:    true,
 						},
 						"canonical_endpoint": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Canonical endpoint for the workload.",
+							Optional:    true,
 						},
 						"endpoint": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Endpoint for the workload.",
+							Optional:    true,
 						},
 						"internal_name": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "Internal hostname for the workload. Used for service-to-service requests.",
+							Optional:    true,
 						},
 						"health_check": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Current health status.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"active": {
-										Type:     schema.TypeBool,
-										Required: true,
+										Type:        schema.TypeBool,
+										Description: "Active boolean for the associated workload.",
+										Required:    true,
 									},
 									"success": {
-										Type:     schema.TypeBool,
-										Optional: true,
+										Type:        schema.TypeBool,
+										Description: "Success boolean for the associated workload.",
+										Optional:    true,
 									},
 									"code": {
-										Type:     schema.TypeInt,
-										Optional: true,
+										Type:        schema.TypeInt,
+										Description: "Current output code for the associated workload.",
+										Optional:    true,
 									},
 									"message": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Current health status for the associated workload.",
+										Optional:    true,
 									},
 									"failures": {
-										Type:     schema.TypeInt,
-										Optional: true,
+										Type:        schema.TypeInt,
+										Description: "Failure integer for the associated workload.",
+										Optional:    true,
 									},
 									"successes": {
-										Type:     schema.TypeInt,
-										Optional: true,
+										Type:        schema.TypeInt,
+										Description: "Success integer for the associated workload.",
+										Optional:    true,
 									},
 									"last_checked": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "Timestamp in UTC of the last health check.",
+										Optional:    true,
 									},
 								},
 							},
 						},
 						"current_replica_count": {
-							Type:     schema.TypeInt,
-							Optional: true,
+							Type:        schema.TypeInt,
+							Description: "Current amount of replicas deployed.",
+							Optional:    true,
 						},
 						"resolved_images": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Resolved images for workloads with dynamic tags enabled.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"resolved_for_version": {
-										Type:     schema.TypeInt,
-										Optional: true,
+										Type:        schema.TypeInt,
+										Description: "Workload version the images were resolved for.",
+										Optional:    true,
 									},
 									"resolved_at": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "UTC Time when the images were resolved.",
+										Optional:    true,
 									},
 									"images": {
 										Type:     schema.TypeList,
@@ -551,8 +619,9 @@ func resourceWorkload() *schema.Resource {
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"digest": {
-													Type:     schema.TypeString,
-													Optional: true,
+													Type:        schema.TypeString,
+													Description: "A unique SHA256 hash value that identifies a specific image content. This digest serves as a fingerprint of the image's content, ensuring the image you pull or run is exactly what you expect, without any modifications or corruptions.",
+													Optional:    true,
 												},
 												"manifests": {
 													Type:     schema.TypeList,
@@ -560,20 +629,24 @@ func resourceWorkload() *schema.Resource {
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"image": {
-																Type:     schema.TypeString,
-																Optional: true,
+																Type:        schema.TypeString,
+																Description: "The name and tag of the resolved image.",
+																Optional:    true,
 															},
 															"media_type": {
-																Type:     schema.TypeString,
-																Optional: true,
+																Type:        schema.TypeString,
+																Description: "The MIME type used in the Docker Registry HTTP API to specify the format of the data being sent or received. Docker uses media types to distinguish between different kinds of JSON objects and binary data formats within the registry protocol, enabling the Docker client and registry to understand and process different components of Docker images correctly.",
+																Optional:    true,
 															},
 															"digest": {
-																Type:     schema.TypeString,
-																Optional: true,
+																Type:        schema.TypeString,
+																Description: "A SHA256 hash that uniquely identifies the specific image manifest.",
+																Optional:    true,
 															},
 															"platform": {
-																Type:     schema.TypeMap,
-																Optional: true,
+																Type:        schema.TypeMap,
+																Description: "Key-value map of strings. The combination of the operating system and architecture for which the image is built.",
+																Optional:    true,
 																Elem: &schema.Schema{
 																	Type: schema.TypeString,
 																},
@@ -598,22 +671,25 @@ func resourceWorkload() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"min_ready_seconds": {
 							Type:        schema.TypeInt,
+							Description: "The minimum number of seconds a container must run without crashing to be considered available",
 							Optional:    true,
 							Default:     0,
-							Description: "The minimum number of seconds a container must run without crashing to be considered available",
 						},
 						"max_unavailable_replicas": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "The number of replicas that can be unavailable during the update process.",
+							Optional:    true,
 						},
 						"max_surge_replicas": {
-							Type:     schema.TypeString,
-							Optional: true,
+							Type:        schema.TypeString,
+							Description: "The number of replicas that can be created above the desired amount of replicas during an update.",
+							Optional:    true,
 						},
 						"scaling_policy": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "OrderedReady",
+							Type:        schema.TypeString,
+							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.",
+							Optional:    true,
+							Default:     "OrderedReady",
 						},
 					},
 				},
@@ -626,16 +702,17 @@ func resourceWorkload() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"file_system_group_id": {
 							Type:        schema.TypeInt,
+							Description: "The group id assigned to any mounted volume.",
 							Required:    true,
-							Description: "The group id assigned to any mounted volume",
 						},
 					},
 				},
 			},
 			"support_dynamic_tags": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
+				Type:        schema.TypeBool,
+				Description: "Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.",
+				Optional:    true,
+				Default:     false,
 			},
 			"sidecar": {
 				Type:     schema.TypeList,
@@ -749,7 +826,7 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
-	return setWorkload(d, newWorkload, gvcName, c.Org, legacyPort, nil)
+	return setWorkload(d, newWorkload, c.Org, legacyPort, nil)
 }
 
 func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -817,7 +894,7 @@ func resourceWorkloadRead(ctx context.Context, d *schema.ResourceData, m interfa
 
 	// log.Printf("Before Calling SET: Endpoint: %s. Canonical: %s", workload.Status.Endpoint, workload.Status.CanonicalEndpoint)
 
-	return setWorkload(d, workload, gvcName, c.Org, legacyPort, diags)
+	return setWorkload(d, workload, c.Org, legacyPort, diags)
 }
 
 func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -888,7 +965,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 			updatedWorkload.Status.CanonicalEndpoint = &testEndpoint
 		}
 
-		return setWorkload(d, updatedWorkload, gvcName, c.Org, legacyPort, nil)
+		return setWorkload(d, updatedWorkload, c.Org, legacyPort, nil)
 	}
 
 	return nil
@@ -909,7 +986,7 @@ func resourceWorkloadDelete(ctx context.Context, d *schema.ResourceData, m inter
 	return nil
 }
 
-func setWorkload(d *schema.ResourceData, workload *client.Workload, gvcName, org string, legacyPort bool, diags diag.Diagnostics) diag.Diagnostics {
+func setWorkload(d *schema.ResourceData, workload *client.Workload, org string, legacyPort bool, diags diag.Diagnostics) diag.Diagnostics {
 
 	if workload == nil {
 		d.SetId("")
@@ -2459,8 +2536,9 @@ func AutoScalingResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"metric": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:        schema.TypeString,
+				Description: "Valid values: `concurrency`, `cpu`, `latency`, or `rps`.",
+				Optional:    true,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -2473,8 +2551,9 @@ func AutoScalingResource() *schema.Resource {
 				},
 			},
 			"metric_percentile": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:        schema.TypeString,
+				Description: "For metrics represented as a distribution (e.g. latency) a percentile within the distribution must be chosen as the target.",
+				Optional:    true,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -2487,9 +2566,10 @@ func AutoScalingResource() *schema.Resource {
 				},
 			},
 			"target": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  95,
+				Type:        schema.TypeInt,
+				Description: "Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.",
+				Optional:    true,
+				Default:     95,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
 					if v < 0 || v > 20000 {
@@ -2499,9 +2579,10 @@ func AutoScalingResource() *schema.Resource {
 				},
 			},
 			"max_scale": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  5,
+				Type:        schema.TypeInt,
+				Description: "The maximum allowed number of replicas. Min: `0`. Default `5`.",
+				Optional:    true,
+				Default:     5,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
 					if v < 0 {
@@ -2511,9 +2592,10 @@ func AutoScalingResource() *schema.Resource {
 				},
 			},
 			"min_scale": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  1,
+				Type:        schema.TypeInt,
+				Description: "The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.",
+				Optional:    true,
+				Default:     1,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
 					if v < 0 {
@@ -2523,9 +2605,10 @@ func AutoScalingResource() *schema.Resource {
 				},
 			},
 			"max_concurrency": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  0,
+				Type:        schema.TypeInt,
+				Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.",
+				Optional:    true,
+				Default:     0,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
 					if v < 0 || v > 30000 {
@@ -2535,9 +2618,10 @@ func AutoScalingResource() *schema.Resource {
 				},
 			},
 			"scale_to_zero_delay": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  300,
+				Type:        schema.TypeInt,
+				Description: "The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.",
+				Optional:    true,
+				Default:     300,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
 					if v < 30 || v > 3600 {
@@ -2554,38 +2638,44 @@ func ExternalFirewallResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"inbound_allow_cidr": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"outbound_allow_cidr": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"outbound_allow_hostname": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"outbound_allow_port": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "Allow outbound access to specific ports and protocols. When not specified, communication to address ranges in outboundAllowCIDR is allowed on all ports and communication to names in outboundAllowHostname is allowed on ports 80/443.",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"protocol": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Description: "Either `http`, `https` or `tcp`. Default: `tcp`.",
+							Required:    true,
 						},
 						"number": {
-							Type:     schema.TypeInt,
-							Required: true,
+							Type:        schema.TypeInt,
+							Description: "Port number. Max: 65000",
+							Required:    true,
 						},
 					},
 				},
@@ -2598,9 +2688,10 @@ func InternalFirewallResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
 			"inbound_allow_type": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "none",
+				Type:        schema.TypeString,
+				Description: "Used to control the internal firewall configuration and mutual tls. Allowed Values: \"none\", \"same-gvc\", \"same-org\", \"workload-list\".",
+				Optional:    true,
+				Default:     "none",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -2613,8 +2704,9 @@ func InternalFirewallResource() *schema.Resource {
 				},
 			},
 			"inbound_allow_workload": {
-				Type:     schema.TypeSet,
-				Optional: true,
+				Type:        schema.TypeSet,
+				Description: "A list of specific workloads which are allowed to access this workload internally. This list is only used if the 'inboundAllowType' is set to 'workload-list'.",
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
