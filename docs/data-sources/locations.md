@@ -12,7 +12,7 @@ Use this data source to access information about all [Locations](https://docs.co
 
 The following attributes are exported:
 
-- **locations** (Block List, Max: 1) ([see below](#nestedblock--locations)).
+- **locations** (Block List) ([see below](#nestedblock--locations)).
 
 <a id="nestedblock--locations"></a>
 

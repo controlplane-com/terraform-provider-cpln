@@ -24,8 +24,10 @@ func SetBase(d *schema.ResourceData, base client.Base) error {
 		return err
 	}
 
-	if err := d.Set("description", DescriptionHelper(*base.Name, *base.Description)); err != nil {
-		return err
+	if base.Description != nil {
+		if err := d.Set("description", DescriptionHelper(*base.Name, *base.Description)); err != nil {
+			return err
+		}
 	}
 
 	if err := d.Set("tags", GetTags(base.Tags)); err != nil {
