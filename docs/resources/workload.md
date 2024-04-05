@@ -199,13 +199,17 @@ Optional:
 
 ### `container.volume`
 
+Volumes mounted on a container can be from multiple sources. Refer to the [workload volume reference page](https://docs.controlplane.com/reference/workload#volumes) for additional details.
+
 Required:
 
-- **uri** (String) URI of volume at cloud provider.
+- **uri** (String) URI of a volume hosted at Control Plane (Volume Set) or at a cloud provider (AWS, Azure, GCP).
 - **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**
-- **path** (String) File path added to workload pointing to the volume.
+- **path** (String) The file path to the mounted volume.
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
+
+~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`.
 
 <a id="nestedblock--container--metrics"></a>
 
@@ -1049,6 +1053,172 @@ resource "cpln_workload" "new" {
 }
 
 ```
+
+## Example Usage - Stateful Workload with a Volume Set
+
+```terraform
+
+resource "cpln_gvc" "example" {
+  name        = "gvc-example-stateful"
+  description = "Example GVC"
+
+  locations = ["aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_identity" "example" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "identity-example"
+  description = "Example Identity"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_volume_set" "example" {
+
+  name        = "volume-set-example"
+  description = "This is a Volume Set description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc               = cpln_gvc.example.name
+  initial_capacity  = 1000
+  performance_class = "high-throughput-ssd"
+  file_system_type  = "xfs"
+
+  snapshots {
+    create_final_snapshot = false
+    retention_duration    = "2d"
+    schedule              = "0 * * * *"
+  }
+
+  autoscaling {
+    max_capacity        = 2048
+    min_free_percentage = 2
+    scaling_factor      = 2.2
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.example.name
+
+  type = "stateful"
+
+  name        = "workload-example-stateful"
+  description = "Example Stateful Workload"
+
+  support_dynamic_tags = false
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  container {
+    name   = "httpbin"
+    image  = "kennethreitz/httpbin"
+    memory = "128Mi"
+    cpu    = "50m"
+
+    ports {
+      protocol = "http2"
+      number   = "80"
+    }
+
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02"
+    }
+
+    volume {
+      uri             = "cpln://volumeset/${cpln_volume_set.example.name}"
+      path            = "/cpln-volume"
+      recovery_policy = "retain"
+    }
+
+    readiness_probe {
+
+      http_get {
+        path   = "/"
+        port   = 80
+        scheme = "HTTP"
+      }
+
+      period_seconds        = 11
+      timeout_seconds       = 2
+      failure_threshold     = 4
+      success_threshold     = 2
+      initial_delay_seconds = 1
+    }
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = false
+
+    autoscaling {
+      metric    = "cpu"
+      target    = 60
+      max_scale = 3
+      min_scale = 1
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_cidr     = []
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+    }
+    internal {
+      # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
+
+  rollout_options {
+    min_ready_seconds        = 1
+    max_unavailable_replicas = "10"
+    max_surge_replicas       = "20"
+    scaling_policy           = "Parallel"
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+}
+
+```
+
+
 
 ## Import Syntax
 

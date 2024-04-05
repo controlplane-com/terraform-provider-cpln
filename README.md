@@ -271,3 +271,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.18 - Add min CPU and Memory to container. 
 - v1.1.19 - Add external ID to AWS secret.
 - v1.1.20 - Update GVC data-source and resource docs. Add descriptions in the schema for all data-sources and resources. Add image and images data-sources.
+- v1.1.21 - Fix workload validation. Add default to autoscaling metric property. Add stateful workload example in docs. 

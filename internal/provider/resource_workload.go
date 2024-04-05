@@ -272,7 +272,7 @@ func resourceWorkload() *schema.Resource {
 								Schema: map[string]*schema.Schema{
 									"uri": {
 										Type:        schema.TypeString,
-										Description: "URI of volume at cloud provider.",
+										Description: "URI of a volume hosted at Control Plane (Volume Set) or at a cloud provider (AWS, Azure, GCP).",
 										Required:    true,
 										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
@@ -782,10 +782,6 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 	workload.Spec.Type = GetString(strings.TrimSpace(d.Get("type").(string)))
 
-	if e := workloadSpecValidate(workload.Spec); e != nil {
-		return e
-	}
-
 	if d.Get("identity_link") != nil {
 
 		identityLink := strings.TrimSpace(d.Get("identity_link").(string))
@@ -814,6 +810,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 	if d.Get("sidecar") != nil {
 		workload.Spec.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
+	}
+
+	if e := workloadSpecValidate(workload.Spec); e != nil {
+		return e
 	}
 
 	newWorkload, code, err := c.CreateWorkload(workload, gvcName)
@@ -2537,8 +2537,9 @@ func AutoScalingResource() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"metric": {
 				Type:        schema.TypeString,
-				Description: "Valid values: `concurrency`, `cpu`, `latency`, or `rps`.",
+				Description: "Valid values: `disabled, concurrency`, `cpu`, `latency`, or `rps`.",
 				Optional:    true,
+				Default:     "disabled",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -2901,7 +2902,7 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 			return diag.FromErr(fmt.Errorf("'job' section is required when workload type is 'cron'"))
 		}
 
-		if *workloadSpec.Type != "standard" && workloadSpec.RolloutOptions != nil {
+		if (*workloadSpec.Type != "standard" && *workloadSpec.Type != "stateful") && workloadSpec.RolloutOptions != nil {
 			return diag.FromErr(fmt.Errorf("rollout options are only available when workload type is 'standard'"))
 		}
 
