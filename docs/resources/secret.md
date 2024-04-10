@@ -125,8 +125,9 @@ Optional:
 The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Secret.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **dictionary_as_envs** (Map of String) If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **secret_link** (String) Output used when linking a secret to an environment variable or volume, in the format: `cpln://secret/SECRET_NAME`.
 
 ## Example Usage
 

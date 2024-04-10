@@ -54,6 +54,7 @@ Required:
 - **cpln_id** (String) ID, in GUID format, of the Volume Set.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (Block List, Max: 1) ([see below](#nestedblock--status)).
+- **volumeset_link** (String) Output used when linking a volume set to a workload, in the format: `cpln://volumeset/VOLUME_SET_NAME`.
 
 <a id="nestedblock--status"></a>
 
