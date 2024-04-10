@@ -403,8 +403,9 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"autoscaling": {
-							Type:     schema.TypeList,
-							Required: true,
+							Type: schema.TypeList,
+							// Required: true,
+							Optional: true,
 							MaxItems: 1,
 							Elem:     AutoScalingResource(),
 						},
@@ -453,8 +454,9 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"autoscaling": {
-							Type:     schema.TypeList,
-							Required: true,
+							Type: schema.TypeList,
+							// Required: true,
+							Optional: true,
 							MaxItems: 1,
 							Elem:     AutoScalingResource(),
 						},
@@ -2537,7 +2539,7 @@ func AutoScalingResource() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"metric": {
 				Type:        schema.TypeString,
-				Description: "Valid values: `disabled, concurrency`, `cpu`, `latency`, or `rps`.",
+				Description: "Valid values: `disabled`, `concurrency`, `cpu`, `latency`, or `rps`.",
 				Optional:    true,
 				Default:     "disabled",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {

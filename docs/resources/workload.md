@@ -793,7 +793,7 @@ resource "cpln_identity" "example" {
 
 resource "cpln_workload" "new" {
 
-  gvc         = cpln_gvc.example.name
+  gvc = cpln_gvc.example.name
 
   type = "cron"
 
@@ -825,13 +825,13 @@ resource "cpln_workload" "new" {
     args = ["arg-01", "arg-02"]
 
     volume {
-      uri             = "s3://bucket"
-      path            = "/testpath01"
+      uri  = "s3://bucket"
+      path = "/testpath01"
     }
 
     volume {
-      uri             = "azureblob://storageAccount/container"
-      path            = "/testpath02"
+      uri  = "azureblob://storageAccount/container"
+      path = "/testpath02"
     }
 
     metrics {
@@ -841,13 +841,7 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    suspend     = false
-    capacity_ai = false
-
-    autoscaling {
-    	max_scale = 1
-	    min_scale = 1
-    }
+    suspend = false
   }
 
   firewall_spec {
@@ -856,14 +850,14 @@ resource "cpln_workload" "new" {
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
 
       outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
+        protocol = "http"
+        number   = 80
+      }
 
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
     }
   }
 
@@ -879,7 +873,6 @@ resource "cpln_workload" "new" {
     active_deadline_seconds = 1200
   }
 }
-
 ```
 
 ## Example Usage - Serverless Workload with a GPU resource
