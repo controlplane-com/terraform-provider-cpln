@@ -334,6 +334,11 @@ func resourceSecret() *schema.Resource {
 					},
 				},
 			},
+			"secret_link": {
+				Type:        schema.TypeString,
+				Description: "Output used when linking a secret to an environment variable or volume.",
+				Computed:    true,
+			},
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -675,6 +680,10 @@ func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
 	}
 
 	d.SetId(*secret.Name)
+
+	if err := d.Set("secret_link", "cpln://secret/"+*secret.Name); err != nil {
+		return diag.FromErr(err)
+	}
 
 	if err := SetBase(d, secret.Base); err != nil {
 		return diag.FromErr(err)

@@ -3,7 +3,7 @@ HOSTNAME=controlplane.com
 NAMESPACE=com
 NAME=cpln
 BINARY=terraform-provider-${NAME}
-VERSION=1.1.21
+VERSION=1.1.22
 OS_ARCH=linux_amd64
 
 default: install

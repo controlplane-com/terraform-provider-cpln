@@ -159,6 +159,11 @@ func resourceVolumeSet() *schema.Resource {
 					},
 				},
 			},
+			"volumeset_link": {
+				Type:        schema.TypeString,
+				Description: "Output used when linking a volume set to a workload.",
+				Computed:    true,
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateVolumeSet,
@@ -194,6 +199,10 @@ func setVolumeSet(d *schema.ResourceData, volumeSet *client.VolumeSet) diag.Diag
 	}
 
 	if err := SetSelfLink(volumeSet.Links, d); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("volumeset_link", "cpln://volumeset/"+*volumeSet.Name); err != nil {
 		return diag.FromErr(err)
 	}
 
