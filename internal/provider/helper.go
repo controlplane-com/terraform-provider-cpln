@@ -672,6 +672,47 @@ func FlattenQueryHelper(query *client.Query) ([]interface{}, error) {
 	return mqList, nil
 }
 
+func BuildStringTypeSet(set interface{}) *[]string {
+
+	if set == nil {
+		return nil
+	}
+
+	output := []string{}
+
+	for _, value := range set.(*schema.Set).List() {
+		output = append(output, value.(string))
+	}
+
+	return &output
+}
+
+func FlattenStringTypeSet(set *[]string) []interface{} {
+
+	if set == nil {
+		return nil
+	}
+
+	output := []interface{}{}
+
+	for _, value := range *set {
+		output = append(output, value)
+	}
+
+	return output
+}
+
+func ConvertStringSliceToSet(slice []string) *schema.Set {
+
+	var expanderSet []interface{}
+
+	for _, value := range slice {
+		expanderSet = append(expanderSet, value)
+	}
+
+	return schema.NewSet(schema.HashSchema(StringSchema()), expanderSet)
+}
+
 func ResourceExistsHelper() diag.Diagnostics {
 
 	var diags diag.Diagnostics
