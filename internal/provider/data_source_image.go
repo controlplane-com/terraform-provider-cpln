@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -17,9 +18,34 @@ func dataSourceImage() *schema.Resource {
 
 func dataSourceImageRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*client.Client)
-	imageName := d.Get("name").(string)
 
-	image, _, err := c.GetImage(imageName)
+	name := d.Get("name").(string)
+	hasColon := hasColon(name)
+
+	var image *client.Image
+	var err error
+
+	// Get specific image if a colon is specified
+	if hasColon {
+		image, _, err = c.GetImage(name)
+	} else {
+		query := client.Query{
+			Kind: GetString("image"),
+			Spec: &client.Spec{
+				Match: GetString("all"),
+				Terms: &[]client.Term{
+					{
+						Op:       GetString("="),
+						Property: GetString("repository"),
+						Value:    GetString(name),
+					},
+				},
+			},
+		}
+
+		// Fetch latest image
+		image, err = c.GetLatestImage(query)
+	}
 
 	if err != nil {
 		return diag.FromErr(err)
@@ -29,7 +55,9 @@ func dataSourceImageRead(_ context.Context, d *schema.ResourceData, m interface{
 }
 
 /*** Flatten Functions ***/
+
 func flattenImageManifest(manifest *client.ImageManifest) []interface{} {
+
 	if manifest == nil {
 		return nil
 	}
@@ -58,6 +86,7 @@ func flattenImageManifest(manifest *client.ImageManifest) []interface{} {
 }
 
 func flattenImageManifestConfig(config *client.ImageManifestConfig) []interface{} {
+
 	if config == nil {
 		return nil
 	}
@@ -82,6 +111,7 @@ func flattenImageManifestConfig(config *client.ImageManifestConfig) []interface{
 }
 
 func flattenImageManifestLayers(layers *[]client.ImageManifestConfig) []interface{} {
+
 	if len(*layers) == 0 {
 		return nil
 	}
@@ -101,7 +131,6 @@ func flattenImageManifestLayers(layers *[]client.ImageManifestConfig) []interfac
 	return specs
 }
 
-/*** Helper Functions ***/
 func setImage(d *schema.ResourceData, image *client.Image) diag.Diagnostics {
 
 	if image == nil {
@@ -136,4 +165,12 @@ func setImage(d *schema.ResourceData, image *client.Image) diag.Diagnostics {
 	}
 
 	return nil
+}
+
+/*** Helpers ***/
+
+func hasColon(input string) bool {
+
+	parts := strings.SplitN(input, ":", 2)
+	return len(parts) == 2
 }
