@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/go-test/deep"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -12,30 +13,74 @@ import (
 
 func TestAccDataSourceCplnImages_basic(t *testing.T) {
 
-	var images client.Images
-	resourceName := "data.cpln_images.test"
+	var images client.ImagesQuery
+
+	allImagesQuery := client.Query{
+		Kind: GetString("image"),
+		Spec: &client.Spec{
+			Match: GetString("all"),
+		},
+	}
+
+	specificRepositoryQuery := client.Query{
+		Kind: GetString("image"),
+		Spec: &client.Spec{
+			Match: GetString("all"),
+			Terms: &[]client.Term{
+				{
+					Op:       GetString("="),
+					Property: GetString("repository"),
+					Value:    GetString("call-internal-service-3000"),
+				},
+			},
+		},
+	}
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t, "DATA_SOURCE_IMAGES") },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDataSourceCplnImages(),
+				Config: testAccDataSourceCplnAllImages(),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckCplnImagesExists(resourceName, &images),
-					testAccCheckControlPlaneImagesAttributes(&images),
-					resource.TestCheckResourceAttrSet(resourceName, "images.#"),
+					testAccCheckCplnImagesExists("data.cpln_images.all-images", &images, allImagesQuery),
+					testAccCheckControlPlaneImagesAttributes("data.cpln_images.all-images", &images, 19),
+					resource.TestCheckResourceAttrSet("data.cpln_images.all-images", "images.#"),
+				),
+			},
+			{
+				Config: testAccDataSourceCplnSpecificImages("call-internal-service-3000"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckCplnImagesExists("data.cpln_images.specific-images", &images, specificRepositoryQuery),
+					testAccCheckControlPlaneImagesAttributes("data.cpln_images.specific-images", &images, 5),
+					resource.TestCheckResourceAttrSet("data.cpln_images.specific-images", "images.#"),
 				),
 			},
 		},
 	})
 }
 
-func testAccDataSourceCplnImages() string {
-	return `data "cpln_images" "test" {}`
+func testAccDataSourceCplnAllImages() string {
+	return `data "cpln_images" "all-images" {}`
 }
 
-func testAccCheckCplnImagesExists(resourceName string, images *client.Images) resource.TestCheckFunc {
+func testAccDataSourceCplnSpecificImages(repository string) string {
+	return fmt.Sprintf(`data "cpln_images" "specific-images" {
+		query {
+			fetch = "items"
+			spec {
+				match = "all"
+				terms {
+					op 	     = "="
+					property = "repository"
+					value	 = "%s"
+				}
+			}
+		}
+	}`, repository)
+}
+
+func testAccCheckCplnImagesExists(resourceName string, images *client.ImagesQuery, query client.Query) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
@@ -46,8 +91,9 @@ func testAccCheckCplnImagesExists(resourceName string, images *client.Images) re
 			return fmt.Errorf("Images data source ID not set")
 		}
 
-		client := testAccProvider.Meta().(*client.Client)
-		_images, err := client.GetImages()
+		c := testAccProvider.Meta().(*client.Client)
+
+		_images, err := c.GetImagesQuery(query)
 
 		if err != nil {
 			return err
@@ -59,11 +105,17 @@ func testAccCheckCplnImagesExists(resourceName string, images *client.Images) re
 	}
 }
 
-func testAccCheckControlPlaneImagesAttributes(images *client.Images) resource.TestCheckFunc {
+func testAccCheckControlPlaneImagesAttributes(resourceName string, images *client.ImagesQuery, expectedAmount int) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
-		if len(images.Items) == 0 {
-			return fmt.Errorf("Images data source has no images")
+		amount := len(images.Items)
+
+		if amount == 0 {
+			return fmt.Errorf("%s has no images", resourceName)
+		}
+
+		if diff := deep.Equal(amount, expectedAmount); diff != nil {
+			return fmt.Errorf("%s images amount does not match. Diff: %s", resourceName, diff)
 		}
 
 		return nil

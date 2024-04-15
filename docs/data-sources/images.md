@@ -8,6 +8,45 @@ description: |-
 
 Use this data source to access information about all [Images](https://docs.controlplane.com/reference/image) within Control Plane.
 
+## Optional
+
+- **query** (Block List, Max: 1) ([see below](#nestedblock--query)).
+
+<a id="nestedblock--query"></a>
+
+### `query`
+
+Optional:
+
+- **fetch** (String) Type of fetch. Specify either: `links` or `items`. Default: `items`.
+- **spec** (Block List, Max: 1) ([see below](#nestedblock--query--spec)).
+
+<a id="nestedblock--query--spec"></a>
+
+### `query.spec`
+
+Optional:
+
+- **match** (String) Type of match. Available values: `all`, `any`, `none`. Default: `all`.
+- **terms** (Block List) ([see below](#nestedblock--query--spec--terms)).
+
+<a id="nestedblock--query--spec--terms"></a>
+
+### `query.spec.terms`
+
+<!-- Terms can only contain one of the following attributes: `property`, `rel`, `tag`. -->
+
+Terms can only contain one of the following attributes: `property`, `tag`.
+
+Optional:
+
+- **op** (String) Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.
+
+- **property** (String) Property to use for query evaluation.
+<!-- - **rel** (String) Rel to use use for query evaluation. -->
+- **tag** (String) Tag key to use for query evaluation.
+- **value** (String) Testing value for query evaluation.
+
 ## Outputs
 
 The following attributes are exported:

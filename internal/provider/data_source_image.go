@@ -1,9 +1,7 @@
 package cpln
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
@@ -45,15 +43,8 @@ func dataSourceImageRead(_ context.Context, d *schema.ResourceData, m interface{
 			},
 		}
 
-		// Marshal query into a JSON byte slice
-		jsonData, jsonError := json.Marshal(query)
-
-		if jsonError != nil {
-			return diag.FromErr(jsonError)
-		}
-
 		// Fetch latest image
-		image, err = c.GetLatestImage(name, bytes.NewBuffer(jsonData))
+		image, err = c.GetLatestImage(query)
 	}
 
 	if err != nil {
@@ -140,8 +131,6 @@ func flattenImageManifestLayers(layers *[]client.ImageManifestConfig) []interfac
 	return specs
 }
 
-/*** Helper Functions ***/
-
 func setImage(d *schema.ResourceData, image *client.Image) diag.Diagnostics {
 
 	if image == nil {
@@ -177,6 +166,8 @@ func setImage(d *schema.ResourceData, image *client.Image) diag.Diagnostics {
 
 	return nil
 }
+
+/*** Helpers ***/
 
 func hasColon(input string) bool {
 

@@ -22,21 +22,57 @@ func dataSourceImages() *schema.Resource {
 					Schema: client.ImagesSchema(),
 				},
 			},
+			"query": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem:     QuerySchemaResource(),
+			},
 		},
 	}
 }
 
 func dataSourceImagesRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
 	c := m.(*client.Client)
-	images, err := c.GetImages()
+
+	query := client.Query{
+		Kind: GetString("image"),
+		Spec: &client.Spec{
+			Match: GetString("all"),
+		},
+	}
+
+	if d.Get("query") != nil {
+		builtQuery := BuildQueryHelper("image", d.Get("query"))
+
+		if builtQuery != nil {
+			query = *builtQuery
+		}
+	}
+
+	images, err := c.GetImagesQuery(query)
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	imageItems := flattenImageItems(&images.Items)
+	return setImages(d, images)
+}
 
-	if err := d.Set("images", imageItems); err != nil {
+func setImages(d *schema.ResourceData, images *client.ImagesQuery) diag.Diagnostics {
+
+	if err := d.Set("images", flattenImageItems(&images.Items)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	flattenedQuery, err := FlattenQueryHelper(&images.Query)
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("query", flattenedQuery); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -45,8 +81,10 @@ func dataSourceImagesRead(_ context.Context, d *schema.ResourceData, m interface
 	return nil
 }
 
-/*** Flatten Functions ***/
+/*** Flatten ***/
+
 func flattenImageItems(imageItems *[]client.Image) []interface{} {
+
 	if imageItems == nil {
 		return []interface{}{}
 	}

@@ -1,9 +1,9 @@
 package cpln
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -19,13 +19,6 @@ type Image struct {
 	Repository   *string        `json:"repository,omitempty"`
 	Digest       *string        `json:"digest,omitempty"`
 	Manifest     *ImageManifest `json:"manifest,omitempty"`
-}
-
-type Images struct {
-	Kind     string  `json:"kind,omitempty"`
-	ItemKind string  `json:"itemKind,omitempty"`
-	Items    []Image `json:"items,omitempty"`
-	Links    []Link  `json:"links,omitempty"`
 }
 
 type ImagesQuery struct {
@@ -157,23 +150,20 @@ func ImageManifestConfigSchemaResource() *schema.Resource {
 
 /*** Functions ***/
 
-func (c *Client) GetLatestImage(repository string, query io.Reader) (*Image, error) {
+func (c *Client) GetImage(name string) (*Image, int, error) {
 
-	// Query all images of a repository
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/org/%s/image/-query", c.HostURL, c.Org), query)
-
-	if err != nil {
-		return nil, err
-	}
-
-	body, _, err := c.doRequest(req, "application/json")
+	image, code, err := c.GetResource(fmt.Sprintf("image/%s", name), new(Image))
 
 	if err != nil {
-		return nil, err
+		return nil, code, err
 	}
 
-	images := ImagesQuery{}
-	err = json.Unmarshal(body, &images)
+	return image.(*Image), code, err
+}
+
+func (c *Client) GetLatestImage(query Query) (*Image, error) {
+
+	images, err := c.GetImagesQuery(query)
 
 	if err != nil {
 		return nil, err
@@ -206,32 +196,28 @@ func (c *Client) GetLatestImage(repository string, query io.Reader) (*Image, err
 	return &lastestImage, nil
 }
 
-func (c *Client) GetImage(name string) (*Image, int, error) {
+func (c *Client) GetImagesQuery(query Query) (*ImagesQuery, error) {
 
-	image, code, err := c.GetResource(fmt.Sprintf("image/%s", name), new(Image))
+	// Marshal query into a JSON byte slice
+	jsonData, jsonError := json.Marshal(query)
 
-	if err != nil {
-		return nil, code, err
+	if jsonError != nil {
+		return nil, jsonError
 	}
 
-	return image.(*Image), code, err
-}
-
-func (c *Client) GetImages() (*Images, error) {
-
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/org/%s/image", c.HostURL, c.Org), nil)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/org/%s/image/-query", c.HostURL, c.Org), bytes.NewBuffer(jsonData))
 
 	if err != nil {
 		return nil, err
 	}
 
-	body, _, err := c.doRequest(req, "")
+	body, _, err := c.doRequest(req, "application/json")
 
 	if err != nil {
 		return nil, err
 	}
 
-	images := Images{}
+	images := ImagesQuery{}
 	err = json.Unmarshal(body, &images)
 
 	if err != nil {
