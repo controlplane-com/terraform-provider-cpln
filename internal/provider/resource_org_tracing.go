@@ -95,7 +95,7 @@ func setOrgTracing(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		return nil
 	}
 
-	d.SetId(*org.Name)
+	d.SetId(*org.ID)
 
 	if err := SetBase(d, org.Base); err != nil {
 		return diag.FromErr(err)
