@@ -18,6 +18,7 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 - **gvc** (String) Name of the associated GVC.
 - **initial_capacity** (Integer) The initial size in GB of volumes in this set. Minimum value: `10`.
 - **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`
+- **storage_class_suffix** (String) For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}
 - **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`
 
 ### Optional
@@ -90,10 +91,11 @@ resource "cpln_volume_set" "new" {
         acceptance_test     = "true"
     }
 
-    gvc 			  = cpln_gvc.new.name
-    initial_capacity  = 1000
-    performance_class = "high-throughput-ssd"
-    file_system_type  = "xfs"
+    gvc 			     = cpln_gvc.new.name
+    initial_capacity     = 1000
+    performance_class    = "high-throughput-ssd"
+    file_system_type     = "xfs"
+    storage_class_suffix = "demo-class"
 
     snapshots {
         create_final_snapshot = false

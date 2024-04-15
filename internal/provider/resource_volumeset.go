@@ -101,6 +101,11 @@ func resourceVolumeSet() *schema.Resource {
 				Required:    true,
 				ForceNew:    true,
 			},
+			"storage_class_suffix": {
+				Type:        schema.TypeString,
+				Description: "For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}",
+				Optional:    true,
+			},
 			"file_system_type": {
 				Type:        schema.TypeString,
 				Description: "Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`",
@@ -220,6 +225,13 @@ func setVolumeSet(d *schema.ResourceData, volumeSet *client.VolumeSet) diag.Diag
 		return diag.FromErr(err)
 	}
 
+	if volumeSet.Spec.StorageClassSuffix != nil {
+
+		if err := d.Set("storage_class_suffix", volumeSet.Spec.StorageClassSuffix); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	if err := d.Set("file_system_type", volumeSet.Spec.FileSystemType); err != nil {
 		return diag.FromErr(err)
 	}
@@ -252,6 +264,10 @@ func resourceVolumeSetCreate(ctx context.Context, d *schema.ResourceData, m inte
 		InitialCapacity:  GetInt(d.Get("initial_capacity")),
 		PerformanceClass: GetString(d.Get("performance_class")),
 		FileSystemType:   GetString(d.Get("file_system_type")),
+	}
+
+	if d.Get("storage_class_suffix") != nil {
+		volumeSet.Spec.StorageClassSuffix = GetString(d.Get("storage_class_suffix"))
 	}
 
 	if d.Get("snapshots") != nil {
@@ -295,7 +311,7 @@ func resourceVolumeSetRead(ctx context.Context, d *schema.ResourceData, m interf
 
 func resourceVolumeSetUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "initial_capacity", "performance_class", "file_system_type", "snapshots", "autoscaling") {
+	if d.HasChanges("description", "tags", "initial_capacity", "performance_class", "storage_class_suffix", "file_system_type", "snapshots", "autoscaling") {
 
 		volumeSetToUpdate := client.VolumeSet{
 			SpecReplace: &client.VolumeSetSpec{
@@ -312,6 +328,10 @@ func resourceVolumeSetUpdate(ctx context.Context, d *schema.ResourceData, m inte
 
 		if d.HasChange("tags") {
 			volumeSetToUpdate.Tags = GetTagChanges(d)
+		}
+
+		if d.HasChange("storage_class_suffix") {
+			volumeSetToUpdate.SpecReplace.StorageClassSuffix = GetString(d.Get("storage_class_suffix"))
 		}
 
 		if d.HasChange("snapshots") {

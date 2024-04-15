@@ -205,10 +205,11 @@ func testAccControlPlaneVolumeSet_allAttributes(gvcName string, name string, des
 			update              = "true"
 		}
 
-		gvc 			  = cpln_gvc.new.name
-		initial_capacity  = 1000
-		performance_class = "high-throughput-ssd"
-		file_system_type  = "xfs"
+		gvc 			  	 = cpln_gvc.new.name
+		initial_capacity  	 = 1000
+		performance_class 	 = "high-throughput-ssd"
+		file_system_type  	 = "xfs"
+		storage_class_suffix = "demo-class"
 
 		snapshots {
 			create_final_snapshot = true
@@ -264,6 +265,7 @@ func testAccControlPlaneVolumeSet_allAttributesUpdated(gvcName string, name stri
 		initial_capacity  = 1010
 		performance_class = "high-throughput-ssd"
 		file_system_type  = "xfs"
+		storage_class_suffix = "demo-class-updated"
 
 		snapshots {
 			create_final_snapshot = false
@@ -413,11 +415,13 @@ func generateTestVolumeSetSpec(state string) *client.VolumeSetSpec {
 	performanceClass := "general-purpose-ssd"
 	fileSystemType := "ext4"
 
+	var storageClassSuffix *string
+
 	if isAllAttributes {
 		initialCapacity = 1000
 		performanceClass = "high-throughput-ssd"
 		fileSystemType = "xfs"
-
+		storageClassSuffix = GetString("demo-class")
 	}
 
 	if strings.Contains(state, "update") {
@@ -425,13 +429,15 @@ func generateTestVolumeSetSpec(state string) *client.VolumeSetSpec {
 
 		if isAllAttributes {
 			initialCapacity = 1010
+			storageClassSuffix = GetString("demo-class-updated")
 		}
 	}
 
 	spec := client.VolumeSetSpec{
-		InitialCapacity:  &initialCapacity,
-		PerformanceClass: &performanceClass,
-		FileSystemType:   &fileSystemType,
+		InitialCapacity:    &initialCapacity,
+		PerformanceClass:   &performanceClass,
+		FileSystemType:     &fileSystemType,
+		StorageClassSuffix: storageClassSuffix,
 	}
 
 	if strings.Contains(state, "attributes") {
