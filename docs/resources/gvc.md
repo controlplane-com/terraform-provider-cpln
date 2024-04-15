@@ -13,10 +13,10 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 ### Required
 
 - **name** (String) Name of the GVC.
-- **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 
 ### Optional
 
+- **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 - **description** (String) Description of the GVC.
 - **tags** (Map of String) Key-value map of resource tags.
 - **domain** (String) Custom domain name used by associated workloads.
