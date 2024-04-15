@@ -10,18 +10,22 @@ import (
 
 func TestAccDataSourceCplnImage_basic(t *testing.T) {
 
-	imageName := "cpln_doc_demo:7"
-	resourceName := "data.cpln_image.test"
-
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t, "DATA_SOURCE_IMAGE") },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDataSourceCplnImage(imageName),
+				Config: testAccDataSourceCplnImage("cpln_doc_demo:7"),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckCplnImageExists(resourceName),
-					resource.TestCheckResourceAttr(resourceName, "name", imageName),
+					testAccCheckCplnImageExists("data.cpln_image.specific-image"),
+					resource.TestCheckResourceAttr("data.cpln_image.specific-image", "name", "cpln_doc_demo:7"),
+				),
+			},
+			{
+				Config: testAccDataSourceCplnLatestImage("call-internal-service-3000"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckCplnImageExists("data.cpln_image.latest-image"),
+					resource.TestCheckResourceAttr("data.cpln_image.latest-image", "name", "call-internal-service-3000:6"),
 				),
 			},
 		},
@@ -29,7 +33,13 @@ func TestAccDataSourceCplnImage_basic(t *testing.T) {
 }
 
 func testAccDataSourceCplnImage(name string) string {
-	return fmt.Sprintf(`data "cpln_image" "test" {
+	return fmt.Sprintf(`data "cpln_image" "specific-image" {
+		name = "%s"
+	}`, name)
+}
+
+func testAccDataSourceCplnLatestImage(name string) string {
+	return fmt.Sprintf(`data "cpln_image" "latest-image" {
 		name = "%s"
 	}`, name)
 }

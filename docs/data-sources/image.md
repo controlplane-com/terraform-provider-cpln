@@ -10,7 +10,7 @@ Use this data source to access information about an [Image](https://docs.control
 
 ## Required
 
-- **name** (String) Name of the image.
+- **name** (String) Name of the image. If the tag of the image is not specified, the latest image will be fetched for this data source.
 
 ## Outputs
 
@@ -51,15 +51,21 @@ Layers lists the digests of the image's layers. These layers are filesystem chan
 ## Example Usage
 
 ```terraform
-data "cpln_image" "image" {
+# Get latest image
+data "cpln_image" "image-name-only" {
+    name = "IMAGE_NAME"
+}
+
+# Get Specific image
+data "cpln_image" "image-name-with-tag" {
     name = "IMAGE_NAME:TAG"
 }
 
-output "image" {
-  value = data.cpln_image.image
+output "latest_image" {
+  value = data.cpln_image.image-name-only
 }
 
-output "image_tag" {
-  value = data.cpln_image.image.tag
+output "specific_image" {
+  value = data.cpln_image.image-name-with-tag
 }
 ```

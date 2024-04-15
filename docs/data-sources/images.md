@@ -1,10 +1,10 @@
 ---
-page_title: "cpln_image Data Source - terraform-provider-cpln"
+page_title: "cpln_images Data Source - terraform-provider-cpln"
 subcategory: "Image"
 description: |-
 ---
 
-# cpln_image (Data Source)
+# cpln_images (Data Source)
 
 Use this data source to access information about all [Images](https://docs.controlplane.com/reference/image) within Control Plane.
 

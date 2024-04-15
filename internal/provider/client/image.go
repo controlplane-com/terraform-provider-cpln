@@ -3,12 +3,24 @@ package cpln
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 /*** Structs ***/
+
+type Image struct {
+	Base
+	LastModified *string        `json:"lastModified,omitempty"`
+	Tag          *string        `json:"tag,omitempty"`
+	Repository   *string        `json:"repository,omitempty"`
+	Digest       *string        `json:"digest,omitempty"`
+	Manifest     *ImageManifest `json:"manifest,omitempty"`
+}
+
 type Images struct {
 	Kind     string  `json:"kind,omitempty"`
 	ItemKind string  `json:"itemKind,omitempty"`
@@ -16,12 +28,11 @@ type Images struct {
 	Links    []Link  `json:"links,omitempty"`
 }
 
-type Image struct {
-	Base
-	Tag        *string        `json:"tag,omitempty"`
-	Repository *string        `json:"repository,omitempty"`
-	Digest     *string        `json:"digest,omitempty"`
-	Manifest   *ImageManifest `json:"manifest,omitempty"`
+type ImagesQuery struct {
+	Kind  string  `json:"kind,omitempty"`
+	Items []Image `json:"items,omitempty"`
+	Links []Link  `json:"links,omitempty"`
+	Query Query   `json:"query,omitempty"`
 }
 
 type ImageManifest struct {
@@ -38,6 +49,7 @@ type ImageManifestConfig struct {
 }
 
 /*** Schema ***/
+
 func ImageSchema() map[string]*schema.Schema {
 
 	return map[string]*schema.Schema{
@@ -144,6 +156,56 @@ func ImageManifestConfigSchemaResource() *schema.Resource {
 }
 
 /*** Functions ***/
+
+func (c *Client) GetLatestImage(repository string, query io.Reader) (*Image, error) {
+
+	// Query all images of a repository
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/org/%s/image/-query", c.HostURL, c.Org), query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	body, _, err := c.doRequest(req, "application/json")
+
+	if err != nil {
+		return nil, err
+	}
+
+	images := ImagesQuery{}
+	err = json.Unmarshal(body, &images)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the latest image and return it
+	var lastestImage Image
+	var latestLastModified time.Time
+
+	for _, image := range images.Items {
+
+		if image.LastModified == nil {
+			continue
+		}
+
+		// Parse last modified string into a time object
+		parsedTime, err := time.Parse(time.RFC3339, *image.LastModified)
+
+		if err != nil {
+			return nil, err
+		}
+
+		// Compare last modified
+		if parsedTime.After(latestLastModified) {
+			lastestImage = image
+			latestLastModified = parsedTime
+		}
+	}
+
+	return &lastestImage, nil
+}
+
 func (c *Client) GetImage(name string) (*Image, int, error) {
 
 	image, code, err := c.GetResource(fmt.Sprintf("image/%s", name), new(Image))
