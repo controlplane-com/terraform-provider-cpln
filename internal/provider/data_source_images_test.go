@@ -13,7 +13,7 @@ import (
 
 func TestAccDataSourceCplnImages_basic(t *testing.T) {
 
-	var images client.ImagesQuery
+	var images client.ImagesQueryResult
 
 	allImagesQuery := client.Query{
 		Kind: GetString("image"),
@@ -80,7 +80,7 @@ func testAccDataSourceCplnSpecificImages(repository string) string {
 	}`, repository)
 }
 
-func testAccCheckCplnImagesExists(resourceName string, images *client.ImagesQuery, query client.Query) resource.TestCheckFunc {
+func testAccCheckCplnImagesExists(resourceName string, images *client.ImagesQueryResult, query client.Query) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[resourceName]
 		if !ok {
@@ -105,7 +105,7 @@ func testAccCheckCplnImagesExists(resourceName string, images *client.ImagesQuer
 	}
 }
 
-func testAccCheckControlPlaneImagesAttributes(resourceName string, images *client.ImagesQuery, expectedAmount int) resource.TestCheckFunc {
+func testAccCheckControlPlaneImagesAttributes(resourceName string, images *client.ImagesQueryResult, expectedAmount int) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		amount := len(images.Items)
