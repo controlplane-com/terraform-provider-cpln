@@ -10,11 +10,12 @@ type VolumeSet struct {
 }
 
 type VolumeSetSpec struct {
-	InitialCapacity  *int                `json:"initialCapacity,omitempty"`
-	PerformanceClass *string             `json:"performanceClass,omitempty"`
-	FileSystemType   *string             `json:"fileSystemType,omitempty"`
-	Snapshots        *VolumeSetSnapshots `json:"snapshots,omitempty"`
-	AutoScaling      *VolumeSetScaling   `json:"autoscaling,omitempty"`
+	InitialCapacity    *int                `json:"initialCapacity,omitempty"`
+	PerformanceClass   *string             `json:"performanceClass,omitempty"`
+	StorageClassSuffix *string             `json:"storageClassSuffix,omitempty"`
+	FileSystemType     *string             `json:"fileSystemType,omitempty"`
+	Snapshots          *VolumeSetSnapshots `json:"snapshots,omitempty"`
+	AutoScaling        *VolumeSetScaling   `json:"autoscaling,omitempty"`
 }
 
 type VolumeSetStatus struct {
