@@ -840,7 +840,8 @@ func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
 }
 
 /*** Unit Tests ***/
-// Build Functions //
+
+// Build //
 
 func TestControlPlane_BuildS3Logging(t *testing.T) {
 	s3Logging, expectedS3Logging, _ := generateTestS3Logging()
@@ -881,6 +882,15 @@ func TestControlPlane_BuildElasticLogging(t *testing.T) {
 	elasticLogging, expectedElasticLogging, _ := generateTestElasticLogging("")
 	if diff := deep.Equal(elasticLogging, expectedElasticLogging); diff != nil {
 		t.Errorf("AWS Logging was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildStackdriverLogging(t *testing.T) {
+
+	logging, expectedLogging, _ := generateTestStackdriverLogging()
+
+	if diff := deep.Equal(logging, expectedLogging); diff != nil {
+		t.Errorf("Stackdriver Logging was not built correctly. Diff: %s", diff)
 	}
 }
 
@@ -1083,6 +1093,25 @@ func generateTestElasticLogging(loggingType string) ([]client.Logging, []client.
 	return elasticLogging, output, flattened
 }
 
+func generateTestStackdriverLogging() ([]client.Logging, []client.Logging, []interface{}) {
+
+	credentials := "/org/terraform-test-org/secret/opaque-random-stackdriver-tbd"
+	location := "us-east4"
+
+	flattened := generateFlatTestStackdriverLogging(credentials, location)
+	stackdriver := buildStackdriverLogging(flattened)
+	expectedStackdriver := []client.Logging{
+		{
+			Stackdriver: &client.StackdriverLogging{
+				Credentials: &credentials,
+				Location:    &location,
+			},
+		},
+	}
+
+	return stackdriver, expectedStackdriver, flattened
+}
+
 func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interface{}) {
 	host := "es.amazonaws.com"
 	port := 8080
@@ -1225,6 +1254,18 @@ func generateFlatTestElasticLogging(awsLogging []interface{}, elasticCloudLoggin
 
 	if genericLogging != nil {
 		spec["generic"] = genericLogging
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestStackdriverLogging(credentials string, location string) []interface{} {
+
+	spec := map[string]interface{}{
+		"credentials": credentials,
+		"location":    location,
 	}
 
 	return []interface{}{

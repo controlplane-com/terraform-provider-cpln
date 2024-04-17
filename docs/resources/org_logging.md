@@ -19,6 +19,7 @@ You can define up to **four** logging blocks:
 - **datadog_logging** (Block List, Max: 1) ([see below](#nestedblock--datadog_logging)).
 - **elastic_logging** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging)).
 - **logzio_logging** (Block List, Max: 1) ([see below](#nestedblock--logzio_logging)).
+- **stackdriver_logging** (Block List, Max: 1) ([see below](#nestedblock--stackdriver_logging))
 
 <a id="nestedblock--s3_logging"></a>
 
@@ -120,6 +121,15 @@ Required:
 - **credentials** (String) Full link to referenced Opaque Secret.
 
 ~> **Note** Valid listener hosts: `listener.logz.io`, `listener-nl.logz.io`
+
+<a id="nestedblock--stackdriver_logging"></a>
+
+### `stackdriver_logging`
+
+Required:
+
+- **credentials** (String) Full link to referenced Opaque Secret.
+- **location** (String) A Google Cloud Provider region.
 
 ## Outputs
 
@@ -367,6 +377,39 @@ resource "cpln_org_logging" "new" {
       // UserPass Secret Only
       credentials = cpln_secret.userpass.self_link
     }
+  }
+}
+```
+
+### Stackdriver
+
+```terraform
+resource "cpln_secret" "opaque" {
+
+  name        = "opaque-random-stackdriver-tbd"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "new" {
+
+  stackdriver_logging {
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+
+    // GCP Region
+    location = "us-east4"
   }
 }
 ```

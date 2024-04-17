@@ -86,13 +86,19 @@ type GenericLogging struct {
 	Credentials *string `json:"credentials,omitempty"`
 }
 
+type StackdriverLogging struct {
+	Credentials *string `json:"credentials,omitempty"`
+	Location    *string `json:"location,omitempty"`
+}
+
 // Logging - Logging
 type Logging struct {
-	S3        *S3Logging        `json:"s3,omitempty"`
-	Coralogix *CoralogixLogging `json:"coralogix,omitempty"`
-	Datadog   *DatadogLogging   `json:"datadog,omitempty"`
-	Logzio    *LogzioLogging    `json:"logzio,omitempty"`
-	Elastic   *ElasticLogging   `json:"elastic,omitempty"`
+	S3          *S3Logging          `json:"s3,omitempty"`
+	Coralogix   *CoralogixLogging   `json:"coralogix,omitempty"`
+	Datadog     *DatadogLogging     `json:"datadog,omitempty"`
+	Logzio      *LogzioLogging      `json:"logzio,omitempty"`
+	Elastic     *ElasticLogging     `json:"elastic,omitempty"`
+	Stackdriver *StackdriverLogging `json:"stackdriver,omitempty"`
 }
 
 // AuthConfig - AuthConfig

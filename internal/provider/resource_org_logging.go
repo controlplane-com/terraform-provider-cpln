@@ -13,7 +13,7 @@ import (
 var resourceLock = &sync.Mutex{}
 
 var loggingNames = []string{
-	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging",
+	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "stackdriver_logging",
 }
 
 func resourceOrgLogging() *schema.Resource {
@@ -259,6 +259,24 @@ func resourceOrgLogging() *schema.Resource {
 					},
 				},
 			},
+			"stackdriver_logging": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"credentials": {
+							Type:        schema.TypeString,
+							Description: "Full Link to a secret of type `aws`.",
+							Required:    true,
+						},
+						"location": {
+							Type:        schema.TypeString,
+							Description: "A Google Cloud Provider region.",
+							Required:    true,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -315,7 +333,7 @@ func resourceOrgLoggingUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	// log.Printf("[INFO] Method: resourceOrgUpdate")
 
-	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging") {
+	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "stackdriver_logging") {
 
 		c := m.(*client.Client)
 
@@ -355,7 +373,95 @@ func resourceOrgLoggingDelete(ctx context.Context, d *schema.ResourceData, m int
 	return nil
 }
 
-/*** Build Functions ***/
+func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
+
+	if org == nil {
+		d.SetId("")
+		return nil
+	}
+
+	d.SetId(*org.Name)
+
+	if err := SetBase(d, org.Base); err != nil {
+		return diag.FromErr(err)
+	}
+
+	loggings := []client.Logging{}
+
+	if org.Spec != nil {
+
+		if org.Spec.Logging != nil {
+			loggings = append(loggings, *org.Spec.Logging)
+		}
+
+		if org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) > 0 {
+			loggings = append(loggings, *org.Spec.ExtraLogging...)
+		}
+
+		var s3Array []client.S3Logging
+		var coralogixArray []client.CoralogixLogging
+		var dataDogArray []client.DatadogLogging
+		var logzioArray []client.LogzioLogging
+		var elasticArray []client.ElasticLogging
+		var stackdriverArray []client.StackdriverLogging
+
+		for _, logging := range loggings {
+
+			if logging.S3 != nil {
+				s3Array = append(s3Array, *logging.S3)
+			}
+
+			if logging.Coralogix != nil {
+				coralogixArray = append(coralogixArray, *logging.Coralogix)
+			}
+
+			if logging.Datadog != nil {
+				dataDogArray = append(dataDogArray, *logging.Datadog)
+			}
+
+			if logging.Logzio != nil {
+				logzioArray = append(logzioArray, *logging.Logzio)
+			}
+
+			if logging.Elastic != nil {
+				elasticArray = append(elasticArray, *logging.Elastic)
+			}
+
+			if logging.Stackdriver != nil {
+				stackdriverArray = append(stackdriverArray, *logging.Stackdriver)
+			}
+		}
+
+		if err := d.Set("s3_logging", flattenS3Logging(s3Array)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("coralogix_logging", flattenCoralogixLogging(coralogixArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("datadog_logging", flattenDatadogLogging(dataDogArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("logzio_logging", flattenLogzioLogging(logzioArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("elastic_logging", flattenElasticLogging(elasticArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("stackdriver_logging", flattenStackdriverLogging(stackdriverArray)); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	return nil
+}
+
+/*** Build ***/
+
 func buildS3Logging(logging []interface{}) []client.Logging {
 
 	if len(logging) > 0 {
@@ -517,6 +623,35 @@ func buildElasticLogging(logging []interface{}) []client.Logging {
 	return nil
 }
 
+func buildStackdriverLogging(logging []interface{}) []client.Logging {
+
+	if len(logging) == 0 {
+		return nil
+	}
+
+	var output []client.Logging
+
+	for _, logs := range logging {
+
+		if logs == nil {
+			continue
+		}
+
+		log := logs.(map[string]interface{})
+
+		tempLogging := client.Logging{
+			Stackdriver: &client.StackdriverLogging{
+				Credentials: GetString(log["credentials"].(string)),
+				Location:    GetString(log["location"].(string)),
+			},
+		}
+
+		output = append(output, tempLogging)
+	}
+
+	return output
+}
+
 func buildAWSLogging(logging []interface{}) *client.AWSLogging {
 
 	if len(logging) == 0 || logging[0] == nil {
@@ -574,7 +709,8 @@ func buildGenericLogging(specs []interface{}) *client.GenericLogging {
 	}
 }
 
-/*** Flatten Functions ***/
+/*** Flatten ***/
+
 func flattenS3Logging(logs []client.S3Logging) []interface{} {
 
 	if len(logs) > 0 {
@@ -698,6 +834,27 @@ func flattenElasticLogging(logs []client.ElasticLogging) []interface{} {
 	return nil
 }
 
+func flattenStackdriverLogging(logs []client.StackdriverLogging) []interface{} {
+
+	if len(logs) == 0 {
+		return nil
+	}
+
+	output := make([]interface{}, len(logs))
+
+	for i, log := range logs {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["credentials"] = *log.Credentials
+		outputMap["location"] = *log.Location
+
+		output[i] = outputMap
+	}
+
+	return output
+}
+
 func flattenAWSLogging(log *client.AWSLogging) []interface{} {
 
 	if log == nil {
@@ -756,83 +913,6 @@ func flattenGenericLogging(logging *client.GenericLogging) []interface{} {
 }
 
 /*** Helper Functions ***/
-func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
-
-	if org == nil {
-		d.SetId("")
-		return nil
-	}
-
-	d.SetId(*org.Name)
-
-	if err := SetBase(d, org.Base); err != nil {
-		return diag.FromErr(err)
-	}
-
-	loggings := []client.Logging{}
-
-	if org.Spec != nil {
-
-		if org.Spec.Logging != nil {
-			loggings = append(loggings, *org.Spec.Logging)
-		}
-
-		if org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) > 0 {
-			loggings = append(loggings, *org.Spec.ExtraLogging...)
-		}
-
-		var s3Array []client.S3Logging
-		var coralogixArray []client.CoralogixLogging
-		var dataDogArray []client.DatadogLogging
-		var logzioArray []client.LogzioLogging
-		var elasticArray []client.ElasticLogging
-
-		for _, logging := range loggings {
-
-			if logging.S3 != nil {
-				s3Array = append(s3Array, *logging.S3)
-			}
-
-			if logging.Coralogix != nil {
-				coralogixArray = append(coralogixArray, *logging.Coralogix)
-			}
-
-			if logging.Datadog != nil {
-				dataDogArray = append(dataDogArray, *logging.Datadog)
-			}
-
-			if logging.Logzio != nil {
-				logzioArray = append(logzioArray, *logging.Logzio)
-			}
-
-			if logging.Elastic != nil {
-				elasticArray = append(elasticArray, *logging.Elastic)
-			}
-		}
-
-		if err := d.Set("s3_logging", flattenS3Logging(s3Array)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("coralogix_logging", flattenCoralogixLogging(coralogixArray)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("datadog_logging", flattenDatadogLogging(dataDogArray)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("logzio_logging", flattenLogzioLogging(logzioArray)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("elastic_logging", flattenElasticLogging(elasticArray)); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	return nil
-}
 
 func orgLoggingValidate(loggings []client.Logging) diag.Diagnostics {
 
@@ -873,6 +953,8 @@ func buildMultipleLoggings(d *schema.ResourceData, loggingTypes ...string) []cli
 			loggingToAdd = buildLogzioLogging(logArray)
 		case "elastic_logging":
 			loggingToAdd = buildElasticLogging(logArray)
+		case "stackdriver_logging":
+			loggingToAdd = buildStackdriverLogging(logArray)
 		default:
 			continue
 		}
