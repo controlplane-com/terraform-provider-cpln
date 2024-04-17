@@ -60,7 +60,7 @@ func dataSourceImagesRead(_ context.Context, d *schema.ResourceData, m interface
 	return setImages(d, images)
 }
 
-func setImages(d *schema.ResourceData, images *client.ImagesQuery) diag.Diagnostics {
+func setImages(d *schema.ResourceData, images *client.ImagesQueryResult) diag.Diagnostics {
 
 	if err := d.Set("images", flattenImageItems(&images.Items)); err != nil {
 		return diag.FromErr(err)

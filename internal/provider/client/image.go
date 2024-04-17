@@ -21,7 +21,7 @@ type Image struct {
 	Manifest     *ImageManifest `json:"manifest,omitempty"`
 }
 
-type ImagesQuery struct {
+type ImagesQueryResult struct {
 	Kind  string  `json:"kind,omitempty"`
 	Items []Image `json:"items,omitempty"`
 	Links []Link  `json:"links,omitempty"`
@@ -196,7 +196,7 @@ func (c *Client) GetLatestImage(query Query) (*Image, error) {
 	return &lastestImage, nil
 }
 
-func (c *Client) GetImagesQuery(query Query) (*ImagesQuery, error) {
+func (c *Client) GetImagesQuery(query Query) (*ImagesQueryResult, error) {
 
 	// Marshal query into a JSON byte slice
 	jsonData, jsonError := json.Marshal(query)
@@ -217,11 +217,35 @@ func (c *Client) GetImagesQuery(query Query) (*ImagesQuery, error) {
 		return nil, err
 	}
 
-	images := ImagesQuery{}
+	images := ImagesQueryResult{}
 	err = json.Unmarshal(body, &images)
 
 	if err != nil {
 		return nil, err
+	}
+
+	nextLink := GetLinkHref(images.Links, "next")
+
+	for {
+
+		if nextLink == nil {
+			break
+		}
+
+		nextPage, _, err := c.Get(*nextLink, new(ImagesQueryResult))
+
+		if err != nil {
+			return nil, err
+		}
+
+		newQueryResult := nextPage.(*ImagesQueryResult)
+		nextLink = GetLinkHref(newQueryResult.Links, "next")
+
+		// Append items of next page
+		images.Items = append(images.Items, newQueryResult.Items...)
+
+		// Make links valid
+		images.Links = newQueryResult.Links
 	}
 
 	return &images, nil

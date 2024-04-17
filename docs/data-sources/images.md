@@ -92,9 +92,29 @@ Layers lists the digests of the image's layers. These layers are filesystem chan
 ## Example Usage
 
 ```terraform
-data "cpln_images" "images" { }
+data "cpln_images" "images" {}
 
 output "images" {
   value = data.cpln_images.images.images
 }
+
+# Get Specific Images of a Repository
+data "cpln_images" "images-query" {
+  query {
+    fetch = "items"
+    spec {
+      match = "all"
+      terms {
+        op       = "="
+        property = "repository"
+        value    = "REPOSITORY_NAME"
+      }
+    }
+  }
+}
+
+output "images-of-specific-repository" {
+  value = data.cpln_images.images.images-query
+}
+
 ```

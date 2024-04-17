@@ -117,6 +117,35 @@ func (c *Client) doRequest(req *http.Request, contentType string, optionalTokens
 	return body, res.StatusCode, err
 }
 
+func (c *Client) Get(link string, resource interface{}) (interface{}, int, error) {
+
+	// Remove leading slash
+	if link[0] == '/' {
+		link = link[1:]
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", c.HostURL, link), nil)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	body, code, err := c.doRequest(req, "")
+
+	if err != nil {
+		return nil, code, err
+	}
+
+	vp := reflect.New(reflect.TypeOf(resource).Elem())
+	err = json.Unmarshal(body, vp.Interface())
+
+	if err != nil {
+		return nil, code, err
+	}
+
+	return vp.Interface(), code, nil
+}
+
 func (c *Client) GetResource(id string, resource interface{}) (interface{}, int, error) {
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/org/%s/%s", c.HostURL, c.Org, id), nil)
