@@ -86,6 +86,19 @@ type GenericLogging struct {
 	Credentials *string `json:"credentials,omitempty"`
 }
 
+type CloudWatchLogging struct {
+	Region        *string `json:"region,omitempty"`
+	Credentials   *string `json:"credentials,omitempty"`
+	RetentionDays *int    `json:"retentionDays,omitempty"`
+	GroupName     *string `json:"groupName,omitempty"`
+	StreamName    *string `json:"streamName,omitempty"`
+}
+
+type FluentdLogging struct {
+	Host *string `json:"host,omitempty"`
+	Port *int    `json:"port,omitempty"`
+}
+
 type StackdriverLogging struct {
 	Credentials *string `json:"credentials,omitempty"`
 	Location    *string `json:"location,omitempty"`
@@ -98,6 +111,8 @@ type Logging struct {
 	Datadog     *DatadogLogging     `json:"datadog,omitempty"`
 	Logzio      *LogzioLogging      `json:"logzio,omitempty"`
 	Elastic     *ElasticLogging     `json:"elastic,omitempty"`
+	CloudWatch  *CloudWatchLogging  `json:"cloudWatch,omitempty"`
+	Fluentd     *FluentdLogging     `json:"fluentd,omitempty"`
 	Stackdriver *StackdriverLogging `json:"stackdriver,omitempty"`
 }
 

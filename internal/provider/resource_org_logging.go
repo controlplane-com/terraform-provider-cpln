@@ -13,7 +13,7 @@ import (
 var resourceLock = &sync.Mutex{}
 
 var loggingNames = []string{
-	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "stackdriver_logging",
+	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging",
 }
 
 func resourceOrgLogging() *schema.Resource {
@@ -259,6 +259,58 @@ func resourceOrgLogging() *schema.Resource {
 					},
 				},
 			},
+			"cloud_watch_logging": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"region": {
+							Type:        schema.TypeString,
+							Description: "Valid AWS region.",
+							Required:    true,
+						},
+						"credentials": {
+							Type:        schema.TypeString,
+							Description: "Full Link to a secret of type `opaque`.",
+							Required:    true,
+						},
+						"retention_days": {
+							Type:        schema.TypeInt,
+							Description: "TODO: Add description",
+							Optional:    true,
+						},
+						"group_name": {
+							Type:        schema.TypeString,
+							Description: "TODO: Add description",
+							Required:    true,
+						},
+						"stream_name": {
+							Type:        schema.TypeString,
+							Description: "TODO: Add description",
+							Required:    true,
+						},
+					},
+				},
+			},
+			"fluentd_logging": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"host": {
+							Type:        schema.TypeString,
+							Description: "TODO: Add description",
+							Required:    true,
+						},
+						"port": {
+							Type:        schema.TypeInt,
+							Description: "Port. Default: 24224",
+							Optional:    true,
+							Default:     24224,
+						},
+					},
+				},
+			},
 			"stackdriver_logging": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -266,7 +318,7 @@ func resourceOrgLogging() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"credentials": {
 							Type:        schema.TypeString,
-							Description: "Full Link to a secret of type `aws`.",
+							Description: "Full Link to a secret of type `opaque`.",
 							Required:    true,
 						},
 						"location": {
@@ -333,7 +385,7 @@ func resourceOrgLoggingUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	// log.Printf("[INFO] Method: resourceOrgUpdate")
 
-	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "stackdriver_logging") {
+	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging") {
 
 		c := m.(*client.Client)
 
@@ -403,6 +455,8 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		var dataDogArray []client.DatadogLogging
 		var logzioArray []client.LogzioLogging
 		var elasticArray []client.ElasticLogging
+		var cloudWatchArray []client.CloudWatchLogging
+		var fluentdArray []client.FluentdLogging
 		var stackdriverArray []client.StackdriverLogging
 
 		for _, logging := range loggings {
@@ -427,6 +481,14 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 				elasticArray = append(elasticArray, *logging.Elastic)
 			}
 
+			if logging.CloudWatch != nil {
+				cloudWatchArray = append(cloudWatchArray, *logging.CloudWatch)
+			}
+
+			if logging.Fluentd != nil {
+				fluentdArray = append(fluentdArray, *logging.Fluentd)
+			}
+
 			if logging.Stackdriver != nil {
 				stackdriverArray = append(stackdriverArray, *logging.Stackdriver)
 			}
@@ -449,6 +511,14 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		}
 
 		if err := d.Set("elastic_logging", flattenElasticLogging(elasticArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("cloud_watch_logging", flattenCloudWatchLogging(cloudWatchArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("fluentd_logging", flattenFluentdLogging(fluentdArray)); err != nil {
 			return diag.FromErr(err)
 		}
 
@@ -621,6 +691,67 @@ func buildElasticLogging(logging []interface{}) []client.Logging {
 	}
 
 	return nil
+}
+
+func buildCloudWatchLogging(logging []interface{}) []client.Logging {
+
+	if len(logging) == 0 {
+		return nil
+	}
+
+	var output []client.Logging
+
+	for _, logs := range logging {
+
+		if logs == nil {
+			continue
+		}
+
+		log := logs.(map[string]interface{})
+
+		tempLogging := client.Logging{
+			CloudWatch: &client.CloudWatchLogging{
+				Region:        GetString(log["region"].(string)),
+				Credentials:   GetString(log["credentials"].(string)),
+				RetentionDays: GetInt(log["retention_days"]),
+				GroupName:     GetString(log["group_name"].(string)),
+				StreamName:    GetString(log["stream_name"].(string)),
+			},
+		}
+
+		output = append(output, tempLogging)
+	}
+
+	return output
+}
+
+func buildFluentdLogging(logging []interface{}) []client.Logging {
+
+	if len(logging) == 0 {
+		return nil
+	}
+
+	var output []client.Logging
+
+	for _, logs := range logging {
+
+		if logs == nil {
+			continue
+		}
+
+		log := logs.(map[string]interface{})
+
+		tempLogging := client.Logging{
+			Fluentd: &client.FluentdLogging{
+				Host: GetString(log["host"].(string)),
+				Port: GetInt(log["port"].(int)),
+			},
+		}
+
+		output = append(output, tempLogging)
+	}
+
+	return output
 }
 
 func buildStackdriverLogging(logging []interface{}) []client.Logging {
@@ -834,6 +965,55 @@ func flattenElasticLogging(logs []client.ElasticLogging) []interface{} {
 	return nil
 }
 
+func flattenCloudWatchLogging(logs []client.CloudWatchLogging) []interface{} {
+
+	if len(logs) == 0 {
+		return nil
+	}
+
+	output := make([]interface{}, len(logs))
+
+	for i, log := range logs {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["region"] = *log.Region
+		outputMap["credentials"] = *log.Credentials
+
+		if log.RetentionDays != nil {
+			outputMap["retention_days"] = *log.RetentionDays
+		}
+
+		outputMap["group_name"] = *log.GroupName
+		outputMap["stream_name"] = *log.StreamName
+
+		output[i] = outputMap
+	}
+
+	return output
+}
+
+func flattenFluentdLogging(logs []client.FluentdLogging) []interface{} {
+
+	if len(logs) == 0 {
+		return nil
+	}
+
+	output := make([]interface{}, len(logs))
+
+	for i, log := range logs {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["host"] = *log.Host
+		outputMap["port"] = *log.Port
+
+		output[i] = outputMap
+	}
+
+	return output
+}
+
 func flattenStackdriverLogging(logs []client.StackdriverLogging) []interface{} {
 
 	if len(logs) == 0 {
@@ -953,6 +1133,10 @@ func buildMultipleLoggings(d *schema.ResourceData, loggingTypes ...string) []cli
 			loggingToAdd = buildLogzioLogging(logArray)
 		case "elastic_logging":
 			loggingToAdd = buildElasticLogging(logArray)
+		case "cloud_watch_logging":
+			loggingToAdd = buildCloudWatchLogging(logArray)
+		case "fluentd_logging":
+			loggingToAdd = buildFluentdLogging(logArray)
 		case "stackdriver_logging":
 			loggingToAdd = buildStackdriverLogging(logArray)
 		default:

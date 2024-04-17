@@ -19,6 +19,8 @@ You can define up to **four** logging blocks:
 - **datadog_logging** (Block List, Max: 1) ([see below](#nestedblock--datadog_logging)).
 - **elastic_logging** (Block List, Max: 1) ([see below](#nestedblock--elastic_logging)).
 - **logzio_logging** (Block List, Max: 1) ([see below](#nestedblock--logzio_logging)).
+- **cloud_watch_logging** (Block List, Max: 1) ([see below](#nestedblock--cloud_watch_logging))
+- **fluentd_logging** (Block List, Max: 1) ([see below](#nestedblock--fluentd_logging))
 - **stackdriver_logging** (Block List, Max: 1) ([see below](#nestedblock--stackdriver_logging))
 
 <a id="nestedblock--s3_logging"></a>
@@ -121,6 +123,30 @@ Required:
 - **credentials** (String) Full link to referenced Opaque Secret.
 
 ~> **Note** Valid listener hosts: `listener.logz.io`, `listener-nl.logz.io`
+
+<a id="nestedblock--cloud_watch_logging"></a>
+
+### `cloud_watch_logging`
+
+Required:
+
+- **region** (String) Valid AWS region.
+- **credentials** (String) Full link to referenced Opaque Secret.
+- **group_name** (String) TODO: Add description
+- **stream_name** (String) TODO: Add description
+
+Optional:
+
+- **retention_days** (String) TODO: Add description
+
+<a id="nestedblock--fluentd_logging"></a>
+
+### `fluentd_logging`
+
+Required:
+
+- **host** (String) TODO: Add description
+- **port** (String) Port. Default: 24224
 
 <a id="nestedblock--stackdriver_logging"></a>
 
@@ -377,6 +403,54 @@ resource "cpln_org_logging" "new" {
       // UserPass Secret Only
       credentials = cpln_secret.userpass.self_link
     }
+  }
+}
+```
+
+### Cloud Watch
+
+```terraform
+resource "cpln_secret" "opaque" {
+
+  name        = "opaque-random-cloud-watch-tbd"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "new" {
+
+  cloud_watch_logging {
+
+    region         = "us-east-1"
+	  retention_days = 1
+	  group_name     = "demo-group-name"
+	  stream_name    = "demo-stream-name"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+  }
+}
+```
+
+### Fluentd
+
+```terraform
+resource "cpln_org_logging" "new" {
+
+  fluentd_logging {
+
+    host = "example.com"
+	  port = 24224
   }
 }
 ```
