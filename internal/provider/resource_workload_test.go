@@ -884,7 +884,7 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 		options {
 			capacity_ai     = false
 			timeout_seconds = 30
-			suspend         = true
+			suspend         = false
 	
 			autoscaling {
 				metric              = "concurrency"
@@ -1501,7 +1501,7 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 		options {
 			capacity_ai     = false
 			timeout_seconds = 30
-			suspend         = true
+			suspend         = false
 	
 			autoscaling {
 				metric              = "concurrency"
