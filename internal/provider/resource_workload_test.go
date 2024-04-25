@@ -690,12 +690,12 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	  
 		options {
 		  suspend     = false
-		  capacity_ai = false
+		  #capacity_ai = false
 	  
-		  autoscaling {
-			min_scale = 1
-			max_scale = 1
-		  }
+		  #autoscaling {
+		#	min_scale = 1
+		#	max_scale = 1
+		  #}
 		}
 	  
 		firewall_spec {
@@ -1744,17 +1744,17 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		}
 		 	  	  
 		options {
-		  capacity_ai = false
-		  timeout_seconds = 5
+		  #capacity_ai = false
+		  #timeout_seconds = 5
 		  suspend = false
 	  
-		  autoscaling {
-			target = 100
-			max_scale = 1
-			min_scale = 1
-			max_concurrency = 0
-			scale_to_zero_delay = 300
-		  }
+		  #autoscaling {
+		#	target = 100
+		#	max_scale = 1
+		#	min_scale = 1
+		#	max_concurrency = 0
+		#	scale_to_zero_delay = 300
+		#  }
 		}
 
 		local_options {
@@ -2341,18 +2341,18 @@ func generateTestOptions(workloadType string) *client.Options {
 
 	if workloadType == "cron" {
 		return &client.Options{
-			CapacityAI:     GetBool(false),
-			TimeoutSeconds: GetInt(5),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
+			// CapacityAI:     GetBool(false),
+			// TimeoutSeconds: GetInt(5),
+			// Debug:          GetBool(false),
+			Suspend: GetBool(false),
 
-			AutoScaling: &client.AutoScaling{
-				Target:           GetInt(95),
-				MaxScale:         GetInt(1),
-				MinScale:         GetInt(1),
-				MaxConcurrency:   GetInt(0),
-				ScaleToZeroDelay: GetInt(300),
-			},
+			// AutoScaling: &client.AutoScaling{
+			// 	Target:           GetInt(95),
+			// 	MaxScale:         GetInt(1),
+			// 	MinScale:         GetInt(1),
+			// 	MaxConcurrency:   GetInt(0),
+			// 	ScaleToZeroDelay: GetInt(300),
+			// },
 		}
 	}
 
