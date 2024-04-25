@@ -29,22 +29,8 @@ func dataSourceImageRead(_ context.Context, d *schema.ResourceData, m interface{
 	if hasColon {
 		image, _, err = c.GetImage(name)
 	} else {
-		query := client.Query{
-			Kind: GetString("image"),
-			Spec: &client.Spec{
-				Match: GetString("all"),
-				Terms: &[]client.Term{
-					{
-						Op:       GetString("="),
-						Property: GetString("repository"),
-						Value:    GetString(name),
-					},
-				},
-			},
-		}
-
 		// Fetch latest image
-		image, err = c.GetLatestImage(query)
+		image, _, err = c.GetLatestImage(name)
 	}
 
 	if err != nil {

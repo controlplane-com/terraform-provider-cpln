@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -161,39 +160,15 @@ func (c *Client) GetImage(name string) (*Image, int, error) {
 	return image.(*Image), code, err
 }
 
-func (c *Client) GetLatestImage(query Query) (*Image, error) {
+func (c *Client) GetLatestImage(name string) (*Image, int, error) {
 
-	images, err := c.GetImagesQuery(query)
+	image, code, err := c.GetResource(fmt.Sprintf("image/-latest/%s", name), new(Image))
 
 	if err != nil {
-		return nil, err
+		return nil, code, err
 	}
 
-	// Find the latest image and return it
-	var lastestImage Image
-	var latestLastModified time.Time
-
-	for _, image := range images.Items {
-
-		if image.LastModified == nil {
-			continue
-		}
-
-		// Parse last modified string into a time object
-		parsedTime, err := time.Parse(time.RFC3339, *image.LastModified)
-
-		if err != nil {
-			return nil, err
-		}
-
-		// Compare last modified
-		if parsedTime.After(latestLastModified) {
-			lastestImage = image
-			latestLastModified = parsedTime
-		}
-	}
-
-	return &lastestImage, nil
+	return image.(*Image), code, err
 }
 
 func (c *Client) GetImagesQuery(query Query) (*ImagesQueryResult, error) {
