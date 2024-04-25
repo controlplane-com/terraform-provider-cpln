@@ -884,7 +884,7 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 		options {
 			capacity_ai     = false
 			timeout_seconds = 30
-			suspend         = false
+			suspend         = true
 	
 			autoscaling {
 				metric              = "concurrency"
@@ -1416,11 +1416,11 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 			} 
 
 		  	memory = "7Gi"
-		  	cpu    = "2"
+		  	cpu    = "1"
 
 			gpu_nvidia {
 				model 	 = "t1"
-				quantity = 0
+				quantity = 1
 			}
 	  
 			command           = "override-command"
@@ -1501,7 +1501,7 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 		options {
 			capacity_ai     = false
 			timeout_seconds = 30
-			suspend         = false
+			suspend         = true
 	
 			autoscaling {
 				metric              = "concurrency"
