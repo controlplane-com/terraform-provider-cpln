@@ -276,17 +276,17 @@ func resourceOrgLogging() *schema.Resource {
 						},
 						"retention_days": {
 							Type:        schema.TypeInt,
-							Description: "TODO: Add description",
+							Description: "Length, in days, for how log data is kept before it is automatically deleted.",
 							Optional:    true,
 						},
 						"group_name": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "A container for log streams with common settings like retention. Used to categorize logs by application or service type.",
 							Required:    true,
 						},
 						"stream_name": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "A sequence of log events from the same source within a log group. Typically represents individual instances of services or applications.",
 							Required:    true,
 						},
 					},
@@ -299,7 +299,7 @@ func resourceOrgLogging() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"host": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "The hostname or IP address of a remote log storage system.",
 							Required:    true,
 						},
 						"port": {

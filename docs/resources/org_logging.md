@@ -132,12 +132,14 @@ Required:
 
 - **region** (String) Valid AWS region.
 - **credentials** (String) Full link to referenced Opaque Secret.
-- **group_name** (String) TODO: Add description
-- **stream_name** (String) TODO: Add description
+- **group_name** (String) A container for log streams with common settings like retention. Used to categorize logs by application or service type.
+- **stream_name** (String) A sequence of log events from the same source within a log group. Typically represents individual instances of services or applications.
+
+~> **Note** For the group/stream name: Use $stream, $location, $provider, $replica, $workload, $gvc, $org, $container, $version to template.
 
 Optional:
 
-- **retention_days** (String) TODO: Add description
+- **retention_days** (String) Length, in days, for how log data is kept before it is automatically deleted.
 
 <a id="nestedblock--fluentd_logging"></a>
 
@@ -145,7 +147,7 @@ Optional:
 
 Required:
 
-- **host** (String) TODO: Add description
+- **host** (String) The hostname or IP address of a remote log storage system.
 - **port** (String) Port. Default: 24224
 
 <a id="nestedblock--stackdriver_logging"></a>

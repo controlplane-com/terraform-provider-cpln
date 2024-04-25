@@ -57,7 +57,7 @@ func getTestApex() string {
 	return "erickotler.com"
 }
 
-func NeedToFix_TestAccControlPlaneDomain_basic(t *testing.T) {
+func TestAccControlPlaneDomain_basic(t *testing.T) {
 
 	var domain client.Domain
 	var org client.Org
