@@ -1416,7 +1416,7 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 			} 
 
 		  	memory = "7Gi"
-		  	cpu    = "1"
+		  	cpu    = "2"
 
 			gpu_nvidia {
 				model 	 = "t1"
