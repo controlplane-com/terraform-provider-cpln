@@ -249,7 +249,7 @@ func sortInterfaceStrings(input []interface{}) []interface{} {
 	return o
 }
 
-func NeedToFixTest_TestAccControlPlanePolicy_basic(t *testing.T) {
+func TestAccControlPlanePolicy_basic(t *testing.T) {
 
 	randomName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 

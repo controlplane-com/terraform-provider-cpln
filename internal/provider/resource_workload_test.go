@@ -20,7 +20,7 @@ const workloadEnvoyJsonUpdated = `{"clusters":[{"name":"provider_gcp","type":"ST
 
 /*** Acc Tests ***/
 
-func NeedToFixTest_TestAccControlPlaneWorkload_basic(t *testing.T) {
+func TestAccControlPlaneWorkload_basic(t *testing.T) {
 
 	var testWorkload client.Workload
 
@@ -692,10 +692,10 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  suspend     = false
 		  capacity_ai = false
 	  
-		  autoscaling {
-			min_scale = 1
-			max_scale = 1
-		  }
+		  #autoscaling {
+		#	min_scale = 1
+		#	max_scale = 1
+		  #}
 		}
 	  
 		firewall_spec {
@@ -1420,7 +1420,7 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 
 			gpu_nvidia {
 				model 	 = "t1"
-				quantity = 0
+				quantity = 1
 			}
 	  
 			command           = "override-command"
@@ -1744,17 +1744,17 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		}
 		 	  	  
 		options {
-		  capacity_ai = false
-		  timeout_seconds = 5
+		  #capacity_ai = false
+		  #timeout_seconds = 5
 		  suspend = false
 	  
-		  autoscaling {
-			target = 100
-			max_scale = 1
-			min_scale = 1
-			max_concurrency = 0
-			scale_to_zero_delay = 300
-		  }
+		  #autoscaling {
+		#	target = 100
+		#	max_scale = 1
+		#	min_scale = 1
+		#	max_concurrency = 0
+		#	scale_to_zero_delay = 300
+		#  }
 		}
 
 		local_options {
@@ -1763,13 +1763,13 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 			timeout_seconds = 5
 			suspend = false
 		
-			autoscaling {
-			  target = 100
-			  max_scale = 1
-			  min_scale = 1
-			  max_concurrency = 0
-			  scale_to_zero_delay = 300
-			}
+			#autoscaling {
+			#  target = 100
+			#  max_scale = 1
+			#  min_scale = 1
+			#  max_concurrency = 0
+			#  scale_to_zero_delay = 300
+			#}
 		}
 		
 	  
@@ -2346,13 +2346,13 @@ func generateTestOptions(workloadType string) *client.Options {
 			Debug:          GetBool(false),
 			Suspend:        GetBool(false),
 
-			AutoScaling: &client.AutoScaling{
-				Target:           GetInt(95),
-				MaxScale:         GetInt(1),
-				MinScale:         GetInt(1),
-				MaxConcurrency:   GetInt(0),
-				ScaleToZeroDelay: GetInt(300),
-			},
+			// AutoScaling: &client.AutoScaling{
+			// 	Target:           GetInt(95),
+			// 	MaxScale:         GetInt(1),
+			// 	MinScale:         GetInt(1),
+			// 	MaxConcurrency:   GetInt(0),
+			// 	ScaleToZeroDelay: GetInt(300),
+			// },
 		}
 	}
 

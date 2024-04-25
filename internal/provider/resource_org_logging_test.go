@@ -840,7 +840,8 @@ func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
 }
 
 /*** Unit Tests ***/
-// Build Functions //
+
+// Build //
 
 func TestControlPlane_BuildS3Logging(t *testing.T) {
 	s3Logging, expectedS3Logging, _ := generateTestS3Logging()
@@ -881,6 +882,33 @@ func TestControlPlane_BuildElasticLogging(t *testing.T) {
 	elasticLogging, expectedElasticLogging, _ := generateTestElasticLogging("")
 	if diff := deep.Equal(elasticLogging, expectedElasticLogging); diff != nil {
 		t.Errorf("AWS Logging was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildGroupWatchLogging(t *testing.T) {
+
+	logging, expectedLogging, _ := generateTestCloudWatchLogging()
+
+	if diff := deep.Equal(logging, expectedLogging); diff != nil {
+		t.Errorf("Cloud Watch Logging was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildFluentdLogging(t *testing.T) {
+
+	logging, expectedLogging, _ := generateTestFluentdLogging()
+
+	if diff := deep.Equal(logging, expectedLogging); diff != nil {
+		t.Errorf("Fluentd Logging was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildStackdriverLogging(t *testing.T) {
+
+	logging, expectedLogging, _ := generateTestStackdriverLogging()
+
+	if diff := deep.Equal(logging, expectedLogging); diff != nil {
+		t.Errorf("Stackdriver Logging was not built correctly. Diff: %s", diff)
 	}
 }
 
@@ -1083,6 +1111,69 @@ func generateTestElasticLogging(loggingType string) ([]client.Logging, []client.
 	return elasticLogging, output, flattened
 }
 
+func generateTestCloudWatchLogging() ([]client.Logging, []client.Logging, []interface{}) {
+
+	region := "us-east-1"
+	credentials := "/org/terraform-test-org/secret/opaque-random-cloud-watch-tbd"
+	retentionDays := 1
+	groupName := "demo-group-name"
+	streamName := "demo-stream-name"
+
+	flattened := generateFlatTestCloudWatchLogging(region, credentials, retentionDays, groupName, streamName)
+	cloudWatch := buildCloudWatchLogging(flattened)
+	expectedCloudWatch := []client.Logging{
+		{
+			CloudWatch: &client.CloudWatchLogging{
+				Region:        &region,
+				Credentials:   &credentials,
+				RetentionDays: &retentionDays,
+				GroupName:     &groupName,
+				StreamName:    &streamName,
+			},
+		},
+	}
+
+	return cloudWatch, expectedCloudWatch, flattened
+}
+
+func generateTestFluentdLogging() ([]client.Logging, []client.Logging, []interface{}) {
+
+	host := "example.com"
+	port := 24224
+
+	flattened := generateFlatTestFluentdLogging(host, port)
+	fluentd := buildFluentdLogging(flattened)
+	expectedFluentd := []client.Logging{
+		{
+			Fluentd: &client.FluentdLogging{
+				Host: &host,
+				Port: &port,
+			},
+		},
+	}
+
+	return fluentd, expectedFluentd, flattened
+}
+
+func generateTestStackdriverLogging() ([]client.Logging, []client.Logging, []interface{}) {
+
+	credentials := "/org/terraform-test-org/secret/opaque-random-stackdriver-tbd"
+	location := "us-east4"
+
+	flattened := generateFlatTestStackdriverLogging(credentials, location)
+	stackdriver := buildStackdriverLogging(flattened)
+	expectedStackdriver := []client.Logging{
+		{
+			Stackdriver: &client.StackdriverLogging{
+				Credentials: &credentials,
+				Location:    &location,
+			},
+		},
+	}
+
+	return stackdriver, expectedStackdriver, flattened
+}
+
 func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interface{}) {
 	host := "es.amazonaws.com"
 	port := 8080
@@ -1225,6 +1316,45 @@ func generateFlatTestElasticLogging(awsLogging []interface{}, elasticCloudLoggin
 
 	if genericLogging != nil {
 		spec["generic"] = genericLogging
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestCloudWatchLogging(region string, credentials string, retentionDays int, groupName string, streamName string) []interface{} {
+
+	spec := map[string]interface{}{
+		"region":         region,
+		"credentials":    credentials,
+		"retention_days": retentionDays,
+		"group_name":     groupName,
+		"stream_name":    streamName,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestFluentdLogging(host string, port int) []interface{} {
+
+	spec := map[string]interface{}{
+		"host": host,
+		"port": port,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestStackdriverLogging(credentials string, location string) []interface{} {
+
+	spec := map[string]interface{}{
+		"credentials": credentials,
+		"location":    location,
 	}
 
 	return []interface{}{
