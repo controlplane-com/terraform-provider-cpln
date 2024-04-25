@@ -2341,10 +2341,10 @@ func generateTestOptions(workloadType string) *client.Options {
 
 	if workloadType == "cron" {
 		return &client.Options{
-			// CapacityAI:     GetBool(false),
-			// TimeoutSeconds: GetInt(5),
-			// Debug:          GetBool(false),
-			Suspend: GetBool(false),
+			CapacityAI:     GetBool(false),
+			TimeoutSeconds: GetInt(5),
+			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
 
 			// AutoScaling: &client.AutoScaling{
 			// 	Target:           GetInt(95),
