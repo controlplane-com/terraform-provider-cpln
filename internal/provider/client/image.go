@@ -224,6 +224,30 @@ func (c *Client) GetImagesQuery(query Query) (*ImagesQueryResult, error) {
 		return nil, err
 	}
 
+	if len(images.Items) == 0 {
+
+		// Convert query to JSON
+		queryJson, _ := json.Marshal(query)
+
+		// Format error
+		err = fmt.Errorf("no images were found")
+
+		if query.Spec != nil && query.Spec.Terms != nil {
+
+			// Format if query was modified
+			if len(*query.Spec.Terms) > 0 || *query.Spec.Match != "all" {
+				err = fmt.Errorf("no images were found following the query: %s", string(queryJson))
+			}
+
+			// Format if query was looking for a specific repository
+			if len(*query.Spec.Terms) == 1 && (*query.Spec.Terms)[0].Property != nil && *(*query.Spec.Terms)[0].Property == "repository" && (*query.Spec.Terms)[0].Value != nil {
+				err = fmt.Errorf("image base name %s does not exist, make sure you have spelled the base name correctly", *(*query.Spec.Terms)[0].Value)
+			}
+		}
+
+		return nil, err
+	}
+
 	nextLink := GetLinkHref(images.Links, "next")
 
 	for {
