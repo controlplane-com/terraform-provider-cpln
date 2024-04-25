@@ -690,7 +690,7 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	  
 		options {
 		  suspend     = false
-		  #capacity_ai = false
+		  capacity_ai = false
 	  
 		  #autoscaling {
 		#	min_scale = 1
@@ -1763,13 +1763,13 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 			timeout_seconds = 5
 			suspend = false
 		
-			autoscaling {
-			  target = 100
-			  max_scale = 1
-			  min_scale = 1
-			  max_concurrency = 0
-			  scale_to_zero_delay = 300
-			}
+			#autoscaling {
+			#  target = 100
+			#  max_scale = 1
+			#  min_scale = 1
+			#  max_concurrency = 0
+			#  scale_to_zero_delay = 300
+			#}
 		}
 		
 	  
