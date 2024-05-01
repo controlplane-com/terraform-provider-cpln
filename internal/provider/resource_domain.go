@@ -134,6 +134,7 @@ func resourceDomain() *schema.Resource {
 												},
 												"expose_headers": {
 													Type:     schema.TypeSet,
+													Description: "The HTTP headers that a server allows to be exposed to the client in response to a cross-origin request. These headers provide additional information about the server's capabilities or requirements, aiding in proper handling of the request by the client's browser or application.",
 													Optional: true,
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
