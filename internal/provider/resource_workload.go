@@ -81,6 +81,7 @@ func resourceWorkload() *schema.Resource {
 			},
 			"container": {
 				Type:     schema.TypeList,
+				Description: "An isolated and lightweight runtime environment that encapsulates an application and its dependencies.",
 				Required: true,
 				MinItems: 1,
 				MaxItems: 20,
