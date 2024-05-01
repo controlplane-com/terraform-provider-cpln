@@ -247,15 +247,18 @@ func resourceDomain() *schema.Resource {
 						},
 						"locations": {
 							Type:     schema.TypeList,
+							Description: "Specific addresses or endpoints within a domain where resources or services are available.",
 							Optional: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"name": {
 										Type:     schema.TypeString,
+										Description: "The identifier or label assigned to a specific location within a domain.",
 										Optional: true,
 									},
 									"certificate_status": {
 										Type:     schema.TypeString,
+										Description: "The current validity or status of the SSL/TLS certificate associated with a particular location within the domain.",
 										Optional: true,
 									},
 								},
