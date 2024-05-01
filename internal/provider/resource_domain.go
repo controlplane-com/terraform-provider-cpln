@@ -77,6 +77,7 @@ func resourceDomain() *schema.Resource {
 						},
 						"ports": {
 							Type:     schema.TypeList,
+							Description: "Endpoints through which data can be exchanged between different networked devices or services. They facilitate communication by providing specific access points for incoming and outgoing data streams",
 							Required: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
