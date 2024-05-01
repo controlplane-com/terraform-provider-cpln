@@ -116,6 +116,7 @@ func resourceIdentity() *schema.Resource {
 			},
 			"aws_access_policy": {
 				Type:     schema.TypeList,
+				Description: "A set of rules and permissions defining the actions and resources that an entity, such as a user or a service, can access within an AWS environment.",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
