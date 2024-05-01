@@ -64,6 +64,7 @@ func resourceGroup() *schema.Resource {
 			},
 			"self_link": {
 				Type:     schema.TypeString,
+				Description: "The unique identifier that allows direct access to the group's information, properties, or related resources, providing a convenient way to interact with or reference the group programmatically."
 				Computed: true,
 			},
 			"member_query": {
