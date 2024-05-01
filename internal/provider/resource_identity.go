@@ -389,6 +389,7 @@ func NativeNetworkResourceSchema() *schema.Resource {
 			},
 			"aws_private_link": {
 				Type:     schema.TypeList,
+				Description: "A feature provided by AWS that enables private connectivity between VPCs and AWS services or endpoints without traversing the public internet.", 
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
@@ -403,6 +404,7 @@ func NativeNetworkResourceSchema() *schema.Resource {
 			},
 			"gcp_service_connect": {
 				Type:     schema.TypeList,
+				Description: "A capability provided by GCP that allows private communication between VPC networks and Google services or endpoints.",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
