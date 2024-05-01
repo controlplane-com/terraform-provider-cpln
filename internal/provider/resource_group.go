@@ -64,12 +64,12 @@ func resourceGroup() *schema.Resource {
 			},
 			"self_link": {
 				Type:     schema.TypeString,
-				Description: "The unique identifier that allows direct access to the group's information, properties, or related resources, providing a convenient way to interact with or reference the group programmatically."
+				Description: "The unique identifier that allows direct access to the group's information, properties, or related resources, providing a convenient way to interact with or reference the group programmatically.",
 				Computed: true,
 			},
 			"member_query": {
 				Type:     schema.TypeList,
-				Description: "A predefined set of criteria or conditions used to query and retrieve members within the group."
+				Description: "A predefined set of criteria or conditions used to query and retrieve members within the group.",
 				Optional: true,
 				MaxItems: 1,
 				Elem:     QuerySchemaResource(),
