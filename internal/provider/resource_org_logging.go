@@ -146,6 +146,7 @@ func resourceOrgLogging() *schema.Resource {
 			},
 			"elastic_logging": {
 				Type:     schema.TypeList,
+				Description: "The practice of using the Elastic Stack (Elasticsearch, Logstash, and Kibana) for logging and analyzing data within an org.",
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
