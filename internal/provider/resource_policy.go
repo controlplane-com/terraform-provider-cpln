@@ -99,6 +99,7 @@ func resourcePolicy() *schema.Resource {
 			},
 			"binding": {
 				Type:     schema.TypeSet,
+				Description: "The association between a policy and the entities or resources to which it applies within the org's infrastructure.",
 				Optional: true,
 				MaxItems: 50,
 				Elem:     BindingResource(),
