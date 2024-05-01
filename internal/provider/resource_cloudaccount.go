@@ -51,10 +51,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"aws": {
 			Type:         schema.TypeList,
-			Description: "A leading cloud computing platform provided by 
-				Amazon, offering a wide range of services for computing 
-				power, storage, and other functionalities on a pay-as-you-go 
-				basis.",
+			Description: "A leading cloud computing platform provided by Amazon, offering a wide range of services for computing power, storage, and other functionalities on a pay-as-you-go basis.",
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,
@@ -83,9 +80,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"azure": {
 			Type:         schema.TypeList,
-			Description: "Microsoft's cloud computing platform, providing
-				various services such as virtual machines, databases, and AI tools, 
-				facilitating scalable and flexible solutions for businesses.",
+			Description: "Microsoft's cloud computing platform, providing various services such as virtual machines, databases, and AI tools, facilitating scalable and flexible solutions for businesses.",
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,
@@ -103,10 +98,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"gcp": {
 			Type:         schema.TypeList,
-			Description: "Google's comprehensive suite of cloud computing 
-				services, offering infrastructure, data storage, machine learning, 
-				and application development tools for building and scaling applications
-				and services.",
+			Description: "Google's comprehensive suite of cloud computing services, offering infrastructure, data storage, machine learning, and application development tools for building and scaling applications and services.",
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,
