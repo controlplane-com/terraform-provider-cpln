@@ -115,6 +115,7 @@ func resourceVolumeSet() *schema.Resource {
 			},
 			"snapshots": {
 				Type:     schema.TypeList,
+				Description: "Point-in-time copies of data stored within the volume set, capturing the state of the data at a specific moment.",
 				Optional: true,
 				Default:  nil,
 				MaxItems: 1,
