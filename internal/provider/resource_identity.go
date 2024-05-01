@@ -219,6 +219,7 @@ func resourceIdentity() *schema.Resource {
 						},
 						"binding": {
 							Type:     schema.TypeList,
+							Description: "The association or connection between a particular identity, such as a user or a group, and a set of permissions or roles within the system.",
 							Optional: true,
 							// ConflictsWith: []string{"gcp_access_policy.service_account"},
 							Elem: &schema.Resource{
