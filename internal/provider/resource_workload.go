@@ -123,7 +123,7 @@ func resourceWorkload() *schema.Resource {
 						},
 						"ports": {
 							Type:     schema.TypeList,
-							Description: "Communication endpoints used by the workload to send and receive network traffic.",
+							Description: "Communication endpoints used by the workload to send and receive network traffic. Only one container is allowed to specify a port. Min: `80`. Max: `65535`. Used by `serverless` Workload type.",
 							Optional: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
