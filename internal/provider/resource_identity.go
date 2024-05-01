@@ -258,6 +258,7 @@ func resourceIdentity() *schema.Resource {
 						},
 						"role_assignment": {
 							Type:     schema.TypeList,
+							Description: "The process of assigning specific roles or permissions to an entity, such as a user or a service principal, within the system.",
 							Optional: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
