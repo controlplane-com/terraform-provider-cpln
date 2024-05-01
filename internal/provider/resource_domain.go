@@ -95,6 +95,7 @@ func resourceDomain() *schema.Resource {
 									},
 									"cors": {
 										Type:     schema.TypeList,
+										Description: "A security feature implemented by web browsers to allow resources on a web page to be requested from another domain outside the domain from which the resource originated.",
 										Optional: true,
 										MaxItems: 1,
 										Elem: &schema.Resource{
