@@ -624,6 +624,7 @@ func resourceWorkload() *schema.Resource {
 									},
 									"images": {
 										Type:     schema.TypeList,
+										Description: "A list of images that were resolved.",
 										Optional: true,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
