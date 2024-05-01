@@ -245,6 +245,7 @@ func resourceIdentity() *schema.Resource {
 			},
 			"azure_access_policy": {
 				Type:     schema.TypeList,
+				Description: "A set of rules and permissions that govern the actions and resources an entity, like a user or a service, can access within the Azure environment.",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
