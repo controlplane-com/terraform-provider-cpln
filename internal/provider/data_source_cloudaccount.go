@@ -15,9 +15,9 @@ func dataSourceCloudAccount() *schema.Resource {
 			"aws_identifiers": {
 				Type:     schema.TypeSet,
 				Description: "Unique identifiers or keys associated with resources and 
-				services within an AWS (Amazon Web Services) environment. These identifiers 
-				are used for reference, access control, and management purposes within the 
-				AWS ecosystem.",
+					services within an AWS (Amazon Web Services) environment. These identifiers 
+					are used for reference, access control, and management purposes within the 
+					AWS ecosystem.",
 				Computed: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
