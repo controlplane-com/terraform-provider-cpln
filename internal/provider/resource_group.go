@@ -76,6 +76,7 @@ func resourceGroup() *schema.Resource {
 			},
 			"identity_matcher": {
 				Type:     schema.TypeList,
+				Description: "A mechanism or algorithm used to match and identify individuals or entities within the system that meet the criteria specified by the group.",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
