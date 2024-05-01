@@ -370,6 +370,7 @@ func resourceWorkload() *schema.Resource {
 			},
 			"options": {
 				Type:     schema.TypeList,
+				Description: "Configurable settings or parameters that allow fine-tuning and customization of the behavior, performance, and characteristics of the workload.",
 				Required: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
@@ -458,6 +459,7 @@ func resourceWorkload() *schema.Resource {
 						},
 						"autoscaling": {
 							Type: schema.TypeList,
+							Description
 							// Required: true,
 							Optional: true,
 							MaxItems: 1,
@@ -2777,6 +2779,7 @@ func healthCheckSpec() *schema.Resource {
 			},
 			"exec": {
 				Type:     schema.TypeList,
+				Description: "",
 				Optional: true,
 				MaxItems: 1,
 				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
