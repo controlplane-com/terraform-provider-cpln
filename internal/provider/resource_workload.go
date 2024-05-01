@@ -675,6 +675,7 @@ func resourceWorkload() *schema.Resource {
 			},
 			"rollout_options": {
 				Type:     schema.TypeList,
+				Description: "Defines the parameters for updating applications and services, including settings for minimum readiness, unavailable replicas, surge replicas, and scaling policies.",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
