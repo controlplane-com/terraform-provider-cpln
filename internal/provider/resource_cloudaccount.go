@@ -103,6 +103,10 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"gcp": {
 			Type:         schema.TypeList,
+			Description: "Google's comprehensive suite of cloud computing 
+				services, offering infrastructure, data storage, machine learning, 
+				and application development tools for building and scaling applications
+				and services."
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,
