@@ -478,6 +478,7 @@ func resourceWorkload() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"external": {
 							Type:     schema.TypeList,
+							Description: "The external firewall is used to control inbound and outbound access to the workload for public-facing traffic."
 							Optional: true,
 							MaxItems: 1,
 							Elem:     ExternalFirewallResource(),
