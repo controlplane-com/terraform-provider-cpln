@@ -72,6 +72,7 @@ func resourcePolicy() *schema.Resource {
 			},
 			"target_query": {
 				Type:     schema.TypeList,
+				Description: "A defined set of criteria or conditions used to identify the target entities or resources to which the policy applies.",
 				Optional: true,
 				MaxItems: 1,
 				Elem:     QuerySchemaResource(),
