@@ -53,6 +53,9 @@ func resourceDomain() *schema.Resource {
 			},
 			"spec": {
 				Type:     schema.TypeList,
+				Description: "A specification or set of rules defining the 
+					behavior, structure, or attributes of elements within a 
+					particular domain or system.",
 				Required: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
