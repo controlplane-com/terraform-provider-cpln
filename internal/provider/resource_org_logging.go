@@ -152,6 +152,7 @@ func resourceOrgLogging() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"aws": {
 							Type:     schema.TypeList,
+							Description: "The Amazon Web Services cloud platform, which may include services, resources, or infrastructure components generating log data.",
 							Optional: true,
 							MaxItems: 1,
 							Elem: &schema.Resource{
