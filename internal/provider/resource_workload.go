@@ -707,6 +707,7 @@ func resourceWorkload() *schema.Resource {
 			},
 			"security_options": {
 				Type:     schema.TypeList,
+				Description: "Allows for the configuration of the `file system group id`",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
