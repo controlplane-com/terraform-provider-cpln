@@ -289,6 +289,7 @@ func resourceIdentity() *schema.Resource {
 			},
 			"ngs_access_policy": {
 				Type:     schema.TypeList,
+				Description: "A policy governing the access and permissions granted to entities within the NGS environment.",
 				Optional: true,
 				MaxItems: 1,
 				Elem: &schema.Resource{
