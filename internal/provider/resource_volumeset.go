@@ -142,6 +142,7 @@ func resourceVolumeSet() *schema.Resource {
 			},
 			"autoscaling": {
 				Type:     schema.TypeList,
+				Description: "Automated adjustment of the volume set's capacity based on predefined metrics or conditions.",
 				Optional: true,
 				Default:  nil,
 				MaxItems: 1,
