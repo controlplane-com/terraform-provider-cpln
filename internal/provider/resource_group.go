@@ -69,6 +69,7 @@ func resourceGroup() *schema.Resource {
 			},
 			"member_query": {
 				Type:     schema.TypeList,
+				Description: "A predefined set of criteria or conditions used to query and retrieve members within the group."
 				Optional: true,
 				MaxItems: 1,
 				Elem:     QuerySchemaResource(),
