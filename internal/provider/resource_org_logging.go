@@ -192,6 +192,7 @@ func resourceOrgLogging() *schema.Resource {
 						},
 						"elastic_cloud": {
 							Type:     schema.TypeList,
+							Description: "Allows organizations to deploy, manage, and scale Elasticsearch clusters and Kibana instances without the need for infrastructure management.",
 							Optional: true,
 							MaxItems: 1,
 							Elem: &schema.Resource{
