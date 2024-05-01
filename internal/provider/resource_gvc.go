@@ -121,6 +121,7 @@ func GvcSchema() map[string]*schema.Schema {
 		},
 		"load_balancer": {
 			Type:     schema.TypeList,
+			Description: "A network device or service responsible for distributing incoming network traffic across multiple servers or resources to ensure optimal utilization, performance, and reliability.",
 			Optional: true,
 			MaxItems: 1,
 			Elem: &schema.Resource{
