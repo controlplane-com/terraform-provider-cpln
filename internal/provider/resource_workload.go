@@ -151,6 +151,7 @@ func resourceWorkload() *schema.Resource {
 						},
 						"gpu_nvidia": {
 							Type:     schema.TypeList,
+							Description: "GPUs manufactured by NVIDIA, which are specialized hardware accelerators used to offload and accelerate computationally intensive tasks within the workload.",
 							Optional: true,
 							MaxItems: 1,
 							Elem: &schema.Resource{
