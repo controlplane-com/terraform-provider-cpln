@@ -222,6 +222,7 @@ func resourceOrgLogging() *schema.Resource {
 						},
 						"generic": {
 							Type:     schema.TypeList,
+							Description: "A catch-all term indicating logs or logging configurations that are not specific to a particular service or platform.",
 							Optional: true,
 							MaxItems: 1,
 							Elem: &schema.Resource{
