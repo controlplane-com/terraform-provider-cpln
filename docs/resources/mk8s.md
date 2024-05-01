@@ -13,7 +13,7 @@ Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
 ### Required
 
 - **name** (String) Name of the Mk8s.
-- **version** (String) TODO: Add description
+- **version** (String)
 
 ~> **Note** Only one of the providers listed below can be included in a resource.
 
@@ -32,11 +32,9 @@ Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
 
 ### `generic_provider`
 
-TODO: Add description
-
 Required:
 
-- **location** (String) TODO: Add description
+- **location** (String) Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.
 
 Optional:
 
@@ -47,105 +45,112 @@ Optional:
 
 ### `generic_provider.networking`
 
-TODO: Add description
-
 Optional:
 
-- **service_network** (String) TODO: Add description
-- **pod_network** (String) TODO: Add description
+- **service_network** (String) The CIDR of the service network.
+- **pod_network** (String) The CIDR of the pod network.
 
 <a id="nestedblock--generic_provider--node_pool"></a>
 
 ### `generic_provider.node_pool`
 
-TODO: Add description
+List of node pools.
 
 Required:
 
-- **name** (String) TODO: Add description
+- **name** (String)
 
 Optional:
 
-- **labels** (Map of String) TODO: Add description
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
 
 <a id="nestedblock--generic_provider--node_pool--taint"></a>
 
 ### `generic_provider.node_pool.taint`
 
-TODO: Add description
+Taint for the nodes of a pool.
 
 Optional:
 
-- **key** (String) TODO: Add description
-- **value** (String) TODO: Add description
-- **effect** (String) TODO: Add description
+- **key** (String)
+- **value** (String)
+- **effect** (String)
 
 <a id="nestedblock--hetzner_provider"></a>
 
 ### `hetzner_provider`
 
-TODO: Add description
-
 Required:
 
-- **region** (String) TODO: Add description
-- **token_secret_link** (String) TODO: Add description
-- **network_id** (String) TODO: Add description
+- **region** (String) Hetzner region to deploy nodes to.
+- **token_secret_link** (String) Link to a secret holding Hetzner access key.
+- **network_id** (String) ID of the Hetzner network to deploy nodes to.
 
 Optional:
 
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
-- **pre_install_script** (String) TODO: Add description
-- **firewall_id** (String) TODO: Add description
+- **pre_install_script** (String) Optional shell script that will be run before K8S is installed.
+- **firewall_id** (String) Optional firewall rule to attach to all nodes.
 - **node_pool** (Block List) ([see below](#nestedblock--hetzner_provider--node_pool))
-- **dedicated_server_node_pool** (Block List) ([see below](#nestedblock--generic_provider--node_pool))
-- **image** (String) TODO: Add description
-- **ssh_key** (String) TODO: Add description
+- **dedicated_server_node_pool** (Block List) ([see below](#nestedblock--hetzner_provider--dedicated_server_node_pool))
+- **image** (String) Default image for all nodes.
+- **ssh_key** (String) SSH key name for accessing deployed nodes.
 - **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
 
 <a id="nestedblock--hetzner_provider--node_pool"></a>
 
 ### `hetzner_provider.node_pool`
 
-TODO: Add description
+List of node pools.
 
 Required:
 
-- **name** (String) TODO: Add description
-- **server_type** (String) TODO: Add description
+- **name** (String)
+- **server_type** (String)
 
 Optional:
 
-- **labels** (Map of String) TODO: Add description
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
-- **override_image** (String) TODO: Add description
-- **min_size** (Number) TODO: Add description
-- **max_size** (Number) TODO: Add description
+- **override_image** (String)
+- **min_size** (Number)
+- **max_size** (Number)
+
+<a id="nestedblock--hetzner_provider--dedicated_server_node_pool"></a>
+
+### `hetzner_provider.dedicated_server_node_pool`
+
+Node pool that can configure dedicated Hetzner servers.
+
+Required:
+
+- **name** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
 
 <a id="nestedblock--aws_provider"></a>
 
 ### `aws_provider`
 
-TODO: Add description
-
 Required:
 
-- **region** (String) TODO: Add description
-- **skip_create_roles** (Boolean) TODO: Add description
-- **token_secret_link** (String) TODO: Add description
-- **network_id** (String) TODO: Add description
+- **region** (String) Region where the cluster nodes will live.
+- **skip_create_roles** (Boolean) If true, Control Plane will not create any roles.
 - **image** (Block List, Max: 1) ([see below](#nestedblock--aws_provider--ami))
-- **deploy_role_arn** (String) Control Plane will set up the cluster by assuming this role
-- **vpc_id** (String) TODO: Add description
+- **deploy_role_arn** (String) Control Plane will set up the cluster by assuming this role.
+- **vpc_id** (String) The vpc where nodes will be deployed. Supports SSM.
 
 Optional:
 
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
-- **pre_install_script** (String) TODO: Add description
-- **key_pair** (String) TODO: Add description
-- **disk_encryption_key_arn** (String) TODO: Add description
-- **security_group_ids** (List of String) TODO: Add description
+- **pre_install_script** (String) Optional shell script that will be run before K8S is installed. Supports SSM.
+- **key_pair** (String) Name of keyPair. Supports SSM
+- **disk_encryption_key_arn** (String) KMS key used to encrypt volumes. Supports SSM.
+- **security_group_ids** (List of String) Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.
 - **node_pool** (Block List) ([see below](#nestedblock--aws_provider--node_pool))
 - **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
 
@@ -153,167 +158,167 @@ Optional:
 
 ### `aws_provider.node_pool`
 
-TODO: Add description
+List of node pools.
 
 Required:
 
-- **name** (String) TODO: Add description
-- **instance_types** (List of String) TODO: Add description
+- **name** (String)
+- **instance_types** (List of String)
 - **override_image** (Block List, Max: 1) ([see below](#nestedblock--aws_provider--ami))
-- **subnet_ids** (List of String) TODO: Add description
+- **subnet_ids** (List of String)
 
 Optional:
 
-- **labels** (Map of String) TODO: Add description
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
-- **boot_disk_size** (Number) TODO: Add description
-- **min_size** (Number) TODO: Add description
-- **max_size** (Number) TODO: Add description
-- **on_demand_base_capacity** (Number) TODO: Add description
-- **on_demand_percentage_above_base_capacity** (Number) TODO: Add description
-- **spot_allocation_strategy** (String) TODO: Add description
-- **extra_security_group_ids** (List of String) TODO: Add description
+- **boot_disk_size** (Number) Size in GB.
+- **min_size** (Number)
+- **max_size** (Number)
+- **on_demand_base_capacity** (Number)
+- **on_demand_percentage_above_base_capacity** (Number)
+- **spot_allocation_strategy** (String)
+- **extra_security_group_ids** (List of String)
 
 <a id="nestedblock--aws_provider--ami"></a>
 
 ### `ami`
 
-TODO: Add description
+Default image for all nodes.
 
 Required:
 
 ~> **Note** Only one of the following listed below can be included.
 
-- **recommended** (String) TODO: Add description
-- **exact** (String) TODO: Add description
+- **recommended** (String)
+- **exact** (String) Support SSM.
 
 <a id="nestedblock--autoscaler"></a>
 
 ### `autoscaler`
 
-TODO: Add description
-
 Optional:
 
-- **expander** (List of String) TODO: Add description
-- **unneeded_time** (String) TODO: Add description
-- **unready_time** (String) TODO: Add description
-- **utilization_threshold** (Float64) TODO: Add description
+- **expander** (List of String)
+- **unneeded_time** (String)
+- **unready_time** (String)
+- **utilization_threshold** (Float64)
 
 <a id="nestedblock--firewall"></a>
 
 ### `firewall`
 
-TODO: Add description
+Allow-list.
 
 Required:
 
-- **source_cidr** (String) TODO: Add description
+- **source_cidr** (String)
 
 Optional:
 
-- **description** (String) TODO: Add description
+- **description** (String)
 
 <a id="nestedblock--add_ons"></a>
 
 ### `add_ons`
 
-TODO: Add description
-
 Optional:
 
-- **dashboard** (Boolean) TODO: Add description
+- **dashboard** (Boolean)
 - **azure_workload_identity** (Block List, Max: 1) ([see below](#nestedblock--add_ons--azure_workload_identity))
-- **aws_workload_identity** (Boolean) TODO: Add description
-- **local_path_storage** (Boolean) TODO: Add description
+- **aws_workload_identity** (Boolean)
+- **local_path_storage** (Boolean)
 - **metrics** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics))
 - **logs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--logs))
 - **nvidia** (Block List, Max: 1) ([see below](#nestedblock--add_ons--nvidia))
-- **aws_efs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws))
-- **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws))
-- **aws_elb** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws))
+- **aws_efs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--efs))
+- **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--ecr))
+- **aws_elb** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--elb))
 - **azure_acr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--azure_acr))
 
 <a id="nestedblock--add_ons--azure_workload_identity"></a>
 
 ### `add_ons.azure_workload_identity`
 
-TODO: Add description
-
 Required:
 
-- **tenant_id** (String) TODO: Add description
+- **tenant_id** (String) Tenant ID to use for workload identity.
 
 <a id="nestedblock--add_ons--metrics"></a>
 
 ### `add_ons.metrics`
 
-TODO: Add description
-
 Optional:
 
-- **kube_state** (Boolean) TODO: Add description
-- **core_dns** (Boolean) TODO: Add description
-- **kubelet** (Boolean) TODO: Add description
-- **api_server** (Boolean) TODO: Add description
-- **node_exporter** (Boolean) TODO: Add description
-- **cadvisor** (Boolean) TODO: Add description
+- **kube_state** (Boolean) Enable kube-state metrics.
+- **core_dns** (Boolean) Enable scraping of core-dns service.
+- **kubelet** (Boolean) Enable scraping kubelet stats.
+- **api_server** (Boolean) Enable scraping apiserver stats.
+- **node_exporter** (Boolean) Enable collecting node-level stats (disk, network, filesystem, etc).
+- **cadvisor** (Boolean) Enable CNI-level container stats.
 - **scrape_annotated** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics--scrape-annotated))
 
 <a id="nestedblock--add_ons--metrics--scrape-annotated"></a>
 
 ### `add_ons.metrics.scrape-annotated`
 
-TODO: Add description
+Scrape pods annotated with prometheus.io/scrape=true.
 
 Optional:
 
-- **interval_seconds** (Number) TODO: Add description
-- **include_namespaces** (String) TODO: Add description
-- **exclude_namespaces** (String) TODO: Add description
-- **retain_labels** (String) TODO: Add description
+- **interval_seconds** (Number)
+- **include_namespaces** (String)
+- **exclude_namespaces** (String)
+- **retain_labels** (String)
 
 <a id="nestedblock--add_ons--logs"></a>
 
 ### `add_ons.logs`
 
-TODO: Add description
-
 Optional:
 
-- **audit_enabled** (Boolean) TODO: Add description
-- **include_namespaces** (String) TODO: Add description
-- **exclude_namespaces** (String) TODO: Add description
+- **audit_enabled** (Boolean) Collect k8s audit log as log events.
+- **include_namespaces** (String)
+- **exclude_namespaces** (String)
 
 <a id="nestedblock--add_ons--nvidia"></a>
 
 ### `add_ons.nvidia`
 
-TODO: Add description
+Required:
+
+- **taint_gpu_nodes** (Boolean)
+
+<a id="nestedblock--add_ons--aws--efs"></a>
+
+### `add_ons.aws_efs`
 
 Required:
 
-- **taint_gpu_nodes** (Boolean) TODO: Add description
+- **role_arn** (String) Use this role for EFS interaction.
 
-<a id="nestedblock--add_ons--aws"></a>
+<a id="nestedblock--add_ons--aws--ecr"></a>
 
-### `add_ons.aws`
-
-TODO: Add description
+### `add_ons.aws_ecr`
 
 Required:
 
-- **role_arn** (String) TODO: Add description
+- **role_arn** (String) Role to use when authorizing ECR pulls. Optional on AWS, in which case it will use the instance role to pull.
+
+<a id="nestedblock--add_ons--aws--elb"></a>
+
+### `add_ons.aws_elb`
+
+Required:
+
+- **role_arn** (String) Role to use when authorizing calls to EC2 ELB. Optional on AWS, when not provided it will create the recommended role.
 
 <a id="nestedblock--add_ons--azure_acr"></a>
 
 ### `add_ons.azure_acr`
 
-TODO: Add description
-
 Required:
 
-- **client_id** (String) TODO: Add description
+- **client_id** (String)
 
 ## Outputs
 
@@ -332,16 +337,14 @@ Status of the mk8s.
 
 Read-Only:
 
-- **oidc_provider_url** (String) TODO: Add description
-- **server_url** (String) TODO: Add description
-- **home_location** (String) TODO: Add description
+- **oidc_provider_url** (String)
+- **server_url** (String)
+- **home_location** (String)
 - **add_ons** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons))
 
 <a id="nestedblock--status--add_ons"></a>
 
 ### `status.add_ons`
-
-TODO: Add description
 
 Read-Only:
 
@@ -357,64 +360,52 @@ Read-Only:
 
 ### `status.add_ons.dashboard`
 
-TODO: Add description
-
 Read-Only:
 
-- **url** (String) TODO: Add description
+- **url** (String) Access to dashboard.
 
 <a id="nestedblock--status--add_ons--aws_workload_identity"></a>
 
 ### `status.add_ons.aws_workload_identity`
 
-TODO: Add description
-
 Read-Only:
 
 - **oidc_provider_config** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons--aws_workload_identity--oidc_provider_config))
-- **trust_policy** (String) TODO: Add description
+- **trust_policy** (String)
 
 <a id="nestedblock--status--add_ons--aws_workload_identity--oidc_provider_config"></a>
 
 ### `status.add_ons.aws_workload_identity.oidc_provider_config`
 
-TODO: Add description
-
 Read-Only:
 
-- **provider_url** (String) TODO: Add description
-- **audience** (String) TODO: Add description
+- **provider_url** (String)
+- **audience** (String)
 
 <a id="nestedblock--status--add_ons--metrics"></a>
 
 ### `status.add_ons.metrics`
 
-TODO: Add description
-
 Read-Only:
 
-- **prometheus_endpoint** (String) TODO: Add description
-- **remote_write_config** (String) TODO: Add description
+- **prometheus_endpoint** (String)
+- **remote_write_config** (String)
 
 <a id="nestedblock--status--add_ons--logs"></a>
 
 ### `status.add_ons.logs`
 
-TODO: Add description
-
 Read-Only:
 
-- **loki_address** (String) TODO: Add description
+- **loki_address** (String) Loki endpoint to query logs from.
 
 <a id="nestedblock--status--add_ons--aws"></a>
 
 ### `status.add_ons.aws`
 
-TODO: Add description
-
 Read-Only:
 
-- **trust_policy** (String) TODO: Add description
+- **trust_policy** (String)
 
 ## Example Usage - Generic Provider
 

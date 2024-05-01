@@ -60,23 +60,23 @@ func resourceMk8s() *schema.Resource {
 			},
 			"version": {
 				Type:        schema.TypeString,
-				Description: "TODO: Add description",
+				Description: "",
 				Required:    true,
 			},
 			"firewall": {
 				Type:        schema.TypeList,
-				Description: "Allow-list",
+				Description: "Allow-list.",
 				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"source_cidr": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "",
 							Required:    true,
 						},
 						"description": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 						},
 					},
@@ -84,7 +84,7 @@ func resourceMk8s() *schema.Resource {
 			},
 			"generic_provider": {
 				Type:         schema.TypeList,
-				Description:  "TODO: Add description",
+				Description:  "",
 				Optional:     true,
 				MaxItems:     1,
 				ExactlyOneOf: mk8sProviders,
@@ -92,17 +92,17 @@ func resourceMk8s() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"location": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.",
 							Required:    true,
 						},
 						"networking": Mk8sNetworkingSchema(),
-						"node_pool":  Mk8sGenericNodePoolSchema(),
+						"node_pool":  Mk8sGenericNodePoolSchema("List of node pools."),
 					},
 				},
 			},
 			"hetzner_provider": {
 				Type:         schema.TypeList,
-				Description:  "TODO: Add description",
+				Description:  "",
 				Optional:     true,
 				MaxItems:     1,
 				ExactlyOneOf: mk8sProviders,
@@ -110,41 +110,41 @@ func resourceMk8s() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"region": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Hetzner region to deploy nodes to.",
 							Required:    true,
 						},
 						"networking": Mk8sNetworkingSchema(),
 						"pre_install_script": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Optional shell script that will be run before K8S is installed.",
 							Optional:    true,
 						},
 						"token_secret_link": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Link to a secret holding Hetzner access key.",
 							Required:    true,
 						},
 						"network_id": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "ID of the Hetzner network to deploy nodes to.",
 							Required:    true,
 						},
 						"firewall_id": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Optional firewall rule to attach to all nodes.",
 							Optional:    true,
 						},
 						"node_pool":                  Mk8sHetznerNodePoolSchema(),
-						"dedicated_server_node_pool": Mk8sGenericNodePoolSchema(),
+						"dedicated_server_node_pool": Mk8sGenericNodePoolSchema("Node pools that can configure dedicated Hetzner servers."),
 						"image": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Default image for all nodes.",
 							Optional:    true,
 							Default:     "ubuntu-20.04",
 						},
 						"ssh_key": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "SSH key name for accessing deployed nodes.",
 							Optional:    true,
 						},
 						"autoscaler": Mk8sAutoscalerSchema(),
@@ -153,7 +153,7 @@ func resourceMk8s() *schema.Resource {
 			},
 			"aws_provider": {
 				Type:         schema.TypeList,
-				Description:  "TODO: Add description",
+				Description:  "",
 				Optional:     true,
 				MaxItems:     1,
 				ExactlyOneOf: mk8sProviders,
@@ -161,45 +161,45 @@ func resourceMk8s() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"region": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Region where the cluster nodes will live.",
 							Required:    true,
 						},
 						"skip_create_roles": {
 							Type:        schema.TypeBool,
-							Description: "TODO: Add description",
+							Description: "If true, Control Plane will not create any roles.",
 							Optional:    true,
 							Default:     false,
 						},
 						"networking": Mk8sNetworkingSchema(),
 						"pre_install_script": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Optional shell script that will be run before K8S is installed. Supports SSM.",
 							Optional:    true,
 						},
 						"image": Mk8sAwsAmiSchema(),
 						"deploy_role_arn": {
 							Type:        schema.TypeString,
-							Description: "Control Plane will set up the cluster by assuming this role",
+							Description: "Control Plane will set up the cluster by assuming this role.",
 							Required:    true,
 						},
 						"vpc_id": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "The vpc where nodes will be deployed. Supports SSM.",
 							Required:    true,
 						},
 						"key_pair": {
 							Type:        schema.TypeString,
-							Description: "name of keyPair",
+							Description: "Name of keyPair. Supports SSM",
 							Optional:    true,
 						},
 						"disk_encryption_key_arn": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "KMS key used to encrypt volumes. Supports SSM.",
 							Optional:    true,
 						},
 						"security_group_ids": {
 							Type:        schema.TypeSet,
-							Description: "TODO: Add description",
+							Description: "Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.",
 							Optional:    true,
 							Elem:        StringSchema(),
 						},
@@ -210,26 +210,26 @@ func resourceMk8s() *schema.Resource {
 			},
 			"add_ons": {
 				Type:        schema.TypeList,
-				Description: "TODO: Add description",
+				Description: "",
 				Optional:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"dashboard": {
 							Type:        schema.TypeBool,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 						},
 						"azure_workload_identity": {
 							Type:        schema.TypeList,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"tenant_id": {
 										Type:        schema.TypeString,
-										Description: "TODO: Add description",
+										Description: "Tenant ID to use for workload identity.",
 										Required:    true,
 									},
 								},
@@ -237,76 +237,76 @@ func resourceMk8s() *schema.Resource {
 						},
 						"aws_workload_identity": {
 							Type:        schema.TypeBool,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 						},
 						"local_path_storage": {
 							Type:        schema.TypeBool,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 						},
 						"metrics": {
 							Type:        schema.TypeList,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"kube_state": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Enable kube-state metrics.",
 										Optional:    true,
 									},
 									"core_dns": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Enable scraping of core-dns service.",
 										Optional:    true,
 									},
 									"kubelet": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Enable scraping kubelet stats.",
 										Optional:    true,
 									},
 									"api_server": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Enable scraping apiserver stats.",
 										Optional:    true,
 									},
 									"node_exporter": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Enable collecting node-level stats (disk, network, filesystem, etc).",
 										Optional:    true,
 									},
 									"cadvisor": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Enable CNI-level container stats.",
 										Optional:    true,
 									},
 									"scrape_annotated": {
 										Type:        schema.TypeList,
-										Description: "TODO: Add description",
+										Description: "Scrape pods annotated with prometheus.io/scrape=true.",
 										Optional:    true,
 										MaxItems:    1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"interval_seconds": {
 													Type:        schema.TypeInt,
-													Description: "TODO: Add description",
+													Description: "",
 													Optional:    true,
 												},
 												"include_namespaces": {
 													Type:        schema.TypeString,
-													Description: "TODO: Add description",
+													Description: "",
 													Optional:    true,
 												},
 												"exclude_namespaces": {
 													Type:        schema.TypeString,
-													Description: "TODO: Add description",
+													Description: "",
 													Optional:    true,
 												},
 												"retain_labels": {
 													Type:        schema.TypeString,
-													Description: "TODO: Add description",
+													Description: "",
 													Optional:    true,
 												},
 											},
@@ -317,24 +317,24 @@ func resourceMk8s() *schema.Resource {
 						},
 						"logs": {
 							Type:        schema.TypeList,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"audit_enabled": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "Collect k8s audit log as log events.",
 										Optional:    true,
 									},
 									"include_namespaces": {
 										Type:        schema.TypeString,
-										Description: "TODO: Add description",
+										Description: "",
 										Optional:    true,
 									},
 									"exclude_namespaces": {
 										Type:        schema.TypeString,
-										Description: "TODO: Add description",
+										Description: "",
 										Optional:    true,
 									},
 								},
@@ -342,32 +342,32 @@ func resourceMk8s() *schema.Resource {
 						},
 						"nvidia": {
 							Type:        schema.TypeList,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"taint_gpu_nodes": {
 										Type:        schema.TypeBool,
-										Description: "TODO: Add description",
+										Description: "",
 										Required:    true,
 									},
 								},
 							},
 						},
-						"aws_efs": Mk8sHasRoleArnSchema(),
-						"aws_ecr": Mk8sHasRoleArnSchema(),
-						"aws_elb": Mk8sHasRoleArnSchema(),
+						"aws_efs": Mk8sHasRoleArnSchema("Use this role for EFS interaction."),
+						"aws_ecr": Mk8sHasRoleArnSchema("Role to use when authorizing ECR pulls. Optional on AWS, in which case it will use the instance role to pull."),
+						"aws_elb": Mk8sHasRoleArnSchema("Role to use when authorizing calls to EC2 ELB. Optional on AWS, when not provided it will create the recommended role."),
 						"azure_acr": {
 							Type:        schema.TypeList,
-							Description: "TODO: Add description",
+							Description: "",
 							Optional:    true,
 							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"client_id": {
 										Type:        schema.TypeString,
-										Description: "TODO: Add description",
+										Description: "",
 										Required:    true,
 									},
 								},
@@ -384,34 +384,34 @@ func resourceMk8s() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"oidc_provider_url": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "",
 							Computed:    true,
 						},
 						"server_url": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "",
 							Computed:    true,
 						},
 						"home_location": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "",
 							Computed:    true,
 						},
 						"add_ons": {
 							Type:        schema.TypeList,
-							Description: "TODO: Add description",
+							Description: "",
 							Computed:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"dashboard": {
 										Type:        schema.TypeList,
-										Description: "TODO: Add description",
+										Description: "",
 										Computed:    true,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"url": {
 													Type:        schema.TypeString,
-													Description: "TODO: Add description",
+													Description: "Access to dashboard.",
 													Computed:    true,
 												},
 											},
@@ -419,24 +419,24 @@ func resourceMk8s() *schema.Resource {
 									},
 									"aws_workload_identity": {
 										Type:        schema.TypeList,
-										Description: "TODO: Add description",
+										Description: "",
 										Computed:    true,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"oidc_provider_config": {
 													Type:        schema.TypeList,
-													Description: "TODO: Add description",
+													Description: "",
 													Computed:    true,
 													Elem: &schema.Resource{
 														Schema: map[string]*schema.Schema{
 															"provider_url": {
 																Type:        schema.TypeString,
-																Description: "TODO: Add description",
+																Description: "",
 																Computed:    true,
 															},
 															"audience": {
 																Type:        schema.TypeString,
-																Description: "TODO: Add description",
+																Description: "",
 																Computed:    true,
 															},
 														},
@@ -448,13 +448,13 @@ func resourceMk8s() *schema.Resource {
 									},
 									"metrics": {
 										Type:        schema.TypeList,
-										Description: "TODO: Add description",
+										Description: "",
 										Computed:    true,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"prometheus_endpoint": {
 													Type:        schema.TypeString,
-													Description: "TODO: Add description",
+													Description: "",
 													Computed:    true,
 												},
 												"remote_write_config": Mk8sObjectUnknownStatusSchema(),
@@ -463,13 +463,13 @@ func resourceMk8s() *schema.Resource {
 									},
 									"logs": {
 										Type:        schema.TypeList,
-										Description: "TODO: Add description",
+										Description: "",
 										Computed:    true,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"loki_address": {
 													Type:        schema.TypeString,
-													Description: "TODO: Add description",
+													Description: "Loki endpoint to query logs from.",
 													Computed:    true,
 												},
 											},
@@ -2045,10 +2045,10 @@ func flattenObjectUnknown(unknown *map[string]interface{}) interface{} {
 
 // Node Pools //
 
-func Mk8sGenericNodePoolSchema() *schema.Schema {
+func Mk8sGenericNodePoolSchema(description string) *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: description,
 		Optional:    true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
@@ -2064,7 +2064,7 @@ func Mk8sHetznerNodePoolSchema() *schema.Schema {
 
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "List of node pools.",
 		Optional:    true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
@@ -2073,12 +2073,12 @@ func Mk8sHetznerNodePoolSchema() *schema.Schema {
 				"taint":  Mk8sGenericNodePoolTaintsSchema(),
 				"server_type": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Required:    true,
 				},
 				"override_image": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 				},
 				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
@@ -2092,7 +2092,7 @@ func Mk8sAwsNodePoolsSchema() *schema.Schema {
 
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "List of node pools.",
 		Optional:    true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
@@ -2101,14 +2101,14 @@ func Mk8sAwsNodePoolsSchema() *schema.Schema {
 				"taint":  Mk8sGenericNodePoolTaintsSchema(),
 				"instance_types": {
 					Type:        schema.TypeSet,
-					Description: "TODO: Add description",
+					Description: "",
 					Required:    true,
 					Elem:        StringSchema(),
 				},
 				"override_image": Mk8sAwsAmiSchema(),
 				"boot_disk_size": {
 					Type:        schema.TypeInt,
-					Description: "size in GB",
+					Description: "Size in GB.",
 					Optional:    true,
 					Default:     20,
 				},
@@ -2116,31 +2116,31 @@ func Mk8sAwsNodePoolsSchema() *schema.Schema {
 				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
 				"on_demand_base_capacity": {
 					Type:        schema.TypeInt,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Default:     0,
 				},
 				"on_demand_percentage_above_base_capacity": {
 					Type:        schema.TypeInt,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Default:     0,
 				},
 				"spot_allocation_strategy": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Default:     "lowest-price",
 				},
 				"subnet_ids": {
 					Type:        schema.TypeSet,
-					Description: "TODO: Add description",
+					Description: "",
 					Required:    true,
 					Elem:        StringSchema(),
 				},
 				"extra_security_group_ids": {
 					Type:        schema.TypeSet,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Elem:        StringSchema(),
 				},
@@ -2154,7 +2154,7 @@ func Mk8sAwsNodePoolsSchema() *schema.Schema {
 func Mk8sGenericNodePoolNameSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeString,
-		Description: "TODO: Add description",
+		Description: "",
 		Required:    true,
 	}
 }
@@ -2162,7 +2162,7 @@ func Mk8sGenericNodePoolNameSchema() *schema.Schema {
 func Mk8sGenericNodePoolLabelsSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeMap,
-		Description: "TODO: Add description",
+		Description: "Labels to attach to nodes of a node pool.",
 		Optional:    true,
 		Elem:        StringSchema(),
 	}
@@ -2171,23 +2171,23 @@ func Mk8sGenericNodePoolLabelsSchema() *schema.Schema {
 func Mk8sGenericNodePoolTaintsSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "Taint for the nodes of a pool.",
 		Optional:    true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"key": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 				},
 				"value": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 				},
 				"effect": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 				},
 			},
@@ -2199,7 +2199,7 @@ func Mk8sGenericNodePoolMinSizeSchema() *schema.Schema {
 
 	return &schema.Schema{
 		Type:        schema.TypeInt,
-		Description: "TODO: Add description",
+		Description: "",
 		Optional:    true,
 		Default:     0,
 	}
@@ -2209,7 +2209,7 @@ func Mk8sGenericNodePoolMaxSizeSchema() *schema.Schema {
 
 	return &schema.Schema{
 		Type:        schema.TypeInt,
-		Description: "TODO: Add description",
+		Description: "",
 		Optional:    true,
 		Default:     0,
 	}
@@ -2220,19 +2220,19 @@ func Mk8sGenericNodePoolMaxSizeSchema() *schema.Schema {
 func Mk8sAwsAmiSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "Default image for all nodes.",
 		Required:    true,
 		MaxItems:    1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"recommended": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 				},
 				"exact": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "Support SSM.",
 					Optional:    true,
 				},
 			},
@@ -2240,17 +2240,17 @@ func Mk8sAwsAmiSchema() *schema.Schema {
 	}
 }
 
-func Mk8sHasRoleArnSchema() *schema.Schema {
+func Mk8sHasRoleArnSchema(description string) *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "",
 		Optional:    true,
 		MaxItems:    1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"role_arn": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: description,
 					Required:    true,
 				},
 			},
@@ -2263,20 +2263,20 @@ func Mk8sHasRoleArnSchema() *schema.Schema {
 func Mk8sNetworkingSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "",
 		Optional:    true,
 		MaxItems:    1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"service_network": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "The CIDR of the service network.",
 					Optional:    true,
 					Default:     "10.43.0.0/16",
 				},
 				"pod_network": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "The CIDR of the pod network.",
 					Optional:    true,
 					Default:     "10.42.0.0/16",
 				},
@@ -2289,32 +2289,32 @@ func Mk8sAutoscalerSchema() *schema.Schema {
 
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "",
 		Optional:    true,
 		MaxItems:    1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"expander": {
 					Type:        schema.TypeSet,
-					Description: "TODO: Add description",
+					Description: "",
 					Required:    true,
 					Elem:        StringSchema(),
 				},
 				"unneeded_time": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Default:     "10m",
 				},
 				"unready_time": {
 					Type:        schema.TypeString,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Default:     "20m",
 				},
 				"utilization_threshold": {
 					Type:        schema.TypeFloat,
-					Description: "TODO: Add description",
+					Description: "",
 					Optional:    true,
 					Default:     0.7,
 				},
@@ -2328,7 +2328,7 @@ func Mk8sAutoscalerSchema() *schema.Schema {
 func Mk8sObjectUnknownStatusSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeString,
-		Description: "TODO: Add description",
+		Description: "",
 		Computed:    true,
 	}
 }
@@ -2336,7 +2336,7 @@ func Mk8sObjectUnknownStatusSchema() *schema.Schema {
 func Mk8sAwsAddOnStatusSchema() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeList,
-		Description: "TODO: Add description",
+		Description: "",
 		Computed:    true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
