@@ -408,6 +408,7 @@ func resourceWorkload() *schema.Resource {
 						},
 						"autoscaling": {
 							Type: schema.TypeList,
+							Description: "Auto-scaling adjusts based on a set strategy, target value, and possibly a metric percentile.", 
 							// Required: true,
 							Optional: true,
 							MaxItems: 1,
@@ -459,7 +460,7 @@ func resourceWorkload() *schema.Resource {
 						},
 						"autoscaling": {
 							Type: schema.TypeList,
-							Description
+							Description: "Auto-scaling adjusts based on a set strategy, target value, and possibly a metric percentile.", 
 							// Required: true,
 							Optional: true,
 							MaxItems: 1,
