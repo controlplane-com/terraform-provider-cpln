@@ -22,6 +22,7 @@ You can define up to **four** logging blocks:
 - **cloud_watch_logging** (Block List, Max: 1) ([see below](#nestedblock--cloud_watch_logging))
 - **fluentd_logging** (Block List, Max: 1) ([see below](#nestedblock--fluentd_logging))
 - **stackdriver_logging** (Block List, Max: 1) ([see below](#nestedblock--stackdriver_logging))
+- **syslog_logging** (Block List, Max: 1) ([see below](#nestedblock--syslog_logging))
 
 <a id="nestedblock--s3_logging"></a>
 
@@ -158,6 +159,22 @@ Required:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
 - **location** (String) A Google Cloud Provider region.
+
+<a id="nestedblock--syslog_logging"></a>
+
+### `syslog_logging`
+
+
+Required:
+
+- **host** (String) TODO: Add description
+- **port** (String) TODO: Add description
+
+Optional:
+
+- **mode** (String) TODO: Add description
+- **format** (String) TODO: Add description
+- **severity** (String) TODO: Add description
 
 ## Outputs
 
@@ -486,6 +503,22 @@ resource "cpln_org_logging" "new" {
 
     // GCP Region
     location = "us-east4"
+  }
+}
+```
+
+### Syslog
+
+```terraform
+resource "cpln_org_logging" "new" {
+
+  syslog_logging {
+
+    host     = "syslog.example.com"
+    port     = 443
+    mode     = "tcp"
+    format   = "rfc5424"
+    severity = 6
   }
 }
 ```

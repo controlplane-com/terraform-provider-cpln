@@ -13,7 +13,7 @@ import (
 var resourceLock = &sync.Mutex{}
 
 var loggingNames = []string{
-	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging",
+	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging", "syslog_logging",
 }
 
 func resourceOrgLogging() *schema.Resource {
@@ -329,6 +329,42 @@ func resourceOrgLogging() *schema.Resource {
 					},
 				},
 			},
+			"syslog_logging": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"host": {
+							Type:        schema.TypeString,
+							Description: "TODO: Add description",
+							Required:    true,
+						},
+						"port": {
+							Type:        schema.TypeInt,
+							Description: "TODO: Add description",
+							Required:    true,
+						},
+						"mode": {
+							Type:        schema.TypeString,
+							Description: "TODO: Add description",
+							Optional:    true,
+							Default:     "tcp",
+						},
+						"format": {
+							Type:        schema.TypeString,
+							Description: "TODO: Add description",
+							Optional:    true,
+							Default:     "rfc5424",
+						},
+						"severity": {
+							Type:        schema.TypeInt,
+							Description: "TODO: Add description",
+							Optional:    true,
+							Default:     6,
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{},
 	}
@@ -385,7 +421,7 @@ func resourceOrgLoggingUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	// log.Printf("[INFO] Method: resourceOrgUpdate")
 
-	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging") {
+	if d.HasChanges("s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging", "elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging", "syslog_logging") {
 
 		c := m.(*client.Client)
 
@@ -458,6 +494,7 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		var cloudWatchArray []client.CloudWatchLogging
 		var fluentdArray []client.FluentdLogging
 		var stackdriverArray []client.StackdriverLogging
+		var syslogArray []client.SyslogLogging
 
 		for _, logging := range loggings {
 
@@ -492,6 +529,10 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 			if logging.Stackdriver != nil {
 				stackdriverArray = append(stackdriverArray, *logging.Stackdriver)
 			}
+
+			if logging.Syslog != nil {
+				syslogArray = append(syslogArray, *logging.Syslog)
+			}
 		}
 
 		if err := d.Set("s3_logging", flattenS3Logging(s3Array)); err != nil {
@@ -523,6 +564,10 @@ func setOrgLogging(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		}
 
 		if err := d.Set("stackdriver_logging", flattenStackdriverLogging(stackdriverArray)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("syslog_logging", flattenSyslogLogging(syslogArray)); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -774,6 +819,38 @@ func buildStackdriverLogging(logging []interface{}) []client.Logging {
 			Stackdriver: &client.StackdriverLogging{
 				Credentials: GetString(log["credentials"].(string)),
 				Location:    GetString(log["location"].(string)),
+			},
+		}
+
+		output = append(output, tempLogging)
+	}
+
+	return output
+}
+
+func buildSyslogLogging(logging []interface{}) []client.Logging {
+
+	if len(logging) == 0 {
+		return nil
+	}
+
+	var output []client.Logging
+
+	for _, logs := range logging {
+
+		if logs == nil {
+			continue
+		}
+
+		log := logs.(map[string]interface{})
+
+		tempLogging := client.Logging{
+			Syslog: &client.SyslogLogging{
+				Host:     GetString(log["host"].(string)),
+				Port:     GetInt(log["port"].(int)),
+				Mode:     GetString(log["mode"].(string)),
+				Format:   GetString(log["format"].(string)),
+				Severity: GetInt(log["severity"].(int)),
 			},
 		}
 
@@ -1035,6 +1112,30 @@ func flattenStackdriverLogging(logs []client.StackdriverLogging) []interface{} {
 	return output
 }
 
+func flattenSyslogLogging(logs []client.SyslogLogging) []interface{} {
+
+	if len(logs) == 0 {
+		return nil
+	}
+
+	output := make([]interface{}, len(logs))
+
+	for i, log := range logs {
+
+		outputMap := make(map[string]interface{})
+
+		outputMap["host"] = *log.Host
+		outputMap["port"] = *log.Port
+		outputMap["mode"] = *log.Mode
+		outputMap["format"] = *log.Format
+		outputMap["severity"] = *log.Severity
+
+		output[i] = outputMap
+	}
+
+	return output
+}
+
 func flattenAWSLogging(log *client.AWSLogging) []interface{} {
 
 	if log == nil {
@@ -1139,6 +1240,8 @@ func buildMultipleLoggings(d *schema.ResourceData, loggingTypes ...string) []cli
 			loggingToAdd = buildFluentdLogging(logArray)
 		case "stackdriver_logging":
 			loggingToAdd = buildStackdriverLogging(logArray)
+		case "syslog_logging":
+			loggingToAdd = buildSyslogLogging(logArray)
 		default:
 			continue
 		}

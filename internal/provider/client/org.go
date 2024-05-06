@@ -104,6 +104,14 @@ type StackdriverLogging struct {
 	Location    *string `json:"location,omitempty"`
 }
 
+type SyslogLogging struct {
+	Host     *string `json:"host,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	Mode     *string `json:"mode,omitempty"`
+	Format   *string `json:"format,omitempty"`
+	Severity *int    `json:"severity,omitempty"`
+}
+
 // Logging - Logging
 type Logging struct {
 	S3          *S3Logging          `json:"s3,omitempty"`
@@ -114,6 +122,7 @@ type Logging struct {
 	CloudWatch  *CloudWatchLogging  `json:"cloudWatch,omitempty"`
 	Fluentd     *FluentdLogging     `json:"fluentd,omitempty"`
 	Stackdriver *StackdriverLogging `json:"stackdriver,omitempty"`
+	Syslog      *SyslogLogging      `json:"syslog,omitempty"`
 }
 
 // AuthConfig - AuthConfig

@@ -912,6 +912,15 @@ func TestControlPlane_BuildStackdriverLogging(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildSyslogLogging(t *testing.T) {
+
+	logging, expectedLogging, _ := generateTestSyslogLogging()
+
+	if diff := deep.Equal(logging, expectedLogging); diff != nil {
+		t.Errorf("Syslog Logging was not built correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_BuildAWSLogging(t *testing.T) {
 	awsLogging, expectedAWSLogging, _ := generateTestAWSLogging()
 	if diff := deep.Equal(awsLogging, &expectedAWSLogging); diff != nil {
@@ -1174,6 +1183,31 @@ func generateTestStackdriverLogging() ([]client.Logging, []client.Logging, []int
 	return stackdriver, expectedStackdriver, flattened
 }
 
+func generateTestSyslogLogging() ([]client.Logging, []client.Logging, []interface{}) {
+
+	host := "syslog.example.com"
+	port := 443
+	mode := "tcp"
+	format := "rfc5424"
+	severity := 6
+
+	flattened := generateFlatTestSyslogLogging(host, port, mode, format, severity)
+	syslog := buildSyslogLogging(flattened)
+	expectedSyslog := []client.Logging{
+		{
+			Syslog: &client.SyslogLogging{
+				Host:     &host,
+				Port:     &port,
+				Mode:     &mode,
+				Format:   &format,
+				Severity: &severity,
+			},
+		},
+	}
+
+	return syslog, expectedSyslog, flattened
+}
+
 func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interface{}) {
 	host := "es.amazonaws.com"
 	port := 8080
@@ -1355,6 +1389,21 @@ func generateFlatTestStackdriverLogging(credentials string, location string) []i
 	spec := map[string]interface{}{
 		"credentials": credentials,
 		"location":    location,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestSyslogLogging(host string, port int, mode string, format string, severity int) []interface{} {
+
+	spec := map[string]interface{}{
+		"host":     host,
+		"port":     port,
+		"mode":     mode,
+		"format":   format,
+		"severity": severity,
 	}
 
 	return []interface{}{
