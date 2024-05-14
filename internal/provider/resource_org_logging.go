@@ -336,29 +336,29 @@ func resourceOrgLogging() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"host": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Hostname of Syslog Endpoint.",
 							Required:    true,
 						},
 						"port": {
 							Type:        schema.TypeInt,
-							Description: "TODO: Add description",
+							Description: "Port of Syslog Endpoint.",
 							Required:    true,
 						},
 						"mode": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Log Mode. Valid values: TCP, TLS, or UDP.",
 							Optional:    true,
 							Default:     "tcp",
 						},
 						"format": {
 							Type:        schema.TypeString,
-							Description: "TODO: Add description",
+							Description: "Log Format. Valid values: RFC3164 or RFC5424.",
 							Optional:    true,
 							Default:     "rfc5424",
 						},
 						"severity": {
 							Type:        schema.TypeInt,
-							Description: "TODO: Add description",
+							Description: "Severity Level. See documentation for details. Valid values: 0 to 7.",
 							Optional:    true,
 							Default:     6,
 						},

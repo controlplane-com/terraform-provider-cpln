@@ -167,14 +167,41 @@ Required:
 
 Required:
 
-- **host** (String) TODO: Add description
-- **port** (String) TODO: Add description
+- **host** (String) Hostname of Syslog Endpoint.
+- **port** (Int) Port of Syslog Endpoint.
 
 Optional:
 
-- **mode** (String) TODO: Add description
-- **format** (String) TODO: Add description
-- **severity** (String) TODO: Add description
+- **mode** (String) Log Mode. Valid values: `TCP`, `TLS`, or `UDP`.
+- **format** (String) Log Format. Valid values: `RFC3164` or `RFC5424`.
+- **severity** (Int) Severity Level. See description below. Valid values: `0` to `7`.
+
+**Severity Level Descriptions**
+```
+Emergency (EMERG) (severity level 0)
+System is unusable.
+
+Alert (ALERT) (severity level 1)
+Action must be taken immediately.
+
+Critical (CRIT) (severity level 2)
+Critical conditions.
+
+Error (ERR) (severity level 3)
+Error conditions.
+
+Warning (WARNING) (severity level 4)
+Warning conditions.
+
+Notice (NOTICE) (severity level 5)
+Normal but significant conditions.
+
+Informational (INFO) (severity level 6)
+Informational messages.
+
+Debug (DEBUG) (severity level 7)
+Debug-level messages.
+```
 
 ## Outputs
 
