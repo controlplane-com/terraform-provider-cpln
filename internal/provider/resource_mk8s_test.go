@@ -401,12 +401,12 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 				recommended = "amazon/al2023"
 			}
 	
-			deploy_role_arn         = "arn:aws:iam::12345678901:role/cpln"
-			vpc_id                  = "vpc-03105bd4dc058d3a8"
-			key_pair                = "cem_uzak"
-			disk_encryption_key_arn = "arn:aws:kms:eu-central-1:12345678901:key/0a1bcd23-4567-8901-e2fg-3h4i5jk678lm"
+			deploy_role_arn         = "arn:aws:iam::989132402664:role/cpln-mk8s-terraform-test-org"
+			vpc_id                  = "vpc-087b3e0f680a7e91e"
+			key_pair                = "debug-eks"
+			disk_encryption_key_arn = "arn:aws:kms:us-west-2:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
 	
-			security_group_ids = ["sg-031480aa7a1e6e38b"]
+			security_group_ids = ["sg-0f659b1b0711edce1"]
 	
 			node_pool {
 				name = "my-aws-node-pool"
@@ -434,8 +434,8 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 				on_demand_percentage_above_base_capacity = 0
 				spot_allocation_strategy                 = "lowest-price"
 	
-				subnet_ids               = ["subnet-0e564a042e2a45009"]
-				extra_security_group_ids = ["sg-031480aa7a1e6e38b"]
+				subnet_ids               = ["subnet-0d7227b2669cf81b0"]
+				extra_security_group_ids = []
 			}
 	
 			autoscaler {
