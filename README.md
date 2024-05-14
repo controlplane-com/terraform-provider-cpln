@@ -276,4 +276,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.23 - Update docs to indicate the locations are optional for a GVC. Update image data source to return the latest image if there is not tag. pdate images data source to accept a query. Add storage class suffix to volume set.
 - v1.1.24 - Update images data source to fetch all images.
 - v1.1.25 - Handle case when no images are found. Add cloudwatch, fluentd, and stack driver to org logging.
-- v1.1.26 - Add mk8s resource. Add location resource. Add syslog to org logging.
+- v1.1.26 - Add mk8s resource. Add location resource. Add syslog to org logging..
