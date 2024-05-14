@@ -52,6 +52,7 @@ func Provider() *schema.Provider {
 			"cpln_gvc":                 resourceGvc(),
 			"cpln_identity":            resourceIdentity(),
 			"cpln_location":            resourceLocation(),
+			"cpln_mk8s":                resourceMk8s(),
 			"cpln_org_logging":         resourceOrgLogging(),
 			"cpln_org_tracing":         resourceOrgTracing(),
 			"cpln_org":                 resourceOrg(),
