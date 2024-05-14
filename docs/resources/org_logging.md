@@ -22,6 +22,7 @@ You can define up to **four** logging blocks:
 - **cloud_watch_logging** (Block List, Max: 1) ([see below](#nestedblock--cloud_watch_logging))
 - **fluentd_logging** (Block List, Max: 1) ([see below](#nestedblock--fluentd_logging))
 - **stackdriver_logging** (Block List, Max: 1) ([see below](#nestedblock--stackdriver_logging))
+- **syslog_logging** (Block List, Max: 1) ([see below](#nestedblock--syslog_logging))
 
 <a id="nestedblock--s3_logging"></a>
 
@@ -158,6 +159,49 @@ Required:
 
 - **credentials** (String) Full link to referenced Opaque Secret.
 - **location** (String) A Google Cloud Provider region.
+
+<a id="nestedblock--syslog_logging"></a>
+
+### `syslog_logging`
+
+
+Required:
+
+- **host** (String) Hostname of Syslog Endpoint.
+- **port** (Int) Port of Syslog Endpoint.
+
+Optional:
+
+- **mode** (String) Log Mode. Valid values: `TCP`, `TLS`, or `UDP`.
+- **format** (String) Log Format. Valid values: `RFC3164` or `RFC5424`.
+- **severity** (Int) Severity Level. See description below. Valid values: `0` to `7`.
+
+**Severity Level Descriptions**
+```
+Emergency (EMERG) (severity level 0)
+System is unusable.
+
+Alert (ALERT) (severity level 1)
+Action must be taken immediately.
+
+Critical (CRIT) (severity level 2)
+Critical conditions.
+
+Error (ERR) (severity level 3)
+Error conditions.
+
+Warning (WARNING) (severity level 4)
+Warning conditions.
+
+Notice (NOTICE) (severity level 5)
+Normal but significant conditions.
+
+Informational (INFO) (severity level 6)
+Informational messages.
+
+Debug (DEBUG) (severity level 7)
+Debug-level messages.
+```
 
 ## Outputs
 
@@ -486,6 +530,22 @@ resource "cpln_org_logging" "new" {
 
     // GCP Region
     location = "us-east4"
+  }
+}
+```
+
+### Syslog
+
+```terraform
+resource "cpln_org_logging" "new" {
+
+  syslog_logging {
+
+    host     = "syslog.example.com"
+    port     = 443
+    mode     = "tcp"
+    format   = "rfc5424"
+    severity = 6
   }
 }
 ```
