@@ -50,47 +50,56 @@ func LocationSchema() map[string]*schema.Schema {
 
 	return map[string]*schema.Schema{
 		"cpln_id": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The ID, in GUID format, of the location.",
+			Computed:    true,
 		},
 		"name": {
-			Type:     schema.TypeString,
-			Required: true,
+			Type:        schema.TypeString,
+			Description: "Name of the location.",
+			Required:    true,
 		},
 		"description": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Description of the location.",
+			Computed:    true,
 		},
 		"tags": {
-			Type:     schema.TypeMap,
-			Computed: true,
+			Type:        schema.TypeMap,
+			Description: "Key-value map of resource tags.",
+			Computed:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"cloud_provider": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Cloud Provider of the location.",
+			Computed:    true,
 		},
 		"region": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Region of the location.",
+			Computed:    true,
 		},
 		"enabled": {
-			Type:     schema.TypeBool,
-			Computed: true,
+			Type:        schema.TypeBool,
+			Description: "Indication if location is enabled.",
+			Computed:    true,
 		},
 		"geo": GeoSchema(),
 		"ip_ranges": {
-			Type:     schema.TypeSet,
-			Computed: true,
+			Type:        schema.TypeSet,
+			Description: "A list of IP ranges of the location.",
+			Computed:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"self_link": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Full link to this resource. Can be referenced by other resources.",
+			Computed:    true,
 		},
 	}
 }
@@ -99,47 +108,56 @@ func LocationsSchema() map[string]*schema.Schema {
 
 	return map[string]*schema.Schema{
 		"cpln_id": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "The ID, in GUID format, of the location.",
+			Computed:    true,
 		},
 		"name": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Name of the location.",
+			Computed:    true,
 		},
 		"description": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Description of the location.",
+			Computed:    true,
 		},
 		"tags": {
-			Type:     schema.TypeMap,
-			Computed: true,
+			Type:        schema.TypeMap,
+			Description: "Key-value map of resource tags.",
+			Computed:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"cloud_provider": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Cloud Provider of the location.",
+			Computed:    true,
 		},
 		"region": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Region of the location.",
+			Computed:    true,
 		},
 		"enabled": {
-			Type:     schema.TypeBool,
-			Computed: true,
+			Type:        schema.TypeBool,
+			Description: "Indication if location is enabled.",
+			Computed:    true,
 		},
 		"geo": GeoSchema(),
 		"ip_ranges": {
-			Type:     schema.TypeSet,
-			Computed: true,
+			Type:        schema.TypeSet,
+			Description: "A list of IP ranges of the location.",
+			Computed:    true,
 			Elem: &schema.Schema{
 				Type: schema.TypeString,
 			},
 		},
 		"self_link": {
-			Type:     schema.TypeString,
-			Computed: true,
+			Type:        schema.TypeString,
+			Description: "Full link to this resource. Can be referenced by other resources.",
+			Computed:    true,
 		},
 	}
 }
@@ -151,28 +169,34 @@ func GeoSchema() *schema.Schema {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"lat": {
-					Type:     schema.TypeFloat,
-					Optional: true,
+					Type:        schema.TypeFloat,
+					Description: "Latitude.",
+					Optional:    true,
 				},
 				"lon": {
-					Type:     schema.TypeFloat,
-					Optional: true,
+					Type:        schema.TypeFloat,
+					Description: "Longitude.",
+					Optional:    true,
 				},
 				"country": {
-					Type:     schema.TypeString,
-					Optional: true,
+					Type:        schema.TypeString,
+					Description: "Country.",
+					Optional:    true,
 				},
 				"state": {
-					Type:     schema.TypeString,
-					Optional: true,
+					Type:        schema.TypeString,
+					Description: "State.",
+					Optional:    true,
 				},
 				"city": {
-					Type:     schema.TypeString,
-					Optional: true,
+					Type:        schema.TypeString,
+					Description: "City.",
+					Optional:    true,
 				},
 				"continent": {
-					Type:     schema.TypeString,
-					Optional: true,
+					Type:        schema.TypeString,
+					Description: "Continent.",
+					Optional:    true,
 				},
 			},
 		},
@@ -214,4 +238,14 @@ func (c *Client) GetLocations() (*Locations, error) {
 	}
 
 	return &locations, nil
+}
+
+func (c *Client) UpdateLocation(location Location) (*Location, int, error) {
+
+	code, err := c.UpdateResource(fmt.Sprintf("location/%s", *location.Name), location)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return c.GetLocation(*location.Name)
 }
