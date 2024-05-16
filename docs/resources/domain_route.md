@@ -16,9 +16,12 @@ Used in conjunction with a Domain.
 
 ### Required
 
+~> **Note** Only one of `prefix` OR `regex` may be provided in a single resource.
+
 - **domain_link** (String) The self link of the domain to add the route to.
 - **domain_port** (int) The port the route corresponds to. Default: 443
 - **prefix** (String) The path will match any unmatched path prefixes for the subdomain.
+- **regex** (String) Used to match URI paths. Uses the google re2 regex syntax.
 - **workload_link** (String) The link of the workload to map the prefix to.
 
 ### Optional
@@ -29,8 +32,10 @@ Used in conjunction with a Domain.
 
 ## Example Usage
 
+### Prefix
+
 ```terraform
-resource "cpln_domain" "domain_apex" {
+resource "cpln_domain" "apex" {
   name        = "example.com"
   description = "APEX domain example"
 
@@ -45,9 +50,9 @@ resource "cpln_domain" "domain_apex" {
   }
 }
 
-resource "cpln_domain" "example_cname_routes" {
+resource "cpln_domain" "subdomain" {
 
-  depends_on = [cpln_domain.domain_apex]
+  depends_on = [cpln_domain.apex]
 
   name        = "app.example.com"
   description = "Custom domain that can be set on a GVC and used by associated workloads"
@@ -92,34 +97,115 @@ resource "cpln_domain" "example_cname_routes" {
   }
 }
 
-resource "cpln_domain_route" "example_route" {
+resource "cpln_domain_route" "first-route" {
 
     // The first route depends on the domain being created first
-    depends_on  = [cpln_domain.example_cname_routes]
+    depends_on  = [cpln_domain.subdomain]
 
-    domain_link = cpln_domain.example_cname_routes.self_link
+    domain_link = cpln_domain.subdomain.self_link
     domain_port = 443
 
-    prefix = "/example"
+    prefix = "/example-1"
     replace_prefix = "/replace_example"
     host_prefix = "www.example.com"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
 }
 
-resource "cpln_domain_route" "example_second_route" {
+resource "cpln_domain_route" "second-route" {
 
     // The second route depends on the first route
-    depends_on  = [cpln_domain_route.example_route]
+    depends_on  = [cpln_domain_route.first-route]
 
-    domain_link = cpln_domain.example_cname_routes.self_link
+    domain_link = cpln_domain.subdomain.self_link
     domain_port = 443
 
-    prefix = "/example_second_route"
+    prefix = "/example-2"
     replace_prefix = "/"
     host_prefix = "www.foo.com"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
+}
+```
+
+### Regex
+
+```terraform
+resource "cpln_domain" "apex" {
+  name        = "example.com"
+  description = "APEX domain example"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    ports {
+      tls { }
+      }
+  }
+}
+
+resource "cpln_domain" "subdomain" {
+
+  depends_on = [cpln_domain.apex]
+
+  name        = "app.example.com"
+  description = "Custom domain that can be set on a GVC and used by associated workloads"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode = "ns"
+
+    ports {
+      number   = 443
+      protocol = "http2"
+
+      cors {
+        allow_origins {
+          exact = "example.com"
+        }
+
+        allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+        allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
+      }
+    }
+  }
+}
+
+resource "cpln_domain_route" "new" {
+
+    // The first route depends on the domain being created first
+    depends_on  = [cpln_domain.subdomain]
+
+    domain_link = cpln_domain.subdomain.self_link
+    domain_port = 443
+
+    regex          = "/user/.*/profile"
+    replace_prefix = "/replace-example"
+    host_prefix    = "www.example.com"
+    workload_link  = "LINK_TO_WORKLOAD"
+    port           = 80
 }
 ```
 
@@ -130,7 +216,7 @@ The `terraform import` command is used to bring existing infrastructure resource
 To update a statefile with an existing domain route resource, execute the following import command:
 
 ```terraform
-terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:PREFIX
+terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:[PREFIX|REGEX]
 ```
 
 -> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_LINK with the corresponding domain link defined in the resource.<br/>3. Substitute DOMAIN_PORT with the corresponding domain port defined in the resource.<br/>4. Substitute PREFIX with the corresponding prefix defined in the resource.

@@ -48,6 +48,7 @@ type DomainSpecPort struct {
 type DomainRoute struct {
 	Prefix        *string `json:"prefix,omitempty"`
 	ReplacePrefix *string `json:"replacePrefix,omitempty"`
+	Regex         *string `json:"regex,omitempty"`
 	WorkloadLink  *string `json:"workloadLink,omitempty"`
 	Port          *int    `json:"port,omitempty"`
 	HostPrefix    *string `json:"hostPrefix,omitempty"`
@@ -181,8 +182,18 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 		}
 	}
 
-	return fmt.Errorf("unable to add route '%s' for domain '%s', Port '%d' is not set", *route.Prefix, domainName, domainPort)
+	// Port not found, return an error
+	routeIdentifier := ""
 
+	if route.Prefix != nil {
+		routeIdentifier = fmt.Sprintf("with prefix '%s'", *route.Prefix)
+	}
+
+	if route.Regex != nil {
+		routeIdentifier = fmt.Sprintf("with regex '%s'", *route.Regex)
+	}
+
+	return fmt.Errorf("unable to add route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
 }
 
 func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *DomainRoute) error {
@@ -203,8 +214,10 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 
 			for rIndex, _route := range *value.Routes {
 
-				if *_route.Prefix == *route.Prefix {
+				if (_route.Prefix != nil && route.Prefix != nil && *_route.Prefix == *route.Prefix) ||
+					(_route.Regex != nil && route.Regex != nil && *_route.Regex == *route.Regex) {
 
+					// Modify existing route
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].ReplacePrefix = route.ReplacePrefix
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].WorkloadLink = route.WorkloadLink
 
@@ -237,10 +250,21 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 		}
 	}
 
-	return fmt.Errorf("unable to update route '%s' for domain '%s', Port '%d' is not set", *route.Prefix, domainName, domainPort)
+	// Port not found, return an error
+	routeIdentifier := ""
+
+	if route.Prefix != nil {
+		routeIdentifier = fmt.Sprintf("with prefix '%s'", *route.Prefix)
+	}
+
+	if route.Regex != nil {
+		routeIdentifier = fmt.Sprintf("with regex '%s'", *route.Regex)
+	}
+
+	return fmt.Errorf("unable to update route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
 }
 
-func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix string) error {
+func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix *string, regex *string) error {
 
 	domain, _, err := c.GetDomain(domainName)
 
@@ -260,7 +284,8 @@ func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix str
 
 			for _index, _route := range *value.Routes {
 
-				if *_route.Prefix == prefix {
+				if (prefix != nil && _route.Prefix != nil && *_route.Prefix == *prefix) ||
+					(regex != nil && _route.Regex != nil && *_route.Regex == *regex) {
 					routeIndex = _index
 					break
 				}
@@ -268,6 +293,7 @@ func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix str
 
 			if routeIndex != -1 {
 
+				// Remove route at index routeIndex
 				*(*domain.Spec.Ports)[pIndex].Routes = append((*(*domain.Spec.Ports)[pIndex].Routes)[:routeIndex], (*(*domain.Spec.Ports)[pIndex].Routes)[routeIndex+1:]...)
 
 				// Update resource
@@ -286,7 +312,18 @@ func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix str
 		}
 	}
 
-	return fmt.Errorf("unable to delete route '%s' for domain '%s', Port '%d' is not set", prefix, domainName, domainPort)
+	// Route not found, return an error
+	routeIdentifier := ""
+
+	if prefix != nil {
+		routeIdentifier = fmt.Sprintf("with prefix '%s'", *prefix)
+	}
+
+	if regex != nil {
+		routeIdentifier = fmt.Sprintf("with regex '%s'", *regex)
+	}
+
+	return fmt.Errorf("unable to delete route %s for a domain named '%s'. Route not found at port %d", routeIdentifier, domainName, domainPort)
 }
 
 func DeepCopy(source interface{}) interface{} {
