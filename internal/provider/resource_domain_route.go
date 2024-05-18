@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var routeRegexOrPrefixAttribute = []string{"prefix", "regex"}
+
 func resourceDomainRoute() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceDomainRouteCreate,
@@ -33,15 +35,23 @@ func resourceDomainRoute() *schema.Resource {
 				Default:     443,
 			},
 			"prefix": {
-				Type:        schema.TypeString,
-				Description: "The path will match any unmatched path prefixes for the subdomain.",
-				ForceNew:    true,
-				Required:    true,
+				Type:         schema.TypeString,
+				Description:  "The path will match any unmatched path prefixes for the subdomain.",
+				ForceNew:     true,
+				Optional:     true,
+				ExactlyOneOf: routeRegexOrPrefixAttribute,
 			},
 			"replace_prefix": {
 				Type:        schema.TypeString,
 				Description: "A path prefix can be configured to be replaced when forwarding the request to the Workload.",
 				Optional:    true,
+			},
+			"regex": {
+				Type:         schema.TypeString,
+				Description:  "Used to match URI paths. Uses the google re2 regex syntax.",
+				ForceNew:     true,
+				Optional:     true,
+				ExactlyOneOf: routeRegexOrPrefixAttribute,
 			},
 			"workload_link": {
 				Type:        schema.TypeString,
@@ -65,26 +75,97 @@ func resourceDomainRoute() *schema.Resource {
 	}
 }
 
-func importStateDomainRoute(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func importStateDomainRoute(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 
+	// Extract required values from ResourceData
 	parts := strings.SplitN(d.Id(), ":", 3)
 
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax: 'domain_link:domain_port:prefix'. Example: 'terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:PREFIX'", d.Id())
+	var domainLink string
+	var domainPortStr string
+	var prefixOrRegex string
+
+	if len(parts) == 3 {
+		domainLink = parts[0]
+		domainPortStr = parts[1]
+		prefixOrRegex = parts[2]
 	}
 
-	domainLink := parts[0]
-	domainPort, err := strconv.Atoi(parts[1])
-	routePrefix := parts[2]
+	if domainLink == "" || domainPortStr == "" || prefixOrRegex == "" {
+		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax: 'domain_link:domain_port:[prefix|regex]'. Example: 'terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:[PREFIX|REGEX]'", d.Id())
+	}
+
+	// Convert domainPortStr to integer
+	domainPort, err := strconv.Atoi(domainPortStr)
 
 	if err != nil {
 		return nil, fmt.Errorf("unexpected format of ID (%s), domain port is invalid, must be a integer. value provided: %s. error: %s", d.Id(), parts[1], err.Error())
 	}
 
+	// Figure out if it was prefix OR regex that was provided
+	var prefix *string
+	var regex *string
+
+	c := m.(*client.Client)
+
+	domain, code, err := c.GetDomain(GetNameFromSelfLink(domainLink))
+
+	if code == 404 {
+		return nil, fmt.Errorf("domain '%s' not found", domainLink)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		return nil, fmt.Errorf("domain '%s' does not have any port configured", domainLink)
+	}
+
+	for _, port := range *domain.Spec.Ports {
+
+		if *port.Number != domainPort || port.Routes == nil || len(*port.Routes) == 0 {
+			continue
+		}
+
+		found := false
+
+		for _, route := range *port.Routes {
+
+			if route.Prefix != nil && *route.Prefix == prefixOrRegex {
+				prefix = route.Prefix
+				found = true
+				break
+			}
+
+			if route.Regex != nil && *route.Regex == prefixOrRegex {
+				regex = route.Regex
+				found = true
+				break
+			}
+		}
+
+		if found {
+			break
+		}
+	}
+
+	// Set values and Id
 	d.Set("domain_link", domainLink)
 	d.Set("domain_port", domainPort)
-	d.Set("prefix", routePrefix)
-	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, routePrefix))
+
+	var routeIdentifier string
+
+	if prefix != nil {
+		routeIdentifier = *prefix
+		d.Set("prefix", *prefix)
+	}
+
+	if regex != nil {
+		routeIdentifier = *regex
+		d.Set("regex", *regex)
+	}
+
+	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, routeIdentifier))
 
 	return []*schema.ResourceData{d}, nil
 }
@@ -95,11 +176,18 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 	domainPort := d.Get("domain_port").(int)
 
 	route := client.DomainRoute{
-		Prefix:        GetString(d.Get("prefix")),
 		ReplacePrefix: GetString(d.Get("replace_prefix")),
 		WorkloadLink:  GetString(d.Get("workload_link")),
 		Port:          GetInt(d.Get("port")),
 		HostPrefix:    GetString(d.Get("host_prefix")),
+	}
+
+	if d.Get("prefix") != nil {
+		route.Prefix = GetString(d.Get("prefix"))
+	}
+
+	if d.Get("regex") != nil {
+		route.Regex = GetString(d.Get("regex"))
 	}
 
 	c := m.(*client.Client)
@@ -116,7 +204,17 @@ func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m inte
 
 	domainLink := d.Get("domain_link").(string)
 	domainPort := d.Get("domain_port").(int)
-	prefix := d.Get("prefix").(string)
+
+	var prefix *string
+	var regex *string
+
+	if d.Get("prefix") != nil {
+		prefix = GetString(d.Get("prefix").(string))
+	}
+
+	if d.Get("regex") != nil {
+		regex = GetString(d.Get("regex").(string))
+	}
 
 	c := m.(*client.Client)
 	domain, code, err := c.GetDomain(GetNameFromSelfLink(domainLink))
@@ -135,16 +233,15 @@ func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m inte
 
 			for _, route := range *value.Routes {
 
-				if *route.Prefix != prefix {
-					continue
+				if (prefix != nil && route.Prefix != nil && *route.Prefix == *prefix) ||
+					(regex != nil && route.Regex != nil && *route.Regex == *regex) {
+					return setDomainRoute(d, domainLink, domainPort, &route)
 				}
-
-				return setDomainRoute(d, domainLink, domainPort, &route)
 			}
 		}
 	}
 
-	return nil
+	return diag.Errorf("route not found in port %d", domainPort)
 }
 
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -155,11 +252,18 @@ func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m in
 		domainPort := d.Get("domain_port").(int)
 
 		route := &client.DomainRoute{
-			Prefix:        GetString(d.Get("prefix")),
 			ReplacePrefix: GetString(d.Get("replace_prefix")),
 			WorkloadLink:  GetString(d.Get("workload_link")),
 			Port:          GetInt(d.Get("port")),
 			HostPrefix:    GetString(d.Get(("host_prefix"))),
+		}
+
+		if d.Get("prefix") != nil {
+			route.Prefix = GetString(d.Get("prefix"))
+		}
+
+		if d.Get("regex") != nil {
+			route.Regex = GetString(d.Get("regex"))
 		}
 
 		c := m.(*client.Client)
@@ -180,11 +284,21 @@ func resourceDomainRouteDelete(ctx context.Context, d *schema.ResourceData, m in
 
 	domainLink := d.Get("domain_link").(string)
 	domainPort := d.Get("domain_port").(int)
-	prefix := d.Get("prefix").(string)
+
+	var prefix *string
+	var regex *string
+
+	if d.Get("prefix") != nil {
+		prefix = GetString(d.Get("prefix"))
+	}
+
+	if d.Get("regex") != nil {
+		regex = GetString(d.Get("regex"))
+	}
 
 	c := m.(*client.Client)
 
-	err := c.RemoveDomainRoute(GetNameFromSelfLink(domainLink), domainPort, prefix)
+	err := c.RemoveDomainRoute(GetNameFromSelfLink(domainLink), domainPort, prefix, regex)
 
 	if err != nil {
 		return diag.FromErr(err)
@@ -202,7 +316,17 @@ func setDomainRoute(d *schema.ResourceData, domainLink string, domainPort int, r
 		return nil
 	}
 
-	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, *route.Prefix))
+	var prefixOrRegex string
+
+	if route.Prefix != nil {
+		prefixOrRegex = *route.Prefix
+	}
+
+	if route.Regex != nil {
+		prefixOrRegex = *route.Regex
+	}
+
+	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, prefixOrRegex))
 
 	if err := d.Set("domain_link", domainLink); err != nil {
 		return diag.FromErr(err)
@@ -212,12 +336,20 @@ func setDomainRoute(d *schema.ResourceData, domainLink string, domainPort int, r
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set("prefix", route.Prefix); err != nil {
-		return diag.FromErr(err)
+	if route.Prefix != nil {
+		if err := d.Set("prefix", route.Prefix); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if err := d.Set("replace_prefix", route.ReplacePrefix); err != nil {
 		return diag.FromErr(err)
+	}
+
+	if route.Regex != nil {
+		if err := d.Set("regex", route.Regex); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	if err := d.Set("workload_link", route.WorkloadLink); err != nil {
