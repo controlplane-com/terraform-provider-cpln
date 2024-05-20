@@ -138,6 +138,22 @@ type Observability struct {
 	TracesRetentionDays  *int `json:"tracesRetentionDays,omitempty"`
 }
 
+type OrgThreatDetectionSyslog struct {
+	Transport *string `json:"transport,omitempty"`
+	Host      *string `json:"host,omitempty"`
+	Port      *int    `json:"port,omitempty"`
+}
+
+type OrgThreatDetection struct {
+	Enabled         *bool                     `json:"enabled,omitempty"`
+	MinimumSeverity *string                   `json:"minimumSeverity,omitempty"`
+	Syslog          *OrgThreatDetectionSyslog `json:"syslog,omitempty"`
+}
+
+type OrgSecurity struct {
+	ThreatDetection *OrgThreatDetection `json:"threatDetection,omitempty"`
+}
+
 // OrgSpec - Organization Spec
 type OrgSpec struct {
 	Logging               *Logging       `json:"logging,omitempty"`
@@ -146,6 +162,7 @@ type OrgSpec struct {
 	SessionTimeoutSeconds *int           `json:"sessionTimeoutSeconds,omitempty"`
 	AuthConfig            *AuthConfig    `json:"authConfig,omitempty"`
 	Observability         *Observability `json:"observability,omitempty"`
+	Security              *OrgSecurity   `json:"security,omitempty"`
 }
 
 type UpdateSpec struct {

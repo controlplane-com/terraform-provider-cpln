@@ -44,6 +44,18 @@ func testAccControlPlaneOrg() string {
 		  metrics_retention_days = 65
 		  traces_retention_days  = 75
 		}
+
+		security {
+			threat_detection {
+				enabled 		 = true
+				minimum_severity = "warning"
+				syslog {
+					transport = "tcp"
+					host 	  = "example.com"
+					port  	  = 8080
+				}
+			}
+		}
 	  }
     `
 }
@@ -67,6 +79,38 @@ func TestControlPlane_BuildOrgObservability(t *testing.T) {
 
 	if diff := deep.Equal(observability, expectedObservability); diff != nil {
 		t.Errorf("Org Observability was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildOrgSecurity(t *testing.T) {
+
+	expectedSecurity := generateTestOrgSecurity()
+	flattenedSyslog := generateFlatTestOrgThreatDetectionSyslog(*expectedSecurity.ThreatDetection.Syslog.Transport, *expectedSecurity.ThreatDetection.Syslog.Host, *expectedSecurity.ThreatDetection.Syslog.Port)
+	security := buildOrgSecurity(generateFlatTestOrgSecurity(generateFlatTestOrgThreatDetection(*expectedSecurity.ThreatDetection.Enabled, *expectedSecurity.ThreatDetection.MinimumSeverity, flattenedSyslog)))
+
+	if diff := deep.Equal(security, expectedSecurity); diff != nil {
+		t.Errorf("Org Security was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildOrgThreatDetection(t *testing.T) {
+
+	expectedThreatDetection := generateTestOrgThreatDetection()
+	flattenedSyslog := generateFlatTestOrgThreatDetectionSyslog(*expectedThreatDetection.Syslog.Transport, *expectedThreatDetection.Syslog.Host, *expectedThreatDetection.Syslog.Port)
+	threatDetection := buildOrgThreatDetection(generateFlatTestOrgThreatDetection(*expectedThreatDetection.Enabled, *expectedThreatDetection.MinimumSeverity, flattenedSyslog))
+
+	if diff := deep.Equal(threatDetection, expectedThreatDetection); diff != nil {
+		t.Errorf("Org Threat Detection was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildOrgThreatDetectionSyslog(t *testing.T) {
+
+	expectedSyslog := generateTestOrgThreatDetectionSyslog()
+	syslog := buildOrgThreatDetectionSyslog(generateFlatTestOrgThreatDetectionSyslog(*expectedSyslog.Transport, *expectedSyslog.Host, *expectedSyslog.Port))
+
+	if diff := deep.Equal(syslog, expectedSyslog); diff != nil {
+		t.Errorf("Org Threat Detection Syslog was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -123,6 +167,47 @@ func generateTestOrgObservability() *client.Observability {
 	return &expectedObservability
 }
 
+func generateTestOrgSecurity() *client.OrgSecurity {
+
+	threatDetection := generateTestOrgThreatDetection()
+
+	expectedSecurity := client.OrgSecurity{
+		ThreatDetection: threatDetection,
+	}
+
+	return &expectedSecurity
+}
+
+func generateTestOrgThreatDetection() *client.OrgThreatDetection {
+
+	enabled := true
+	minimumSeverity := "warning"
+	syslog := generateTestOrgThreatDetectionSyslog()
+
+	expectedThreatDetection := client.OrgThreatDetection{
+		Enabled:         &enabled,
+		MinimumSeverity: &minimumSeverity,
+		Syslog:          syslog,
+	}
+
+	return &expectedThreatDetection
+}
+
+func generateTestOrgThreatDetectionSyslog() *client.OrgThreatDetectionSyslog {
+
+	transport := "tcp"
+	host := "example.com"
+	port := 8080
+
+	expectedSyslog := client.OrgThreatDetectionSyslog{
+		Transport: &transport,
+		Host:      &host,
+		Port:      &port,
+	}
+
+	return &expectedSyslog
+}
+
 // Flatten //
 func generateFlatTestOrgAuthConfig(useSet bool, domainAutoMembers []string, samlOnly bool) []interface{} {
 
@@ -154,6 +239,43 @@ func generateFlatTestOrgObservability(logsRetentionDays int, metricsRetentionDay
 		"logs_retention_days":    logsRetentionDays,
 		"metrics_retention_days": metricsRetentionDays,
 		"traces_retention_days":  tracesRetentionDays,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestOrgSecurity(threatDetection []interface{}) []interface{} {
+
+	spec := map[string]interface{}{
+		"threat_detection": threatDetection,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestOrgThreatDetection(enabled bool, minimumSeverity string, syslog []interface{}) []interface{} {
+
+	spec := map[string]interface{}{
+		"enabled":          enabled,
+		"minimum_severity": minimumSeverity,
+		"syslog":           syslog,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestOrgThreatDetectionSyslog(transport string, host string, port int) []interface{} {
+
+	spec := map[string]interface{}{
+		"transport": transport,
+		"host":      host,
+		"port":      port,
 	}
 
 	return []interface{}{

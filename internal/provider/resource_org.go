@@ -149,6 +149,62 @@ func orgSchema() map[string]*schema.Schema {
 				},
 			},
 		},
+		"security": {
+			Type:        schema.TypeList,
+			Description: "",
+			Optional:    true,
+			MaxItems:    1,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"threat_detection": {
+						Type:        schema.TypeList,
+						Description: "",
+						Optional:    true,
+						MaxItems:    1,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"enabled": {
+									Type:        schema.TypeBool,
+									Description: "",
+									Optional:    true,
+								},
+								"minimum_severity": {
+									Type:        schema.TypeString,
+									Description: "",
+									Optional:    true,
+								},
+								"syslog": {
+									Type:        schema.TypeList,
+									Description: "",
+									Optional:    true,
+									MaxItems:    1,
+									Elem: &schema.Resource{
+										Schema: map[string]*schema.Schema{
+											"transport": {
+												Type:        schema.TypeString,
+												Description: "",
+												Optional:    true,
+												Default:     "tcp",
+											},
+											"host": {
+												Type:        schema.TypeString,
+												Description: "",
+												Optional:    true,
+											},
+											"port": {
+												Type:        schema.TypeInt,
+												Description: "",
+												Required:    true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -212,6 +268,10 @@ func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{
 		SessionTimeoutSeconds: GetInt(d.Get("session_timeout_seconds").(int)),
 	}
 
+	if d.Get("security") != nil {
+		currentOrg.SpecReplace.Security = buildOrgSecurity(d.Get("security").([]interface{}))
+	}
+
 	// Make the request to update the org
 	updatedOrg, _, err := c.UpdateOrg(*currentOrg)
 	if err != nil {
@@ -235,7 +295,7 @@ func resourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{})
 
 func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "session_timeout_seconds", "auth_config", "observability") {
+	if d.HasChanges("description", "tags", "session_timeout_seconds", "auth_config", "observability", "security") {
 
 		c := m.(*client.Client)
 
@@ -249,6 +309,10 @@ func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 		orgToUpdate.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
 		orgToUpdate.SpecReplace.AuthConfig = buildAuthConfig(d.Get("auth_config").([]interface{}))
 		orgToUpdate.SpecReplace.Observability = buildObservability(d.Get("observability").([]interface{}))
+
+		if d.Get("security") != nil {
+			orgToUpdate.SpecReplace.Security = buildOrgSecurity(d.Get("security").([]interface{}))
+		}
 
 		// Make the request to update the org
 		updatedOrg, _, err := c.UpdateOrg(orgToUpdate)
@@ -280,6 +344,7 @@ func resourceOrgDelete(ctx context.Context, d *schema.ResourceData, m interface{
 				TracesRetentionDays:  GetInt(30),
 			},
 			AuthConfig: nil,
+			Security:   nil,
 		},
 	}
 
@@ -326,6 +391,10 @@ func setOrg(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
 		if err := d.Set("observability", flattenObservability(org.Spec.Observability)); err != nil {
 			return diag.FromErr(err)
 		}
+
+		if err := d.Set("security", flattenOrgSecurity(org.Spec.Security)); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return nil
@@ -361,6 +430,70 @@ func buildObservability(specs []interface{}) *client.Observability {
 		MetricsRetentionDays: GetInt(spec["metrics_retention_days"].(int)),
 		TracesRetentionDays:  GetInt(spec["traces_retention_days"].(int)),
 	}
+}
+
+func buildOrgSecurity(specs []interface{}) *client.OrgSecurity {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.OrgSecurity{}
+
+	if spec["threat_detection"] != nil {
+		output.ThreatDetection = buildOrgThreatDetection(spec["threat_detection"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildOrgThreatDetection(specs []interface{}) *client.OrgThreatDetection {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.OrgThreatDetection{}
+
+	if spec["enabled"] != nil {
+		output.Enabled = GetBool(spec["enabled"])
+	}
+
+	if spec["minimum_severity"] != nil {
+		output.MinimumSeverity = GetString(spec["minimum_severity"])
+	}
+
+	if spec["syslog"] != nil {
+		output.Syslog = buildOrgThreatDetectionSyslog(spec["syslog"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildOrgThreatDetectionSyslog(specs []interface{}) *client.OrgThreatDetectionSyslog {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.OrgThreatDetectionSyslog{}
+
+	if spec["transport"] != nil {
+		output.Transport = GetString(spec["transport"])
+	}
+
+	if spec["host"] != nil {
+		output.Host = GetString(spec["host"])
+	}
+
+	if spec["port"] != nil {
+		output.Port = GetInt(spec["port"])
+	}
+
+	return &output
 }
 
 /*** Flatten ***/
@@ -414,6 +547,71 @@ func flattenObservability(spec *client.Observability) []interface{} {
 		"logs_retention_days":    *spec.LogsRetentionDays,
 		"metrics_retention_days": *spec.MetricsRetentionDays,
 		"traces_retention_days":  *spec.TracesRetentionDays,
+	}
+
+	return []interface{}{
+		output,
+	}
+}
+
+func flattenOrgSecurity(spec *client.OrgSecurity) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	output := map[string]interface{}{}
+
+	if spec.ThreatDetection != nil {
+		output["threat_detection"] = flattenOrgThreatDetection(spec.ThreatDetection)
+	}
+
+	return []interface{}{
+		output,
+	}
+}
+
+func flattenOrgThreatDetection(spec *client.OrgThreatDetection) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	output := map[string]interface{}{}
+
+	if spec.Enabled != nil {
+		output["enabled"] = *spec.Enabled
+	}
+
+	if spec.MinimumSeverity != nil {
+		output["minimum_severity"] = *spec.MinimumSeverity
+	}
+
+	if spec.Syslog != nil {
+		output["syslog"] = flattenOrgThreatDetectionSyslog(spec.Syslog)
+	}
+
+	return []interface{}{
+		output,
+	}
+}
+
+func flattenOrgThreatDetectionSyslog(spec *client.OrgThreatDetectionSyslog) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	output := map[string]interface{}{
+		"port": *spec.Port,
+	}
+
+	if spec.Transport != nil {
+		output["transport"] = *spec.Transport
+	}
+
+	if spec.Host != nil {
+		output["host"] = *spec.Host
 	}
 
 	return []interface{}{
