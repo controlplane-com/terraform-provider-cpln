@@ -89,6 +89,7 @@ Required:
 
 Optional:
 
+- **hetzner_labels** (Map of String) Extra labels to attach to servers.
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **pre_install_script** (String) Optional shell script that will be run before K8S is installed.
 - **firewall_id** (String) Optional firewall rule to attach to all nodes.
@@ -146,6 +147,7 @@ Required:
 
 Optional:
 
+- **aws_tags** (Map of String) Extra tags to attach to all created objects.
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **pre_install_script** (String) Optional shell script that will be run before K8S is installed. Supports SSM.
 - **key_pair** (String) Name of keyPair. Supports SSM
@@ -234,6 +236,7 @@ Optional:
 - **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--ecr))
 - **aws_elb** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--elb))
 - **azure_acr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--azure_acr))
+- **sysbox** (Boolean)
 
 <a id="nestedblock--add_ons--azure_workload_identity"></a>
 
@@ -489,6 +492,8 @@ resource "cpln_mk8s" "generic" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
     }
 }
 ```
@@ -516,6 +521,10 @@ resource "cpln_mk8s" "hetzner" {
     hetzner_provider {
         
         region = "fsn1"
+
+        hetzner_labels = {
+            hello = "world"
+        }
 
         networking {
             service_network = "10.43.0.0/16"
@@ -609,6 +618,8 @@ resource "cpln_mk8s" "hetzner" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
     }
 }
 ```
@@ -636,6 +647,11 @@ resource "cpln_mk8s" "aws" {
     aws_provider {
 
         region            = "eu-central-1"
+
+        aws_tags = {
+            hello = "world"
+        }
+
         skip_create_roles = false
 
         networking {
@@ -745,6 +761,8 @@ resource "cpln_mk8s" "aws" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
     }
 }
 ```

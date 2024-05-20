@@ -53,6 +53,7 @@ type Mk8sSpecAddOns struct {
 	AwsECR                *Mk8sAwsAddOnConfig                   `json:"awsECR,omitempty"`
 	AwsELB                *Mk8sAwsAddOnConfig                   `json:"awsELB,omitempty"`
 	AzureACR              *Mk8sAzureACRAddOnConfig              `json:"azureACR,omitempty"`
+	Sysbox                *Mk8sNonCustomizableAddonConfig       `json:"sysbox,omitempty"`
 }
 
 // Providers //
@@ -64,32 +65,34 @@ type Mk8sGenericProvider struct {
 }
 
 type Mk8sHetznerProvider struct {
-	Region                   *string               `json:"region,omitempty"`
-	Networking               *Mk8sNetworkingConfig `json:"networking,omitempty"`
-	PreInstallScript         *string               `json:"preInstallScript,omitempty"`
-	TokenSecretLink          *string               `json:"tokenSecretLink,omitempty"`
-	NetworkId                *string               `json:"networkId,omitempty"`
-	FirewallId               *string               `json:"firewallId,omitempty"`
-	NodePools                *[]Mk8sHetznerPool    `json:"nodePools,omitempty"`
-	DedicatedServerNodePools *[]Mk8sGenericPool    `json:"dedicatedServerNodePools,omitempty"`
-	Image                    *string               `json:"image,omitempty"`
-	SshKey                   *string               `json:"sshKey,omitempty"`
-	Autoscaler               *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	Region                   *string                 `json:"region,omitempty"`
+	HetznerLabels            *map[string]interface{} `json:"hetznerLabels,omitempty"`
+	Networking               *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript         *string                 `json:"preInstallScript,omitempty"`
+	TokenSecretLink          *string                 `json:"tokenSecretLink,omitempty"`
+	NetworkId                *string                 `json:"networkId,omitempty"`
+	FirewallId               *string                 `json:"firewallId,omitempty"`
+	NodePools                *[]Mk8sHetznerPool      `json:"nodePools,omitempty"`
+	DedicatedServerNodePools *[]Mk8sGenericPool      `json:"dedicatedServerNodePools,omitempty"`
+	Image                    *string                 `json:"image,omitempty"`
+	SshKey                   *string                 `json:"sshKey,omitempty"`
+	Autoscaler               *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
 }
 
 type Mk8sAwsProvider struct {
-	Region               *string               `json:"region,omitempty"`
-	SkipCreateRoles      *bool                 `json:"skipCreateRoles,omitempty"`
-	Networking           *Mk8sNetworkingConfig `json:"networking,omitempty"`
-	PreInstallScript     *string               `json:"preInstallScript,omitempty"`
-	Image                *Mk8sAwsAmi           `json:"image,omitempty"`
-	DeployRoleArn        *string               `json:"deployRoleArn,omitempty"`
-	VpcId                *string               `json:"vpcId,omitempty"`
-	KeyPair              *string               `json:"keyPair,omitempty"`
-	DiskEncryptionKeyArn *string               `json:"diskEncryptionKeyArn,omitempty"`
-	SecurityGroupIds     *[]string             `json:"securityGroupIds,omitempty"`
-	NodePools            *[]Mk8sAwsPool        `json:"nodePools,omitempty"`
-	Autoscaler           *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	Region               *string                 `json:"region,omitempty"`
+	AwsTags              *map[string]interface{} `json:"awsTags,omitempty"`
+	SkipCreateRoles      *bool                   `json:"skipCreateRoles,omitempty"`
+	Networking           *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript     *string                 `json:"preInstallScript,omitempty"`
+	Image                *Mk8sAwsAmi             `json:"image,omitempty"`
+	DeployRoleArn        *string                 `json:"deployRoleArn,omitempty"`
+	VpcId                *string                 `json:"vpcId,omitempty"`
+	KeyPair              *string                 `json:"keyPair,omitempty"`
+	DiskEncryptionKeyArn *string                 `json:"diskEncryptionKeyArn,omitempty"`
+	SecurityGroupIds     *[]string               `json:"securityGroupIds,omitempty"`
+	NodePools            *[]Mk8sAwsPool          `json:"nodePools,omitempty"`
+	Autoscaler           *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
 }
 
 type Mk8sLinodeProvider struct {

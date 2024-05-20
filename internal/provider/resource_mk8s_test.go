@@ -237,6 +237,8 @@ func testAccControlPlaneMk8sGenericProvider(name string, description string) str
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
+
+			sysbox = true
 		}
 	}
 	`, name, description)
@@ -266,6 +268,10 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 		hetzner_provider {
 			
 			region = "fsn1"
+
+			hetzner_labels = {
+				hello = "world"
+			}
 
 			networking {
 				service_network = "10.43.0.0/16"
@@ -359,6 +365,8 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
+
+			sysbox = true
 		}
 	}
 	`, name, description)
@@ -497,6 +505,8 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
+
+			sysbox = true
 		}
 	}
 	`, name, description)
@@ -991,6 +1001,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 	logs, _, flattenedLogs := generateTestMk8sLogsAddOn()
 	nvidia, _, flattenedNvidia := generateTestMk8sNvidiaAddOn()
 	azureAcr, _, flattenedAzureAcr := generateTestMk8sAzureAcrAddOn()
+	sysbox := true
 
 	var awsEfs *client.Mk8sAwsAddOnConfig
 	var flattenedAwsEfs []interface{}
@@ -1007,7 +1018,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 		awsElb, _, flattenedAwsElb = generateTestMk8sAwsAddOn()
 	}
 
-	flattened := generateFlatTestMk8sAddOns(dashboard, flattenedAzureWorkloadIdentity, awsWorkloadIdentity, localPathStorage, flattenedMetrics, flattenedLogs, flattenedNvidia, flattenedAwsEfs, flattenedAwsEcr, flattenedAwsElb, flattenedAzureAcr)
+	flattened := generateFlatTestMk8sAddOns(dashboard, flattenedAzureWorkloadIdentity, awsWorkloadIdentity, localPathStorage, flattenedMetrics, flattenedLogs, flattenedNvidia, flattenedAwsEfs, flattenedAwsEcr, flattenedAwsElb, flattenedAzureAcr, sysbox)
 	addOns := buildMk8sAddOns(flattened)
 	expectedAddOns := client.Mk8sSpecAddOns{
 		Dashboard:             &client.Mk8sNonCustomizableAddonConfig{},
@@ -1021,6 +1032,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 		AwsECR:                awsEcr,
 		AwsELB:                awsElb,
 		AzureACR:              azureAcr,
+		Sysbox:                &client.Mk8sNonCustomizableAddonConfig{},
 	}
 
 	return addOns, &expectedAddOns, flattened
@@ -1048,6 +1060,9 @@ func generateTestMk8sGenericProvider() (*client.Mk8sGenericProvider, *client.Mk8
 func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8sHetznerProvider, []interface{}) {
 
 	region := "fsn1"
+	hetznerLabels := map[string]interface{}{
+		"hello": "world",
+	}
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
 	preInstallScript := "#! echo hello world"
 	tokenSecretLink := "/org/terraform-test-org/secret/hetzner"
@@ -1058,10 +1073,11 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 	sshKey := "10925607"
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sHetznerProvider(region, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sHetznerProvider(region, hetznerLabels, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler)
 	hetzner := buildMk8sHetznerProvider(flattened)
 	expectedHetzner := client.Mk8sHetznerProvider{
 		Region:                   &region,
+		HetznerLabels:            &hetznerLabels,
 		Networking:               networking,
 		PreInstallScript:         &preInstallScript,
 		TokenSecretLink:          &tokenSecretLink,
@@ -1079,6 +1095,9 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProvider, []interface{}) {
 
 	region := "us-west-2"
+	awsTags := map[string]interface{}{
+		"hello": "world",
+	}
 	skipCreateRoles := false
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
 	preInstallScript := "#! echo hello world"
@@ -1091,10 +1110,11 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	nodePools, _, flattenedNodePools := generateTestMk8sAwsNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sAwsProvider(region, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sAwsProvider(region, awsTags, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
 	aws := buildMk8sAwsProvider(flattened)
 	expectedAws := client.Mk8sAwsProvider{
 		Region:               &region,
+		AwsTags:              &awsTags,
 		SkipCreateRoles:      &skipCreateRoles,
 		Networking:           networking,
 		PreInstallScript:     &preInstallScript,
@@ -1434,10 +1454,11 @@ func generateFlatTestMk8sGenericProvider(location string, networking []interface
 	}
 }
 
-func generateFlatTestMk8sHetznerProvider(region string, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string]interface{}, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                     region,
+		"hetzner_labels":             hetznerLabels,
 		"networking":                 networking,
 		"pre_install_script":         preInstallScript,
 		"token_secret_link":          tokenSecretLink,
@@ -1454,10 +1475,11 @@ func generateFlatTestMk8sHetznerProvider(region string, networking []interface{}
 	}
 }
 
-func generateFlatTestMk8sAwsProvider(region string, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface{}, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                  region,
+		"aws_tags":                awsTags,
 		"skip_create_roles":       skipCreateRoles,
 		"networking":              networking,
 		"pre_install_script":      preInstallScript,
@@ -1593,7 +1615,7 @@ func generateFlatTestMk8sAutoscaler(expander []string, unneededTime string, unre
 
 // Add Ons
 
-func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}) []interface{} {
+func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}, sysbox bool) []interface{} {
 
 	spec := map[string]interface{}{
 		"dashboard":               dashboard,
@@ -1607,6 +1629,7 @@ func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interfac
 		"aws_ecr":                 awsEcr,
 		"aws_elb":                 awsElb,
 		"azure_acr":               azureAcr,
+		"sysbox":                  sysbox,
 	}
 
 	return []interface{}{

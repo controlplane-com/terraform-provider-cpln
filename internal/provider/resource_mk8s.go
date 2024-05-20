@@ -113,6 +113,12 @@ func resourceMk8s() *schema.Resource {
 							Description: "Hetzner region to deploy nodes to.",
 							Required:    true,
 						},
+						"hetzner_labels": {
+							Type:        schema.TypeMap,
+							Description: "Extra labels to attach to servers.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 						"networking": Mk8sNetworkingSchema(),
 						"pre_install_script": {
 							Type:        schema.TypeString,
@@ -163,6 +169,12 @@ func resourceMk8s() *schema.Resource {
 							Type:        schema.TypeString,
 							Description: "Region where the cluster nodes will live.",
 							Required:    true,
+						},
+						"aws_tags": {
+							Type:        schema.TypeMap,
+							Description: "Extra tags to attach to all created objects.",
+							Optional:    true,
+							Elem:        StringSchema(),
 						},
 						"skip_create_roles": {
 							Type:        schema.TypeBool,
@@ -372,6 +384,11 @@ func resourceMk8s() *schema.Resource {
 									},
 								},
 							},
+						},
+						"sysbox": {
+							Type:        schema.TypeBool,
+							Description: "",
+							Optional:    true,
 						},
 					},
 				},
@@ -748,6 +765,10 @@ func buildMk8sAddOns(specs []interface{}) *client.Mk8sSpecAddOns {
 		output.AzureACR = buildMk8sAzureAcrAddOn(spec["azure_acr"].([]interface{}))
 	}
 
+	if spec["sysbox"] != nil {
+		output.Sysbox = &client.Mk8sNonCustomizableAddonConfig{}
+	}
+
 	return &output
 }
 
@@ -785,6 +806,10 @@ func buildMk8sHetznerProvider(specs []interface{}) *client.Mk8sHetznerProvider {
 	spec := specs[0].(map[string]interface{})
 
 	output.Region = GetString(spec["region"])
+
+	if spec["hetzner_labels"] != nil {
+		output.HetznerLabels = GetStringMap(spec["hetzner_labels"])
+	}
 
 	if spec["networking"] != nil {
 		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
@@ -834,6 +859,10 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 	spec := specs[0].(map[string]interface{})
 
 	output.Region = GetString(spec["region"])
+
+	if spec["aws_tags"] != nil {
+		output.AwsTags = GetStringMap(spec["aws_tags"])
+	}
 
 	if spec["skip_create_roles"] != nil {
 		output.SkipCreateRoles = GetBool(spec["skip_create_roles"])
@@ -1326,6 +1355,10 @@ func flattenMk8sAddOns(addOns *client.Mk8sSpecAddOns) []interface{} {
 		spec["azure_acr"] = flattenMk8sAzureAcrAddOn(addOns.AzureACR)
 	}
 
+	if addOns.Sysbox != nil {
+		spec["sysbox"] = true
+	}
+
 	return []interface{}{
 		spec,
 	}
@@ -1395,6 +1428,10 @@ func flattenMk8sHetznerProvider(hetzner *client.Mk8sHetznerProvider) []interface
 		"region": *hetzner.Region,
 	}
 
+	if hetzner.HetznerLabels != nil {
+		spec["hetzner_labels"] = *hetzner.HetznerLabels
+	}
+
 	if hetzner.Networking != nil {
 		spec["networking"] = flattenMk8sNetworking(hetzner.Networking)
 	}
@@ -1443,6 +1480,10 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 
 	spec := map[string]interface{}{
 		"region": *aws.Region,
+	}
+
+	if aws.AwsTags != nil {
+		spec["aws_tags"] = *aws.AwsTags
 	}
 
 	if aws.SkipCreateRoles != nil {
