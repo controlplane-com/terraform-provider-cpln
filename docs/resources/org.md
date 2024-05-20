@@ -73,7 +73,7 @@ Optional:
 Optional:
 
 - **enabled** (Boolean) Indicates whether threat detection is active or not.
-- **minimum_severity** (String) Severity Level. See description below. Valid values: `warning`, `error`, or `critical`.
+- **minimum_severity** (String) Severity Level. Valid values: `warning`, `error`, or `critical`.
 - **syslog** (Block List, Max: 1) ([see below](#nestedblock--security--threat_detection--syslog))
 
 <a id="nestedblock--security--threat_detection--syslog"></a>
