@@ -65,17 +65,18 @@ type Mk8sGenericProvider struct {
 }
 
 type Mk8sHetznerProvider struct {
-	Region                   *string               `json:"region,omitempty"`
-	Networking               *Mk8sNetworkingConfig `json:"networking,omitempty"`
-	PreInstallScript         *string               `json:"preInstallScript,omitempty"`
-	TokenSecretLink          *string               `json:"tokenSecretLink,omitempty"`
-	NetworkId                *string               `json:"networkId,omitempty"`
-	FirewallId               *string               `json:"firewallId,omitempty"`
-	NodePools                *[]Mk8sHetznerPool    `json:"nodePools,omitempty"`
-	DedicatedServerNodePools *[]Mk8sGenericPool    `json:"dedicatedServerNodePools,omitempty"`
-	Image                    *string               `json:"image,omitempty"`
-	SshKey                   *string               `json:"sshKey,omitempty"`
-	Autoscaler               *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	Region                   *string                 `json:"region,omitempty"`
+	HetznerLabels            *map[string]interface{} `json:"hetznerLabels,omitempty"`
+	Networking               *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript         *string                 `json:"preInstallScript,omitempty"`
+	TokenSecretLink          *string                 `json:"tokenSecretLink,omitempty"`
+	NetworkId                *string                 `json:"networkId,omitempty"`
+	FirewallId               *string                 `json:"firewallId,omitempty"`
+	NodePools                *[]Mk8sHetznerPool      `json:"nodePools,omitempty"`
+	DedicatedServerNodePools *[]Mk8sGenericPool      `json:"dedicatedServerNodePools,omitempty"`
+	Image                    *string                 `json:"image,omitempty"`
+	SshKey                   *string                 `json:"sshKey,omitempty"`
+	Autoscaler               *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
 }
 
 type Mk8sAwsProvider struct {

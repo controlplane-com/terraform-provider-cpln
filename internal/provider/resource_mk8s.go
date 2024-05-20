@@ -113,6 +113,12 @@ func resourceMk8s() *schema.Resource {
 							Description: "Hetzner region to deploy nodes to.",
 							Required:    true,
 						},
+						"hetzner_labels": {
+							Type:        schema.TypeMap,
+							Description: "Extra labels to attach to servers.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 						"networking": Mk8sNetworkingSchema(),
 						"pre_install_script": {
 							Type:        schema.TypeString,
@@ -795,6 +801,10 @@ func buildMk8sHetznerProvider(specs []interface{}) *client.Mk8sHetznerProvider {
 
 	output.Region = GetString(spec["region"])
 
+	if spec["hetzner_labels"] != nil {
+		output.HetznerLabels = GetStringMap(spec["hetzner_labels"])
+	}
+
 	if spec["networking"] != nil {
 		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
 	}
@@ -1406,6 +1416,10 @@ func flattenMk8sHetznerProvider(hetzner *client.Mk8sHetznerProvider) []interface
 
 	spec := map[string]interface{}{
 		"region": *hetzner.Region,
+	}
+
+	if hetzner.HetznerLabels != nil {
+		spec["hetzner_labels"] = *hetzner.HetznerLabels
 	}
 
 	if hetzner.Networking != nil {

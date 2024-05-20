@@ -89,6 +89,7 @@ Required:
 
 Optional:
 
+- **hetzner_labels** (Map of String) Extra labels to attach to servers.
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **pre_install_script** (String) Optional shell script that will be run before K8S is installed.
 - **firewall_id** (String) Optional firewall rule to attach to all nodes.
@@ -519,6 +520,10 @@ resource "cpln_mk8s" "hetzner" {
     hetzner_provider {
         
         region = "fsn1"
+
+        hetzner_labels = {
+            hello = "world"
+        }
 
         networking {
             service_network = "10.43.0.0/16"

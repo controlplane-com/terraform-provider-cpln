@@ -269,6 +269,10 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 			
 			region = "fsn1"
 
+			hetzner_labels = {
+				hello = "world"
+			}
+
 			networking {
 				service_network = "10.43.0.0/16"
 				pod_network 	= "10.42.0.0/16"
@@ -1056,6 +1060,9 @@ func generateTestMk8sGenericProvider() (*client.Mk8sGenericProvider, *client.Mk8
 func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8sHetznerProvider, []interface{}) {
 
 	region := "fsn1"
+	hetznerLabels := map[string]interface{}{
+		"hello": "world",
+	}
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
 	preInstallScript := "#! echo hello world"
 	tokenSecretLink := "/org/terraform-test-org/secret/hetzner"
@@ -1066,10 +1073,11 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 	sshKey := "10925607"
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sHetznerProvider(region, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sHetznerProvider(region, hetznerLabels, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler)
 	hetzner := buildMk8sHetznerProvider(flattened)
 	expectedHetzner := client.Mk8sHetznerProvider{
 		Region:                   &region,
+		HetznerLabels:            &hetznerLabels,
 		Networking:               networking,
 		PreInstallScript:         &preInstallScript,
 		TokenSecretLink:          &tokenSecretLink,
@@ -1442,10 +1450,11 @@ func generateFlatTestMk8sGenericProvider(location string, networking []interface
 	}
 }
 
-func generateFlatTestMk8sHetznerProvider(region string, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string]interface{}, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                     region,
+		"hetzner_labels":             hetznerLabels,
 		"networking":                 networking,
 		"pre_install_script":         preInstallScript,
 		"token_secret_link":          tokenSecretLink,
