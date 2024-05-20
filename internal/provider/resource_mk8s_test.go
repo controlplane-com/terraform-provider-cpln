@@ -396,6 +396,11 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 		aws_provider {
 	
 			region            = "us-west-2"
+
+			aws_tags = {
+				hello = "world"
+			}
+
 			skip_create_roles = false
 	
 			networking {
