@@ -52,10 +52,10 @@ func resourceDomain() *schema.Resource {
 				Computed:    true,
 			},
 			"spec": {
-				Type:     schema.TypeList,
-				Description: "A specification or set of rules defining the behavior, structure, or attributes of elements within a particular domain or system.",
-				Required: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Domain specificiation.",
+				Required:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"dns_mode": {
@@ -76,9 +76,9 @@ func resourceDomain() *schema.Resource {
 							Default:     false,
 						},
 						"ports": {
-							Type:     schema.TypeList,
-							Description: "Endpoints through which data can be exchanged between different networked devices or services. They facilitate communication by providing specific access points for incoming and outgoing data streams",
-							Required: true,
+							Type:        schema.TypeList,
+							Description: "Domain port specifications.",
+							Required:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"number": {
@@ -94,10 +94,10 @@ func resourceDomain() *schema.Resource {
 										Default:     "http2",
 									},
 									"cors": {
-										Type:     schema.TypeList,
+										Type:        schema.TypeList,
 										Description: "A security feature implemented by web browsers to allow resources on a web page to be requested from another domain outside the domain from which the resource originated.",
-										Optional: true,
-										MaxItems: 1,
+										Optional:    true,
+										MaxItems:    1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"allow_origins": {
@@ -133,9 +133,9 @@ func resourceDomain() *schema.Resource {
 													},
 												},
 												"expose_headers": {
-													Type:     schema.TypeSet,
+													Type:        schema.TypeSet,
 													Description: "The HTTP headers that a server allows to be exposed to the client in response to a cross-origin request. These headers provide additional information about the server's capabilities or requirements, aiding in proper handling of the request by the client's browser or application.",
-													Optional: true,
+													Optional:    true,
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 														// TODO Disregard uppercase lowercase
@@ -246,20 +246,20 @@ func resourceDomain() *schema.Resource {
 							Optional:    true,
 						},
 						"locations": {
-							Type:     schema.TypeList,
-							Description: "Specific addresses or endpoints within a domain where resources or services are available.",
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Contains the cloud provider name, region, and certificate status.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"name": {
-										Type:     schema.TypeString,
-										Description: "The identifier or label assigned to a specific location within a domain.",
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The name of the location.",
+										Optional:    true,
 									},
 									"certificate_status": {
-										Type:     schema.TypeString,
-										Description: "The current validity or status of the SSL/TLS certificate associated with a particular location within the domain.",
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The current validity or status of the SSL/TLS certificate.",
+										Optional:    true,
 									},
 								},
 							},

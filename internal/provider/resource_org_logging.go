@@ -145,16 +145,16 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"elastic_logging": {
-				Type:     schema.TypeList,
-				Description: "The practice of using the Elastic Stack (Elasticsearch, Logstash, and Kibana) for logging and analyzing data within an org.",
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "For logging and analyzing data within an org using Elastic Logging.",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"aws": {
-							Type:     schema.TypeList,
-							Description: "The Amazon Web Services cloud platform, which may include services, resources, or infrastructure components generating log data.",
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "For targeting Amazon Web Services (AWS) ElasticSearch.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"host": {
@@ -191,10 +191,10 @@ func resourceOrgLogging() *schema.Resource {
 							},
 						},
 						"elastic_cloud": {
-							Type:     schema.TypeList,
-							Description: "Allows organizations to deploy, manage, and scale Elasticsearch clusters and Kibana instances without the need for infrastructure management.",
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "For targeting Elastic Cloud.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"index": {
@@ -221,10 +221,10 @@ func resourceOrgLogging() *schema.Resource {
 							},
 						},
 						"generic": {
-							Type:     schema.TypeList,
-							Description: "A catch-all term indicating logs or logging configurations that are not specific to a particular service or platform.",
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "For targeting generic Elastic Search providers.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"host": {
