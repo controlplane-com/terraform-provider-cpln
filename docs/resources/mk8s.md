@@ -147,6 +147,7 @@ Required:
 
 Optional:
 
+- **aws_tags** (Map of String) Extra tags to attach to all created objects.
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **pre_install_script** (String) Optional shell script that will be run before K8S is installed. Supports SSM.
 - **key_pair** (String) Name of keyPair. Supports SSM
@@ -646,6 +647,11 @@ resource "cpln_mk8s" "aws" {
     aws_provider {
 
         region            = "eu-central-1"
+
+        aws_tags = {
+            hello = "world"
+        }
+
         skip_create_roles = false
 
         networking {

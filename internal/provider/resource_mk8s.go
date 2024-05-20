@@ -170,6 +170,12 @@ func resourceMk8s() *schema.Resource {
 							Description: "Region where the cluster nodes will live.",
 							Required:    true,
 						},
+						"aws_tags": {
+							Type:        schema.TypeMap,
+							Description: "Extra tags to attach to all created objects.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 						"skip_create_roles": {
 							Type:        schema.TypeBool,
 							Description: "If true, Control Plane will not create any roles.",
@@ -854,6 +860,10 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 
 	output.Region = GetString(spec["region"])
 
+	if spec["aws_tags"] != nil {
+		output.AwsTags = GetStringMap(spec["aws_tags"])
+	}
+
 	if spec["skip_create_roles"] != nil {
 		output.SkipCreateRoles = GetBool(spec["skip_create_roles"])
 	}
@@ -1470,6 +1480,10 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 
 	spec := map[string]interface{}{
 		"region": *aws.Region,
+	}
+
+	if aws.AwsTags != nil {
+		spec["aws_tags"] = *aws.AwsTags
 	}
 
 	if aws.SkipCreateRoles != nil {

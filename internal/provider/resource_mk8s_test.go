@@ -1095,6 +1095,9 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProvider, []interface{}) {
 
 	region := "us-west-2"
+	awsTags := map[string]interface{}{
+		"hello": "world",
+	}
 	skipCreateRoles := false
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
 	preInstallScript := "#! echo hello world"
@@ -1107,10 +1110,11 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	nodePools, _, flattenedNodePools := generateTestMk8sAwsNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sAwsProvider(region, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sAwsProvider(region, awsTags, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
 	aws := buildMk8sAwsProvider(flattened)
 	expectedAws := client.Mk8sAwsProvider{
 		Region:               &region,
+		AwsTags:              &awsTags,
 		SkipCreateRoles:      &skipCreateRoles,
 		Networking:           networking,
 		PreInstallScript:     &preInstallScript,
@@ -1471,10 +1475,11 @@ func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string
 	}
 }
 
-func generateFlatTestMk8sAwsProvider(region string, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface{}, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                  region,
+		"aws_tags":                awsTags,
 		"skip_create_roles":       skipCreateRoles,
 		"networking":              networking,
 		"pre_install_script":      preInstallScript,

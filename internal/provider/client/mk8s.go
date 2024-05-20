@@ -80,18 +80,19 @@ type Mk8sHetznerProvider struct {
 }
 
 type Mk8sAwsProvider struct {
-	Region               *string               `json:"region,omitempty"`
-	SkipCreateRoles      *bool                 `json:"skipCreateRoles,omitempty"`
-	Networking           *Mk8sNetworkingConfig `json:"networking,omitempty"`
-	PreInstallScript     *string               `json:"preInstallScript,omitempty"`
-	Image                *Mk8sAwsAmi           `json:"image,omitempty"`
-	DeployRoleArn        *string               `json:"deployRoleArn,omitempty"`
-	VpcId                *string               `json:"vpcId,omitempty"`
-	KeyPair              *string               `json:"keyPair,omitempty"`
-	DiskEncryptionKeyArn *string               `json:"diskEncryptionKeyArn,omitempty"`
-	SecurityGroupIds     *[]string             `json:"securityGroupIds,omitempty"`
-	NodePools            *[]Mk8sAwsPool        `json:"nodePools,omitempty"`
-	Autoscaler           *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	Region               *string                 `json:"region,omitempty"`
+	AwsTags              *map[string]interface{} `json:"awsTags,omitempty"`
+	SkipCreateRoles      *bool                   `json:"skipCreateRoles,omitempty"`
+	Networking           *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript     *string                 `json:"preInstallScript,omitempty"`
+	Image                *Mk8sAwsAmi             `json:"image,omitempty"`
+	DeployRoleArn        *string                 `json:"deployRoleArn,omitempty"`
+	VpcId                *string                 `json:"vpcId,omitempty"`
+	KeyPair              *string                 `json:"keyPair,omitempty"`
+	DiskEncryptionKeyArn *string                 `json:"diskEncryptionKeyArn,omitempty"`
+	SecurityGroupIds     *[]string               `json:"securityGroupIds,omitempty"`
+	NodePools            *[]Mk8sAwsPool          `json:"nodePools,omitempty"`
+	Autoscaler           *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
 }
 
 type Mk8sLinodeProvider struct {
