@@ -42,15 +42,15 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "description", description),
 				),
 			},
-			// {
-			// 	Config: testAccControlPlaneMk8sAwsProvider(name+"-aws", description),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneMk8sExists("cpln_mk8s.aws", name+"-aws", &mk8s),
-			// 		testAccCheckControlPlaneMk8sAttributes(&mk8s, "aws"),
-			// 		resource.TestCheckResourceAttr("cpln_mk8s.aws", "name", name+"-aws"),
-			// 		resource.TestCheckResourceAttr("cpln_mk8s.aws", "description", description),
-			// 	),
-			// },
+			{
+				Config: testAccControlPlaneMk8sAwsProvider(name+"-aws", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.aws", name+"-aws", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "aws"),
+					resource.TestCheckResourceAttr("cpln_mk8s.aws", "name", name+"-aws"),
+					resource.TestCheckResourceAttr("cpln_mk8s.aws", "description", description),
+				),
+			},
 		},
 	})
 }
@@ -387,7 +387,7 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 	
 		aws_provider {
 	
-			region            = "eu-central-1"
+			region            = "us-west-2"
 			skip_create_roles = false
 	
 			networking {
@@ -434,7 +434,7 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 				on_demand_percentage_above_base_capacity = 0
 				spot_allocation_strategy                 = "lowest-price"
 	
-				subnet_ids               = ["subnet-0d7227b2669cf81b0"]
+				subnet_ids               = ["subnet-077fe72ab6259d9a2"]
 				extra_security_group_ids = []
 			}
 	
@@ -1078,16 +1078,16 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 
 func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProvider, []interface{}) {
 
-	region := "eu-central-1"
+	region := "us-west-2"
 	skipCreateRoles := false
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
 	preInstallScript := "#! echo hello world"
 	image, _, flattenedImage := generateTestMk8sAwsAmi("recommended")
-	deployRoleArn := "arn:aws:iam::12345678901:role/cpln"
-	vpcId := "vpc-03105bd4dc058d3a8"
-	keyPair := "cem_uzak"
-	diskEncryptionKeyArn := "arn:aws:kms:eu-central-1:12345678901:key/0a1bcd23-4567-8901-e2fg-3h4i5jk678lm"
-	securityGroupIds := []string{"sg-031480aa7a1e6e38b"}
+	deployRoleArn := "arn:aws:iam::989132402664:role/cpln-mk8s-terraform-test-org"
+	vpcId := "vpc-087b3e0f680a7e91e"
+	keyPair := "debug-eks"
+	diskEncryptionKeyArn := "arn:aws:kms:us-west-2:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
+	securityGroupIds := []string{"sg-0f659b1b0711edce1"}
 	nodePools, _, flattenedNodePools := generateTestMk8sAwsNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
@@ -1182,8 +1182,8 @@ func generateTestMk8sAwsNodePools() (*[]client.Mk8sAwsPool, *[]client.Mk8sAwsPoo
 	onDemandBaseCapacity := 0
 	onDemandPercentageAboveBaseCapacity := 0
 	spotAllocationStrategy := "lowest-price"
-	subnetIds := []string{"subnet-0e564a042e2a45009"}
-	extraSecurityGroupIds := []string{"sg-031480aa7a1e6e38b"}
+	subnetIds := []string{"subnet-077fe72ab6259d9a2"}
+	extraSecurityGroupIds := []string{}
 
 	flattened := generateFlatTestMk8sAwsNodePools(name, labels, flattenedTaints, instanceTypes, flattenedOverrideImage, bootDiskSize, minSize, maxSize, onDemandBaseCapacity, onDemandPercentageAboveBaseCapacity, spotAllocationStrategy, subnetIds, extraSecurityGroupIds)
 	nodePools := buildMk8sAwsNodePools(flattened)
