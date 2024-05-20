@@ -52,9 +52,10 @@ func resourceDomain() *schema.Resource {
 				Computed:    true,
 			},
 			"spec": {
-				Type:     schema.TypeList,
-				Required: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Domain specificiation.",
+				Required:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"dns_mode": {
@@ -75,8 +76,9 @@ func resourceDomain() *schema.Resource {
 							Default:     false,
 						},
 						"ports": {
-							Type:     schema.TypeList,
-							Required: true,
+							Type:        schema.TypeList,
+							Description: "Domain port specifications.",
+							Required:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"number": {
@@ -92,9 +94,10 @@ func resourceDomain() *schema.Resource {
 										Default:     "http2",
 									},
 									"cors": {
-										Type:     schema.TypeList,
-										Optional: true,
-										MaxItems: 1,
+										Type:        schema.TypeList,
+										Description: "A security feature implemented by web browsers to allow resources on a web page to be requested from another domain outside the domain from which the resource originated.",
+										Optional:    true,
+										MaxItems:    1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"allow_origins": {
@@ -130,8 +133,9 @@ func resourceDomain() *schema.Resource {
 													},
 												},
 												"expose_headers": {
-													Type:     schema.TypeSet,
-													Optional: true,
+													Type:        schema.TypeSet,
+													Description: "The HTTP headers that a server allows to be exposed to the client in response to a cross-origin request. These headers provide additional information about the server's capabilities or requirements, aiding in proper handling of the request by the client's browser or application.",
+													Optional:    true,
 													Elem: &schema.Schema{
 														Type: schema.TypeString,
 														// TODO Disregard uppercase lowercase
@@ -242,17 +246,20 @@ func resourceDomain() *schema.Resource {
 							Optional:    true,
 						},
 						"locations": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Contains the cloud provider name, region, and certificate status.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"name": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The name of the location.",
+										Optional:    true,
 									},
 									"certificate_status": {
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:        schema.TypeString,
+										Description: "The current validity or status of the SSL/TLS certificate.",
+										Optional:    true,
 									},
 								},
 							},

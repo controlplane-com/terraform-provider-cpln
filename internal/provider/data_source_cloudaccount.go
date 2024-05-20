@@ -13,8 +13,9 @@ func dataSourceCloudAccount() *schema.Resource {
 		ReadContext: dataSourceCloudAccountRead,
 		Schema: map[string]*schema.Schema{
 			"aws_identifiers": {
-				Type:     schema.TypeSet,
-				Computed: true,
+				Type:        schema.TypeSet,
+				Description: "Unique identifiers associated with resources and services within an Amazon Web Services (AWS) environment.",
+				Computed:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},

@@ -145,14 +145,16 @@ func resourceOrgLogging() *schema.Resource {
 				},
 			},
 			"elastic_logging": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "For logging and analyzing data within an org using Elastic Logging.",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"aws": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "For targeting Amazon Web Services (AWS) ElasticSearch.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"host": {
@@ -189,9 +191,10 @@ func resourceOrgLogging() *schema.Resource {
 							},
 						},
 						"elastic_cloud": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "For targeting Elastic Cloud.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"index": {
@@ -218,9 +221,10 @@ func resourceOrgLogging() *schema.Resource {
 							},
 						},
 						"generic": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "For targeting generic Elastic Search providers.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"host": {

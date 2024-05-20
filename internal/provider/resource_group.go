@@ -63,19 +63,22 @@ func resourceGroup() *schema.Resource {
 				},
 			},
 			"self_link": {
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Description: "Fully qualified link to the this group.",
+				Computed:    true,
 			},
 			"member_query": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				Elem:     QuerySchemaResource(),
+				Type:        schema.TypeList,
+				Description: "A predefined set of criteria or conditions used to query and retrieve members within the group.",
+				Optional:    true,
+				MaxItems:    1,
+				Elem:        QuerySchemaResource(),
 			},
 			"identity_matcher": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged-in with SAML providers.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"expression": {

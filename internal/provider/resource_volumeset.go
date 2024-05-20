@@ -115,6 +115,7 @@ func resourceVolumeSet() *schema.Resource {
 			},
 			"snapshots": {
 				Type:     schema.TypeList,
+				Description: "Point-in-time copies of data stored within the volume set, capturing the state of the data at a specific moment.",
 				Optional: true,
 				Default:  nil,
 				MaxItems: 1,
@@ -141,6 +142,7 @@ func resourceVolumeSet() *schema.Resource {
 			},
 			"autoscaling": {
 				Type:     schema.TypeList,
+				Description: "Automated adjustment of the volume set's capacity based on predefined metrics or conditions.",
 				Optional: true,
 				Default:  nil,
 				MaxItems: 1,

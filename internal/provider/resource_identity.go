@@ -115,9 +115,10 @@ func resourceIdentity() *schema.Resource {
 				},
 			},
 			"aws_access_policy": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "A set of access policy rules that defines the actions and resources that an identity can access within an AWS environment.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
@@ -217,8 +218,9 @@ func resourceIdentity() *schema.Resource {
 							},
 						},
 						"binding": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "The association or connection between a particular identity, such as a user or a group, and a set of permissions or roles within the system.",
+							Optional:    true,
 							// ConflictsWith: []string{"gcp_access_policy.service_account"},
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -243,9 +245,10 @@ func resourceIdentity() *schema.Resource {
 				},
 			},
 			"azure_access_policy": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "A set of access policy rules that defines the actions and resources that an identity can access within an Azure environment.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
@@ -255,8 +258,9 @@ func resourceIdentity() *schema.Resource {
 							ValidateFunc: LinkValidator,
 						},
 						"role_assignment": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "The process of assigning specific roles or permissions to an entity, such as a user or a service principal, within the system.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"scope": {
@@ -286,9 +290,10 @@ func resourceIdentity() *schema.Resource {
 				Elem:        NativeNetworkResourceSchema(),
 			},
 			"ngs_access_policy": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "A set of access policy rules that defines the actions and resources that an identity can access within an NGA environment.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"cloud_account_link": {
@@ -383,9 +388,10 @@ func NativeNetworkResourceSchema() *schema.Resource {
 				},
 			},
 			"aws_private_link": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "A feature provided by AWS that enables private connectivity between private VPCs and compute running at Control Plane without traversing the public internet.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"endpoint_service_name": {
@@ -397,9 +403,10 @@ func NativeNetworkResourceSchema() *schema.Resource {
 				},
 			},
 			"gcp_service_connect": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Capability provided by GCP that allows private communication between private VPC networks and compute running at Control Plane.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"target_service": {

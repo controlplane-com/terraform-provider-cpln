@@ -51,6 +51,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"aws": {
 			Type:         schema.TypeList,
+			Description:  "Contains AWS cloud account configuration.",
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,
@@ -79,6 +80,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"azure": {
 			Type:         schema.TypeList,
+			Description:  "Contains Azure cloud account configuration.",
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,
@@ -96,6 +98,7 @@ func CloudAccountSchema() map[string]*schema.Schema {
 		},
 		"gcp": {
 			Type:         schema.TypeList,
+			Description:  "Contains GCP cloud account configuration.",
 			Optional:     true,
 			MaxItems:     1,
 			ExactlyOneOf: cloudProvidersNames,

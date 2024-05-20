@@ -97,6 +97,7 @@ func orgSchema() map[string]*schema.Schema {
 		},
 		"auth_config": {
 			Type:     schema.TypeList,
+			Description: "The configuration settings and parameters related to authentication within the org.",
 			Optional: true,
 			MaxItems: 1,
 			Elem: &schema.Resource{

@@ -80,10 +80,11 @@ func resourceWorkload() *schema.Resource {
 				ValidateFunc: WorkloadTypeValidator,
 			},
 			"container": {
-				Type:     schema.TypeList,
-				Required: true,
-				MinItems: 1,
-				MaxItems: 20,
+				Type:        schema.TypeList,
+				Description: "An isolated and lightweight runtime environment that encapsulates an application and its dependencies.",
+				Required:    true,
+				MinItems:    1,
+				MaxItems:    20,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
@@ -121,8 +122,9 @@ func resourceWorkload() *schema.Resource {
 							Deprecated:   "The 'port' attribute will be deprecated in the next major version. Use the 'ports' attribute instead.",
 						},
 						"ports": {
-							Type:     schema.TypeList,
-							Optional: true,
+							Type:        schema.TypeList,
+							Description: "Communication endpoints used by the workload to send and receive network traffic.",
+							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"protocol": {
@@ -148,9 +150,10 @@ func resourceWorkload() *schema.Resource {
 							ValidateFunc: CpuMemoryValidator,
 						},
 						"gpu_nvidia": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
+							Type:        schema.TypeList,
+							Description: "GPUs manufactured by NVIDIA, which are specialized hardware accelerators used to offload and accelerate computationally intensive tasks within the workload.",
+							Optional:    true,
+							MaxItems:    1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"model": {
@@ -366,9 +369,10 @@ func resourceWorkload() *schema.Resource {
 				},
 			},
 			"options": {
-				Type:     schema.TypeList,
-				Required: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Configurable settings or parameters that allow fine-tuning and customization of the behavior, performance, and characteristics of the workload.",
+				Required:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"capacity_ai": {
@@ -403,7 +407,8 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"autoscaling": {
-							Type: schema.TypeList,
+							Type:        schema.TypeList,
+							Description: "Auto-scaling adjusts horizontal scaling based on a set strategy, target value, and possibly a metric percentile.",
 							// Required: true,
 							Optional: true,
 							MaxItems: 1,
@@ -454,7 +459,8 @@ func resourceWorkload() *schema.Resource {
 							},
 						},
 						"autoscaling": {
-							Type: schema.TypeList,
+							Type:        schema.TypeList,
+							Description: "Auto-scaling adjusts horizontal scaling based on a set strategy, target value, and possibly a metric percentile.",
 							// Required: true,
 							Optional: true,
 							MaxItems: 1,
@@ -471,10 +477,11 @@ func resourceWorkload() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"external": {
-							Type:     schema.TypeList,
-							Optional: true,
-							MaxItems: 1,
-							Elem:     ExternalFirewallResource(),
+							Type:        schema.TypeList,
+							Description: "The external firewall is used to control inbound and outbound access to the workload for public-facing traffic.",
+							Optional:    true,
+							MaxItems:    1,
+							Elem:        ExternalFirewallResource(),
 						},
 						"internal": {
 							Type:        schema.TypeList,
@@ -616,8 +623,9 @@ func resourceWorkload() *schema.Resource {
 										Optional:    true,
 									},
 									"images": {
-										Type:     schema.TypeList,
-										Optional: true,
+										Type:        schema.TypeList,
+										Description: "A list of images that were resolved.",
+										Optional:    true,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
 												"digest": {
@@ -666,9 +674,10 @@ func resourceWorkload() *schema.Resource {
 				},
 			},
 			"rollout_options": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Defines the parameters for updating applications and services, including settings for minimum readiness, unavailable replicas, surge replicas, and scaling policies.",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"min_ready_seconds": {
@@ -697,9 +706,10 @@ func resourceWorkload() *schema.Resource {
 				},
 			},
 			"security_options": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "Allows for the configuration of the `file system group id`",
+				Optional:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"file_system_group_id": {
@@ -2773,9 +2783,10 @@ func healthCheckSpec() *schema.Resource {
 				ValidateFunc: ThresholdValidator,
 			},
 			"exec": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
+				Type:        schema.TypeList,
+				Description: "",
+				Optional:    true,
+				MaxItems:    1,
 				// ExactlyOneOf: []string{"http_get", "tcp_socket", "exec"},
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
