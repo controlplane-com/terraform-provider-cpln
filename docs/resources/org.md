@@ -24,6 +24,7 @@ Manage an [organization](https://docs.controlplane.com/reference/org) (org).
 - **org_invitees** (List of String) When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.
 - **session_timeout_seconds** (Int) The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)
 - **auth_config** (Block List, Max: 1) ([see below](#nestedblock--auth_config)).
+- **security** (Block List, Max: 1) ([see below](#nestedblock--security)).
 
 
 ~> **Note** To create an org, the provider **must** [authenticate](https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs#authentication) with the `CLI` or `refresh_token` using a user account that has the `org_creator` role for the associated account.
@@ -56,6 +57,37 @@ Required:
 
 - **domain_auto_members** (List of String) List of domains which will auto-provision users when authenticating using SAML.
 - **saml_only** (Boolean) Enforce SAML only authentication.
+
+<a id="nestedblock--security"></a>
+
+### `security`
+
+Optional:
+
+- **threat_detection** (Block List, Max: 1) ([see below](#nestedblock--security--threat_detection))
+
+<a id="nestedblock--security--threat_detection"></a>
+
+### `security.threat_detection`
+
+Optional:
+
+- **enabled** (Boolean)
+- **minimum_severity** (String)
+- **syslog** (Block List, Max: 1) ([see below](#nestedblock--security--threat_detection--syslog))
+
+<a id="nestedblock--security--threat_detection--syslog"></a>
+
+### `security.threat_detection.syslog`
+
+Required:
+
+- **port** (Int)
+
+Optional:
+
+- **transport** (String) Default: `tcp`.
+- **host** (String)
 
 ## Outputs
 
@@ -104,6 +136,18 @@ resource "cpln_org" "example" {
         logs_retention_days    = 30
         metrics_retention_days = 40
         traces_retention_days  = 50
+    }
+
+    security {
+        threat_detection {
+            enabled          = true
+            minimum_severity = "warning"
+            syslog {
+                transport = "tcp"
+                host 	  = "example.com"
+                port  	  = 8080
+            }
+        }
     }
 }
 
