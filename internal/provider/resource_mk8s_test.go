@@ -237,6 +237,8 @@ func testAccControlPlaneMk8sGenericProvider(name string, description string) str
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
+
+			sysbox = true
 		}
 	}
 	`, name, description)
@@ -359,6 +361,8 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
+
+			sysbox = true
 		}
 	}
 	`, name, description)
@@ -497,6 +501,8 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
+
+			sysbox = true
 		}
 	}
 	`, name, description)
@@ -991,6 +997,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 	logs, _, flattenedLogs := generateTestMk8sLogsAddOn()
 	nvidia, _, flattenedNvidia := generateTestMk8sNvidiaAddOn()
 	azureAcr, _, flattenedAzureAcr := generateTestMk8sAzureAcrAddOn()
+	sysbox := true
 
 	var awsEfs *client.Mk8sAwsAddOnConfig
 	var flattenedAwsEfs []interface{}
@@ -1007,7 +1014,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 		awsElb, _, flattenedAwsElb = generateTestMk8sAwsAddOn()
 	}
 
-	flattened := generateFlatTestMk8sAddOns(dashboard, flattenedAzureWorkloadIdentity, awsWorkloadIdentity, localPathStorage, flattenedMetrics, flattenedLogs, flattenedNvidia, flattenedAwsEfs, flattenedAwsEcr, flattenedAwsElb, flattenedAzureAcr)
+	flattened := generateFlatTestMk8sAddOns(dashboard, flattenedAzureWorkloadIdentity, awsWorkloadIdentity, localPathStorage, flattenedMetrics, flattenedLogs, flattenedNvidia, flattenedAwsEfs, flattenedAwsEcr, flattenedAwsElb, flattenedAzureAcr, sysbox)
 	addOns := buildMk8sAddOns(flattened)
 	expectedAddOns := client.Mk8sSpecAddOns{
 		Dashboard:             &client.Mk8sNonCustomizableAddonConfig{},
@@ -1021,6 +1028,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 		AwsECR:                awsEcr,
 		AwsELB:                awsElb,
 		AzureACR:              azureAcr,
+		Sysbox:                &client.Mk8sNonCustomizableAddonConfig{},
 	}
 
 	return addOns, &expectedAddOns, flattened
@@ -1593,7 +1601,7 @@ func generateFlatTestMk8sAutoscaler(expander []string, unneededTime string, unre
 
 // Add Ons
 
-func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}) []interface{} {
+func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}, sysbox bool) []interface{} {
 
 	spec := map[string]interface{}{
 		"dashboard":               dashboard,
@@ -1607,6 +1615,7 @@ func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interfac
 		"aws_ecr":                 awsEcr,
 		"aws_elb":                 awsElb,
 		"azure_acr":               azureAcr,
+		"sysbox":                  sysbox,
 	}
 
 	return []interface{}{

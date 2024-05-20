@@ -373,6 +373,11 @@ func resourceMk8s() *schema.Resource {
 								},
 							},
 						},
+						"sysbox": {
+							Type:        schema.TypeBool,
+							Description: "",
+							Optional:    true,
+						},
 					},
 				},
 			},
@@ -746,6 +751,10 @@ func buildMk8sAddOns(specs []interface{}) *client.Mk8sSpecAddOns {
 
 	if spec["azure_acr"] != nil {
 		output.AzureACR = buildMk8sAzureAcrAddOn(spec["azure_acr"].([]interface{}))
+	}
+
+	if spec["sysbox"] != nil {
+		output.Sysbox = &client.Mk8sNonCustomizableAddonConfig{}
 	}
 
 	return &output
@@ -1324,6 +1333,10 @@ func flattenMk8sAddOns(addOns *client.Mk8sSpecAddOns) []interface{} {
 
 	if addOns.AzureACR != nil {
 		spec["azure_acr"] = flattenMk8sAzureAcrAddOn(addOns.AzureACR)
+	}
+
+	if addOns.Sysbox != nil {
+		spec["sysbox"] = true
 	}
 
 	return []interface{}{

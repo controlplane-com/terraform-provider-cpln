@@ -53,6 +53,7 @@ type Mk8sSpecAddOns struct {
 	AwsECR                *Mk8sAwsAddOnConfig                   `json:"awsECR,omitempty"`
 	AwsELB                *Mk8sAwsAddOnConfig                   `json:"awsELB,omitempty"`
 	AzureACR              *Mk8sAzureACRAddOnConfig              `json:"azureACR,omitempty"`
+	Sysbox                *Mk8sNonCustomizableAddonConfig       `json:"sysbox,omitempty"`
 }
 
 // Providers //

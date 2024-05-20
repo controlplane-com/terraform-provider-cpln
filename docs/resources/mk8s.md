@@ -234,6 +234,7 @@ Optional:
 - **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--ecr))
 - **aws_elb** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--elb))
 - **azure_acr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--azure_acr))
+- **sysbox** (Boolean)
 
 <a id="nestedblock--add_ons--azure_workload_identity"></a>
 
@@ -489,6 +490,8 @@ resource "cpln_mk8s" "generic" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
     }
 }
 ```
@@ -609,6 +612,8 @@ resource "cpln_mk8s" "hetzner" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
     }
 }
 ```
@@ -745,6 +750,8 @@ resource "cpln_mk8s" "aws" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
     }
 }
 ```
