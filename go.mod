@@ -1,6 +1,6 @@
 module github.com/controlplane-com/terraform-provider-cpln
 
-go 1.21
+go 1.21.10
 
 require (
 	github.com/go-test/deep v1.1.0
