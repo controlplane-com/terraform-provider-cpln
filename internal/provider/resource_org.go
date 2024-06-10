@@ -96,10 +96,10 @@ func orgSchema() map[string]*schema.Schema {
 			Default:     900,
 		},
 		"auth_config": {
-			Type:     schema.TypeList,
+			Type:        schema.TypeList,
 			Description: "The configuration settings and parameters related to authentication within the org.",
-			Optional: true,
-			MaxItems: 1,
+			Optional:    true,
+			MaxItems:    1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"domain_auto_members": {
@@ -166,35 +166,35 @@ func orgSchema() map[string]*schema.Schema {
 							Schema: map[string]*schema.Schema{
 								"enabled": {
 									Type:        schema.TypeBool,
-									Description: "",
+									Description: "Indicates whether threat detection should be forwarded or not.",
 									Optional:    true,
 								},
 								"minimum_severity": {
 									Type:        schema.TypeString,
-									Description: "",
+									Description: "Any threats with this severity and more severe will be sent. Others will be ignored. Valid values: `warning`, `error`, or `critical`.",
 									Optional:    true,
 								},
 								"syslog": {
 									Type:        schema.TypeList,
-									Description: "",
+									Description: "Configuration for syslog forwarding.",
 									Optional:    true,
 									MaxItems:    1,
 									Elem: &schema.Resource{
 										Schema: map[string]*schema.Schema{
 											"transport": {
 												Type:        schema.TypeString,
-												Description: "",
+												Description: "The transport-layer protocol to send the syslog messages over. If TCP is chosen, messages will be sent with TLS. Default: `tcp`.",
 												Optional:    true,
 												Default:     "tcp",
 											},
 											"host": {
 												Type:        schema.TypeString,
-												Description: "",
+												Description: "The hostname to send syslog messages to.",
 												Optional:    true,
 											},
 											"port": {
 												Type:        schema.TypeInt,
-												Description: "",
+												Description: "The port to send syslog messages to.",
 												Required:    true,
 											},
 										},
