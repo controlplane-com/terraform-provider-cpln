@@ -72,8 +72,8 @@ Optional:
 
 Optional:
 
-- **enabled** (Boolean) Indicates whether threat detection is active or not.
-- **minimum_severity** (String) Severity Level. Valid values: `warning`, `error`, or `critical`.
+- **enabled** (Boolean) Indicates whether threat detection should be forwarded or not.
+- **minimum_severity** (String) Any threats with this severity and more severe will be sent. Others will be ignored. Valid values: `warning`, `error`, or `critical`.
 - **syslog** (Block List, Max: 1) ([see below](#nestedblock--security--threat_detection--syslog))
 
 <a id="nestedblock--security--threat_detection--syslog"></a>
@@ -82,12 +82,12 @@ Optional:
 
 Required:
 
-- **port** (Int)
+- **port** (Int) The port to send syslog messages to.
 
 Optional:
 
-- **transport** (String) Default: `tcp`.
-- **host** (String)
+- **transport** (String) The transport-layer protocol to send the syslog messages over. If TCP is chosen, messages will be sent with TLS. Default: `tcp`.
+- **host** (String) The hostname to send syslog messages to.
 
 ## Outputs
 
