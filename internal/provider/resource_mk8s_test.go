@@ -28,7 +28,7 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 				Config: testAccControlPlaneMk8sGenericProvider(name+"-generic", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.generic", name+"-generic", &mk8s),
-					testAccCheckControlPlaneMk8sAttributes(&mk8s, "generic"),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "generic", ""),
 					resource.TestCheckResourceAttr("cpln_mk8s.generic", "name", name+"-generic"),
 					resource.TestCheckResourceAttr("cpln_mk8s.generic", "description", description),
 				),
@@ -37,7 +37,7 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 				Config: testAccControlPlaneMk8sHetznerProvider(name+"-hetzner", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.hetzner", name+"-hetzner", &mk8s),
-					testAccCheckControlPlaneMk8sAttributes(&mk8s, "hetzner"),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "hetzner", ""),
 					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "name", name+"-hetzner"),
 					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "description", description),
 				),
@@ -46,9 +46,18 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 				Config: testAccControlPlaneMk8sAwsProvider(name+"-aws", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.aws", name+"-aws", &mk8s),
-					testAccCheckControlPlaneMk8sAttributes(&mk8s, "aws"),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "aws", ""),
 					resource.TestCheckResourceAttr("cpln_mk8s.aws", "name", name+"-aws"),
 					resource.TestCheckResourceAttr("cpln_mk8s.aws", "description", description),
+				),
+			},
+			{
+				Config: testAccControlPlaneMk8sHetznerProviderUpdate(name+"-hetzner", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.hetzner", name+"-hetzner", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "hetzner", "case1"),
+					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "name", name+"-hetzner"),
+					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "description", description),
 				),
 			},
 		},
@@ -88,7 +97,7 @@ func testAccCheckControlPlaneMk8sExists(resourceName string, mk8sName string, mk
 	}
 }
 
-func testAccCheckControlPlaneMk8sAttributes(mk8s *client.Mk8s, providerName string) resource.TestCheckFunc {
+func testAccCheckControlPlaneMk8sAttributes(mk8s *client.Mk8s, providerName string, update string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		tags := *mk8s.Tags
@@ -116,8 +125,7 @@ func testAccCheckControlPlaneMk8sAttributes(mk8s *client.Mk8s, providerName stri
 		}
 
 		// Add Ons
-
-		expectedAddOns, _, _ := generateTestMk8sAddOns(providerName)
+		expectedAddOns, _, _ := generateTestMk8sAddOns(providerName, update)
 
 		if diff := deep.Equal(mk8s.Spec.AddOns, expectedAddOns); diff != nil {
 			return fmt.Errorf("Mk8s Add Ons for provider %s does not match. Diff: %s", providerName, diff)
@@ -152,7 +160,8 @@ func testAccCheckControlPlaneMk8sCheckDestroy(s *terraform.State) error {
 	return nil
 }
 
-// Acceptance Tests //
+// SECTION Acceptance Tests
+// SECTION Create
 
 func testAccControlPlaneMk8sGenericProvider(name string, description string) string {
 
@@ -517,9 +526,142 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 	`, name, description)
 }
 
-/*** Unit Tests ***/
+// !SECTION
+// SECTION Update
 
-// Build //
+func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description string) string {
+
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "hetzner" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+
+		version = "1.28.4"
+
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+		
+		hetzner_provider {
+			
+			region = "fsn1"
+
+			hetzner_labels = {
+				hello = "world"
+			}
+
+			networking {
+				service_network = "10.43.0.0/16"
+				pod_network 	= "10.42.0.0/16"
+			}
+
+			pre_install_script = "#! echo hello world"
+			token_secret_link  = "/org/terraform-test-org/secret/hetzner"
+			network_id 		   = "2808575"
+
+			node_pool {
+				name = "my-hetzner-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+
+				server_type    = "cx11"
+				override_image = "debian-11"
+				min_size 	   = 0
+				max_size 	   = 0
+			}
+
+			dedicated_server_node_pool {
+				name = "my-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+			}
+
+			image 	= "centos-7"
+			ssh_key = "10925607"
+
+			autoscaler {
+				expander 	  		  = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time  		  = "20m"
+				utilization_threshold = 0.7
+			}
+		}
+
+		add_ons {
+			dashboard = false
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = false
+			local_path_storage    = false
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces  = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces  = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+
+			sysbox = false
+		}
+	}
+	`, name, description)
+}
+
+// !SECTION
+// !SECTION
+
+// SECTION Unit Tests
+// SECTION Build
 
 func TestControlPlane_BuildMk8sFirewall(t *testing.T) {
 
@@ -532,14 +674,14 @@ func TestControlPlane_BuildMk8sFirewall(t *testing.T) {
 
 func TestControlPlane_BuildMk8sAddOns(t *testing.T) {
 
-	addOns, expectedAddOns, _ := generateTestMk8sAddOns("aws")
+	addOns, expectedAddOns, _ := generateTestMk8sAddOns("aws", "")
 
 	if diff := deep.Equal(addOns, expectedAddOns); diff != nil {
 		t.Errorf("Mk8s AddOns was not built correctly, Diff: %s", diff)
 	}
 }
 
-// Providers
+// SECTION Providers
 
 func TestControlPlane_BuildMk8sGenericProvider(t *testing.T) {
 
@@ -568,7 +710,8 @@ func TestControlPlane_BuildMk8sAwsProvider(t *testing.T) {
 	}
 }
 
-// Node Pools
+// !SECTION
+// SECTION Node Pools
 
 func TestControlPlane_BuildMk8sGenericNodePools(t *testing.T) {
 
@@ -597,7 +740,8 @@ func TestControlPlane_BuildMk8sAwsNodePools(t *testing.T) {
 	}
 }
 
-// AWS
+// !SECTION
+// SECTION AWS
 
 func TestControlPlane_BuildMk8sAwsAmi_Recommended(t *testing.T) {
 
@@ -617,7 +761,8 @@ func TestControlPlane_BuildMk8sAwsAmi_Exact(t *testing.T) {
 	}
 }
 
-// Common
+// !SECTION
+// SECTION Common
 
 func TestControlPlane_BuildMk8sNetworking(t *testing.T) {
 
@@ -646,7 +791,8 @@ func TestControlPlane_BuildMk8sAutoscaler(t *testing.T) {
 	}
 }
 
-// Add Ons
+// !SECTION
+// SECTION Add Ons
 
 func TestControlPlane_BuildMk8sAzureWorkloadIdentityAddOn(t *testing.T) {
 
@@ -711,7 +857,9 @@ func TestControlPlane_BuildMk8sAzureAcrAddOn(t *testing.T) {
 	}
 }
 
-// Flatten //
+// !SECTION
+// !SECTION
+// SECTION Flatten
 
 func TestControlPlane_FlattenMk8sFirewall(t *testing.T) {
 
@@ -725,7 +873,7 @@ func TestControlPlane_FlattenMk8sFirewall(t *testing.T) {
 
 func TestControlPlane_FlattenMk8sAddOns(t *testing.T) {
 
-	_, expectedAddOns, expectedFlatten := generateTestMk8sAddOns("aws")
+	_, expectedAddOns, expectedFlatten := generateTestMk8sAddOns("aws", "")
 	flattenedAddOns := flattenMk8sAddOns(expectedAddOns)
 
 	if diff := deep.Equal(expectedFlatten, flattenedAddOns); diff != nil {
@@ -733,7 +881,7 @@ func TestControlPlane_FlattenMk8sAddOns(t *testing.T) {
 	}
 }
 
-// Providers
+// SECTION Providers
 
 func TestControlPlane_FlattenMk8sGenericProvider(t *testing.T) {
 
@@ -788,7 +936,8 @@ func TestControlPlane_FlattenMk8sAwsProvider(t *testing.T) {
 	}
 }
 
-// Node Pools
+// !SECTION
+// SECTION Node Pools
 
 func TestControlPlane_FlattenMk8sGenericNodePools(t *testing.T) {
 
@@ -826,7 +975,8 @@ func TestControlPlane_FlattenMk8sAwsNodePools(t *testing.T) {
 	}
 }
 
-// AWS
+// !SECTION
+// SECTION AWS
 
 func TestControlPlane_FlattenMk8sAwsAmi_Recommended(t *testing.T) {
 
@@ -848,7 +998,8 @@ func TestControlPlane_FlattenMk8sAwsAmi_Exact(t *testing.T) {
 	}
 }
 
-// Common
+// !SECTION
+// SECTION Common
 
 func TestControlPlane_FlattenMk8sNetworking(t *testing.T) {
 
@@ -884,7 +1035,8 @@ func TestControlPlane_FlattenMk8sAutoscaler(t *testing.T) {
 	}
 }
 
-// Add Ons
+// !SECTION
+// SECTION Add Ons
 
 func TestControlPlane_FlattenMk8sAzureWorkloadIdentityAddOn(t *testing.T) {
 
@@ -956,9 +1108,12 @@ func TestControlPlane_FlattenMk8sAzureAcrAddOn(t *testing.T) {
 	}
 }
 
-/*** Generate ***/
+// !SECTION
+// !SECTION
+// !SECTION
 
-// Build //
+// SECTION Generate
+// SECTION Build
 
 func generateTestMk8sFirewall() (*[]client.Mk8sFirewallRule, *[]client.Mk8sFirewallRule, []interface{}) {
 
@@ -996,7 +1151,7 @@ func generateTestMk8sProvider(provider string) *client.Mk8sProvider {
 	return &output
 }
 
-func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *client.Mk8sSpecAddOns, []interface{}) {
+func generateTestMk8sAddOns(providerName string, update string) (*client.Mk8sSpecAddOns, *client.Mk8sSpecAddOns, []interface{}) {
 
 	dashboard := true
 	azureWorkloadIdentity, _, flattenedAzureWorkloadIdentity := generateTestMk8sAzureWorkloadIdentityAddOn()
@@ -1007,6 +1162,13 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 	nvidia, _, flattenedNvidia := generateTestMk8sNvidiaAddOn()
 	azureAcr, _, flattenedAzureAcr := generateTestMk8sAzureAcrAddOn()
 	sysbox := true
+
+	if update == "case1" {
+		dashboard = false
+		awsWorkloadIdentity = false
+		localPathStorage = false
+		sysbox = false
+	}
 
 	var awsEfs *client.Mk8sAwsAddOnConfig
 	var flattenedAwsEfs []interface{}
@@ -1043,7 +1205,7 @@ func generateTestMk8sAddOns(providerName string) (*client.Mk8sSpecAddOns, *clien
 	return addOns, &expectedAddOns, flattened
 }
 
-// Providers
+// SECTION Providers
 
 func generateTestMk8sGenericProvider() (*client.Mk8sGenericProvider, *client.Mk8sGenericProvider, []interface{}) {
 
@@ -1136,7 +1298,9 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	return aws, &expectedAws, flattened
 }
 
-// Node Pools
+// !SECTION
+
+// SECTION Node Pools
 
 func generateTestMk8sGenericNodePools() (*[]client.Mk8sGenericPool, *[]client.Mk8sGenericPool, []interface{}) {
 
@@ -1237,7 +1401,8 @@ func generateTestMk8sAwsNodePools() (*[]client.Mk8sAwsPool, *[]client.Mk8sAwsPoo
 	return nodePools, &expectedNodePools, flattened
 }
 
-// AWS
+// !SECTION
+// SECTION AWS
 
 func generateTestMk8sAwsAmi(choice string) (*client.Mk8sAwsAmi, *client.Mk8sAwsAmi, []interface{}) {
 
@@ -1260,7 +1425,8 @@ func generateTestMk8sAwsAmi(choice string) (*client.Mk8sAwsAmi, *client.Mk8sAwsA
 	return ami, &expectedAmi, flattened
 }
 
-// Common
+// !SECTION
+// SECTION Common
 
 func generateTestMk8sNetworking() (*client.Mk8sNetworkingConfig, *client.Mk8sNetworkingConfig, []interface{}) {
 
@@ -1315,7 +1481,8 @@ func generateTestMk8sAutoscaler() (*client.Mk8sAutoscalerConfig, *client.Mk8sAut
 	return autoscaler, &expectedAutoscaler, flattened
 }
 
-// Add Ons
+// !SECTION
+// SECTION Add Ons
 
 func generateTestMk8sAzureWorkloadIdentityAddOn() (*client.Mk8sAzureWorkloadIdentityAddOnConfig, *client.Mk8sAzureWorkloadIdentityAddOnConfig, []interface{}) {
 
@@ -1430,7 +1597,9 @@ func generateTestMk8sAzureAcrAddOn() (*client.Mk8sAzureACRAddOnConfig, *client.M
 	return azureAcr, &expectedAzureAcr, flattened
 }
 
-// Flatten //
+// !SECTION
+// !SECTION
+// SECTION Flatten
 
 func generateFlatTestMk8sFirewall(sourceCidr string, description string) []interface{} {
 
@@ -1444,7 +1613,7 @@ func generateFlatTestMk8sFirewall(sourceCidr string, description string) []inter
 	}
 }
 
-// Providers
+// SECTION Providers
 
 func generateFlatTestMk8sGenericProvider(location string, networking []interface{}, nodePools []interface{}) []interface{} {
 
@@ -1503,7 +1672,8 @@ func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface
 	}
 }
 
-// Node Pools
+// !SECTION
+// SECTION Node Pools
 
 func generateFlatTestMk8sGenericNodePools(name string, labels map[string]interface{}, taints []interface{}) []interface{} {
 
@@ -1558,7 +1728,8 @@ func generateFlatTestMk8sAwsNodePools(name string, labels map[string]interface{}
 	}
 }
 
-// AWS
+// !SECTION
+// SECTION AWS
 
 func generateFlatTestMk8sAwsAmi(recommended *string, exact *string) []interface{} {
 
@@ -1577,7 +1748,8 @@ func generateFlatTestMk8sAwsAmi(recommended *string, exact *string) []interface{
 	}
 }
 
-// Common
+// !SECTION
+// SECTION Common
 
 func generateFlatTestMk8sNetworking(serviceNetwork string, podNetwork string) []interface{} {
 
@@ -1618,7 +1790,8 @@ func generateFlatTestMk8sAutoscaler(expander []string, unneededTime string, unre
 	}
 }
 
-// Add Ons
+// !SECTION
+// SECTION Add Ons
 
 func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}, sysbox bool) []interface{} {
 
@@ -1729,3 +1902,7 @@ func generateFlatTestMk8sAzureAcrAddOn(clientId string) []interface{} {
 		spec,
 	}
 }
+
+// !SECTION
+// !SECTION
+// !SECTION

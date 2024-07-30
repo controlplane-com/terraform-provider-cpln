@@ -721,7 +721,7 @@ func buildMk8sAddOns(specs []interface{}) *client.Mk8sSpecAddOns {
 	spec := specs[0].(map[string]interface{})
 	output := client.Mk8sSpecAddOns{}
 
-	if spec["dashboard"] != nil {
+	if spec["dashboard"] != nil && spec["dashboard"].(bool) {
 		output.Dashboard = &client.Mk8sNonCustomizableAddonConfig{}
 	}
 
@@ -729,11 +729,11 @@ func buildMk8sAddOns(specs []interface{}) *client.Mk8sSpecAddOns {
 		output.AzureWorkloadIdentity = buildMk8sAzureWorkloadIdentityAddOn(spec["azure_workload_identity"].([]interface{}))
 	}
 
-	if spec["aws_workload_identity"] != nil {
+	if spec["aws_workload_identity"] != nil && spec["aws_workload_identity"].(bool) {
 		output.AwsWorkloadIdentity = &client.Mk8sNonCustomizableAddonConfig{}
 	}
 
-	if spec["local_path_storage"] != nil {
+	if spec["local_path_storage"] != nil && spec["local_path_storage"].(bool) {
 		output.LocalPathStorage = &client.Mk8sNonCustomizableAddonConfig{}
 	}
 
@@ -765,7 +765,7 @@ func buildMk8sAddOns(specs []interface{}) *client.Mk8sSpecAddOns {
 		output.AzureACR = buildMk8sAzureAcrAddOn(spec["azure_acr"].([]interface{}))
 	}
 
-	if spec["sysbox"] != nil {
+	if spec["sysbox"] != nil && spec["sysbox"].(bool) {
 		output.Sysbox = &client.Mk8sNonCustomizableAddonConfig{}
 	}
 
