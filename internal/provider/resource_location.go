@@ -29,14 +29,16 @@ func resourceLocation() *schema.Resource {
 				ValidateFunc: NameValidator,
 			},
 			"description": {
-				Type:        schema.TypeString,
-				Description: "Description of the location.",
-				Computed:    true,
+				Type:             schema.TypeString,
+				Description:      "Description of the location.",
+				Optional:         true,
+				ValidateFunc:     DescriptionValidator,
+				DiffSuppressFunc: DiffSuppressDescription,
 			},
 			"tags": {
 				Type:        schema.TypeMap,
 				Description: "Key-value map of resource tags.",
-				Required:    true,
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -45,7 +47,7 @@ func resourceLocation() *schema.Resource {
 			"cloud_provider": {
 				Type:        schema.TypeString,
 				Description: "Cloud Provider of the location.",
-				Computed:    true,
+				Optional:    true,
 			},
 			"region": {
 				Type:        schema.TypeString,
@@ -81,11 +83,38 @@ func resourceLocationCreate(ctx context.Context, d *schema.ResourceData, m inter
 	c := m.(*client.Client)
 
 	// Define & Build
-	locationName := d.Get("name").(string)
-	isLocationEnabled := d.Get("enabled").(bool)
+	name := d.Get("name").(string)
+	description := GetString(d.Get("description"))
+	provider := GetString(d.Get(("cloud_provider")))
+	isEnabled := d.Get("enabled").(bool)
+
+	if provider != nil {
+		// Define the BYOK location object
+		byokLocation := &client.Location{}
+		byokLocation.Name = &name
+		byokLocation.Description = description
+		byokLocation.Provider = provider
+		byokLocation.Spec = &client.LocationSpec{
+			Enabled: &isEnabled,
+		}
+
+		// Create
+		newLocation, code, err := c.CreateLocation(*byokLocation)
+
+		if code == 409 {
+			return ResourceExistsHelper()
+		}
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		// Update state
+		return setLocationResource(d, newLocation)
+	}
 
 	// Get location
-	location, _, err := c.GetLocation(locationName)
+	location, _, err := c.GetLocation(name)
 
 	if err != nil {
 		return diag.FromErr(err)
@@ -97,7 +126,7 @@ func resourceLocationCreate(ctx context.Context, d *schema.ResourceData, m inter
 	}
 
 	// Set user's enabled value
-	location.Spec.Enabled = GetBool(isLocationEnabled)
+	location.Spec.Enabled = GetBool(isEnabled)
 
 	// Set tags
 	location.Tags = GetStringMap(d.Get("tags"))
@@ -134,7 +163,7 @@ func resourceLocationRead(ctx context.Context, d *schema.ResourceData, m interfa
 }
 
 func resourceLocationUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	if d.HasChanges("tags", "enabled") {
+	if d.HasChanges("tags", "enabled", "cloud_provider") {
 		c := m.(*client.Client)
 
 		// Define & Build
@@ -148,6 +177,10 @@ func resourceLocationUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 		if d.HasChange("tags") {
 			locationToUpdate.Tags = GetTagChanges(d)
+		}
+
+		if d.HasChange("cloud_provider") {
+			locationToUpdate.Provider = GetString(d.Get("cloud_provider"))
 		}
 
 		// Update
@@ -167,13 +200,25 @@ func resourceLocationDelete(ctx context.Context, d *schema.ResourceData, m inter
 
 	c := m.(*client.Client)
 
-	locationName := d.Get("name").(string)
+	name := d.Get("name").(string)
 
 	// Get location
-	location, _, err := c.GetLocation(locationName)
+	location, _, err := c.GetLocation(name)
 
 	if err != nil {
 		return diag.FromErr(err)
+	}
+
+	if *location.Provider == "byok" {
+		// Delete BYOK location
+		err := c.DeleteLocation(d.Id())
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		d.SetId("")
+		return nil
 	}
 
 	// Handle nil just to be on the safe side
@@ -222,12 +267,18 @@ func setLocationResource(d *schema.ResourceData, location *client.Location) diag
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set("geo", flattenLocationGeo(location.Status.Geo)); err != nil {
-		return diag.FromErr(err)
-	}
+	if location.Status != nil {
+		if location.Status.Geo != nil {
+			if err := d.Set("geo", flattenLocationGeo(location.Status.Geo)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 
-	if err := d.Set("ip_ranges", flattenIpRanges(location.Status.IpRanges)); err != nil {
-		return diag.FromErr(err)
+		if location.Status.IpRanges != nil {
+			if err := d.Set("ip_ranges", flattenIpRanges(location.Status.IpRanges)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	if err := SetSelfLink(location.Links, d); err != nil {

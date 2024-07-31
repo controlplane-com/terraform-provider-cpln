@@ -203,7 +203,16 @@ func GeoSchema() *schema.Schema {
 	}
 }
 
-// GetLocation
+func (c *Client) CreateLocation(location Location) (*Location, int, error) {
+
+	code, err := c.CreateResource("location", *location.Name, location)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return c.GetLocation(*location.Name)
+}
+
 func (c *Client) GetLocation(name string) (*Location, int, error) {
 
 	location, code, err := c.GetResource(fmt.Sprintf("location/%s", name), new(Location))
@@ -215,7 +224,6 @@ func (c *Client) GetLocation(name string) (*Location, int, error) {
 	return location.(*Location), code, err
 }
 
-// GetLocations
 func (c *Client) GetLocations() (*Locations, error) {
 
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/org/%s/location", c.HostURL, c.Org), nil)
@@ -248,4 +256,8 @@ func (c *Client) UpdateLocation(location Location) (*Location, int, error) {
 	}
 
 	return c.GetLocation(*location.Name)
+}
+
+func (c *Client) DeleteLocation(name string) error {
+	return c.DeleteResource(fmt.Sprintf("location/%s", name))
 }

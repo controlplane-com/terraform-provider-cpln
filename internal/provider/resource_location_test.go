@@ -40,6 +40,14 @@ func TestAccControlPlaneLocation_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "true"),
 				),
 			},
+			// - First Test
+			// Set provider to byok - Expect provider to be byok
+			// Set description - Expect description to be the description specified
+			// Set tags - Expect tags to be the tags that were specified
+
+			// - Second Test
+			// Update description - Expect description to be the updated description
+			// Update tags - Expect tags to be the updated tags
 		},
 	})
 }
