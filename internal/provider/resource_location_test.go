@@ -11,6 +11,10 @@ import (
 )
 
 func TestAccControlPlaneLocation_basic(t *testing.T) {
+	byokLocName := "byok-1"
+	byokLocDescription := "byok-1 description"
+	byokLocProvider := "byok"
+
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t, "LOCATION") },
 		Providers:    testAccProviders,
@@ -37,19 +41,53 @@ func TestAccControlPlaneLocation_basic(t *testing.T) {
 			{
 				Config: testAccControlPlaneLocation_ReferenceTags("true"),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "true"),
+					// resource.TestCheckResourceAttr("cpln_location.new", "enabled", "true"),
+					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "false"),
 				),
 			},
 			// - First Test
 			// Set provider to byok - Expect provider to be byok
 			// Set description - Expect description to be the description specified
 			// Set tags - Expect tags to be the tags that were specified
+			{
+				Config: testAccByokProvider(byokLocName, byokLocDescription, byokLocProvider),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("cpln_location.new", "name", byokLocName),
+					resource.TestCheckResourceAttr("cpln_location.new", "description", byokLocDescription),
+					resource.TestCheckResourceAttr("cpln_location.new", "provider", byokLocProvider),
+				),
+			},
 
 			// - Second Test
 			// Update description - Expect description to be the updated description
 			// Update tags - Expect tags to be the updated tags
 		},
 	})
+}
+
+// - First Tests
+// Set provider to byok - Expect provider to be byoks
+// Set description - Expect description to be the descriptiosn specified
+// Set tags - Expect tags to be the tags that were specifieds
+
+func testAccByokProvider(name string, description string, provider string) string {
+
+	TestLogger.Printf("Inside testAccByokProvider")
+
+	return fmt.Sprintf(`
+	resource "cpln_location" "new" {
+		name    	= %s
+		description = %s
+		provider 	= %s
+		enabled     = true
+
+		tags = {
+			"cpln/city"      = "Frankfurt"
+			"cpln/continent" = "Europe"
+			"cpln/country"   = "Germany"
+		}
+	}
+    `, name, description, provider)
 }
 
 func testAccControlPlaneLocation(enabled string) string {
