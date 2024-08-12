@@ -21,7 +21,7 @@ Manage an [organization](https://docs.controlplane.com/reference/org) (org).
 ### Optional
 
 - **account_id** (String) The associated account ID that will be used when creating the org. Only used on org creation. The account ID can be obtained from the `Org Management & Billing` page.
-- **org_invitees** (List of String) When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.
+- **invitees** (List of String) When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.
 - **session_timeout_seconds** (Int) The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)
 - **auth_config** (Block List, Max: 1) ([see below](#nestedblock--auth_config)).
 - **security** (Block List, Max: 1) ([see below](#nestedblock--security)).
