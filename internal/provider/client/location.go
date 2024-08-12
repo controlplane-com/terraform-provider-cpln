@@ -240,6 +240,16 @@ func (c *Client) GetLocations() (*Locations, error) {
 	return &locations, nil
 }
 
+func (c *Client) CreateCustomLocation(location Location) (*Location, int, error) {
+
+	code, err := c.CreateResource("location", *location.Name, location)
+	if err != nil {
+		return nil, code, err
+	}
+
+	return c.GetLocation(*location.Name)
+}
+
 func (c *Client) UpdateLocation(location Location) (*Location, int, error) {
 
 	code, err := c.UpdateResource(fmt.Sprintf("location/%s", *location.Name), location)
@@ -248,4 +258,8 @@ func (c *Client) UpdateLocation(location Location) (*Location, int, error) {
 	}
 
 	return c.GetLocation(*location.Name)
+}
+
+func (c *Client) DeleteCustomLocation(name string) error {
+	return c.DeleteResource(fmt.Sprintf("location/%s", name))
 }

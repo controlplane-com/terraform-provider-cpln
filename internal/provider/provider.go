@@ -46,6 +46,7 @@ func Provider() *schema.Provider {
 			"cpln_agent":               resourceAgent(),
 			"cpln_audit_context":       resourceAuditContext(),
 			"cpln_cloud_account":       resourceCloudAccount(),
+			"cpln_custom_location":     resourceCustomLocation(),
 			"cpln_domain":              resourceDomain(),
 			"cpln_domain_route":        resourceDomainRoute(),
 			"cpln_group":               resourceGroup(),
