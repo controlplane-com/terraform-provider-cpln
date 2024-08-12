@@ -446,7 +446,7 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 				instance_types = ["t4g.nano"]
 	
 				override_image {
-					exact = "ami-123"
+					exact = "ami-0c5ee33c81cf67a7f"
 				}
 	
 				boot_disk_size                           = 20
@@ -1412,7 +1412,7 @@ func generateTestMk8sAwsAmi(choice string) (*client.Mk8sAwsAmi, *client.Mk8sAwsA
 	if choice == "recommended" {
 		recommended = GetString("amazon/al2023")
 	} else if choice == "exact" {
-		exact = GetString("ami-123")
+		exact = GetString("ami-0c5ee33c81cf67a7f")
 	}
 
 	flattened := generateFlatTestMk8sAwsAmi(recommended, exact)
