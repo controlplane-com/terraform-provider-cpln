@@ -98,6 +98,7 @@ Optional:
 - **image** (String) Default image for all nodes.
 - **ssh_key** (String) SSH key name for accessing deployed nodes.
 - **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **floating_ip_selector** (Map of String) If supplied, nodes will get assigned a random floating ip matching the selector.
 
 <a id="nestedblock--hetzner_provider--node_pool"></a>
 
@@ -576,6 +577,11 @@ resource "cpln_mk8s" "hetzner" {
             unneeded_time         = "10m"
             unready_time  		  = "20m"
             utilization_threshold = 0.7
+        }
+
+        floating_ip_selector = {
+            floating_ip_1 = "123.45.67.89"
+            floating_ip_2 = "98.76.54.32"
         }
     }
 

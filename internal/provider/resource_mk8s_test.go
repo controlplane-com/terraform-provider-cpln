@@ -118,7 +118,7 @@ func testAccCheckControlPlaneMk8sAttributes(mk8s *client.Mk8s, providerName stri
 		}
 
 		// Provider
-		expectedProvider := generateTestMk8sProvider(providerName)
+		expectedProvider := generateTestMk8sProvider(providerName, update)
 
 		if diff := deep.Equal(mk8s.Spec.Provider, expectedProvider); diff != nil {
 			return fmt.Errorf("Mk8s Provider %s does not match. Diff: %s", providerName, diff)
@@ -332,6 +332,10 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 				unneeded_time         = "10m"
 				unready_time  		  = "20m"
 				utilization_threshold = 0.7
+			}
+			
+			floating_ip_selector = {
+				floating_ip_1 = "123.45.67.89"
 			}
 		}
 
@@ -609,6 +613,11 @@ func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description strin
 				unready_time  		  = "20m"
 				utilization_threshold = 0.7
 			}
+
+			floating_ip_selector = {
+				floating_ip_1 = "123.45.67.89"
+				floating_ip_2 = "98.76.54.32"
+			}
 		}
 
 		add_ons {
@@ -694,7 +703,7 @@ func TestControlPlane_BuildMk8sGenericProvider(t *testing.T) {
 
 func TestControlPlane_BuildMk8sHetznerProvider(t *testing.T) {
 
-	hetzner, expectedHetzner, _ := generateTestMk8sHetznerProvider()
+	hetzner, expectedHetzner, _ := generateTestMk8sHetznerProvider("")
 
 	if diff := deep.Equal(hetzner, expectedHetzner); diff != nil {
 		t.Errorf("Mk8s Hetzner Provider was not built correctly, Diff: %s", diff)
@@ -895,7 +904,7 @@ func TestControlPlane_FlattenMk8sGenericProvider(t *testing.T) {
 
 func TestControlPlane_FlattenMk8sHetznerProvider(t *testing.T) {
 
-	_, expectedHetzner, expectedFlatten := generateTestMk8sHetznerProvider()
+	_, expectedHetzner, expectedFlatten := generateTestMk8sHetznerProvider("")
 	flattenedHetzner := flattenMk8sHetznerProvider(expectedHetzner)
 
 	// Extract the interface slice from *schema.Set
@@ -1132,7 +1141,7 @@ func generateTestMk8sFirewall() (*[]client.Mk8sFirewallRule, *[]client.Mk8sFirew
 	return firewall, &expectedFirewall, flattened
 }
 
-func generateTestMk8sProvider(provider string) *client.Mk8sProvider {
+func generateTestMk8sProvider(provider string, update string) *client.Mk8sProvider {
 
 	output := client.Mk8sProvider{}
 
@@ -1141,7 +1150,7 @@ func generateTestMk8sProvider(provider string) *client.Mk8sProvider {
 		generated, _, _ := generateTestMk8sGenericProvider()
 		output.Generic = generated
 	case "hetzner":
-		generated, _, _ := generateTestMk8sHetznerProvider()
+		generated, _, _ := generateTestMk8sHetznerProvider(update)
 		output.Hetzner = generated
 	case "aws":
 		generated, _, _ := generateTestMk8sAwsProvider()
@@ -1224,7 +1233,7 @@ func generateTestMk8sGenericProvider() (*client.Mk8sGenericProvider, *client.Mk8
 	return generic, &expectedGeneric, flattened
 }
 
-func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8sHetznerProvider, []interface{}) {
+func generateTestMk8sHetznerProvider(update string) (*client.Mk8sHetznerProvider, *client.Mk8sHetznerProvider, []interface{}) {
 
 	region := "fsn1"
 	hetznerLabels := map[string]interface{}{
@@ -1239,8 +1248,17 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 	image := "centos-7"
 	sshKey := "10925607"
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
+	floatingIpSelector := map[string]interface{}{
+		"floating_ip_1": "123.45.67.89",
+	}
 
-	flattened := generateFlatTestMk8sHetznerProvider(region, hetznerLabels, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler)
+	// Handle updates
+	switch update {
+	case "case1":
+		floatingIpSelector["floating_ip_2"] = "98.76.54.32"
+	}
+
+	flattened := generateFlatTestMk8sHetznerProvider(region, hetznerLabels, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler, floatingIpSelector)
 	hetzner := buildMk8sHetznerProvider(flattened)
 	expectedHetzner := client.Mk8sHetznerProvider{
 		Region:                   &region,
@@ -1254,6 +1272,7 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 		Image:                    &image,
 		SshKey:                   &sshKey,
 		Autoscaler:               autoscaler,
+		FloatingIpSelector:       &floatingIpSelector,
 	}
 
 	return hetzner, &expectedHetzner, flattened
@@ -1628,7 +1647,7 @@ func generateFlatTestMk8sGenericProvider(location string, networking []interface
 	}
 }
 
-func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string]interface{}, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string]interface{}, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}, floatingIpSelector map[string]interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                     region,
@@ -1642,6 +1661,7 @@ func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string
 		"image":                      image,
 		"ssh_key":                    sshKey,
 		"autoscaler":                 autoscaler,
+		"floating_ip_selector":       floatingIpSelector,
 	}
 
 	return []interface{}{
