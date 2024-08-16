@@ -141,6 +141,7 @@ Required:
 Optional:
 
 - **retention_days** (String) Length, in days, for how log data is kept before it is automatically deleted.
+- **extract_fields** (Map of String) Enable custom data extraction from log entries for enhanced querying and analysis.
 
 <a id="nestedblock--fluentd_logging"></a>
 
@@ -481,6 +482,9 @@ resource "cpln_org_logging" "new" {
 	  retention_days = 1
 	  group_name     = "demo-group-name"
 	  stream_name    = "demo-stream-name"
+    extract_fields  = {
+      log_level = "$.level"
+    }
 
     // Opaque Secret Only
     credentials = cpln_secret.opaque.self_link
