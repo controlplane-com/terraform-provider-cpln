@@ -128,14 +128,8 @@ func resourceServiceAccountUpdate(ctx context.Context, d *schema.ResourceData, m
 
 		saToUpdate := client.ServiceAccount{}
 		saToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			saToUpdate.Description = GetDescriptionString(d.Get("description"), *saToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			saToUpdate.Tags = GetTagChanges(d)
-		}
+		saToUpdate.Description = GetDescriptionString(d.Get("description"), *saToUpdate.Name)
+		saToUpdate.Tags = GetTagChanges(d)
 
 		c := m.(*client.Client)
 		updatedSa, _, err := c.UpdateServiceAccount(saToUpdate)

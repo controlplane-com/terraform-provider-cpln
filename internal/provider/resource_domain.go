@@ -308,11 +308,12 @@ func resourceDomain() *schema.Resource {
 func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	domain := client.Domain{
-		Name:        GetString(d.Get("name")),
-		Description: GetString(d.Get("description")),
-		Tags:        GetStringMap(d.Get("tags")),
-		Spec:        buildDomainSpec(d.Get("spec")),
+		Spec: buildDomainSpec(d.Get("spec")),
 	}
+
+	domain.Name = GetString(d.Get("name"))
+	domain.Description = GetString(d.Get("description"))
+	domain.Tags = GetStringMap(d.Get("tags"))
 
 	c := m.(*client.Client)
 
@@ -350,17 +351,10 @@ func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 	if d.HasChanges("description", "tags", "spec") {
 
-		domainToUpdate := client.Domain{
-			Name: GetString(d.Get("name")),
-		}
-
-		if d.HasChange("description") {
-			domainToUpdate.Description = GetDescriptionString(d.Get("description"), *domainToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			domainToUpdate.Tags = GetTagChanges(d)
-		}
+		domainToUpdate := client.Domain{}
+		domainToUpdate.Name = GetString(d.Get("name"))
+		domainToUpdate.Description = GetDescriptionString(d.Get("description"), *domainToUpdate.Name)
+		domainToUpdate.Tags = GetTagChanges(d)
 
 		c := m.(*client.Client)
 
@@ -881,15 +875,7 @@ func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
 
 	d.SetId(*domain.Name)
 
-	if err := d.Set("name", domain.Name); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("description", domain.Description); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("tags", domain.Tags); err != nil {
+	if err := SetBase(d, domain.Base); err != nil {
 		return diag.FromErr(err)
 	}
 

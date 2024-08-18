@@ -11,13 +11,10 @@ const MAX_ATTEMPTS = 10
 // Domain - Org Defined Domain Name
 type Domain struct {
 	Base
-	Name        *string                 `json:"name,omitempty"`
-	Description *string                 `json:"description,omitempty"`
-	Tags        *map[string]interface{} `json:"tags,omitempty"`
-	Links       *[]Link                 `json:"links,omitempty"`
-	Spec        *DomainSpec             `json:"spec,omitempty"`
-	SpecReplace *DomainSpec             `json:"$replace/spec,omitempty"`
-	Status      *DomainStatus           `json:"status,omitempty"`
+	Links       *[]Link       `json:"links,omitempty"`
+	Spec        *DomainSpec   `json:"spec,omitempty"`
+	SpecReplace *DomainSpec   `json:"$replace/spec,omitempty"`
+	Status      *DomainStatus `json:"status,omitempty"`
 }
 
 type DomainSpec struct {

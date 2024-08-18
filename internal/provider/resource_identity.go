@@ -1316,14 +1316,8 @@ func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 		identityToUpdate := client.Identity{}
 		identityToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			identityToUpdate.Description = GetDescriptionString(d.Get("description"), *identityToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			identityToUpdate.Tags = GetTagChanges(d)
-		}
+		identityToUpdate.Description = GetDescriptionString(d.Get("description"), *identityToUpdate.Name)
+		identityToUpdate.Tags = GetTagChanges(d)
 
 		if d.HasChange("network_resource") {
 			buildNetworkResources(d.Get("network_resource").([]interface{}), &identityToUpdate)

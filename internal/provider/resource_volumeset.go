@@ -114,11 +114,11 @@ func resourceVolumeSet() *schema.Resource {
 				Default:     "ext4",
 			},
 			"snapshots": {
-				Type:     schema.TypeList,
+				Type:        schema.TypeList,
 				Description: "Point-in-time copies of data stored within the volume set, capturing the state of the data at a specific moment.",
-				Optional: true,
-				Default:  nil,
-				MaxItems: 1,
+				Optional:    true,
+				Default:     nil,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"create_final_snapshot": {
@@ -141,11 +141,11 @@ func resourceVolumeSet() *schema.Resource {
 				},
 			},
 			"autoscaling": {
-				Type:     schema.TypeList,
+				Type:        schema.TypeList,
 				Description: "Automated adjustment of the volume set's capacity based on predefined metrics or conditions.",
-				Optional: true,
-				Default:  nil,
-				MaxItems: 1,
+				Optional:    true,
+				Default:     nil,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"max_capacity": {
@@ -322,15 +322,10 @@ func resourceVolumeSetUpdate(ctx context.Context, d *schema.ResourceData, m inte
 				FileSystemType:   GetString(d.Get("file_system_type")),
 			},
 		}
+
 		volumeSetToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			volumeSetToUpdate.Description = GetDescriptionString(d.Get("description"), *volumeSetToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			volumeSetToUpdate.Tags = GetTagChanges(d)
-		}
+		volumeSetToUpdate.Description = GetDescriptionString(d.Get("description"), *volumeSetToUpdate.Name)
+		volumeSetToUpdate.Tags = GetTagChanges(d)
 
 		if d.HasChange("storage_class_suffix") {
 			volumeSetToUpdate.SpecReplace.StorageClassSuffix = GetString(d.Get("storage_class_suffix"))

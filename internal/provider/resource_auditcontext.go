@@ -100,14 +100,8 @@ func resourceAuditContextUpdate(ctx context.Context, d *schema.ResourceData, m i
 
 		auditCtxToUpdate := client.AuditContext{}
 		auditCtxToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			auditCtxToUpdate.Description = GetDescriptionString(d.Get("description"), *auditCtxToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			auditCtxToUpdate.Tags = GetTagChanges(d)
-		}
+		auditCtxToUpdate.Description = GetDescriptionString(d.Get("description"), *auditCtxToUpdate.Name)
+		auditCtxToUpdate.Tags = GetTagChanges(d)
 
 		updatedAuditCtx, _, err := c.UpdateAuditContext(auditCtxToUpdate)
 		if err != nil {

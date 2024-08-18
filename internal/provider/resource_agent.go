@@ -143,14 +143,8 @@ func resourceAgentUpdate(ctx context.Context, d *schema.ResourceData, m interfac
 
 		agentToUpdate := client.Agent{}
 		agentToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			agentToUpdate.Description = GetDescriptionString(d.Get("description"), *agentToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			agentToUpdate.Tags = GetTagChanges(d)
-		}
+		agentToUpdate.Description = GetDescriptionString(d.Get("description"), *agentToUpdate.Name)
+		agentToUpdate.Tags = GetTagChanges(d)
 
 		c := m.(*client.Client)
 		updatedAgent, _, err := c.UpdateAgent(agentToUpdate)
