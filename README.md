@@ -280,3 +280,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.27 - Add additional descriptions. Add sysbox, hetznerLabels, awsTags to mk8s. Add regex to domain-route resource. Add threat-detection to org.
 - v1.1.28 - Fix mk8s add-on update flow.
 - v1.1.29 - Fix mk8s addons boolean value issue
+- v1.1.30 - Fix mk8s addons being removed on update
