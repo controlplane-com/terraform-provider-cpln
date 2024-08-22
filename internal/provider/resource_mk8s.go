@@ -586,7 +586,7 @@ func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface
 			mk8sToUpdate.Tags = GetTagChanges(d)
 		}
 
-		if d.HasChange("add_ons") {
+		if d.Get("add_ons") != nil {
 			mk8sToUpdate.SpecReplace.AddOns = buildMk8sAddOns(d.Get("add_ons").([]interface{}))
 		}
 
