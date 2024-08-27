@@ -209,7 +209,6 @@ func testAccControlPlaneDomainRoute_Prefix(random string, domainName string, sub
 
 		prefix 		  = "/first"
 		workload_link = cpln_workload.new.self_link
-		host_prefix   = "my.thing."
 	}
 
 	resource "cpln_domain_route" "second-route" {
@@ -224,6 +223,15 @@ func testAccControlPlaneDomainRoute_Prefix(random string, domainName string, sub
 		workload_link  = cpln_workload.new.self_link
 		port 		   = 443
 		host_prefix    = "my.thing."
+
+		headers {
+			request {
+				set = {
+					Host = "example.com"
+					"Content-Type" = "application/json"
+				}
+			}
+		}
 	}
 	`, random, domainName, subDomainName)
 }
@@ -402,11 +410,37 @@ func testAccCheckControlPlaneDomainRouteAttributes(state string, domain *client.
 	}
 }
 
+/*** Unit Tests ***/
+
+// Build //
+
+func TestControlPlane_BuildDomainRouteHeaders(t *testing.T) {
+
+	headers, expectedHeaders, _ := generateTestDomainRouteHeaders()
+
+	if diff := deep.Equal(headers, expectedHeaders); diff != nil {
+		t.Errorf("Domain Route Headers were not built correctly, Diff: %s", diff)
+	}
+}
+
+// Flatten //
+
+func TestControlPlane_FlattenDomainRouteHeaders(t *testing.T) {
+
+	_, expectedHeaders, expectedFlatten := generateTestDomainRouteHeaders()
+	flattenedHeaders := flattenDomainRouteHeaders(expectedHeaders)
+
+	if diff := deep.Equal(expectedFlatten, flattenedHeaders); diff != nil {
+		t.Errorf("Mk8s Firewall was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 /*** Generate ***/
 
 // Build //
 
 func generateTestDomainRoutePorts_Prefix(workloadLink string) *[]client.DomainSpecPort {
+	headers, _, _ := generateTestDomainRouteHeaders()
 
 	return &[]client.DomainSpecPort{
 		{
@@ -416,7 +450,6 @@ func generateTestDomainRoutePorts_Prefix(workloadLink string) *[]client.DomainSp
 				{
 					Prefix:       GetString("/first"),
 					WorkloadLink: GetString(workloadLink),
-					HostPrefix:   GetString("my.thing."),
 				},
 			},
 			Cors: &client.DomainCors{
@@ -451,6 +484,7 @@ func generateTestDomainRoutePorts_Prefix(workloadLink string) *[]client.DomainSp
 					WorkloadLink:  GetString(workloadLink),
 					Port:          GetInt(443),
 					HostPrefix:    GetString("my.thing."),
+					Headers:       headers,
 				},
 			},
 			Cors: &client.DomainCors{
@@ -513,5 +547,58 @@ func generateTestDomainRoutePorts_Regex(workloadLink string) *[]client.DomainSpe
 				},
 			},
 		},
+	}
+}
+
+func generateTestDomainRouteHeaders() (*client.DomainRouteHeaders, *client.DomainRouteHeaders, []interface{}) {
+
+	request, _, flattenedRequest := generateTestDomainHeaderOperation()
+
+	flattened := generateFlatTestDomainRouteHeaders(flattenedRequest)
+	headers := buildDomainRouteHeaders(flattened)
+	expectedHeaders := client.DomainRouteHeaders{
+		Request: request,
+	}
+
+	return headers, &expectedHeaders, flattened
+}
+
+func generateTestDomainHeaderOperation() (*client.DomainHeaderOperation, *client.DomainHeaderOperation, []interface{}) {
+
+	set := map[string]interface{}{
+		"Host":         "example.com",
+		"Content-Type": "application/json",
+	}
+
+	flattened := generateFlatTestDomainHeaderOperation(set)
+	request := buildDomainHeaderOperation(flattened)
+	expectedRequest := client.DomainHeaderOperation{
+		Set: &set,
+	}
+
+	return request, &expectedRequest, flattened
+}
+
+// Flatten //
+
+func generateFlatTestDomainRouteHeaders(request []interface{}) []interface{} {
+
+	spec := map[string]interface{}{
+		"request": request,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestDomainHeaderOperation(set map[string]interface{}) []interface{} {
+
+	spec := map[string]interface{}{
+		"set": set,
+	}
+
+	return []interface{}{
+		spec,
 	}
 }
