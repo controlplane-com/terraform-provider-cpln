@@ -20,62 +20,97 @@ func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckControlPlaneOrgCheckDestroy,
 		Steps: []resource.TestStep{
-			// {
-			// 	Config: testAccControlPlaneOrgS3(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgCoralogix(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgDatadog(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgLogzio(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgElasticAWS(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgElasticCloud(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
-			// {
-			// 	Config: testAccControlPlaneOrgElasticGeneric(),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-			// 		testAccCheckControlPlaneLoggingAttributes(&testLogging),
-			// 	),
-			// },
+			{
+				Config: testAccControlPlaneOrgS3(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgCoralogix(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgDatadog(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgLogzio(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgElasticAWS(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgElasticCloud(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgElasticGeneric(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgCloudWatch(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgFluentd(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgFluentd(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgStackdriver(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
+			{
+				Config: testAccControlPlaneOrgSyslog(),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
+					testAccCheckControlPlaneLoggingAttributes(&testLogging),
+				),
+			},
 			{
 				Config: testAccControlPlaneOrgThreeUniqueLoggings(),
 				Check: resource.ComposeTestCheckFunc(
@@ -359,7 +394,7 @@ func testAccControlPlaneOrgElasticCloud() string {
 	TestLogger.Printf("Inside testAccControlPlaneOrgElasticCloud")
 
 	return `
-	resource "cpln_secret" "userpass" {
+	resource "cpln_secret" "userpass-elastic-cloud" {
 
         name = "userpass-random-elastic-logging-elastic-cloud-tbd"
         description = "userpass description" 
@@ -383,7 +418,7 @@ func testAccControlPlaneOrgElasticCloud() string {
 			elastic_cloud {
 				index = "my-index"
 				type = "my-type"
-				credentials = cpln_secret.userpass.self_link
+				credentials = cpln_secret.userpass-elastic-cloud.self_link
 				cloud_id = "my-cloud-id"
 			}
         }
@@ -397,7 +432,7 @@ func testAccControlPlaneOrgElasticGeneric() string {
 
 	return `
 
-	resource "cpln_secret" "userpass" {
+	resource "cpln_secret" "userpass-elastic-generic" {
 
         name = "userpass-random-elastic-logging-generic-tbd"
         description = "userpass description" 
@@ -424,10 +459,125 @@ func testAccControlPlaneOrgElasticGeneric() string {
 				path  = "/var/log/elasticsearch/"
 				index = "my-index"
 				type  = "my-type"
-				credentials = cpln_secret.userpass.self_link
+				credentials = cpln_secret.userpass-elastic-generic.self_link
 			}
         }
     }
+    `
+}
+
+func testAccControlPlaneOrgCloudWatch() string {
+
+	TestLogger.Printf("Inside testAccControlPlaneOrgCloudWatch")
+
+	return `
+
+    resource "cpln_secret" "opaque" {
+
+        name = "opaque-random-cloud-watch-tbd"
+        description = "opaque description opaque-random-tbd" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "opaque"
+        }
+
+        opaque {
+            payload = "opaque_secret_payload"
+            encoding = "plain"
+        }
+    }
+
+    resource "cpln_org_logging" "tf-logging" {
+
+        cloud_watch_logging {
+
+			region          = "us-east-1"
+			retention_days  = 1
+			group_name      = "demo-group-name"
+			stream_name     = "demo-stream-name"
+			extract_fields  = {
+				log_level = "$.level"
+			}
+
+            // Opaque Secret Only
+            credentials = cpln_secret.opaque.self_link
+        }
+    }       
+    `
+}
+
+func testAccControlPlaneOrgFluentd() string {
+
+	TestLogger.Printf("Inside testAccControlPlaneOrgFluentd")
+
+	return `
+	
+    resource "cpln_org_logging" "tf-logging" {
+
+        fluentd_logging {
+
+			host = "example.com"
+			port = 24224
+        }
+    }       
+    `
+}
+
+func testAccControlPlaneOrgStackdriver() string {
+
+	TestLogger.Printf("Inside testAccControlPlaneOrgStackdriver")
+
+	return `
+
+    resource "cpln_secret" "opaque" {
+
+        name = "opaque-random-stackdriver-tbd"
+        description = "opaque description opaque-random-tbd" 
+        
+        tags = {
+            terraform_generated = "true"
+            acceptance_test = "true"
+            secret_type = "opaque"
+        }
+
+        opaque {
+            payload = "opaque_secret_payload"
+            encoding = "plain"
+        }
+    }
+
+    resource "cpln_org_logging" "tf-logging" {
+
+        stackdriver_logging {
+
+			location = "us-east4"
+
+            // Opaque Secret Only
+            credentials = cpln_secret.opaque.self_link
+        }
+    }
+    `
+}
+
+func testAccControlPlaneOrgSyslog() string {
+
+	TestLogger.Printf("Inside testAccControlPlaneOrgSyslog")
+
+	return `
+	
+    resource "cpln_org_logging" "tf-logging" {
+
+        syslog_logging {
+
+			host     = "syslog.example.com"
+			port     = 443
+			mode     = "tcp"
+			format   = "rfc5424"
+			severity = 6
+        }
+    }       
     `
 }
 
@@ -673,7 +823,8 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 		}
 
 		var s3TestValue, coralogixTestValue, dataDogTestValue,
-			logzioTestvalue, elasticTestValue []client.Logging
+			logzioTestvalue, cloudWatchTestValue, fluentdTestValue,
+			stackdriverTestValue, syslogTestValue, elasticTestValue []client.Logging
 
 		for _, logging := range *loggings {
 
@@ -700,6 +851,14 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 				} else if logging.Elastic.Generic != nil {
 					loggingType = "elastic_logging-generic"
 				}
+			} else if logging.CloudWatch != nil {
+				loggingType = "cloud_watch_logging"
+			} else if logging.Fluentd != nil {
+				loggingType = "fluentd_logging"
+			} else if logging.Stackdriver != nil {
+				loggingType = "stackdriver_logging"
+			} else if logging.Syslog != nil {
+				loggingType = "syslog_logging"
 			} else {
 				return fmt.Errorf("Logging Attributes: We were not able to determine logging type")
 			}
@@ -710,6 +869,7 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 				temp := client.Logging{
 					S3: logging.S3,
 				}
+
 				s3TestValue = append(s3TestValue, temp)
 
 			case "coralogix_logging":
@@ -746,6 +906,37 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 
 				elasticTestValue = append(elasticTestValue, temp)
 
+			case "cloud_watch_logging":
+
+				temp := client.Logging{
+					CloudWatch: logging.CloudWatch,
+				}
+
+				cloudWatchTestValue = append(cloudWatchTestValue, temp)
+
+			case "fluentd_logging":
+
+				temp := client.Logging{
+					Fluentd: logging.Fluentd,
+				}
+
+				fluentdTestValue = append(fluentdTestValue, temp)
+
+			case "stackdriver_logging":
+
+				temp := client.Logging{
+					Stackdriver: logging.Stackdriver,
+				}
+
+				stackdriverTestValue = append(stackdriverTestValue, temp)
+
+			case "syslog_logging":
+
+				temp := client.Logging{
+					Syslog: logging.Syslog,
+				}
+
+				syslogTestValue = append(syslogTestValue, temp)
 			default:
 				return nil
 			}
@@ -790,6 +981,22 @@ func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resou
 
 				expectedValue, _, _ = generateTestElasticLogging(loggingType)
 				toTestValue = elasticTestValue
+
+			case "cloud_watch_logging":
+				expectedValue, _, _ = generateTestCloudWatchLogging()
+				toTestValue = cloudWatchTestValue
+
+			case "fluentd_logging":
+				expectedValue, _, _ = generateTestFluentdLogging()
+				toTestValue = fluentdTestValue
+
+			case "stackdriver_logging":
+				expectedValue, _, _ = generateTestStackdriverLogging()
+				toTestValue = stackdriverTestValue
+
+			case "syslog_logging":
+				expectedValue, _, _ = generateTestSyslogLogging()
+				toTestValue = syslogTestValue
 
 			default:
 				return nil
@@ -885,7 +1092,7 @@ func TestControlPlane_BuildElasticLogging(t *testing.T) {
 	}
 }
 
-func TestControlPlane_BuildGroupWatchLogging(t *testing.T) {
+func TestControlPlane_BuildCloudWatchLogging(t *testing.T) {
 
 	logging, expectedLogging, _ := generateTestCloudWatchLogging()
 
@@ -1127,8 +1334,11 @@ func generateTestCloudWatchLogging() ([]client.Logging, []client.Logging, []inte
 	retentionDays := 1
 	groupName := "demo-group-name"
 	streamName := "demo-stream-name"
+	extractFields := map[string]interface{}{
+		"log_level": "$.level",
+	}
 
-	flattened := generateFlatTestCloudWatchLogging(region, credentials, retentionDays, groupName, streamName)
+	flattened := generateFlatTestCloudWatchLogging(region, credentials, retentionDays, groupName, streamName, extractFields)
 	cloudWatch := buildCloudWatchLogging(flattened)
 	expectedCloudWatch := []client.Logging{
 		{
@@ -1138,6 +1348,7 @@ func generateTestCloudWatchLogging() ([]client.Logging, []client.Logging, []inte
 				RetentionDays: &retentionDays,
 				GroupName:     &groupName,
 				StreamName:    &streamName,
+				ExtractFields: &extractFields,
 			},
 		},
 	}
@@ -1357,7 +1568,7 @@ func generateFlatTestElasticLogging(awsLogging []interface{}, elasticCloudLoggin
 	}
 }
 
-func generateFlatTestCloudWatchLogging(region string, credentials string, retentionDays int, groupName string, streamName string) []interface{} {
+func generateFlatTestCloudWatchLogging(region string, credentials string, retentionDays int, groupName string, streamName string, extractFields map[string]interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":         region,
@@ -1365,6 +1576,7 @@ func generateFlatTestCloudWatchLogging(region string, credentials string, retent
 		"retention_days": retentionDays,
 		"group_name":     groupName,
 		"stream_name":    streamName,
+		"extract_fields": extractFields,
 	}
 
 	return []interface{}{

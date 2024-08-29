@@ -87,11 +87,12 @@ type GenericLogging struct {
 }
 
 type CloudWatchLogging struct {
-	Region        *string `json:"region,omitempty"`
-	Credentials   *string `json:"credentials,omitempty"`
-	RetentionDays *int    `json:"retentionDays,omitempty"`
-	GroupName     *string `json:"groupName,omitempty"`
-	StreamName    *string `json:"streamName,omitempty"`
+	Region        *string                 `json:"region,omitempty"`
+	Credentials   *string                 `json:"credentials,omitempty"`
+	RetentionDays *int                    `json:"retentionDays,omitempty"`
+	GroupName     *string                 `json:"groupName,omitempty"`
+	StreamName    *string                 `json:"streamName,omitempty"`
+	ExtractFields *map[string]interface{} `json:"extractFields,omitempty"`
 }
 
 type FluentdLogging struct {
