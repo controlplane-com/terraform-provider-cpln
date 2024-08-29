@@ -156,14 +156,8 @@ func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, m interfac
 
 		groupToUpdate := client.Group{}
 		groupToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			groupToUpdate.Description = GetDescriptionString(d.Get("description"), *groupToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			groupToUpdate.Tags = GetTagChanges(d)
-		}
+		groupToUpdate.Description = GetDescriptionString(d.Get("description"), *groupToUpdate.Name)
+		groupToUpdate.Tags = GetTagChanges(d)
 
 		if d.HasChange("user_ids_and_emails") || d.HasChange("service_accounts") || d.HasChange("member_query") {
 

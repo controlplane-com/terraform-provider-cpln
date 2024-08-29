@@ -278,19 +278,13 @@ func resourcePolicyUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 		policyToUpdate := client.Policy{}
 		policyToUpdate.Update = true
 		policyToUpdate.Name = GetString(d.Get("name"))
+		policyToUpdate.Description = GetDescriptionString(d.Get("description"), *policyToUpdate.Name)
+		policyToUpdate.Tags = GetTagChanges(d)
 
 		policyToUpdate.Target = GetString(d.Get("target"))
 		policyToUpdate.TargetQuery = BuildQueryHelper("user", d.Get("target_query"))
 		buildTargetLinks(c.Org, gvc, targetKind, d.Get("target_links"), &policyToUpdate)
 		buildBindings(c.Org, d.Get("binding"), &policyToUpdate)
-
-		if d.HasChange("description") {
-			policyToUpdate.Description = GetDescriptionString(d.Get("description"), *policyToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			policyToUpdate.Tags = GetTagChanges(d)
-		}
 
 		updatedPolicy, _, err := c.UpdatePolicy(policyToUpdate)
 		if err != nil {

@@ -171,6 +171,8 @@ func (c *Client) GetResource(id string, resource interface{}) (interface{}, int,
 
 func (c *Client) CreateResource(resourceType, id string, resource interface{}) (int, error) {
 
+	c.ForceCreatedByTerraformTag(resource)
+
 	g, err := json.Marshal(resource)
 	if err != nil {
 		return 0, err
@@ -190,6 +192,8 @@ func (c *Client) CreateResource(resourceType, id string, resource interface{}) (
 }
 
 func (c *Client) CreateResourceAgent(resource Agent) (*Agent, int, error) {
+
+	c.ForceCreatedByTerraformTag(resource)
 
 	g, err := json.Marshal(resource)
 	if err != nil {
@@ -217,6 +221,8 @@ func (c *Client) CreateResourceAgent(resource Agent) (*Agent, int, error) {
 }
 
 func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
+
+	c.ForceCreatedByTerraformTag(resource)
 
 	g, err := json.Marshal(resource)
 	if err != nil {
@@ -252,4 +258,34 @@ func (c *Client) DeleteResource(id string) error {
 	}
 
 	return nil
+}
+
+// Force a tag indicating resource was created by Terraform
+func (c *Client) ForceCreatedByTerraformTag(resource interface{}) {
+	// Use reflection to get the value of the resource
+	val := reflect.ValueOf(resource)
+
+	// Dereference pointer if necessary
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	// Look for the embedded Base struct
+	baseField := val.FieldByName("Base")
+
+	// Check if it is valid
+	if baseField.IsValid() {
+		// Get the Tags field from the Base struct
+		tagsField := baseField.FieldByName("Tags")
+
+		// Check if Tags is nil, and initialize if necessary
+		if tagsField.IsNil() {
+			newTags := make(map[string]interface{})
+			tagsField.Set(reflect.ValueOf(&newTags))
+		}
+
+		// Add a new key-value pair to the Tags map
+		tags := tagsField.Interface().(*map[string]interface{})
+		(*tags)["cpln/managedByTerraform"] = "true"
+	}
 }

@@ -47,7 +47,8 @@ func GetTags(tags *map[string]interface{}) map[string]interface{} {
 			// Remove certain server side generated tags
 			if strings.HasPrefix(k, "cpln/deployTimestamp") || strings.HasPrefix(k, "cpln/aws") ||
 				strings.HasPrefix(k, "cpln/azure") || strings.HasPrefix(k, "cpln/docker") ||
-				strings.HasPrefix(k, "cpln/gcp") || strings.HasPrefix(k, "cpln/tls") {
+				strings.HasPrefix(k, "cpln/gcp") || strings.HasPrefix(k, "cpln/tls") ||
+				strings.HasPrefix(k, "cpln/managedByTerraform") {
 
 				continue
 			}

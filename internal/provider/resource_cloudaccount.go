@@ -337,14 +337,8 @@ func resourceCloudAccountUpdate(ctx context.Context, d *schema.ResourceData, m i
 
 		caToUpdate := client.CloudAccount{}
 		caToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			caToUpdate.Description = GetDescriptionString(d.Get("description"), *caToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			caToUpdate.Tags = GetTagChanges(d)
-		}
+		caToUpdate.Description = GetDescriptionString(d.Get("description"), *caToUpdate.Name)
+		caToUpdate.Tags = GetTagChanges(d)
 
 		c := m.(*client.Client)
 		updatedCa, _, err := c.UpdateCloudAccount(caToUpdate)

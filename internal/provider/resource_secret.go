@@ -588,6 +588,8 @@ func resourceSecretUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		secretToUpdate := client.Secret{}
 		secretToUpdate.Name = GetString(d.Get("name"))
+		secretToUpdate.Description = DescriptionHelper(*secretToUpdate.Name, d.Get("description").(string))
+		secretToUpdate.Tags = GetTagChanges(d)
 
 		changedSecret := []string{}
 
@@ -637,14 +639,6 @@ func resourceSecretUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		if d.HasChange("nats_account") {
 			changedSecret = append(changedSecret, "nats_account")
-		}
-
-		if d.HasChange("description") {
-			secretToUpdate.Description = DescriptionHelper(*secretToUpdate.Name, d.Get("description").(string))
-		}
-
-		if d.HasChange("tags") {
-			secretToUpdate.Tags = GetTagChanges(d)
 		}
 
 		if len(changedSecret) == 1 {

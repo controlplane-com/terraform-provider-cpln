@@ -145,10 +145,7 @@ func resourceLocationUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		}
 
 		locationToUpdate.Name = GetString(d.Get("name").(string))
-
-		if d.HasChange("tags") {
-			locationToUpdate.Tags = GetTagChanges(d)
-		}
+		locationToUpdate.Tags = GetTagChanges(d)
 
 		// Update
 		updatedLocation, _, err := c.UpdateLocation(locationToUpdate)

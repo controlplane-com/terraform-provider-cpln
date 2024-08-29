@@ -600,14 +600,8 @@ func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface
 		}
 
 		mk8sToUpdate.Name = GetString(d.Get("name"))
-
-		if d.HasChange("description") {
-			mk8sToUpdate.Description = GetDescriptionString(d.Get("description"), *mk8sToUpdate.Name)
-		}
-
-		if d.HasChange("tags") {
-			mk8sToUpdate.Tags = GetTagChanges(d)
-		}
+		mk8sToUpdate.Description = GetDescriptionString(d.Get("description"), *mk8sToUpdate.Name)
+		mk8sToUpdate.Tags = GetTagChanges(d)
 
 		if d.Get("add_ons") != nil {
 			mk8sToUpdate.SpecReplace.AddOns = buildMk8sAddOns(d.Get("add_ons").([]interface{}))
