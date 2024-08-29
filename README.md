@@ -289,3 +289,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Update policy resource to allow self-link references.
     - Add headers to domain route resource.
     - Force a tag indicating resource was created by terraform.
+    - Set networking as required in mk8s resource.

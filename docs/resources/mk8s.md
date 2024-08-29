@@ -36,15 +36,17 @@ Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
 Required:
 
 - **location** (String) Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 
 Optional:
 
-- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **node_pool** (Block List) ([see below](#nestedblock--generic_provider--node_pool))
 
 <a id="nestedblock--generic_provider--networking"></a>
 
 ### `generic_provider.networking`
+
+Networking declaration is required even if networking is not utilized. Example usage: `networking {}`.
 
 Optional:
 
@@ -87,11 +89,11 @@ Required:
 - **region** (String) Hetzner region to deploy nodes to.
 - **token_secret_link** (String) Link to a secret holding Hetzner access key.
 - **network_id** (String) ID of the Hetzner network to deploy nodes to.
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 
 Optional:
 
 - **hetzner_labels** (Map of String) Extra labels to attach to servers.
-- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **pre_install_script** (String) Optional shell script that will be run before K8S is installed.
 - **firewall_id** (String) Optional firewall rule to attach to all nodes.
 - **node_pool** (Block List) ([see below](#nestedblock--hetzner_provider--node_pool))
@@ -146,11 +148,11 @@ Required:
 - **image** (Block List, Max: 1) ([see below](#nestedblock--aws_provider--ami))
 - **deploy_role_arn** (String) Control Plane will set up the cluster by assuming this role.
 - **vpc_id** (String) The vpc where nodes will be deployed. Supports SSM.
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 
 Optional:
 
 - **aws_tags** (Map of String) Extra tags to attach to all created objects.
-- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **pre_install_script** (String) Optional shell script that will be run before K8S is installed. Supports SSM.
 - **key_pair** (String) Name of keyPair. Supports SSM
 - **disk_encryption_key_arn** (String) KMS key used to encrypt volumes. Supports SSM.
@@ -693,10 +695,7 @@ resource "cpln_mk8s" "aws" {
 
         skip_create_roles = false
 
-        networking {
-            service_network = "10.43.0.0/16"
-            pod_network 	= "10.42.0.0/16"
-        }
+        networking {}
 
         pre_install_script = "#! echo hello world"
 

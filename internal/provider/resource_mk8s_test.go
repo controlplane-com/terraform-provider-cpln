@@ -426,10 +426,7 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 
 			skip_create_roles = false
 	
-			networking {
-				service_network = "10.43.0.0/16"
-				pod_network 	= "10.42.0.0/16"
-			}
+			networking {}
 	
 			pre_install_script = "#! echo hello world"
 	
