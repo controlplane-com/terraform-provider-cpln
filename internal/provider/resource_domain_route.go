@@ -68,6 +68,32 @@ func resourceDomainRoute() *schema.Resource {
 				Description: "This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.",
 				Optional:    true,
 			},
+			"headers": {
+				Type:        schema.TypeList,
+				Description: "Modify the headers for all http requests for this route.",
+				Optional:    true,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"request": {
+							Type:        schema.TypeList,
+							Description: "Manipulates HTTP headers.",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"set": {
+										Type:        schema.TypeMap,
+										Description: "Sets or overrides headers to all http requests for this route.",
+										Optional:    true,
+										Elem:        StringSchema(),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateDomainRoute,
@@ -190,6 +216,10 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 		route.Regex = GetString(d.Get("regex"))
 	}
 
+	if d.Get("headers") != nil {
+		route.Headers = buildDomainRouteHeaders(d.Get("headers").([]interface{}))
+	}
+
 	c := m.(*client.Client)
 	err := c.AddDomainRoute(GetNameFromSelfLink(domainLink), domainPort, route)
 
@@ -246,7 +276,7 @@ func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m inte
 
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("prefix", "replace_prefix", "workload_link", "port", "host_prefix") {
+	if d.HasChanges("prefix", "replace_prefix", "workload_link", "port", "host_prefix", "headers") {
 
 		domainLink := d.Get("domain_link").(string)
 		domainPort := d.Get("domain_port").(int)
@@ -264,6 +294,10 @@ func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m in
 
 		if d.Get("regex") != nil {
 			route.Regex = GetString(d.Get("regex"))
+		}
+
+		if d.Get("headers") != nil {
+			route.Headers = buildDomainRouteHeaders(d.Get("headers").([]interface{}))
 		}
 
 		c := m.(*client.Client)
@@ -364,5 +398,81 @@ func setDomainRoute(d *schema.ResourceData, domainLink string, domainPort int, r
 		return diag.FromErr(err)
 	}
 
+	if route.Headers != nil {
+		if err := d.Set("headers", flattenDomainRouteHeaders(route.Headers)); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	return nil
+}
+
+/*** Build ***/
+
+func buildDomainRouteHeaders(specs []interface{}) *client.DomainRouteHeaders {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.DomainRouteHeaders{}
+
+	if spec["request"] != nil {
+		output.Request = buildDomainHeaderOperation(spec["request"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildDomainHeaderOperation(specs []interface{}) *client.DomainHeaderOperation {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.DomainHeaderOperation{}
+
+	if spec["set"] != nil {
+		output.Set = GetStringMap(spec["set"])
+	}
+
+	return &output
+}
+
+/*** Flatten ***/
+
+func flattenDomainRouteHeaders(headers *client.DomainRouteHeaders) []interface{} {
+
+	if headers == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{}
+
+	if headers.Request != nil {
+		spec["request"] = flattenDomainHeaderOperation(headers.Request)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenDomainHeaderOperation(request *client.DomainHeaderOperation) []interface{} {
+
+	if request == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{}
+
+	if request.Set != nil {
+		spec["set"] = *request.Set
+	}
+
+	return []interface{}{
+		spec,
+	}
 }

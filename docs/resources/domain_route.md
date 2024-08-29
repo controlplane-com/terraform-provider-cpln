@@ -29,6 +29,27 @@ Used in conjunction with a Domain.
 - **replace_prefix** (String) A path prefix can be configured to be replaced when forwarding the request to the Workload.
 - **port** (Number) For the linked workload, the port to route traffic to.
 - **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.
+- **headers** (Block List, Max: 1) ([see below](#nestedblock--headers))
+
+<a id="nestedblock--headers"></a>
+
+### `headers`
+
+Modify the headers for all http requests for this route.
+
+Optional:
+
+- **request** (Block List, Max: 1) ([see below](#nestedblock--headers-request))
+
+<a id="nestedblock--headers-request"></a>
+
+### `headers.request`
+
+Manipulates HTTP headers.
+
+Optional:
+
+- **set** (Map of String) Sets or overrides headers to all http requests for this route.
 
 ## Example Usage
 
@@ -110,6 +131,15 @@ resource "cpln_domain_route" "first-route" {
     host_prefix = "www.example.com"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
+
+    headers {
+      request {
+        set = {
+          Host = "example.com"
+          "Content-Type" = "application/json"
+        }
+      }
+    }
 }
 
 resource "cpln_domain_route" "second-route" {
@@ -125,6 +155,15 @@ resource "cpln_domain_route" "second-route" {
     host_prefix = "www.foo.com"
     workload_link = "LINK_TO_WORKLOAD"
     port = 80
+
+    headers {
+      request {
+        set = {
+          Host = "example.com"
+          "Content-Type" = "application/json"
+        }
+      }
+    }
 }
 ```
 
@@ -206,6 +245,15 @@ resource "cpln_domain_route" "new" {
     host_prefix    = "www.example.com"
     workload_link  = "LINK_TO_WORKLOAD"
     port           = 80
+
+    headers {
+      request {
+        set = {
+          Host = "example.com"
+          "Content-Type" = "application/json"
+        }
+      }
+    }
 }
 ```
 

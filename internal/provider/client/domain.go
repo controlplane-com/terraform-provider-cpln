@@ -46,12 +46,13 @@ type DomainSpecPort struct {
 }
 
 type DomainRoute struct {
-	Prefix        *string `json:"prefix,omitempty"`
-	ReplacePrefix *string `json:"replacePrefix,omitempty"`
-	Regex         *string `json:"regex,omitempty"`
-	WorkloadLink  *string `json:"workloadLink,omitempty"`
-	Port          *int    `json:"port,omitempty"`
-	HostPrefix    *string `json:"hostPrefix,omitempty"`
+	Prefix        *string             `json:"prefix,omitempty"`
+	ReplacePrefix *string             `json:"replacePrefix,omitempty"`
+	Regex         *string             `json:"regex,omitempty"`
+	WorkloadLink  *string             `json:"workloadLink,omitempty"`
+	Port          *int                `json:"port,omitempty"`
+	HostPrefix    *string             `json:"hostPrefix,omitempty"`
+	Headers       *DomainRouteHeaders `json:"headers,omitempty"`
 }
 
 type DomainCors struct {
@@ -76,6 +77,14 @@ type DomainAllowOrigin struct {
 
 type DomainCertificate struct {
 	SecretLink *string `json:"secretLink,omitempty"`
+}
+
+type DomainRouteHeaders struct {
+	Request *DomainHeaderOperation `json:"request,omitempty"`
+}
+
+type DomainHeaderOperation struct {
+	Set *map[string]interface{} `json:"set,omitempty"`
 }
 
 /*** Status Related ***/
@@ -231,6 +240,12 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = nil
 					} else {
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
+					}
+
+					if route.Headers == nil || route.Headers.Request == nil || route.Headers.Request.Set == nil {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = nil
+					} else {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
 					}
 
 					// Update resource
