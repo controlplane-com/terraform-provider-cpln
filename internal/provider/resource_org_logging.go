@@ -293,6 +293,12 @@ func resourceOrgLogging() *schema.Resource {
 							Description: "A sequence of log events from the same source within a log group. Typically represents individual instances of services or applications.",
 							Required:    true,
 						},
+						"extract_fields": {
+							Type:        schema.TypeMap,
+							Description: "Enable custom data extraction from log entries for enhanced querying and analysis.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 					},
 				},
 			},
@@ -390,7 +396,7 @@ func resourceOrgLoggingCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if currentOrg.Spec != nil && currentOrg.Spec.Logging != nil {
-		return diag.Errorf("only one 'cpln_org_logging' resource can be declared")
+		return diag.Errorf("Org logging already exists, either import the existing org logging or remove current configuration and apply again.")
 	}
 
 	loggings := buildMultipleLoggings(d, loggingNames...)
@@ -765,6 +771,7 @@ func buildCloudWatchLogging(logging []interface{}) []client.Logging {
 				RetentionDays: GetInt(log["retention_days"]),
 				GroupName:     GetString(log["group_name"].(string)),
 				StreamName:    GetString(log["stream_name"].(string)),
+				ExtractFields: GetStringMap(log["extract_fields"]),
 			},
 		}
 
@@ -1067,6 +1074,10 @@ func flattenCloudWatchLogging(logs []client.CloudWatchLogging) []interface{} {
 
 		outputMap["group_name"] = *log.GroupName
 		outputMap["stream_name"] = *log.StreamName
+
+		if log.ExtractFields != nil {
+			outputMap["extract_fields"] = *log.ExtractFields
+		}
 
 		output[i] = outputMap
 	}
