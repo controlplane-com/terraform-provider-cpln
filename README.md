@@ -281,3 +281,11 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.28 - Fix mk8s add-on update flow.
 - v1.1.29 - Fix mk8s addons boolean value issue
 - v1.1.30 - Fix mk8s addons being removed on update
+- v1.1.31
+    - Add a custom location resource.
+    - Fix typo in org doc.
+    - Add floating ip selector to mk8s resource.
+    - Add external fields to cloud watching logging in org logging resource.
+    - Update policy resource to allow self-link references.
+    - Add headers to domain route resource.
+    - Force a tag indicating resource was created by terraform.
