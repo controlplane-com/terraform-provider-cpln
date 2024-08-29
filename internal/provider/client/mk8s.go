@@ -39,6 +39,7 @@ type Mk8sProvider struct {
 	Oblivus    *Mk8sOblivusProvider    `json:"oblivus,omitempty"`
 	Lambdalabs *Mk8sLambdalabsProvider `json:"lambdalabs,omitempty"`
 	Paperspace *Mk8sPaperspaceProvider `json:"paperspace,omitempty"`
+	Ephemeral  *Mk8sEphemeralProvder   `json:"ephemeral,omitempty"`
 }
 
 type Mk8sSpecAddOns struct {
@@ -127,6 +128,11 @@ type Mk8sPaperspaceProvider struct {
 	NodePools       *[]Mk8sPaperspacePool `json:"nodePools,omitempty"`
 }
 
+type Mk8sEphemeralProvder struct {
+	Location  *string              `json:"location,omitempty"`
+	NodePools *[]Mk8sEphemeralPool `json:"nodePools,omitempty"`
+}
+
 // Node Pools //
 
 type Mk8sGenericPool struct {
@@ -177,6 +183,17 @@ type Mk8sPaperspacePool struct {
 	MinSize     *int    `json:"minSize,omitempty"`
 	MaxSize     *int    `json:"maxSize,omitempty"`
 	MachineType *string `json:"machineType,omitempty"`
+}
+
+type Mk8sEphemeralPool struct {
+	Name   *string                 `json:"name,omitempty"`
+	Labels *map[string]interface{} `json:"labels,omitempty"`
+	Taints *[]Mk8sTaint            `json:"taints,omitempty"`
+	Count  *int                    `json:"count,omitempty"`
+	Arch   *string                 `json:"arch,omitempty"`
+	Flavor *string                 `json:"flavor,omitempty"`
+	Cpu    *string                 `json:"cpu,omitempty"`
+	Memory *string                 `json:"memory,omitempty"`
 }
 
 // Provider Common //
