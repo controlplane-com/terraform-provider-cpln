@@ -52,6 +52,15 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneEphemeralProvider(name+"-ephemeral", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.ephemeral", name+"-ephemeral", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "ephemeral", "no-sysbox"),
+					resource.TestCheckResourceAttr("cpln_mk8s.ephemeral", "name", name+"-ephemeral"),
+					resource.TestCheckResourceAttr("cpln_mk8s.ephemeral", "description", description),
+				),
+			},
+			{
 				Config: testAccControlPlaneMk8sHetznerProviderUpdate(name+"-hetzner", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.hetzner", name+"-hetzner", &mk8s),
@@ -118,7 +127,7 @@ func testAccCheckControlPlaneMk8sAttributes(mk8s *client.Mk8s, providerName stri
 		}
 
 		// Provider
-		expectedProvider := generateTestMk8sProvider(providerName)
+		expectedProvider := generateTestMk8sProvider(providerName, update)
 
 		if diff := deep.Equal(mk8s.Spec.Provider, expectedProvider); diff != nil {
 			return fmt.Errorf("Mk8s Provider %s does not match. Diff: %s", providerName, diff)
@@ -161,6 +170,7 @@ func testAccCheckControlPlaneMk8sCheckDestroy(s *terraform.State) error {
 }
 
 // SECTION Acceptance Tests
+
 // SECTION Create
 
 func testAccControlPlaneMk8sGenericProvider(name string, description string) string {
@@ -332,6 +342,10 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 				unneeded_time         = "10m"
 				unready_time  		  = "20m"
 				utilization_threshold = 0.7
+			}
+			
+			floating_ip_selector = {
+				floating_ip_1 = "123.45.67.89"
 			}
 		}
 
@@ -526,7 +540,96 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 	`, name, description)
 }
 
+func testAccControlPlaneEphemeralProvider(name string, description string) string {
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "ephemeral" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	
+		version = "1.28.4"
+	
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+
+		ephemeral_provider {
+			location = "aws-eu-central-1"
+			
+			node_pool {
+				name = "my-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+
+				count  = 1
+				arch   = "arm64"
+				flavor = "debian"
+				cpu    = "50m"
+				memory = "128Mi"
+			}
+		}
+
+		add_ons {
+			dashboard = true
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = true
+			local_path_storage    = true
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces  = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces  = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+		}
+	}
+	`, name, description)
+}
+
 // !SECTION
+
 // SECTION Update
 
 func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description string) string {
@@ -609,6 +712,11 @@ func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description strin
 				unready_time  		  = "20m"
 				utilization_threshold = 0.7
 			}
+
+			floating_ip_selector = {
+				floating_ip_1 = "123.45.67.89"
+				floating_ip_2 = "98.76.54.32"
+			}
 		}
 
 		add_ons {
@@ -661,6 +769,7 @@ func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description strin
 // !SECTION
 
 // SECTION Unit Tests
+
 // SECTION Build
 
 func TestControlPlane_BuildMk8sFirewall(t *testing.T) {
@@ -694,7 +803,7 @@ func TestControlPlane_BuildMk8sGenericProvider(t *testing.T) {
 
 func TestControlPlane_BuildMk8sHetznerProvider(t *testing.T) {
 
-	hetzner, expectedHetzner, _ := generateTestMk8sHetznerProvider()
+	hetzner, expectedHetzner, _ := generateTestMk8sHetznerProvider("")
 
 	if diff := deep.Equal(hetzner, expectedHetzner); diff != nil {
 		t.Errorf("Mk8s Hetzner Provider was not built correctly, Diff: %s", diff)
@@ -710,7 +819,17 @@ func TestControlPlane_BuildMk8sAwsProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sEphemeralProvider(t *testing.T) {
+
+	ephemeral, expectedEphemeral, _ := generateTestMk8sEphemeralProvider()
+
+	if diff := deep.Equal(ephemeral, expectedEphemeral); diff != nil {
+		t.Errorf("Mk8s Ephemeral Provider was not built correctly, Diff: %s", diff)
+	}
+}
+
 // !SECTION
+
 // SECTION Node Pools
 
 func TestControlPlane_BuildMk8sGenericNodePools(t *testing.T) {
@@ -740,7 +859,17 @@ func TestControlPlane_BuildMk8sAwsNodePools(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sEphemeralNodePools(t *testing.T) {
+
+	nodePools, expectedNodePools, _ := generateTestMk8sEphemeralNodePools()
+
+	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
+		t.Errorf("Mk8s Ephemeral Node Pools was not built correctly, Diff: %s", diff)
+	}
+}
+
 // !SECTION
+
 // SECTION AWS
 
 func TestControlPlane_BuildMk8sAwsAmi_Recommended(t *testing.T) {
@@ -762,6 +891,7 @@ func TestControlPlane_BuildMk8sAwsAmi_Exact(t *testing.T) {
 }
 
 // !SECTION
+
 // SECTION Common
 
 func TestControlPlane_BuildMk8sNetworking(t *testing.T) {
@@ -792,6 +922,7 @@ func TestControlPlane_BuildMk8sAutoscaler(t *testing.T) {
 }
 
 // !SECTION
+
 // SECTION Add Ons
 
 func TestControlPlane_BuildMk8sAzureWorkloadIdentityAddOn(t *testing.T) {
@@ -859,6 +990,7 @@ func TestControlPlane_BuildMk8sAzureAcrAddOn(t *testing.T) {
 
 // !SECTION
 // !SECTION
+
 // SECTION Flatten
 
 func TestControlPlane_FlattenMk8sFirewall(t *testing.T) {
@@ -895,7 +1027,7 @@ func TestControlPlane_FlattenMk8sGenericProvider(t *testing.T) {
 
 func TestControlPlane_FlattenMk8sHetznerProvider(t *testing.T) {
 
-	_, expectedHetzner, expectedFlatten := generateTestMk8sHetznerProvider()
+	_, expectedHetzner, expectedFlatten := generateTestMk8sHetznerProvider("")
 	flattenedHetzner := flattenMk8sHetznerProvider(expectedHetzner)
 
 	// Extract the interface slice from *schema.Set
@@ -936,7 +1068,18 @@ func TestControlPlane_FlattenMk8sAwsProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sEphemeralProvider(t *testing.T) {
+
+	_, expectedEphemeral, expectedFlatten := generateTestMk8sEphemeralProvider()
+	flattenedEphemeral := flattenMk8sEphemeralProvider(expectedEphemeral)
+
+	if diff := deep.Equal(expectedFlatten, flattenedEphemeral); diff != nil {
+		t.Errorf("Mk8s Ephemeral Provider was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 // !SECTION
+
 // SECTION Node Pools
 
 func TestControlPlane_FlattenMk8sGenericNodePools(t *testing.T) {
@@ -975,7 +1118,18 @@ func TestControlPlane_FlattenMk8sAwsNodePools(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sEphemeralNodePools(t *testing.T) {
+
+	_, expectedNodePools, expectedFlatten := generateTestMk8sEphemeralNodePools()
+	flattenedNodePools := flattenMk8sEphemeralNodePools(expectedNodePools)
+
+	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
+		t.Errorf("Mk8s Ephemeral Node Pools was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 // !SECTION
+
 // SECTION AWS
 
 func TestControlPlane_FlattenMk8sAwsAmi_Recommended(t *testing.T) {
@@ -999,6 +1153,7 @@ func TestControlPlane_FlattenMk8sAwsAmi_Exact(t *testing.T) {
 }
 
 // !SECTION
+
 // SECTION Common
 
 func TestControlPlane_FlattenMk8sNetworking(t *testing.T) {
@@ -1036,6 +1191,7 @@ func TestControlPlane_FlattenMk8sAutoscaler(t *testing.T) {
 }
 
 // !SECTION
+
 // SECTION Add Ons
 
 func TestControlPlane_FlattenMk8sAzureWorkloadIdentityAddOn(t *testing.T) {
@@ -1113,6 +1269,7 @@ func TestControlPlane_FlattenMk8sAzureAcrAddOn(t *testing.T) {
 // !SECTION
 
 // SECTION Generate
+
 // SECTION Build
 
 func generateTestMk8sFirewall() (*[]client.Mk8sFirewallRule, *[]client.Mk8sFirewallRule, []interface{}) {
@@ -1132,7 +1289,7 @@ func generateTestMk8sFirewall() (*[]client.Mk8sFirewallRule, *[]client.Mk8sFirew
 	return firewall, &expectedFirewall, flattened
 }
 
-func generateTestMk8sProvider(provider string) *client.Mk8sProvider {
+func generateTestMk8sProvider(provider string, update string) *client.Mk8sProvider {
 
 	output := client.Mk8sProvider{}
 
@@ -1141,11 +1298,14 @@ func generateTestMk8sProvider(provider string) *client.Mk8sProvider {
 		generated, _, _ := generateTestMk8sGenericProvider()
 		output.Generic = generated
 	case "hetzner":
-		generated, _, _ := generateTestMk8sHetznerProvider()
+		generated, _, _ := generateTestMk8sHetznerProvider(update)
 		output.Hetzner = generated
 	case "aws":
 		generated, _, _ := generateTestMk8sAwsProvider()
 		output.Aws = generated
+	case "ephemeral":
+		generated, _, _ := generateTestMk8sEphemeralProvider()
+		output.Ephemeral = generated
 	}
 
 	return &output
@@ -1161,13 +1321,18 @@ func generateTestMk8sAddOns(providerName string, update string) (*client.Mk8sSpe
 	logs, _, flattenedLogs := generateTestMk8sLogsAddOn()
 	nvidia, _, flattenedNvidia := generateTestMk8sNvidiaAddOn()
 	azureAcr, _, flattenedAzureAcr := generateTestMk8sAzureAcrAddOn()
-	sysbox := true
+	var sysbox *bool
 
-	if update == "case1" {
+	switch update {
+	case "case1":
 		dashboard = false
 		awsWorkloadIdentity = false
 		localPathStorage = false
-		sysbox = false
+		sysbox = GetBool(false)
+	case "no-sysbox":
+		sysbox = nil
+	default:
+		sysbox = GetBool(true)
 	}
 
 	var awsEfs *client.Mk8sAwsAddOnConfig
@@ -1199,7 +1364,10 @@ func generateTestMk8sAddOns(providerName string, update string) (*client.Mk8sSpe
 		AwsECR:                awsEcr,
 		AwsELB:                awsElb,
 		AzureACR:              azureAcr,
-		Sysbox:                &client.Mk8sNonCustomizableAddonConfig{},
+	}
+
+	if sysbox != nil {
+		expectedAddOns.Sysbox = &client.Mk8sNonCustomizableAddonConfig{}
 	}
 
 	return addOns, &expectedAddOns, flattened
@@ -1224,7 +1392,7 @@ func generateTestMk8sGenericProvider() (*client.Mk8sGenericProvider, *client.Mk8
 	return generic, &expectedGeneric, flattened
 }
 
-func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8sHetznerProvider, []interface{}) {
+func generateTestMk8sHetznerProvider(update string) (*client.Mk8sHetznerProvider, *client.Mk8sHetznerProvider, []interface{}) {
 
 	region := "fsn1"
 	hetznerLabels := map[string]interface{}{
@@ -1239,8 +1407,17 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 	image := "centos-7"
 	sshKey := "10925607"
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
+	floatingIpSelector := map[string]interface{}{
+		"floating_ip_1": "123.45.67.89",
+	}
 
-	flattened := generateFlatTestMk8sHetznerProvider(region, hetznerLabels, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler)
+	// Handle updates
+	switch update {
+	case "case1":
+		floatingIpSelector["floating_ip_2"] = "98.76.54.32"
+	}
+
+	flattened := generateFlatTestMk8sHetznerProvider(region, hetznerLabels, flattenedNetworking, preInstallScript, tokenSecretLink, networkId, flattenedNodePools, flattenedDedicatedServerNodePools, image, sshKey, flattenedAutoscaler, floatingIpSelector)
 	hetzner := buildMk8sHetznerProvider(flattened)
 	expectedHetzner := client.Mk8sHetznerProvider{
 		Region:                   &region,
@@ -1254,6 +1431,7 @@ func generateTestMk8sHetznerProvider() (*client.Mk8sHetznerProvider, *client.Mk8
 		Image:                    &image,
 		SshKey:                   &sshKey,
 		Autoscaler:               autoscaler,
+		FloatingIpSelector:       &floatingIpSelector,
 	}
 
 	return hetzner, &expectedHetzner, flattened
@@ -1296,6 +1474,21 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	}
 
 	return aws, &expectedAws, flattened
+}
+
+func generateTestMk8sEphemeralProvider() (*client.Mk8sEphemeralProvder, *client.Mk8sEphemeralProvder, []interface{}) {
+
+	location := "aws-eu-central-1"
+	nodePools, _, flattenedNodePools := generateTestMk8sEphemeralNodePools()
+
+	flattened := generateFlatTestMk8sEphemeralProvider(location, flattenedNodePools)
+	ephemeral := buildMk8sEphemeralProvider(flattened)
+	expectedEphemeral := client.Mk8sEphemeralProvder{
+		Location:  &location,
+		NodePools: nodePools,
+	}
+
+	return ephemeral, &expectedEphemeral, flattened
 }
 
 // !SECTION
@@ -1401,7 +1594,39 @@ func generateTestMk8sAwsNodePools() (*[]client.Mk8sAwsPool, *[]client.Mk8sAwsPoo
 	return nodePools, &expectedNodePools, flattened
 }
 
+func generateTestMk8sEphemeralNodePools() (*[]client.Mk8sEphemeralPool, *[]client.Mk8sEphemeralPool, []interface{}) {
+
+	name := "my-node-pool"
+	labels := map[string]interface{}{
+		"hello": "world",
+	}
+	taints, _, flattenedTaints := generateTestMk8sTaints()
+	count := 1
+	arch := "arm64"
+	flavor := "debian"
+	cpu := "50m"
+	memory := "128Mi"
+
+	flattened := generateFlatTestMk8sEphemeralNodePools(name, labels, flattenedTaints, count, arch, flavor, cpu, memory)
+	nodePools := buildMk8sEphemeralNodePools(flattened)
+	expectedNodePools := []client.Mk8sEphemeralPool{
+		{
+			Name:   &name,
+			Labels: &labels,
+			Taints: taints,
+			Count:  &count,
+			Arch:   &arch,
+			Flavor: &flavor,
+			Cpu:    &cpu,
+			Memory: &memory,
+		},
+	}
+
+	return nodePools, &expectedNodePools, flattened
+}
+
 // !SECTION
+
 // SECTION AWS
 
 func generateTestMk8sAwsAmi(choice string) (*client.Mk8sAwsAmi, *client.Mk8sAwsAmi, []interface{}) {
@@ -1426,6 +1651,7 @@ func generateTestMk8sAwsAmi(choice string) (*client.Mk8sAwsAmi, *client.Mk8sAwsA
 }
 
 // !SECTION
+
 // SECTION Common
 
 func generateTestMk8sNetworking() (*client.Mk8sNetworkingConfig, *client.Mk8sNetworkingConfig, []interface{}) {
@@ -1482,6 +1708,7 @@ func generateTestMk8sAutoscaler() (*client.Mk8sAutoscalerConfig, *client.Mk8sAut
 }
 
 // !SECTION
+
 // SECTION Add Ons
 
 func generateTestMk8sAzureWorkloadIdentityAddOn() (*client.Mk8sAzureWorkloadIdentityAddOnConfig, *client.Mk8sAzureWorkloadIdentityAddOnConfig, []interface{}) {
@@ -1599,6 +1826,7 @@ func generateTestMk8sAzureAcrAddOn() (*client.Mk8sAzureACRAddOnConfig, *client.M
 
 // !SECTION
 // !SECTION
+
 // SECTION Flatten
 
 func generateFlatTestMk8sFirewall(sourceCidr string, description string) []interface{} {
@@ -1628,7 +1856,7 @@ func generateFlatTestMk8sGenericProvider(location string, networking []interface
 	}
 }
 
-func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string]interface{}, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string]interface{}, networking []interface{}, preInstallScript string, tokenSecretLink string, networkId string, nodePools []interface{}, dedicatedServerNodePools []interface{}, image string, sshKey string, autoscaler []interface{}, floatingIpSelector map[string]interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                     region,
@@ -1642,6 +1870,7 @@ func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string
 		"image":                      image,
 		"ssh_key":                    sshKey,
 		"autoscaler":                 autoscaler,
+		"floating_ip_selector":       floatingIpSelector,
 	}
 
 	return []interface{}{
@@ -1672,7 +1901,20 @@ func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface
 	}
 }
 
+func generateFlatTestMk8sEphemeralProvider(location string, nodePools []interface{}) []interface{} {
+
+	spec := map[string]interface{}{
+		"location":  location,
+		"node_pool": nodePools,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 // !SECTION
+
 // SECTION Node Pools
 
 func generateFlatTestMk8sGenericNodePools(name string, labels map[string]interface{}, taints []interface{}) []interface{} {
@@ -1728,7 +1970,26 @@ func generateFlatTestMk8sAwsNodePools(name string, labels map[string]interface{}
 	}
 }
 
+func generateFlatTestMk8sEphemeralNodePools(name string, labels map[string]interface{}, taints []interface{}, count int, arch string, flavor string, cpu string, memory string) []interface{} {
+
+	spec := map[string]interface{}{
+		"name":   name,
+		"labels": labels,
+		"taint":  taints,
+		"count":  count,
+		"arch":   arch,
+		"flavor": flavor,
+		"cpu":    cpu,
+		"memory": memory,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 // !SECTION
+
 // SECTION AWS
 
 func generateFlatTestMk8sAwsAmi(recommended *string, exact *string) []interface{} {
@@ -1749,6 +2010,7 @@ func generateFlatTestMk8sAwsAmi(recommended *string, exact *string) []interface{
 }
 
 // !SECTION
+
 // SECTION Common
 
 func generateFlatTestMk8sNetworking(serviceNetwork string, podNetwork string) []interface{} {
@@ -1791,9 +2053,10 @@ func generateFlatTestMk8sAutoscaler(expander []string, unneededTime string, unre
 }
 
 // !SECTION
+
 // SECTION Add Ons
 
-func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}, sysbox bool) []interface{} {
+func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interface{}, awsWorkloadIdentity bool, localPathStorage bool, metrics []interface{}, logs []interface{}, nvidia []interface{}, awsEfs []interface{}, awsEcr []interface{}, awsElb []interface{}, azureAcr []interface{}, sysbox *bool) []interface{} {
 
 	spec := map[string]interface{}{
 		"dashboard":               dashboard,
@@ -1807,7 +2070,10 @@ func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interfac
 		"aws_ecr":                 awsEcr,
 		"aws_elb":                 awsElb,
 		"azure_acr":               azureAcr,
-		"sysbox":                  sysbox,
+	}
+
+	if sysbox != nil {
+		spec["sysbox"] = *sysbox
 	}
 
 	return []interface{}{

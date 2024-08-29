@@ -13,7 +13,7 @@ import (
 func resourceMk8s() *schema.Resource {
 
 	var mk8sProviders = []string{
-		"generic_provider", "hetzner_provider", "aws_provider",
+		"generic_provider", "hetzner_provider", "aws_provider", "ephemeral_provider",
 	}
 
 	return &schema.Resource{
@@ -154,6 +154,12 @@ func resourceMk8s() *schema.Resource {
 							Optional:    true,
 						},
 						"autoscaler": Mk8sAutoscalerSchema(),
+						"floating_ip_selector": {
+							Type:        schema.TypeMap,
+							Description: "If supplied, nodes will get assigned a random floating ip matching the selector.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 					},
 				},
 			},
@@ -217,6 +223,23 @@ func resourceMk8s() *schema.Resource {
 						},
 						"node_pool":  Mk8sAwsNodePoolsSchema(),
 						"autoscaler": Mk8sAutoscalerSchema(),
+					},
+				},
+			},
+			"ephemeral_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"location": {
+							Type:        schema.TypeString,
+							Description: "Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.",
+							Required:    true,
+						},
+						"node_pool": Mk8sEphemeralNodePoolSchema(),
 					},
 				},
 			},
@@ -564,7 +587,7 @@ func resourceMk8sRead(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "add_ons") {
+	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "ephemeral_provider", "add_ons") {
 		c := m.(*client.Client)
 
 		// Define & Build
@@ -651,6 +674,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("ephemeral_provider", flattenMk8sEphemeralProvider(mk8s.Spec.Provider.Ephemeral)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("add_ons", flattenMk8sAddOns(mk8s.Spec.AddOns)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -707,6 +734,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("aws_provider") != nil {
 		output.Aws = buildMk8sAwsProvider(d.Get("aws_provider").([]interface{}))
+	}
+
+	if d.Get("ephemeral_provider") != nil {
+		output.Ephemeral = buildMk8sEphemeralProvider(d.Get("ephemeral_provider").([]interface{}))
 	}
 
 	return &output
@@ -846,6 +877,10 @@ func buildMk8sHetznerProvider(specs []interface{}) *client.Mk8sHetznerProvider {
 		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
 	}
 
+	if spec["floating_ip_selector"] != nil {
+		output.FloatingIpSelector = GetStringMap(spec["floating_ip_selector"])
+	}
+
 	return &output
 }
 
@@ -901,6 +936,24 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 
 	if spec["autoscaler"] != nil {
 		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildMk8sEphemeralProvider(specs []interface{}) *client.Mk8sEphemeralProvder {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sEphemeralProvder{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Location = GetString(spec["location"])
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sEphemeralNodePools(spec["node_pool"].([]interface{}))
 	}
 
 	return &output
@@ -1026,6 +1079,41 @@ func buildMk8sAwsNodePools(specs []interface{}) *[]client.Mk8sAwsPool {
 
 		if spec["extra_security_group_ids"] != nil {
 			nodePool.ExtraSecurityGroupIds = BuildStringTypeSet(spec["extra_security_group_ids"])
+		}
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
+func buildMk8sEphemeralNodePools(specs []interface{}) *[]client.Mk8sEphemeralPool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sEphemeralPool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sEphemeralPool{
+			Name:   GetString(spec["name"]),
+			Count:  GetInt(spec["count"]),
+			Arch:   GetString(spec["arch"]),
+			Flavor: GetString(spec["flavor"]),
+			Cpu:    GetString(spec["cpu"]),
+			Memory: GetString(spec["memory"]),
+		}
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
 		}
 
 		output = append(output, nodePool)
@@ -1467,6 +1555,10 @@ func flattenMk8sHetznerProvider(hetzner *client.Mk8sHetznerProvider) []interface
 		spec["autoscaler"] = flattenMk8sAutoscaler(hetzner.Autoscaler)
 	}
 
+	if hetzner.FloatingIpSelector != nil {
+		spec["floating_ip_selector"] = *hetzner.FloatingIpSelector
+	}
+
 	return []interface{}{
 		spec,
 	}
@@ -1520,6 +1612,25 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 
 	if aws.Autoscaler != nil {
 		spec["autoscaler"] = flattenMk8sAutoscaler(aws.Autoscaler)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvder) []interface{} {
+
+	if ephemeral == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"location": *ephemeral.Location,
+	}
+
+	if ephemeral.NodePools != nil {
+		spec["node_pool"] = flattenMk8sEphemeralNodePools(ephemeral.NodePools)
 	}
 
 	return []interface{}{
@@ -1638,6 +1749,39 @@ func flattenMk8sAwsNodePools(nodePools *[]client.Mk8sAwsPool) []interface{} {
 
 		if pool.ExtraSecurityGroupIds != nil {
 			spec["extra_security_group_ids"] = FlattenStringTypeSet(pool.ExtraSecurityGroupIds)
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenMk8sEphemeralNodePools(nodePools *[]client.Mk8sEphemeralPool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name":   *pool.Name,
+			"count":  *pool.Count,
+			"arch":   *pool.Arch,
+			"flavor": *pool.Flavor,
+			"cpu":    *pool.Cpu,
+			"memory": *pool.Memory,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
 		}
 
 		specs = append(specs, spec)
@@ -2184,6 +2328,47 @@ func Mk8sAwsNodePoolsSchema() *schema.Schema {
 					Description: "",
 					Optional:    true,
 					Elem:        StringSchema(),
+				},
+			},
+		},
+	}
+}
+
+func Mk8sEphemeralNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":   Mk8sGenericNodePoolNameSchema(),
+				"labels": Mk8sGenericNodePoolLabelsSchema(),
+				"taint":  Mk8sGenericNodePoolTaintsSchema(),
+				"count": {
+					Type:        schema.TypeInt,
+					Description: "Number of nodes to deploy.",
+					Required:    true,
+				},
+				"arch": {
+					Type:        schema.TypeString,
+					Description: "CPU architecture of the nodes.",
+					Required:    true,
+				},
+				"flavor": {
+					Type:        schema.TypeString,
+					Description: "Linux distro to use for ephemeral nodes.",
+					Required:    true,
+				},
+				"cpu": {
+					Type:        schema.TypeString,
+					Description: "Allocated CPU.",
+					Required:    true,
+				},
+				"memory": {
+					Type:        schema.TypeString,
+					Description: "Allocated memory.",
+					Required:    true,
 				},
 			},
 		},

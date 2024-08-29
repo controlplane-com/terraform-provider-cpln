@@ -20,6 +20,7 @@ Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
 - **generic_provider** (Block List, Max: 1) ([see below](#nestedblock--generic_provider))
 - **hetzner_provider** (Block List, Max: 1) ([see below](#nestedblock--hetzner_provider))
 - **aws_provider** (Block List, Max: 1) ([see below](#nestedblock--aws_provider))
+- **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 
 ### Optional
 
@@ -98,6 +99,7 @@ Optional:
 - **image** (String) Default image for all nodes.
 - **ssh_key** (String) SSH key name for accessing deployed nodes.
 - **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **floating_ip_selector** (Map of String) If supplied, nodes will get assigned a random floating ip matching the selector.
 
 <a id="nestedblock--hetzner_provider--node_pool"></a>
 
@@ -193,6 +195,38 @@ Required:
 
 - **recommended** (String)
 - **exact** (String) Support SSM.
+
+<a id="nestedblock--ephemeral_provider"></a>
+
+### `ephemeral_provider`
+
+Required:
+
+- **location** (String) Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.
+
+Optional:
+
+- **node_pool** (Block List) ([see below](#nestedblock--ephemeral_provider--node_pool))
+
+<a id="nestedblock--ephemeral_provider--node_pool"></a>
+
+### `ephemeral_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **count** (Int) Number of nodes to deploy.
+- **arch** (String) CPU architecture of the nodes.
+- **flavor** (String) Linux distro to use for ephemeral nodes.
+- **cpu** (String) Allocated CPU.
+- **memory** (String) Allocated memory.
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
 
 <a id="nestedblock--autoscaler"></a>
 
@@ -577,6 +611,11 @@ resource "cpln_mk8s" "hetzner" {
             unready_time  		  = "20m"
             utilization_threshold = 0.7
         }
+
+        floating_ip_selector = {
+            floating_ip_1 = "123.45.67.89"
+            floating_ip_2 = "98.76.54.32"
+        }
     }
 
     add_ons {
@@ -763,6 +802,93 @@ resource "cpln_mk8s" "aws" {
         }
 
         sysbox = true
+    }
+}
+```
+
+## Example Usage - Ephemeral Provider
+
+```terraform
+resource "cpln_mk8s" "ephemeral" {
+
+    name        = "demo-mk8s-ephemeral-provider"
+    description = "demo-mk8s-ephemeral-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+    
+    ephemeral_provider {
+        location = "aws-eu-central-1"
+        
+        node_pool {
+            name = "my-node-pool"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+
+            count  = 1
+            arch   = "arm64"
+            flavor = "debian"
+            cpu    = "50m"
+            memory = "128Mi"
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces  = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces  = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
     }
 }
 ```
