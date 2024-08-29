@@ -154,6 +154,12 @@ func resourceMk8s() *schema.Resource {
 							Optional:    true,
 						},
 						"autoscaler": Mk8sAutoscalerSchema(),
+						"floating_ip_selector": {
+							Type:        schema.TypeMap,
+							Description: "If supplied, nodes will get assigned a random floating ip matching the selector.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 					},
 				},
 			},
@@ -846,6 +852,10 @@ func buildMk8sHetznerProvider(specs []interface{}) *client.Mk8sHetznerProvider {
 		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
 	}
 
+	if spec["floating_ip_selector"] != nil {
+		output.FloatingIpSelector = GetStringMap(spec["floating_ip_selector"])
+	}
+
 	return &output
 }
 
@@ -1465,6 +1475,10 @@ func flattenMk8sHetznerProvider(hetzner *client.Mk8sHetznerProvider) []interface
 
 	if hetzner.Autoscaler != nil {
 		spec["autoscaler"] = flattenMk8sAutoscaler(hetzner.Autoscaler)
+	}
+
+	if hetzner.FloatingIpSelector != nil {
+		spec["floating_ip_selector"] = *hetzner.FloatingIpSelector
 	}
 
 	return []interface{}{

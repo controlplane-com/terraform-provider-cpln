@@ -77,6 +77,7 @@ type Mk8sHetznerProvider struct {
 	Image                    *string                 `json:"image,omitempty"`
 	SshKey                   *string                 `json:"sshKey,omitempty"`
 	Autoscaler               *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
+	FloatingIpSelector       *map[string]interface{} `json:"floatingIPSelector,omitempty"`
 }
 
 type Mk8sAwsProvider struct {
