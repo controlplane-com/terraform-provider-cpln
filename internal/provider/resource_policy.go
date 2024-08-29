@@ -229,7 +229,27 @@ func setPolicy(org, gvc string, d *schema.ResourceData, policy *client.Policy) d
 		return diag.FromErr(err)
 	}
 
-	bindings := flattenBindings(org, policy.Bindings)
+	// Find principal links already with org prefix
+	linksAlreadyWithOrgPrefix := map[string]interface{}{}
+
+	if d.Get("binding") != nil {
+		for _, binding := range d.Get("binding").(*schema.Set).List() {
+
+			b := binding.(map[string]interface{})
+
+			for _, pl := range b["principal_links"].(*schema.Set).List() {
+
+				principal := pl.(string)
+				orgPrefix := fmt.Sprintf(`/org/%s`, org)
+
+				if strings.HasPrefix(principal, orgPrefix) {
+					linksAlreadyWithOrgPrefix[principal] = nil
+				}
+			}
+		}
+	}
+
+	bindings := flattenBindings(org, policy.Bindings, linksAlreadyWithOrgPrefix)
 
 	if err := d.Set("binding", bindings); err != nil {
 		return diag.FromErr(err)
@@ -330,7 +350,14 @@ func buildBindings(org string, bindings interface{}, policy *client.Policy) {
 
 			for _, b := range plArray.List() {
 
-				principal := fmt.Sprintf(`/org/%s/%s`, org, b.(string))
+				principal := b.(string)
+				orgPrefix := fmt.Sprintf(`/org/%s`, org)
+
+				// Only add org prefix if it was not provided by the user
+				if !strings.HasPrefix(principal, orgPrefix) {
+					principal = fmt.Sprintf(`%s/%s`, orgPrefix, principal)
+				}
+
 				principalLinks = append(principalLinks, principal)
 			}
 
@@ -369,7 +396,7 @@ func flattenTargetLinks(targetLinks *[]string) []interface{} {
 	return output
 }
 
-func flattenBindings(org string, bindings *[]client.Binding) []interface{} {
+func flattenBindings(org string, bindings *[]client.Binding, linksAlreadyWithOrgPrefix map[string]interface{}) []interface{} {
 
 	if bindings == nil || len(*bindings) < 1 {
 		return nil
@@ -395,7 +422,14 @@ func flattenBindings(org string, bindings *[]client.Binding) []interface{} {
 
 		for _, p := range *binding.PrincipalLinks {
 
-			principal := strings.TrimPrefix(p, fmt.Sprintf(`/org/%s/`, org))
+			principal := p
+			_, hasOrgPrefix := linksAlreadyWithOrgPrefix[p]
+
+			// Only modify a principal link that the user hasn't explictly provided with an org prefix
+			if !hasOrgPrefix {
+				principal = strings.TrimPrefix(p, fmt.Sprintf(`/org/%s/`, org))
+			}
+
 			principalLinks = append(principalLinks, principal)
 		}
 

@@ -76,7 +76,7 @@ func generateFlatTestBindings() *schema.Set {
 
 	pLinkSet1 := schema.NewSet(stringFunc, []interface{}{
 		"user/support@controlplane.com",
-		"serviceaccount/support",
+		"/org/testorg/serviceaccount/support",
 	})
 
 	b1["principal_links"] = pLinkSet1
@@ -181,7 +181,9 @@ func sortInternalBindings(binding *[]client.Binding) {
 
 func TestControlPlane_FlattenPolicyBindings(t *testing.T) {
 
-	fb := flattenBindings("testorg", generateTestBindings().Bindings)
+	fb := flattenBindings("testorg", generateTestBindings().Bindings, map[string]interface{}{
+		"/org/testorg/serviceaccount/support": nil,
+	})
 	tb := generateFlatTestBindings().List()
 
 	if len(fb) != len(tb) {
@@ -458,6 +460,27 @@ func testAccControlPlanePolicy(name string) string {
 		}
 	}
 
+	resource "cpln_policy" "terraform_policy_04" {
+
+		name = "policy-04-${var.random-name}"
+		description = "Policy description for policy-04-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	
+		target_kind = "workload"
+		
+		gvc = cpln_gvc.terraform_gvc.name
+		target_links = [cpln_workload.new.name]
+
+		binding {
+			permissions = ["manage", "edit"]
+			principal_links = ["user/support@controlplane.com", "group/viewers", cpln_service_account.tf_sa.self_link, cpln_identity.terraform_identity.self_link]
+		}
+	}
+
 	`, name)
 }
 
@@ -580,6 +603,26 @@ func testAccControlPlanePolicyUpdate(name string) string {
 		}
 	}
 
+	resource "cpln_policy" "terraform_policy_04" {
+
+		name = "policy-04-${var.random-name}"
+		description = "Policy description for policy-04-${var.random-name}" 
+		
+		tags = {
+			terraform_generated = "true"
+			acceptance_test = "true"
+		}
+	
+		target_kind = "identity"
+		
+		gvc = cpln_gvc.terraform_gvc.name
+		target_links = [cpln_identity.terraform_identity.name]
+
+		binding {
+			permissions = ["manage", "edit"]
+			principal_links = ["/org/terraform-test-org/user/support@controlplane.com", cpln_service_account.tf_sa.self_link, cpln_identity.terraform_identity.self_link]
+		}
+	}
 	`, name)
 }
 

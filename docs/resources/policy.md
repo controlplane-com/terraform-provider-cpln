@@ -34,7 +34,7 @@ Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 Optional:
 
 - **permissions** (Set of String) List of permissions to allow.
-- **principal_links** (Set of String) List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `gvc/GVC_NAME/identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`.
+- **principal_links** (Set of String) List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `cpln_identity.IDENTITY_RESOURCE_NAME.self_link`, `serviceaccount/SERVICE_ACCOUNT_NAME`, `cpln_service_account.SERVICE_ACCOUNT_RESOURCE_NAME.self_link`, `cpln_gvc.GVC_RESOURCE_NAME.self_link`.
 
 <a id="nestedblock--target_query"></a>
 
@@ -129,7 +129,7 @@ resource "cpln_policy" "example" {
     # Available permissions are based on the target kind
     permissions = ["manage", "edit"]
 
-    # Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `gvc/GVC_NAME/identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`
+    # Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `cpln_identity.IDENTITY_RESOURCE_NAME.self_link`, `serviceaccount/SERVICE_ACCOUNT_NAME`
     principal_links = ["user/email@example.com", "group/viewers"]
   }
 }
@@ -162,7 +162,7 @@ resource "cpln_identity" "example" {
   }
 }
 
-  resource "cpln_policy" "example" {
+resource "cpln_policy" "example" {
 
   name = "policy-example"
   description = "Example Policy for GVC resources"
@@ -181,7 +181,7 @@ resource "cpln_identity" "example" {
 
   binding {
     permissions = ["manage", "edit"]
-    principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
+    principal_links = ["user/support@controlplane.com", "group/viewers", cpln_identity.terraform_identity.self_link]
   }
 }
 ```
