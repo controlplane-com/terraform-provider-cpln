@@ -24,17 +24,18 @@ type Workload struct {
 
 // WorkloadSpec - Workload Specifications
 type WorkloadSpec struct {
-	Type               *string          `json:"type,omitempty"`
-	IdentityLink       *string          `json:"identityLink,omitempty"`
-	Containers         *[]ContainerSpec `json:"containers,omitempty"`
-	FirewallConfig     *FirewallSpec    `json:"firewallConfig,omitempty"`
-	DefaultOptions     *Options         `json:"defaultOptions,omitempty"`
-	LocalOptions       *[]Options       `json:"localOptions,omitempty"`
-	RolloutOptions     *RolloutOptions  `json:"rolloutOptions,omitempty"`
-	Job                *JobSpec         `json:"job,omitempty"`
-	SecurityOptions    *SecurityOptions `json:"securityOptions,omitempty"`
-	SupportDynamicTags *bool            `json:"supportDynamicTags,omitempty"`
-	Sidecar            *WorkloadSidecar `json:"sidecar,omitempty"`
+	Type               *string               `json:"type,omitempty"`
+	IdentityLink       *string               `json:"identityLink,omitempty"`
+	Containers         *[]ContainerSpec      `json:"containers,omitempty"`
+	FirewallConfig     *FirewallSpec         `json:"firewallConfig,omitempty"`
+	DefaultOptions     *Options              `json:"defaultOptions,omitempty"`
+	LocalOptions       *[]Options            `json:"localOptions,omitempty"`
+	RolloutOptions     *RolloutOptions       `json:"rolloutOptions,omitempty"`
+	Job                *JobSpec              `json:"job,omitempty"`
+	SecurityOptions    *SecurityOptions      `json:"securityOptions,omitempty"`
+	SupportDynamicTags *bool                 `json:"supportDynamicTags,omitempty"`
+	Sidecar            *WorkloadSidecar      `json:"sidecar,omitempty"`
+	LoadBalancer       *WorkloadLoadBalancer `json:"loadBalancer,omitempty"`
 }
 
 // ContainerSpec - Workload Container Definition
@@ -130,13 +131,14 @@ type FirewallSpecInternal struct {
 
 // WorkloadStatus - Workload Status
 type WorkloadStatus struct {
-	ParentID            *string            `json:"parentId,omitempty"`
-	CanonicalEndpoint   *string            `json:"canonicalEndpoint,omitempty"`
-	Endpoint            *string            `json:"endpoint,omitempty"`
-	InternalName        *string            `json:"internalName,omitempty"`
-	CurrentReplicaCount *int               `json:"currentReplicaCount,omitempty"`
-	HealthCheck         *HealthCheckStatus `json:"healthCheck,omitempty"`
-	ResolvedImages      *ResolvedImages    `json:"resolvedImages,omitempty"`
+	ParentID            *string                       `json:"parentId,omitempty"`
+	CanonicalEndpoint   *string                       `json:"canonicalEndpoint,omitempty"`
+	Endpoint            *string                       `json:"endpoint,omitempty"`
+	InternalName        *string                       `json:"internalName,omitempty"`
+	CurrentReplicaCount *int                          `json:"currentReplicaCount,omitempty"`
+	HealthCheck         *HealthCheckStatus            `json:"healthCheck,omitempty"`
+	ResolvedImages      *ResolvedImages               `json:"resolvedImages,omitempty"`
+	LoadBalancer        *[]WorkloadLoadBalancerStatus `json:"loadBalancer,omitempty"`
 }
 
 // HealthCheckStatus - Health Check Status
@@ -166,6 +168,11 @@ type ResolvedImageManifest struct {
 	MediaType *string             `json:"mediaType,omitempty"`
 	Digest    *string             `json:"digest,omitempty"`
 	Platform  *map[string]*string `json:"platform,omitempty"`
+}
+
+type WorkloadLoadBalancerStatus struct {
+	Origin *string `json:"origin,omitempty"`
+	Url    *string `json:"url,omitempty"`
 }
 
 // HealthCheckSpec - Health Check Spec (used my readiness and liveness probes)
@@ -265,6 +272,24 @@ type GeoLocationHeaders struct {
 // WorkloadSidecar - Workload Sidecar
 type WorkloadSidecar struct {
 	Envoy *any `json:"envoy,omitempty"`
+}
+
+// WorkloadLoadBalancer - Workload Load Balancer
+type WorkloadLoadBalancer struct {
+	Direct *WorkloadLoadBalancerDirect `json:"direct,omitempty"`
+}
+
+// WorkloadLoadBalancerDirect - Workload Load Balancer Direct
+type WorkloadLoadBalancerDirect struct {
+	Enabled *bool                             `json:"enabled,omitempty"`
+	Ports   *[]WorkloadLoadBalancerDirectPort `json:"ports,omitempty"`
+}
+
+type WorkloadLoadBalancerDirectPort struct {
+	ExternalPort  *int    `json:"externalPort,omitempty"`
+	Protocol      *string `json:"protocol,omitempty"`
+	Scheme        *string `json:"scheme,omitempty"`
+	ContainerPort *int    `json:"containerPort,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {

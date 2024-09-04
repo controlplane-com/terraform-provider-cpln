@@ -37,7 +37,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, "with_load_balancer"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
 				),
@@ -46,7 +46,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, "with_load_balancer"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
 				),
 			},
@@ -54,7 +54,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated, "with_load_balancer"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -62,7 +62,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson, ""),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -73,7 +73,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson, ""),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -84,21 +84,21 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, ""),
 				),
 			},
 			{
 				Config: testAccControlPlaneGrpcWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"grpc", "Workload with a grpc protocol created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"grpc", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson, ""),
 				),
 			},
 			{
 				Config: testAccControlPlaneMinCpuMemoryWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, ""),
 				),
 			},
 			{
@@ -342,6 +342,20 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		sidecar {
 			envoy = jsonencode(%s)
 		}
+
+		load_balancer {
+
+			direct {
+				enabled = true
+				
+				port {
+					external_port  = 22
+					protocol       = "TCP"
+					scheme         = "http"
+					container_port = 80
+				}
+			}
+		}
 	  }
 	  
 	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
@@ -349,7 +363,7 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 
 func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
 
-	TestLogger.Printf("Inside testAccControlPlaneWorkload")
+	TestLogger.Printf("Inside testAccControlPlaneStandardWorkload")
 
 	return fmt.Sprintf(`
 
@@ -1634,7 +1648,7 @@ func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName 
 	}
 }
 
-func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string) resource.TestCheckFunc {
+func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string, option string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		tags := *workload.Tags
@@ -1687,6 +1701,13 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 		expectedSidecar, _, _ := generateTestWorkloadSidecar(envoy)
 		if diff := deep.Equal(expectedSidecar, workload.Spec.Sidecar); diff != nil {
 			return fmt.Errorf("Sidecar mismatch, Diff: %s", diff)
+		}
+
+		if option == "with_load_balancer" {
+			expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
+			if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
+				return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
+			}
 		}
 
 		return nil
@@ -2033,6 +2054,15 @@ func TestControlPlane_BuildWorkloadSidecar(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildWorkloadLoadBalancer(t *testing.T) {
+
+	loadBalancer, expectedLoadBalancer, _ := generateTestWorkloadLoadBalancer()
+
+	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
+		t.Errorf("Workload Load Balancer was not built correctly, Diff: %s", diff)
+	}
+}
+
 // Flatten //
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
@@ -2167,6 +2197,15 @@ func TestControlPlane_FlattenWorkloadSidecar(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenSidecar); diff != nil {
 		t.Errorf("Workload Sidecar was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenWorkloadLoadBalancer(t *testing.T) {
+	_, expectedLoadBalancer, expectedFlatten := generateTestWorkloadLoadBalancer()
+	flattenLoadBalancer := flattenWorkloadLoadBalancer(expectedLoadBalancer)
+
+	if diff := deep.Equal(expectedFlatten, flattenLoadBalancer); diff != nil {
+		t.Errorf("Workload Load Balancer was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -2586,6 +2625,55 @@ func generateTestWorkloadSidecar(stringifiedJson string) (*client.WorkloadSideca
 	return sidecar, expectedSidecar, flatten
 }
 
+func generateTestWorkloadLoadBalancer() (*client.WorkloadLoadBalancer, *client.WorkloadLoadBalancer, []interface{}) {
+
+	direct, _, flattenedDirect := generateTestWorkloadLoadBalancerDirect()
+
+	flattened := generateFlatTestWorkloadLoadBalancer(flattenedDirect)
+	loadBalancer := buildWorkloadLoadBalancer(flattened)
+	expectedLoadBalancer := &client.WorkloadLoadBalancer{
+		Direct: direct,
+	}
+
+	return loadBalancer, expectedLoadBalancer, flattened
+}
+
+func generateTestWorkloadLoadBalancerDirect() (*client.WorkloadLoadBalancerDirect, *client.WorkloadLoadBalancerDirect, []interface{}) {
+
+	enabled := true
+	ports, _, flattenedPorts := generateTestWorkloadLoadBalancerDirectPorts()
+
+	flattened := generateFlatTestWorkloadLoadBalancerDirect(enabled, flattenedPorts)
+	direct := buildWorkloadLoadBalancerDirect(flattened)
+	expectedDirect := &client.WorkloadLoadBalancerDirect{
+		Enabled: &enabled,
+		Ports:   ports,
+	}
+
+	return direct, expectedDirect, flattened
+}
+
+func generateTestWorkloadLoadBalancerDirectPorts() (*[]client.WorkloadLoadBalancerDirectPort, *[]client.WorkloadLoadBalancerDirectPort, []interface{}) {
+
+	externalPort := 22
+	protocol := "TCP"
+	scheme := "http"
+	containerPort := 80
+
+	flattened := generateFlatTestWorkloadLoadBalancerDirectPort(externalPort, protocol, scheme, containerPort)
+	ports := buildWorkloadLoadBalancerDirectPorts(flattened)
+	expectedPorts := &[]client.WorkloadLoadBalancerDirectPort{
+		{
+			ExternalPort:  &externalPort,
+			Protocol:      &protocol,
+			Scheme:        &scheme,
+			ContainerPort: &containerPort,
+		},
+	}
+
+	return ports, expectedPorts, flattened
+}
+
 // Flatten //
 func generateFlatTestContainer(workloadType string) []interface{} {
 
@@ -2950,6 +3038,40 @@ func generateFlatTestGeoLocationHeaders(asn string, city string, country string,
 func generateFlatTestWorkloadSidecar(envoy string) []interface{} {
 	spec := map[string]interface{}{
 		"envoy": envoy,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestWorkloadLoadBalancer(direct []interface{}) []interface{} {
+	spec := map[string]interface{}{
+		"direct": direct,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestWorkloadLoadBalancerDirect(enabled bool, ports []interface{}) []interface{} {
+	spec := map[string]interface{}{
+		"enabled": enabled,
+		"port":    ports,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestWorkloadLoadBalancerDirectPort(externalPort int, protocol string, scheme string, containerPort int) []interface{} {
+	spec := map[string]interface{}{
+		"external_port":  externalPort,
+		"protocol":       protocol,
+		"scheme":         scheme,
+		"container_port": containerPort,
 	}
 
 	return []interface{}{

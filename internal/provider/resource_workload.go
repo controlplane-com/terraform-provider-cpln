@@ -670,6 +670,25 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
+						"load_balancer": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"origin": {
+										Type:        schema.TypeString,
+										Description: "",
+										Optional:    true,
+									},
+									"url": {
+										Type:        schema.TypeString,
+										Description: "",
+										Optional:    true,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -798,6 +817,60 @@ func resourceWorkload() *schema.Resource {
 					},
 				},
 			},
+			"load_balancer": {
+				Type:        schema.TypeList,
+				Description: "",
+				Optional:    true,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"direct": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"enabled": {
+										Type:        schema.TypeBool,
+										Description: "",
+										Required:    true,
+									},
+									"port": {
+										Type:        schema.TypeList,
+										Description: "",
+										Optional:    true,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"external_port": {
+													Type:        schema.TypeInt,
+													Description: "",
+													Required:    true,
+												},
+												"protocol": {
+													Type:        schema.TypeString,
+													Description: "",
+													Required:    true,
+												},
+												"scheme": {
+													Type:        schema.TypeString,
+													Description: "Override the default `https` url scheme.",
+													Optional:    true,
+												},
+												"container_port": {
+													Type:        schema.TypeInt,
+													Description: "",
+													Optional:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -881,6 +954,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 	if d.Get("sidecar") != nil {
 		workload.Spec.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
+	}
+
+	if d.Get("load_balancer") != nil {
+		workload.Spec.LoadBalancer = buildWorkloadLoadBalancer(d.Get("load_balancer").([]interface{}))
 	}
 
 	if e := workloadSpecValidate(workload.Spec); e != nil {
@@ -972,7 +1049,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer") {
 
 		if checkLegacyPort(d.Get("container").([]interface{})) {
 			var diags diag.Diagnostics
@@ -1007,6 +1084,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace.SecurityOptions = buildSecurityOptions(d.Get("security_options").([]interface{}))
 		workloadToUpdate.SpecReplace.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
 		workloadToUpdate.SpecReplace.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
+		workloadToUpdate.SpecReplace.LoadBalancer = buildWorkloadLoadBalancer(d.Get("load_balancer").([]interface{}))
 
 		if d.Get("identity_link") != nil {
 
@@ -1116,6 +1194,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, org string, 
 		}
 
 		if err := d.Set("sidecar", flattenWorkloadSidecar(workload.Spec.Sidecar)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("load_balancer", flattenWorkloadLoadBalancer(workload.Spec.LoadBalancer)); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -1886,6 +1968,71 @@ func buildWorkloadSidecar(specs []interface{}) *client.WorkloadSidecar {
 	return &output
 }
 
+func buildWorkloadLoadBalancer(specs []interface{}) *client.WorkloadLoadBalancer {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.WorkloadLoadBalancer{}
+
+	if spec["direct"] != nil {
+		output.Direct = buildWorkloadLoadBalancerDirect(spec["direct"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildWorkloadLoadBalancerDirect(specs []interface{}) *client.WorkloadLoadBalancerDirect {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.WorkloadLoadBalancerDirect{
+		Enabled: GetBool(spec["enabled"]),
+	}
+
+	if spec["port"] != nil {
+		output.Ports = buildWorkloadLoadBalancerDirectPorts(spec["port"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildWorkloadLoadBalancerDirectPorts(specs []interface{}) *[]client.WorkloadLoadBalancerDirectPort {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.WorkloadLoadBalancerDirectPort{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		port := client.WorkloadLoadBalancerDirectPort{
+			ExternalPort: GetInt(spec["external_port"]),
+			Protocol:     GetString(spec["protocol"]),
+		}
+
+		if spec["scheme"] != nil {
+			port.Scheme = GetString(spec["scheme"])
+		}
+
+		if spec["container_port"] != nil {
+			port.ContainerPort = GetInt(spec["container_port"])
+		}
+
+		output = append(output, port)
+	}
+
+	return &output
+}
+
 /*** Flatten ***/
 
 func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
@@ -1951,6 +2098,11 @@ func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
 		resolvedImages := flattenWorkloadStatusResolvedImages(status.ResolvedImages)
 		if resolvedImages != nil {
 			fs["resolved_images"] = resolvedImages
+		}
+
+		loadBalancer := flattenWorkloadStatusLoadBalancer(status.LoadBalancer)
+		if loadBalancer != nil {
+			fs["load_balancer"] = loadBalancer
 		}
 
 		output := []interface{}{
@@ -2043,6 +2195,31 @@ func flattenWorkloadStatusManifest(manifests *[]client.ResolvedImageManifest) []
 			}
 
 			spec["platform"] = platform
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenWorkloadStatusLoadBalancer(loadBalancer *[]client.WorkloadLoadBalancerStatus) []interface{} {
+	if loadBalancer == nil || len(*loadBalancer) == 0 {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, item := range *loadBalancer {
+
+		spec := make(map[string]interface{})
+
+		if item.Origin != nil {
+			spec["origin"] = *item.Origin
+		}
+
+		if item.Url != nil {
+			spec["url"] = *item.Url
 		}
 
 		specs = append(specs, spec)
@@ -2713,6 +2890,71 @@ func flattenWorkloadSidecar(spec *client.WorkloadSidecar) []interface{} {
 	return []interface{}{
 		sidecar,
 	}
+}
+
+func flattenWorkloadLoadBalancer(spec *client.WorkloadLoadBalancer) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	loadBalancer := map[string]interface{}{}
+
+	if spec.Direct != nil {
+		loadBalancer["direct"] = flattenWorkloadLoadBalancerDirect(spec.Direct)
+	}
+
+	return []interface{}{
+		loadBalancer,
+	}
+}
+
+func flattenWorkloadLoadBalancerDirect(spec *client.WorkloadLoadBalancerDirect) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	direct := map[string]interface{}{
+		"enabled": *spec.Enabled,
+	}
+
+	if spec.Ports != nil {
+		direct["port"] = flattenWorkloadLoadBalancerDirectPorts(spec.Ports)
+	}
+
+	return []interface{}{
+		direct,
+	}
+}
+
+func flattenWorkloadLoadBalancerDirectPorts(ports *[]client.WorkloadLoadBalancerDirectPort) []interface{} {
+
+	if ports == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, port := range *ports {
+
+		spec := map[string]interface{}{
+			"external_port": *port.ExternalPort,
+			"protocol":      *port.Protocol,
+		}
+
+		if port.Scheme != nil {
+			spec["scheme"] = *port.Scheme
+		}
+
+		if port.ContainerPort != nil {
+			spec["container_port"] = *port.ContainerPort
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
 }
 
 /*** Helpers ***/
