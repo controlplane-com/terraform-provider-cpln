@@ -52,6 +52,15 @@ func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneMk8sLambdalabsProvider(name+"-lambdalabs", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.lambdalabs", name+"-lambdalabs", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "lambdalabs", ""),
+					resource.TestCheckResourceAttr("cpln_mk8s.lambdalabs", "name", name+"-lambdalabs"),
+					resource.TestCheckResourceAttr("cpln_mk8s.lambdalabs", "description", description),
+				),
+			},
+			{
 				Config: testAccControlPlaneEphemeralProvider(name+"-ephemeral", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.ephemeral", name+"-ephemeral", &mk8s),
@@ -67,6 +76,15 @@ func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 					testAccCheckControlPlaneMk8sAttributes(&mk8s, "hetzner", "case1"),
 					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "name", name+"-hetzner"),
 					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "description", description),
+				),
+			},
+			{
+				Config: testAccControlPlaneMk8sLambdalabsProviderUpdate(name+"-lambdalabs", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.lambdalabs", name+"-lambdalabs", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "lambdalabs", "case1"),
+					resource.TestCheckResourceAttr("cpln_mk8s.lambdalabs", "name", name+"-lambdalabs"),
+					resource.TestCheckResourceAttr("cpln_mk8s.lambdalabs", "description", description),
 				),
 			},
 		},
@@ -537,6 +555,116 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 	`, name, description)
 }
 
+func testAccControlPlaneMk8sLambdalabsProvider(name string, description string) string {
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "lambdalabs" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	
+		version = "1.28.4"
+	
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+
+		lambdalabs_provider {
+			region             = "europe-central-1"
+			token_secret_link  = "/org/terraform-test-org/secret/lambdalabs"
+			ssh_key            = "julian-test"
+			pre_install_script = "#! echo hello world"
+			
+			node_pool {
+				name = "my-lambdalabs-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+
+				instance_type = "cpu_4x_general"
+			}
+
+			unmanaged_node_pool {
+				name = "my-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+			}
+
+			autoscaler {
+				expander 	  		  = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time  		  = "20m"
+				utilization_threshold = 0.7
+			}
+		}
+
+		add_ons {
+			dashboard = true
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = true
+			local_path_storage    = true
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces  = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces  = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+
+			sysbox = true
+		}
+	}
+	`, name, description)
+}
+
 func testAccControlPlaneEphemeralProvider(name string, description string) string {
 	return fmt.Sprintf(`
 
@@ -762,6 +890,118 @@ func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description strin
 	`, name, description)
 }
 
+func testAccControlPlaneMk8sLambdalabsProviderUpdate(name string, description string) string {
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "lambdalabs" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	
+		version = "1.28.4"
+	
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+
+		lambdalabs_provider {
+			region             = "europe-central-1"
+			token_secret_link  = "/org/terraform-test-org/secret/lambdalabs"
+			ssh_key            = "julian-test"
+			pre_install_script = "#! echo hello world"
+			
+			node_pool {
+				name = "my-lambdalabs-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+
+				min_size      = 0
+				max_size      = 0
+				instance_type = "cpu_4x_general"
+			}
+
+			unmanaged_node_pool {
+				name = "my-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+			}
+
+			autoscaler {
+				expander 	  		  = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time  		  = "20m"
+				utilization_threshold = 0.7
+			}
+		}
+
+		add_ons {
+			dashboard = false
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = false
+			local_path_storage    = false
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces  = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces  = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+
+			sysbox = false
+		}
+	}
+	`, name, description)
+}
+
 // !SECTION
 // !SECTION
 
@@ -816,6 +1056,15 @@ func TestControlPlane_BuildMk8sAwsProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sLambdalabsProvider(t *testing.T) {
+
+	lambdalabs, expectedLambdalabs, _ := generateTestMk8sLambdalabsProvider()
+
+	if diff := deep.Equal(lambdalabs, expectedLambdalabs); diff != nil {
+		t.Errorf("Mk8s Lambdalabs Provider was not built correctly, Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_BuildMk8sEphemeralProvider(t *testing.T) {
 
 	ephemeral, expectedEphemeral, _ := generateTestMk8sEphemeralProvider()
@@ -853,6 +1102,15 @@ func TestControlPlane_BuildMk8sAwsNodePools(t *testing.T) {
 
 	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
 		t.Errorf("Mk8s AWS Node Pools was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMk8sLambdalabsNodePools(t *testing.T) {
+
+	nodePools, expectedNodePools, _ := generateTestMk8sLambdalabsNodePools()
+
+	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
+		t.Errorf("Mk8s Lambdalabs Node Pools was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -1065,6 +1323,24 @@ func TestControlPlane_FlattenMk8sAwsProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sLambdalabsProvider(t *testing.T) {
+
+	_, expectedLambdalabs, expectedFlatten := generateTestMk8sLambdalabsProvider()
+	flattenedLambdalabs := flattenMk8sLambdalabsProvider(expectedLambdalabs)
+
+	// Extract the interface slice from *schema.Set
+	// Provider
+	expectedFlattenItem := expectedFlatten[0].(map[string]interface{})
+
+	// Autoscaler
+	autoscaler := expectedFlattenItem["autoscaler"].([]interface{})[0].(map[string]interface{})
+	autoscaler["expander"] = autoscaler["expander"].(*schema.Set).List()
+
+	if diff := deep.Equal(expectedFlatten, flattenedLambdalabs); diff != nil {
+		t.Errorf("Mk8s Lambdalabs Provider was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenMk8sEphemeralProvider(t *testing.T) {
 
 	_, expectedEphemeral, expectedFlatten := generateTestMk8sEphemeralProvider()
@@ -1112,6 +1388,16 @@ func TestControlPlane_FlattenMk8sAwsNodePools(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
 		t.Errorf("Mk8s AWS Node Pools was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenMk8sLambdalabsNodePools(t *testing.T) {
+
+	_, expectedNodePools, expectedFlatten := generateTestMk8sLambdalabsNodePools()
+	flattenedNodePools := flattenMk8sLambdalabsNodePools(expectedNodePools)
+
+	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
+		t.Errorf("Mk8s Lambdalabs Node Pools was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -1300,6 +1586,9 @@ func generateTestMk8sProvider(provider string, update string) *client.Mk8sProvid
 	case "aws":
 		generated, _, _ := generateTestMk8sAwsProvider()
 		output.Aws = generated
+	case "lambdalabs":
+		generated, _, _ := generateTestMk8sLambdalabsProvider()
+		output.Lambdalabs = generated
 	case "ephemeral":
 		generated, _, _ := generateTestMk8sEphemeralProvider()
 		output.Ephemeral = generated
@@ -1473,6 +1762,31 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	return aws, &expectedAws, flattened
 }
 
+func generateTestMk8sLambdalabsProvider() (*client.Mk8sLambdalabsProvider, *client.Mk8sLambdalabsProvider, []interface{}) {
+
+	region := "europe-central-1"
+	tokenSecretLink := "/org/terraform-test-org/secret/lambdalabs"
+	nodePools, _, flattenedNodePools := generateTestMk8sLambdalabsNodePools()
+	sshKey := "julian-test"
+	unmanagedNodePools, _, flattenedUnmanagedNodePools := generateTestMk8sGenericNodePools()
+	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
+	preInstallScript := "#! echo hello world"
+
+	flattened := generateFlatTestMk8sLambdalabsProvider(region, tokenSecretLink, flattenedNodePools, sshKey, flattenedUnmanagedNodePools, flattenedAutoscaler, preInstallScript)
+	lambdalabs := buildMk8sLambdalabsProvider(flattened)
+	expectedLambdalabs := client.Mk8sLambdalabsProvider{
+		Region:             &region,
+		TokenSecretLink:    &tokenSecretLink,
+		NodePools:          nodePools,
+		SshKey:             &sshKey,
+		UnmanagedNodePools: unmanagedNodePools,
+		Autoscaler:         autoscaler,
+		PreInstallScript:   &preInstallScript,
+	}
+
+	return lambdalabs, &expectedLambdalabs, flattened
+}
+
 func generateTestMk8sEphemeralProvider() (*client.Mk8sEphemeralProvder, *client.Mk8sEphemeralProvder, []interface{}) {
 
 	location := "aws-eu-central-1"
@@ -1587,6 +1901,37 @@ func generateTestMk8sAwsNodePools() (*[]client.Mk8sAwsPool, *[]client.Mk8sAwsPoo
 
 	// Define expected node pools
 	expectedNodePools := []client.Mk8sAwsPool{expectedNodePool}
+
+	return nodePools, &expectedNodePools, flattened
+}
+
+func generateTestMk8sLambdalabsNodePools() (*[]client.Mk8sLambdalabsPool, *[]client.Mk8sLambdalabsPool, []interface{}) {
+
+	name := "my-lambdalabs-node-pool"
+	labels := map[string]interface{}{
+		"hello": "world",
+	}
+	taints, _, flattenedTaints := generateTestMk8sTaints()
+	minSize := 0
+	maxSize := 0
+	instanceType := "cpu_4x_general"
+
+	flattened := generateFlatTestMk8sLambdalabsNodePools(name, labels, flattenedTaints, minSize, maxSize, instanceType)
+	nodePools := buildMk8sLambdalabsNodePools(flattened)
+
+	// Define expected node pool
+	expectedNodePool := client.Mk8sLambdalabsPool{
+		MinSize:      &minSize,
+		MaxSize:      &maxSize,
+		InstanceType: &instanceType,
+	}
+
+	expectedNodePool.Name = &name
+	expectedNodePool.Labels = &labels
+	expectedNodePool.Taints = taints
+
+	// Define expected node pools
+	expectedNodePools := []client.Mk8sLambdalabsPool{expectedNodePool}
 
 	return nodePools, &expectedNodePools, flattened
 }
@@ -1898,6 +2243,23 @@ func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface
 	}
 }
 
+func generateFlatTestMk8sLambdalabsProvider(region string, tokenSecretLink string, nodePools []interface{}, sshKey string, unmanagedNodePools []interface{}, autoscaler []interface{}, preInstallScript string) []interface{} {
+
+	spec := map[string]interface{}{
+		"region":              region,
+		"token_secret_link":   tokenSecretLink,
+		"node_pool":           nodePools,
+		"ssh_key":             sshKey,
+		"unmanaged_node_pool": unmanagedNodePools,
+		"autoscaler":          autoscaler,
+		"pre_install_script":  preInstallScript,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func generateFlatTestMk8sEphemeralProvider(location string, nodePools []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
@@ -1960,6 +2322,22 @@ func generateFlatTestMk8sAwsNodePools(name string, labels map[string]interface{}
 		"spot_allocation_strategy":                 spotAllocationStrategy,
 		"subnet_ids":                               ConvertStringSliceToSet(subnetIds),
 		"extra_security_group_ids":                 ConvertStringSliceToSet(extraSecurityGroupIds),
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sLambdalabsNodePools(name string, labels map[string]interface{}, taints []interface{}, minSize int, maxSize int, instanceType string) []interface{} {
+
+	spec := map[string]interface{}{
+		"name":          name,
+		"labels":        labels,
+		"taint":         taints,
+		"min_size":      minSize,
+		"max_size":      maxSize,
+		"instance_type": instanceType,
 	}
 
 	return []interface{}{

@@ -117,8 +117,10 @@ type Mk8sLambdalabsProvider struct {
 	Region             *string               `json:"region,omitempty"`
 	TokenSecretLink    *string               `json:"tokenSecretLink,omitempty"`
 	NodePools          *[]Mk8sLambdalabsPool `json:"nodePools,omitempty"`
-	SshKeys            *[]string             `json:"sshKeys,omitempty"`
+	SshKey             *string               `json:"sshKey,omitempty"`
 	UnmanagedNodePools *[]Mk8sGenericPool    `json:"unmanagedNodePools,omitempty"`
+	Autoscaler         *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	PreInstallScript   *string               `json:"preInstallScript,omitempty"`
 }
 
 type Mk8sPaperspaceProvider struct {

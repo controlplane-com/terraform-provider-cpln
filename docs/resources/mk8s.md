@@ -6,7 +6,7 @@ description: |-
 
 # cpln_mk8s (Resource)
 
-Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
+Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 
 ## Declaration
 
@@ -20,6 +20,7 @@ Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
 - **generic_provider** (Block List, Max: 1) ([see below](#nestedblock--generic_provider))
 - **hetzner_provider** (Block List, Max: 1) ([see below](#nestedblock--hetzner_provider))
 - **aws_provider** (Block List, Max: 1) ([see below](#nestedblock--aws_provider))
+- **lambdalabs_provider** (Block List, Max: 1) ([see below](#nestedblock--lambdalabs_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 
 ### Optional
@@ -35,7 +36,7 @@ Manages a Mk8s's [Mk8s](https://docs.controlplane.com/mk8s/overview).
 
 Required:
 
-- **location** (String) Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.
+- **location** (String) Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 
 Optional:
@@ -94,7 +95,7 @@ Required:
 Optional:
 
 - **hetzner_labels** (Map of String) Extra labels to attach to servers.
-- **pre_install_script** (String) Optional shell script that will be run before K8S is installed.
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed.
 - **firewall_id** (String) Optional firewall rule to attach to all nodes.
 - **node_pool** (Block List) ([see below](#nestedblock--hetzner_provider--node_pool))
 - **dedicated_server_node_pool** (Block List) ([see below](#nestedblock--hetzner_provider--dedicated_server_node_pool))
@@ -153,7 +154,7 @@ Required:
 Optional:
 
 - **aws_tags** (Map of String) Extra tags to attach to all created objects.
-- **pre_install_script** (String) Optional shell script that will be run before K8S is installed. Supports SSM.
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
 - **key_pair** (String) Name of keyPair. Supports SSM
 - **disk_encryption_key_arn** (String) KMS key used to encrypt volumes. Supports SSM.
 - **security_group_ids** (List of String) Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.
@@ -198,13 +199,61 @@ Required:
 - **recommended** (String)
 - **exact** (String) Support SSM.
 
+<a id="nestedblock--lambdalabs_provider"></a>
+
+### `lambdalabs_provider`
+
+Required:
+
+- **region** (String) Region where the cluster nodes will live.
+- **token_secret_link** (String) Link to a secret holding Lambdalabs access key.
+- **ssh_key** (String) SSH key name for accessing deployed nodes.
+
+Optional:
+
+- **node_pool** (Block List) ([see below](#nestedblock--lambdalabs_provider--node_pool))
+- **unmanaged_node_pool** (Block List) ([see below](#nestedblock--lambdalabs_provider--unmanaged_node_pool))
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+
+<a id="nestedblock--lambdalabs_provider--node_pool"></a>
+
+### `lambdalabs_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **instance_type** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **min_size** (Number)
+- **max_size** (Number)
+
+<a id="nestedblock--lambdalabs_provider--unmanaged_node_pool"></a>
+
+### `lambdalabs_provider.unmanaged_node_pool`
+
+Required:
+
+- **name** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+
 <a id="nestedblock--ephemeral_provider"></a>
 
 ### `ephemeral_provider`
 
 Required:
 
-- **location** (String) Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.
+- **location** (String) Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.
 
 Optional:
 
@@ -315,7 +364,7 @@ Optional:
 
 Optional:
 
-- **audit_enabled** (Boolean) Collect k8s audit log as log events.
+- **audit_enabled** (Boolean) Collect K8s audit log as log events.
 - **include_namespaces** (String)
 - **exclude_namespaces** (String)
 
@@ -687,7 +736,7 @@ resource "cpln_mk8s" "aws" {
 
     aws_provider {
 
-        region            = "eu-central-1"
+        region = "eu-central-1"
 
         aws_tags = {
             hello = "world"
@@ -801,6 +850,112 @@ resource "cpln_mk8s" "aws" {
         }
 
         sysbox = true
+    }
+}
+```
+
+## Example Usage - Lambdalabs Provider
+
+```terraform
+resource "cpln_mk8s" "lambdalabs" {
+    name        = "demo-mk8s-lambdalabs-provider"
+    description = "demo-mk8s-lambdalabs-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    lambdalabs_provider {
+        region             = "europe-central-1"
+        token_secret_link  = "/org/ORG_NAME/secret/SECRET_NAME"
+        ssh_key            = "some-key"
+        pre_install_script = "#! echo hello world"
+        
+        node_pool {
+            name = "my-node-pool"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+
+            instance_type = "cpu_4x_general"
+        }
+
+        unmanaged_node_pool {
+            name = "my-unmanaged-node-pool"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+        }
+
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces  = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces  = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
     }
 }
 ```

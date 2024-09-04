@@ -13,7 +13,7 @@ import (
 func resourceMk8s() *schema.Resource {
 
 	var mk8sProviders = []string{
-		"generic_provider", "hetzner_provider", "aws_provider", "ephemeral_provider",
+		"generic_provider", "hetzner_provider", "aws_provider", "lambdalabs_provider", "ephemeral_provider",
 	}
 
 	return &schema.Resource{
@@ -92,7 +92,7 @@ func resourceMk8s() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"location": {
 							Type:        schema.TypeString,
-							Description: "Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.",
+							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.",
 							Required:    true,
 						},
 						"networking": Mk8sNetworkingSchema(),
@@ -122,7 +122,7 @@ func resourceMk8s() *schema.Resource {
 						"networking": Mk8sNetworkingSchema(),
 						"pre_install_script": {
 							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8S is installed.",
+							Description: "Optional shell script that will be run before K8s is installed.",
 							Optional:    true,
 						},
 						"token_secret_link": {
@@ -191,7 +191,7 @@ func resourceMk8s() *schema.Resource {
 						"networking": Mk8sNetworkingSchema(),
 						"pre_install_script": {
 							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8S is installed. Supports SSM.",
+							Description: "Optional shell script that will be run before K8s is installed. Supports SSM.",
 							Optional:    true,
 						},
 						"image": Mk8sAwsAmiSchema(),
@@ -221,8 +221,42 @@ func resourceMk8s() *schema.Resource {
 							Optional:    true,
 							Elem:        StringSchema(),
 						},
-						"node_pool":  Mk8sAwsNodePoolsSchema(),
+						"node_pool":  Mk8sAwsNodePoolSchema(),
 						"autoscaler": Mk8sAutoscalerSchema(),
+					},
+				},
+			},
+			"lambdalabs_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"region": {
+							Type:        schema.TypeString,
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"token_secret_link": {
+							Type:        schema.TypeString,
+							Description: "Link to a secret holding Lambdalabs access key.",
+							Required:    true,
+						},
+						"node_pool": Mk8sLambdalabsNodePoolSchema(),
+						"ssh_key": {
+							Type:        schema.TypeString,
+							Description: "SSH key name for accessing deployed nodes.",
+							Required:    true,
+						},
+						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
+						"autoscaler":          Mk8sAutoscalerSchema(),
+						"pre_install_script": {
+							Type:        schema.TypeString,
+							Description: "Optional shell script that will be run before K8s is installed. Supports SSM.",
+							Optional:    true,
+						},
 					},
 				},
 			},
@@ -236,7 +270,7 @@ func resourceMk8s() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"location": {
 							Type:        schema.TypeString,
-							Description: "Control Plane location that will host the K8S components. Prefer one that is closest to where the nodes are running.",
+							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.",
 							Required:    true,
 						},
 						"node_pool": Mk8sEphemeralNodePoolSchema(),
@@ -588,7 +622,7 @@ func resourceMk8sRead(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "ephemeral_provider", "add_ons") {
+	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "lambdalabs_provider", "ephemeral_provider", "add_ons") {
 		c := m.(*client.Client)
 
 		// Define & Build
@@ -669,6 +703,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("lambdalabs_provider", flattenMk8sLambdalabsProvider(mk8s.Spec.Provider.Lambdalabs)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("ephemeral_provider", flattenMk8sEphemeralProvider(mk8s.Spec.Provider.Ephemeral)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -729,6 +767,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("aws_provider") != nil {
 		output.Aws = buildMk8sAwsProvider(d.Get("aws_provider").([]interface{}))
+	}
+
+	if d.Get("lambdalabs_provider") != nil {
+		output.Lambdalabs = buildMk8sLambdalabsProvider(d.Get("lambdalabs_provider").([]interface{}))
 	}
 
 	if d.Get("ephemeral_provider") != nil {
@@ -936,6 +978,38 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 	return &output
 }
 
+func buildMk8sLambdalabsProvider(specs []interface{}) *client.Mk8sLambdalabsProvider {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sLambdalabsProvider{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Region = GetString(spec["region"])
+	output.TokenSecretLink = GetString(spec["token_secret_link"])
+	output.SshKey = GetString(spec["ssh_key"])
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sLambdalabsNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	if spec["unmanaged_node_pool"] != nil {
+		output.UnmanagedNodePools = buildMk8sGenericNodePools(spec["unmanaged_node_pool"].([]interface{}))
+	}
+
+	if spec["autoscaler"] != nil {
+		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
+	}
+
+	if spec["pre_install_script"] != nil {
+		output.PreInstallScript = GetString(spec["pre_install_script"])
+	}
+
+	return &output
+}
+
 func buildMk8sEphemeralProvider(specs []interface{}) *client.Mk8sEphemeralProvder {
 
 	if len(specs) == 0 || specs[0] == nil {
@@ -1075,6 +1149,39 @@ func buildMk8sAwsNodePools(specs []interface{}) *[]client.Mk8sAwsPool {
 		if spec["extra_security_group_ids"] != nil {
 			nodePool.ExtraSecurityGroupIds = BuildStringTypeSet(spec["extra_security_group_ids"])
 		}
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
+func buildMk8sLambdalabsNodePools(specs []interface{}) *[]client.Mk8sLambdalabsPool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sLambdalabsPool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sLambdalabsPool{}
+		nodePool.Name = GetString(spec["name"])
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
+		}
+
+		nodePool.MinSize = GetInt(spec["min_size"])
+		nodePool.MaxSize = GetInt(spec["max_size"])
+		nodePool.InstanceType = GetString(spec["instance_type"])
 
 		output = append(output, nodePool)
 	}
@@ -1614,6 +1721,39 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 	}
 }
 
+func flattenMk8sLambdalabsProvider(lambdalabs *client.Mk8sLambdalabsProvider) []interface{} {
+
+	if lambdalabs == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"region":            *lambdalabs.Region,
+		"token_secret_link": *lambdalabs.TokenSecretLink,
+		"ssh_key":           *lambdalabs.SshKey,
+	}
+
+	if lambdalabs.NodePools != nil {
+		spec["node_pool"] = flattenMk8sLambdalabsNodePools(lambdalabs.NodePools)
+	}
+
+	if lambdalabs.UnmanagedNodePools != nil {
+		spec["unmanaged_node_pool"] = flattenMk8sGenericNodePools(lambdalabs.UnmanagedNodePools)
+	}
+
+	if lambdalabs.Autoscaler != nil {
+		spec["autoscaler"] = flattenMk8sAutoscaler(lambdalabs.Autoscaler)
+	}
+
+	if lambdalabs.PreInstallScript != nil {
+		spec["pre_install_script"] = *lambdalabs.PreInstallScript
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvder) []interface{} {
 
 	if ephemeral == nil {
@@ -1745,6 +1885,38 @@ func flattenMk8sAwsNodePools(nodePools *[]client.Mk8sAwsPool) []interface{} {
 		if pool.ExtraSecurityGroupIds != nil {
 			spec["extra_security_group_ids"] = FlattenStringTypeSet(pool.ExtraSecurityGroupIds)
 		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenMk8sLambdalabsNodePools(nodePools *[]client.Mk8sLambdalabsPool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name": *pool.Name,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
+		}
+
+		spec["min_size"] = *pool.MinSize
+		spec["max_size"] = *pool.MaxSize
+		spec["instance_type"] = *pool.InstanceType
 
 		specs = append(specs, spec)
 	}
@@ -2268,7 +2440,7 @@ func Mk8sHetznerNodePoolSchema() *schema.Schema {
 	}
 }
 
-func Mk8sAwsNodePoolsSchema() *schema.Schema {
+func Mk8sAwsNodePoolSchema() *schema.Schema {
 
 	return &schema.Schema{
 		Type:        schema.TypeList,
@@ -2323,6 +2495,29 @@ func Mk8sAwsNodePoolsSchema() *schema.Schema {
 					Description: "",
 					Optional:    true,
 					Elem:        StringSchema(),
+				},
+			},
+		},
+	}
+}
+
+func Mk8sLambdalabsNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":     Mk8sGenericNodePoolNameSchema(),
+				"labels":   Mk8sGenericNodePoolLabelsSchema(),
+				"taint":    Mk8sGenericNodePoolTaintsSchema(),
+				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
+				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
+				"instance_type": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
 				},
 			},
 		},
