@@ -24,6 +24,7 @@ func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckControlPlaneMk8sCheckDestroy,
 		Steps: []resource.TestStep{
+			// Create
 			{
 				Config: testAccControlPlaneMk8sGenericProvider(name+"-generic", description),
 				Check: resource.ComposeTestCheckFunc(
@@ -52,6 +53,15 @@ func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneMk8sLinodeProvider(name+"-linode", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.linode", name+"-linode", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "linode", ""),
+					resource.TestCheckResourceAttr("cpln_mk8s.linode", "name", name+"-linode"),
+					resource.TestCheckResourceAttr("cpln_mk8s.linode", "description", description),
+				),
+			},
+			{
 				Config: testAccControlPlaneMk8sLambdalabsProvider(name+"-lambdalabs", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.lambdalabs", name+"-lambdalabs", &mk8s),
@@ -69,6 +79,7 @@ func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_mk8s.ephemeral", "description", description),
 				),
 			},
+			// Update
 			{
 				Config: testAccControlPlaneMk8sHetznerProviderUpdate(name+"-hetzner", description),
 				Check: resource.ComposeTestCheckFunc(
@@ -545,6 +556,116 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 				role_arn = "arn:aws:iam::123456789012:role/my-custom-role"
 			}
 	
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+
+			sysbox = true
+		}
+	}
+	`, name, description)
+}
+
+func testAccControlPlaneMk8sLinodeProvider(name string, description string) string {
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "linode" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	
+		version = "1.28.4"
+	
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+
+		linode_provider {
+			region             = "us-east"
+			token_secret_link  = "/org/terraform-test-org/secret/linode"
+			image              = "linode/ubuntu22.04"
+			vpc_id             = "vpc-087b3e0f680a7e91e"
+			firewall_id        = "1234abcd-5678-efgh-9101-ijklmnop1234"
+			pre_install_script = "#! echo hello world"
+
+			authorized_users = ["user1"]
+			authorized_keys = ["key1"]
+
+			node_pool {
+				name = "my-linode-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+
+				server_type    = "g6-standard-2"
+				override_image = "debian-11"
+				subnet_id      = "subnet-12345678"
+				min_size 	   = 0
+				max_size 	   = 0
+			}
+
+			networking {
+				service_network = "10.43.0.0/16"
+				pod_network 	= "10.42.0.0/16"
+			}
+
+			autoscaler {
+				expander 	  		  = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time  		  = "20m"
+				utilization_threshold = 0.7
+			}
+		}
+
+		add_ons {
+			dashboard = true
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = true
+			local_path_storage    = true
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces  = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces  = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
 			azure_acr {
 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
 			}
@@ -1056,6 +1177,15 @@ func TestControlPlane_BuildMk8sAwsProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sLinodeProvider(t *testing.T) {
+
+	linode, expectedLinode, _ := generateTestMk8sLinodeProvider()
+
+	if diff := deep.Equal(linode, expectedLinode); diff != nil {
+		t.Errorf("Mk8s Linode Provider was not built correctly, Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_BuildMk8sLambdalabsProvider(t *testing.T) {
 
 	lambdalabs, expectedLambdalabs, _ := generateTestMk8sLambdalabsProvider()
@@ -1102,6 +1232,15 @@ func TestControlPlane_BuildMk8sAwsNodePools(t *testing.T) {
 
 	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
 		t.Errorf("Mk8s AWS Node Pools was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMk8sLinodeNodePools(t *testing.T) {
+
+	nodePools, expectedNodePools, _ := generateTestMk8sLinodeNodePools()
+
+	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
+		t.Errorf("Mk8s Linode Node Pools was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -1323,6 +1462,26 @@ func TestControlPlane_FlattenMk8sAwsProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sLinodeProvider(t *testing.T) {
+
+	_, expectedLinode, expectedFlatten := generateTestMk8sLinodeProvider()
+	flattenedLinode := flattenMk8sLinodeProvider(expectedLinode)
+
+	// Extract the interface slice from *schema.Set
+	// Provider
+	expectedFlattenItem := expectedFlatten[0].(map[string]interface{})
+	expectedFlattenItem["authorized_users"] = expectedFlattenItem["authorized_users"].(*schema.Set).List()
+	expectedFlattenItem["authorized_keys"] = expectedFlattenItem["authorized_keys"].(*schema.Set).List()
+
+	// Autoscaler
+	autoscaler := expectedFlattenItem["autoscaler"].([]interface{})[0].(map[string]interface{})
+	autoscaler["expander"] = autoscaler["expander"].(*schema.Set).List()
+
+	if diff := deep.Equal(expectedFlatten, flattenedLinode); diff != nil {
+		t.Errorf("Mk8s Linode Provider was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenMk8sLambdalabsProvider(t *testing.T) {
 
 	_, expectedLambdalabs, expectedFlatten := generateTestMk8sLambdalabsProvider()
@@ -1388,6 +1547,16 @@ func TestControlPlane_FlattenMk8sAwsNodePools(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
 		t.Errorf("Mk8s AWS Node Pools was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenMk8sLinodeNodePools(t *testing.T) {
+
+	_, expectedNodePools, expectedFlatten := generateTestMk8sLinodeNodePools()
+	flattenedNodePools := flattenMk8sLinodeNodePools(expectedNodePools)
+
+	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
+		t.Errorf("Mk8s Linode Node Pools was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -1586,6 +1755,9 @@ func generateTestMk8sProvider(provider string, update string) *client.Mk8sProvid
 	case "aws":
 		generated, _, _ := generateTestMk8sAwsProvider()
 		output.Aws = generated
+	case "linode":
+		generated, _, _ := generateTestMk8sLinodeProvider()
+		output.Linode = generated
 	case "lambdalabs":
 		generated, _, _ := generateTestMk8sLambdalabsProvider()
 		output.Lambdalabs = generated
@@ -1762,6 +1934,39 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	return aws, &expectedAws, flattened
 }
 
+func generateTestMk8sLinodeProvider() (*client.Mk8sLinodeProvider, *client.Mk8sLinodeProvider, []interface{}) {
+
+	region := "europe-central-1"
+	tokenSecretLink := "/org/terraform-test-org/secret/linode"
+	image := "ubuntu-20.04"
+	vpcId := "vpc-087b3e0f680a7e91e"
+	firewallId := "1234abcd-5678-efgh-9101-ijklmnop1234"
+	preInstallScript := "#! echo hello world"
+	authorizedUsers := []string{"user1"}
+	authorizedKeys := []string{"key1"}
+	nodePools, _, flattenedNodePools := generateTestMk8sLinodeNodePools()
+	networking, _, flattenedNetworking := generateTestMk8sNetworking()
+	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
+
+	flattened := generateFlatTestMk8sLinodeProvider(region, tokenSecretLink, firewallId, flattenedNodePools, image, authorizedUsers, authorizedKeys, vpcId, preInstallScript, flattenedNetworking, flattenedAutoscaler)
+	linode := buildMk8sLinodeProvider(flattened)
+	expectedLinode := client.Mk8sLinodeProvider{
+		Region:           &region,
+		TokenSecretLink:  &tokenSecretLink,
+		FirewallId:       &firewallId,
+		NodePools:        nodePools,
+		Image:            &image,
+		AuthorizedUsers:  &authorizedUsers,
+		AuthorizedKeys:   &authorizedKeys,
+		VpcId:            &vpcId,
+		PreInstallScript: &preInstallScript,
+		Networking:       networking,
+		Autoscaler:       autoscaler,
+	}
+
+	return linode, &expectedLinode, flattened
+}
+
 func generateTestMk8sLambdalabsProvider() (*client.Mk8sLambdalabsProvider, *client.Mk8sLambdalabsProvider, []interface{}) {
 
 	region := "europe-central-1"
@@ -1901,6 +2106,41 @@ func generateTestMk8sAwsNodePools() (*[]client.Mk8sAwsPool, *[]client.Mk8sAwsPoo
 
 	// Define expected node pools
 	expectedNodePools := []client.Mk8sAwsPool{expectedNodePool}
+
+	return nodePools, &expectedNodePools, flattened
+}
+
+func generateTestMk8sLinodeNodePools() (*[]client.Mk8sLinodePool, *[]client.Mk8sLinodePool, []interface{}) {
+
+	name := "my-linode-node-pool"
+	labels := map[string]interface{}{
+		"hello": "world",
+	}
+	taints, _, flattenedTaints := generateTestMk8sTaints()
+	serverType := "cx12"
+	overrideImage := "debian-11"
+	subnetId := "subnet-12345678"
+	minSize := 0
+	maxSize := 0
+
+	flattened := generateFlatTestMk8sLinodeNodePools(name, labels, flattenedTaints, serverType, overrideImage, subnetId, minSize, maxSize)
+	nodePools := buildMk8sLinodeNodePools(flattened)
+
+	// Define expected node pool
+	expectedNodePool := client.Mk8sLinodePool{
+		ServerType:    &serverType,
+		OverrideImage: &overrideImage,
+		SubnetId:      &subnetId,
+		MinSize:       &minSize,
+		MaxSize:       &maxSize,
+	}
+
+	expectedNodePool.Name = &name
+	expectedNodePool.Labels = &labels
+	expectedNodePool.Taints = taints
+
+	// Define expected node pools
+	expectedNodePools := []client.Mk8sLinodePool{expectedNodePool}
 
 	return nodePools, &expectedNodePools, flattened
 }
@@ -2243,6 +2483,27 @@ func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface
 	}
 }
 
+func generateFlatTestMk8sLinodeProvider(region string, tokenSecretLink string, firewallId string, nodePools []interface{}, image string, authorizedUsers []string, authorizedKeys []string, vpcId string, preInstallScript string, networking []interface{}, autoscaler []interface{}) []interface{} {
+
+	spec := map[string]interface{}{
+		"region":             region,
+		"token_secret_link":  tokenSecretLink,
+		"firewall_id":        firewallId,
+		"node_pool":          nodePools,
+		"image":              image,
+		"authorized_users":   ConvertStringSliceToSet(authorizedUsers),
+		"authorized_keys":    ConvertStringSliceToSet(authorizedKeys),
+		"vpc_id":             vpcId,
+		"pre_install_script": preInstallScript,
+		"networking":         networking,
+		"autoscaler":         autoscaler,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func generateFlatTestMk8sLambdalabsProvider(region string, tokenSecretLink string, nodePools []interface{}, sshKey string, unmanagedNodePools []interface{}, autoscaler []interface{}, preInstallScript string) []interface{} {
 
 	spec := map[string]interface{}{
@@ -2322,6 +2583,24 @@ func generateFlatTestMk8sAwsNodePools(name string, labels map[string]interface{}
 		"spot_allocation_strategy":                 spotAllocationStrategy,
 		"subnet_ids":                               ConvertStringSliceToSet(subnetIds),
 		"extra_security_group_ids":                 ConvertStringSliceToSet(extraSecurityGroupIds),
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sLinodeNodePools(name string, labels map[string]interface{}, taints []interface{}, serverType string, overrideImage string, subnetId string, minSize int, maxSize int) []interface{} {
+
+	spec := map[string]interface{}{
+		"name":           name,
+		"labels":         labels,
+		"taint":          taints,
+		"server_type":    serverType,
+		"override_image": overrideImage,
+		"subnet_id":      subnetId,
+		"min_size":       minSize,
+		"max_size":       maxSize,
 	}
 
 	return []interface{}{

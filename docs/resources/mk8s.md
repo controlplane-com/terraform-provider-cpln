@@ -20,6 +20,7 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **generic_provider** (Block List, Max: 1) ([see below](#nestedblock--generic_provider))
 - **hetzner_provider** (Block List, Max: 1) ([see below](#nestedblock--hetzner_provider))
 - **aws_provider** (Block List, Max: 1) ([see below](#nestedblock--aws_provider))
+- **linode_provider** (Block List, Max: 1) ([see below](#nestedblock--linode_provider))
 - **lambdalabs_provider** (Block List, Max: 1) ([see below](#nestedblock--lambdalabs_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 
@@ -198,6 +199,46 @@ Required:
 
 - **recommended** (String)
 - **exact** (String) Support SSM.
+
+<a id="nestedblock--linode_provider"></a>
+
+### `linode_provider`
+
+Required:
+
+- **region** (String) Region where the cluster nodes will live.
+- **token_secret_link** (String) Link to a secret holding Linode access key.
+- **image** (String) Default image for all nodes.
+- **vpc_id** (String) The vpc where nodes will be deployed. Supports SSM.
+
+Optional:
+
+- **firewall_id** (String) Optional firewall rule to attach to all nodes.
+- **authorized_users** (List of String)
+- **authorized_keys** (List of String)
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
+- **node_pool** (Block List) ([see below](#nestedblock--linode_provider--node_pool))
+
+<a id="nestedblock--linode_provider--node_pool"></a>
+
+### `linode_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **subnet_id** (String)
+- **server_type** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **override_image** (String)
+- **min_size** (Number)
+- **max_size** (Number)
 
 <a id="nestedblock--lambdalabs_provider"></a>
 
@@ -852,6 +893,12 @@ resource "cpln_mk8s" "aws" {
         sysbox = true
     }
 }
+```
+
+## Example Usage - Linode Provider
+
+```terraform
+
 ```
 
 ## Example Usage - Lambdalabs Provider

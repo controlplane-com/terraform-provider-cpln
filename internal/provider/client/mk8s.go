@@ -98,13 +98,17 @@ type Mk8sAwsProvider struct {
 }
 
 type Mk8sLinodeProvider struct {
-	Region          *string               `json:"region,omitempty"`
-	TokenSecretLink *string               `json:"tokenSecretLink,omitempty"`
-	VlanCidr        *string               `json:"vlanCidr,omitempty"`
-	Firewall        *string               `json:"firewall,omitempty"`
-	NodePools       *[]Mk8sLinodePool     `json:"nodePools,omitempty"`
-	AuthorizedUsers *[]string             `json:"authorizedUsers,omitempty"`
-	Autoscaler      *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	Region           *string               `json:"region,omitempty"`
+	TokenSecretLink  *string               `json:"tokenSecretLink,omitempty"`
+	FirewallId       *string               `json:"firewallId,omitempty"`
+	NodePools        *[]Mk8sLinodePool     `json:"nodePools,omitempty"`
+	Image            *string               `json:"image,omitempty"`
+	AuthorizedUsers  *[]string             `json:"authorizedUsers,omitempty"`
+	AuthorizedKeys   *[]string             `json:"authorizedKeys,omitempty"`
+	VpcId            *string               `json:"vpcId,omitempty"`
+	PreInstallScript *string               `json:"preInstallScript,omitempty"`
+	Networking       *Mk8sNetworkingConfig `json:"networking,omitempty"`
+	Autoscaler       *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
 }
 
 type Mk8sOblivusProvider struct {
@@ -169,6 +173,7 @@ type Mk8sLinodePool struct {
 	Mk8sGenericPool
 	ServerType    *string `json:"serverType,omitempty"`
 	OverrideImage *string `json:"overrideImage,omitempty"`
+	SubnetId      *string `json:"subnetId,omitempty"`
 	MinSize       *int    `json:"minSize,omitempty"`
 	MaxSize       *int    `json:"maxSize,omitempty"`
 }

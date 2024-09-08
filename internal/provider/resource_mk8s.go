@@ -13,7 +13,8 @@ import (
 func resourceMk8s() *schema.Resource {
 
 	var mk8sProviders = []string{
-		"generic_provider", "hetzner_provider", "aws_provider", "lambdalabs_provider", "ephemeral_provider",
+		"generic_provider", "hetzner_provider", "aws_provider",
+		"linode_provider", "lambdalabs_provider", "ephemeral_provider",
 	}
 
 	return &schema.Resource{
@@ -222,6 +223,62 @@ func resourceMk8s() *schema.Resource {
 							Elem:        StringSchema(),
 						},
 						"node_pool":  Mk8sAwsNodePoolSchema(),
+						"autoscaler": Mk8sAutoscalerSchema(),
+					},
+				},
+			},
+			"linode_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"region": {
+							Type:        schema.TypeString,
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"token_secret_link": {
+							Type:        schema.TypeString,
+							Description: "Link to a secret holding Linode access key.",
+							Required:    true,
+						},
+						"firewall_id": {
+							Type:        schema.TypeString,
+							Description: "Optional firewall rule to attach to all nodes.",
+							Optional:    true,
+						},
+						"node_pool": Mk8sLinodeNodePoolSchema(),
+						"image": {
+							Type:        schema.TypeString,
+							Description: "Default image for all nodes.",
+							Required:    true,
+						},
+						"authorized_users": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"authorized_keys": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"vpc_id": {
+							Type:        schema.TypeString,
+							Description: "The vpc where nodes will be deployed. Supports SSM.",
+							Required:    true,
+						},
+						"pre_install_script": {
+							Type:        schema.TypeString,
+							Description: "Optional shell script that will be run before K8s is installed.",
+							Optional:    true,
+						},
+						"networking": Mk8sNetworkingSchema(),
 						"autoscaler": Mk8sAutoscalerSchema(),
 					},
 				},
@@ -622,7 +679,7 @@ func resourceMk8sRead(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "lambdalabs_provider", "ephemeral_provider", "add_ons") {
+	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "linode_provider", "lambdalabs_provider", "ephemeral_provider", "add_ons") {
 		c := m.(*client.Client)
 
 		// Define & Build
@@ -703,6 +760,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("linode_provider", flattenMk8sLinodeProvider(mk8s.Spec.Provider.Linode)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("lambdalabs_provider", flattenMk8sLambdalabsProvider(mk8s.Spec.Provider.Lambdalabs)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -767,6 +828,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("aws_provider") != nil {
 		output.Aws = buildMk8sAwsProvider(d.Get("aws_provider").([]interface{}))
+	}
+
+	if d.Get("linode_provider") != nil {
+		output.Linode = buildMk8sLinodeProvider(d.Get("linode_provider").([]interface{}))
 	}
 
 	if d.Get("lambdalabs_provider") != nil {
@@ -978,6 +1043,51 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 	return &output
 }
 
+func buildMk8sLinodeProvider(specs []interface{}) *client.Mk8sLinodeProvider {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sLinodeProvider{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Region = GetString(spec["region"])
+	output.TokenSecretLink = GetString(spec["token_secret_link"])
+	output.Image = GetString(spec["image"])
+	output.VpcId = GetString(spec["vpc_id"])
+
+	if spec["firewall_id"] != nil {
+		output.FirewallId = GetString(spec["firewall_id"])
+	}
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sLinodeNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	if spec["authorized_users"] != nil {
+		output.AuthorizedUsers = BuildStringTypeSet(spec["authorized_users"])
+	}
+
+	if spec["authorized_keys"] != nil {
+		output.AuthorizedKeys = BuildStringTypeSet(spec["authorized_keys"])
+	}
+
+	if spec["pre_install_script"] != nil {
+		output.PreInstallScript = GetString(spec["pre_install_script"])
+	}
+
+	if spec["networking"] != nil {
+		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
+	}
+
+	if spec["autoscaler"] != nil {
+		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
+	}
+
+	return &output
+}
+
 func buildMk8sLambdalabsProvider(specs []interface{}) *client.Mk8sLambdalabsProvider {
 
 	if len(specs) == 0 || specs[0] == nil {
@@ -1149,6 +1259,44 @@ func buildMk8sAwsNodePools(specs []interface{}) *[]client.Mk8sAwsPool {
 		if spec["extra_security_group_ids"] != nil {
 			nodePool.ExtraSecurityGroupIds = BuildStringTypeSet(spec["extra_security_group_ids"])
 		}
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
+func buildMk8sLinodeNodePools(specs []interface{}) *[]client.Mk8sLinodePool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sLinodePool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sLinodePool{}
+		nodePool.Name = GetString(spec["name"])
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
+		}
+
+		if spec["override_image"] != nil {
+			nodePool.OverrideImage = GetString(spec["override_image"])
+		}
+
+		nodePool.ServerType = GetString(spec["server_type"])
+		nodePool.SubnetId = GetString(spec["subnet_id"])
+		nodePool.MinSize = GetInt(spec["min_size"])
+		nodePool.MaxSize = GetInt(spec["max_size"])
 
 		output = append(output, nodePool)
 	}
@@ -1721,6 +1869,52 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 	}
 }
 
+func flattenMk8sLinodeProvider(linode *client.Mk8sLinodeProvider) []interface{} {
+
+	if linode == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"region":            *linode.Region,
+		"token_secret_link": *linode.TokenSecretLink,
+		"image":             *linode.Image,
+		"vpc_id":            *linode.VpcId,
+	}
+
+	if linode.FirewallId != nil {
+		spec["firewall_id"] = *linode.FirewallId
+	}
+
+	if linode.NodePools != nil {
+		spec["node_pool"] = flattenMk8sLinodeNodePools(linode.NodePools)
+	}
+
+	if linode.AuthorizedUsers != nil {
+		spec["authorized_users"] = FlattenStringTypeSet(linode.AuthorizedUsers)
+	}
+
+	if linode.AuthorizedKeys != nil {
+		spec["authorized_keys"] = FlattenStringTypeSet(linode.AuthorizedKeys)
+	}
+
+	if linode.PreInstallScript != nil {
+		spec["pre_install_script"] = *linode.PreInstallScript
+	}
+
+	if linode.Networking != nil {
+		spec["networking"] = flattenMk8sNetworking(linode.Networking)
+	}
+
+	if linode.Autoscaler != nil {
+		spec["autoscaler"] = flattenMk8sAutoscaler(linode.Autoscaler)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func flattenMk8sLambdalabsProvider(lambdalabs *client.Mk8sLambdalabsProvider) []interface{} {
 
 	if lambdalabs == nil {
@@ -1885,6 +2079,43 @@ func flattenMk8sAwsNodePools(nodePools *[]client.Mk8sAwsPool) []interface{} {
 		if pool.ExtraSecurityGroupIds != nil {
 			spec["extra_security_group_ids"] = FlattenStringTypeSet(pool.ExtraSecurityGroupIds)
 		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenMk8sLinodeNodePools(nodePools *[]client.Mk8sLinodePool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name": *pool.Name,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
+		}
+
+		if pool.OverrideImage != nil {
+			spec["override_image"] = *pool.OverrideImage
+		}
+
+		spec["server_type"] = *pool.ServerType
+		spec["subnet_id"] = *pool.SubnetId
+		spec["min_size"] = *pool.MinSize
+		spec["max_size"] = *pool.MaxSize
 
 		specs = append(specs, spec)
 	}
@@ -2496,6 +2727,39 @@ func Mk8sAwsNodePoolSchema() *schema.Schema {
 					Optional:    true,
 					Elem:        StringSchema(),
 				},
+			},
+		},
+	}
+}
+
+func Mk8sLinodeNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":   Mk8sGenericNodePoolNameSchema(),
+				"labels": Mk8sGenericNodePoolLabelsSchema(),
+				"taint":  Mk8sGenericNodePoolTaintsSchema(),
+				"server_type": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
+				"override_image": {
+					Type:        schema.TypeString,
+					Description: "",
+					Optional:    true,
+				},
+				"subnet_id": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
+				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
+				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
 			},
 		},
 	}
