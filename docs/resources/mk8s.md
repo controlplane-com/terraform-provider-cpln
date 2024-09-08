@@ -21,6 +21,7 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **hetzner_provider** (Block List, Max: 1) ([see below](#nestedblock--hetzner_provider))
 - **aws_provider** (Block List, Max: 1) ([see below](#nestedblock--aws_provider))
 - **linode_provider** (Block List, Max: 1) ([see below](#nestedblock--linode_provider))
+- **oblivus_provider** (Block List, Max: 1) ([see below](#nestedblock--oblivus_provider))
 - **lambdalabs_provider** (Block List, Max: 1) ([see below](#nestedblock--lambdalabs_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 
@@ -239,6 +240,54 @@ Optional:
 - **override_image** (String)
 - **min_size** (Number)
 - **max_size** (Number)
+
+<a id="nestedblock--oblivus_provider"></a>
+
+### `oblivus_provider`
+
+Required:
+
+- **datacenter** (String)
+- **token_secret_link** (String) Link to a secret holding Oblivus access key.
+
+Optional:
+
+- **node_pool** (Block List) ([see below](#nestedblock--oblivus_provider--node_pool))
+- **ssh_keys** (List of String)
+- **unmanaged_node_pool** (Block List) ([see below](#nestedblock--oblivus_provider--unmanaged_node_pool))
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+
+<a id="nestedblock--oblivus_provider--node_pool"></a>
+
+### `oblivus_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **min_size** (Number)
+- **max_size** (Number)
+- **instance_type** (String)
+
+<a id="nestedblock--oblivus_provider--unmanaged_node_pool"></a>
+
+### `oblivus_provider.unmanaged_node_pool`
+
+Required:
+
+- **name** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
 
 <a id="nestedblock--lambdalabs_provider"></a>
 
@@ -896,6 +945,12 @@ resource "cpln_mk8s" "aws" {
 ```
 
 ## Example Usage - Linode Provider
+
+```terraform
+
+```
+
+## Example Usage - Oblivus Provider
 
 ```terraform
 

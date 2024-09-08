@@ -62,6 +62,15 @@ func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneMk8sOblivusProvider(name+"-oblivus", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.oblivus", name+"-oblivus", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "oblivus", ""),
+					resource.TestCheckResourceAttr("cpln_mk8s.oblivus", "name", name+"-oblivus"),
+					resource.TestCheckResourceAttr("cpln_mk8s.oblivus", "description", description),
+				),
+			},
+			{
 				Config: testAccControlPlaneMk8sLambdalabsProvider(name+"-lambdalabs", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.lambdalabs", name+"-lambdalabs", &mk8s),
@@ -676,6 +685,118 @@ func testAccControlPlaneMk8sLinodeProvider(name string, description string) stri
 	`, name, description)
 }
 
+func testAccControlPlaneMk8sOblivusProvider(name string, description string) string {
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "oblivus" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	
+		version = "1.28.4"
+	
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+
+		oblivus_provider {
+			datacenter         = "MON1"
+			token_secret_link  = "/org/terraform-test-org/secret/oblivus"
+			ssh_keys           = ["key1"]
+			pre_install_script = "#! echo hello world"
+
+			node_pool {
+				name = "my-linode-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+					
+				min_size 	   = 0
+				max_size 	   = 0
+				instance_type  = "A100_NVLINK_80GB_x8"
+			}
+
+			unmanaged_node_pool {
+				name = "my-node-pool"
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+			}
+
+			autoscaler {
+				expander 	  		  = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time  		  = "20m"
+				utilization_threshold = 0.7
+			}
+		}
+
+		add_ons {
+			dashboard = true
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = true
+			local_path_storage    = true
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces  = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces  = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+
+			sysbox = true
+		}
+	}
+	`, name, description)
+}
+
 func testAccControlPlaneMk8sLambdalabsProvider(name string, description string) string {
 	return fmt.Sprintf(`
 
@@ -1186,6 +1307,15 @@ func TestControlPlane_BuildMk8sLinodeProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sOblivusProvider(t *testing.T) {
+
+	oblivus, expectedOblivus, _ := generateTestMk8sOblivusProvider()
+
+	if diff := deep.Equal(oblivus, expectedOblivus); diff != nil {
+		t.Errorf("Mk8s Oblivus Provider was not built correctly, Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_BuildMk8sLambdalabsProvider(t *testing.T) {
 
 	lambdalabs, expectedLambdalabs, _ := generateTestMk8sLambdalabsProvider()
@@ -1241,6 +1371,15 @@ func TestControlPlane_BuildMk8sLinodeNodePools(t *testing.T) {
 
 	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
 		t.Errorf("Mk8s Linode Node Pools was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMk8sOblivusNodePools(t *testing.T) {
+
+	nodePools, expectedNodePools, _ := generateTestMk8sOblivusNodePools()
+
+	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
+		t.Errorf("Mk8s Oblivus Node Pools was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -1482,6 +1621,25 @@ func TestControlPlane_FlattenMk8sLinodeProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sOblivusProvider(t *testing.T) {
+
+	_, expectedOblivus, expectedFlatten := generateTestMk8sOblivusProvider()
+	flattenedOblivus := flattenMk8sOblivusProvider(expectedOblivus)
+
+	// Extract the interface slice from *schema.Set
+	// Provider
+	expectedFlattenItem := expectedFlatten[0].(map[string]interface{})
+	expectedFlattenItem["ssh_keys"] = expectedFlattenItem["ssh_keys"].(*schema.Set).List()
+
+	// Autoscaler
+	autoscaler := expectedFlattenItem["autoscaler"].([]interface{})[0].(map[string]interface{})
+	autoscaler["expander"] = autoscaler["expander"].(*schema.Set).List()
+
+	if diff := deep.Equal(expectedFlatten, flattenedOblivus); diff != nil {
+		t.Errorf("Mk8s Oblivus Provider was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenMk8sLambdalabsProvider(t *testing.T) {
 
 	_, expectedLambdalabs, expectedFlatten := generateTestMk8sLambdalabsProvider()
@@ -1557,6 +1715,16 @@ func TestControlPlane_FlattenMk8sLinodeNodePools(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
 		t.Errorf("Mk8s Linode Node Pools was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenMk8sOblivusNodePools(t *testing.T) {
+
+	_, expectedNodePools, expectedFlatten := generateTestMk8sOblivusNodePools()
+	flattenedNodePools := flattenMk8sOblivusNodePools(expectedNodePools)
+
+	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
+		t.Errorf("Mk8s Oblivus Node Pools was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -1758,6 +1926,9 @@ func generateTestMk8sProvider(provider string, update string) *client.Mk8sProvid
 	case "linode":
 		generated, _, _ := generateTestMk8sLinodeProvider()
 		output.Linode = generated
+	case "oblivus":
+		generated, _, _ := generateTestMk8sOblivusProvider()
+		output.Oblivus = generated
 	case "lambdalabs":
 		generated, _, _ := generateTestMk8sLambdalabsProvider()
 		output.Lambdalabs = generated
@@ -1967,6 +2138,31 @@ func generateTestMk8sLinodeProvider() (*client.Mk8sLinodeProvider, *client.Mk8sL
 	return linode, &expectedLinode, flattened
 }
 
+func generateTestMk8sOblivusProvider() (*client.Mk8sOblivusProvider, *client.Mk8sOblivusProvider, []interface{}) {
+
+	datacenter := "MON1"
+	tokenSecretLink := "/org/terraform-test-org/secret/oblivus"
+	preInstallScript := "#! echo hello world"
+	sshKeys := []string{"key1"}
+	nodePools, _, flattenedNodePools := generateTestMk8sOblivusNodePools()
+	unmanagedNodePools, _, flattenedUnmanagedNodePools := generateTestMk8sGenericNodePools()
+	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
+
+	flattened := generateFlatTestMk8sOblivusProvider(datacenter, tokenSecretLink, flattenedNodePools, sshKeys, flattenedUnmanagedNodePools, flattenedAutoscaler, preInstallScript)
+	oblivus := buildMk8sOblivusProvider(flattened)
+	expectedOblivus := client.Mk8sOblivusProvider{
+		Datacenter:         &datacenter,
+		TokenSecretLink:    &tokenSecretLink,
+		NodePools:          nodePools,
+		SshKeys:            &sshKeys,
+		UnmanagedNodePools: unmanagedNodePools,
+		Autoscaler:         autoscaler,
+		PreInstallScript:   &preInstallScript,
+	}
+
+	return oblivus, &expectedOblivus, flattened
+}
+
 func generateTestMk8sLambdalabsProvider() (*client.Mk8sLambdalabsProvider, *client.Mk8sLambdalabsProvider, []interface{}) {
 
 	region := "europe-central-1"
@@ -2141,6 +2337,37 @@ func generateTestMk8sLinodeNodePools() (*[]client.Mk8sLinodePool, *[]client.Mk8s
 
 	// Define expected node pools
 	expectedNodePools := []client.Mk8sLinodePool{expectedNodePool}
+
+	return nodePools, &expectedNodePools, flattened
+}
+
+func generateTestMk8sOblivusNodePools() (*[]client.Mk8sOblivusPool, *[]client.Mk8sOblivusPool, []interface{}) {
+
+	name := "my-linode-node-pool"
+	labels := map[string]interface{}{
+		"hello": "world",
+	}
+	taints, _, flattenedTaints := generateTestMk8sTaints()
+	minSize := 0
+	maxSize := 0
+	instanceType := "A100_NVLINK_80GB_x8"
+
+	flattened := generateFlatTestMk8sOblivusNodePools(name, labels, flattenedTaints, minSize, maxSize, instanceType)
+	nodePools := buildMk8sOblivusNodePools(flattened)
+
+	// Define expected node pool
+	expectedNodePool := client.Mk8sOblivusPool{
+		MinSize:      &minSize,
+		MaxSize:      &maxSize,
+		InstanceType: &instanceType,
+	}
+
+	expectedNodePool.Name = &name
+	expectedNodePool.Labels = &labels
+	expectedNodePool.Taints = taints
+
+	// Define expected node pools
+	expectedNodePools := []client.Mk8sOblivusPool{expectedNodePool}
 
 	return nodePools, &expectedNodePools, flattened
 }
@@ -2504,6 +2731,23 @@ func generateFlatTestMk8sLinodeProvider(region string, tokenSecretLink string, f
 	}
 }
 
+func generateFlatTestMk8sOblivusProvider(datacenter string, tokenSecretLink string, nodePools []interface{}, sshKeys []string, unmanagedNodePools []interface{}, autoscaler []interface{}, preInstallScript string) []interface{} {
+
+	spec := map[string]interface{}{
+		"datacenter":          datacenter,
+		"token_secret_link":   tokenSecretLink,
+		"node_pool":           nodePools,
+		"ssh_keys":            ConvertStringSliceToSet(sshKeys),
+		"unmanaged_node_pool": unmanagedNodePools,
+		"autoscaler":          autoscaler,
+		"pre_install_script":  preInstallScript,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func generateFlatTestMk8sLambdalabsProvider(region string, tokenSecretLink string, nodePools []interface{}, sshKey string, unmanagedNodePools []interface{}, autoscaler []interface{}, preInstallScript string) []interface{} {
 
 	spec := map[string]interface{}{
@@ -2601,6 +2845,22 @@ func generateFlatTestMk8sLinodeNodePools(name string, labels map[string]interfac
 		"subnet_id":      subnetId,
 		"min_size":       minSize,
 		"max_size":       maxSize,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sOblivusNodePools(name string, labels map[string]interface{}, taints []interface{}, minSize int, maxSize int, instanceType string) []interface{} {
+
+	spec := map[string]interface{}{
+		"name":          name,
+		"labels":        labels,
+		"taint":         taints,
+		"min_size":      minSize,
+		"max_size":      maxSize,
+		"instance_type": instanceType,
 	}
 
 	return []interface{}{

@@ -112,9 +112,13 @@ type Mk8sLinodeProvider struct {
 }
 
 type Mk8sOblivusProvider struct {
-	Datacenter         *string            `json:"datacenter,omitempty"`
-	TokenSecretLink    *string            `json:"tokenSecretLink,omitempty"`
-	UnmanagedNodePools *[]Mk8sGenericPool `json:"unmanagedNodePools,omitempty"`
+	Datacenter         *string               `json:"datacenter,omitempty"`
+	TokenSecretLink    *string               `json:"tokenSecretLink,omitempty"`
+	NodePools          *[]Mk8sOblivusPool    `json:"nodePools,omitempty"`
+	SshKeys            *[]string             `json:"sshKeys,omitempty"`
+	UnmanagedNodePools *[]Mk8sGenericPool    `json:"unmanagedNodePools,omitempty"`
+	Autoscaler         *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	PreInstallScript   *string               `json:"preInstallScript,omitempty"`
 }
 
 type Mk8sLambdalabsProvider struct {
@@ -176,6 +180,13 @@ type Mk8sLinodePool struct {
 	SubnetId      *string `json:"subnetId,omitempty"`
 	MinSize       *int    `json:"minSize,omitempty"`
 	MaxSize       *int    `json:"maxSize,omitempty"`
+}
+
+type Mk8sOblivusPool struct {
+	Mk8sGenericPool
+	MinSize      *int    `json:"minSize,omitempty"`
+	MaxSize      *int    `json:"maxSize,omitempty"`
+	InstanceType *string `json:"instanceType,omitempty"`
 }
 
 type Mk8sLambdalabsPool struct {

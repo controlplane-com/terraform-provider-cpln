@@ -14,7 +14,8 @@ func resourceMk8s() *schema.Resource {
 
 	var mk8sProviders = []string{
 		"generic_provider", "hetzner_provider", "aws_provider",
-		"linode_provider", "lambdalabs_provider", "ephemeral_provider",
+		"oblivus_provider", "linode_provider", "lambdalabs_provider",
+		"ephemeral_provider",
 	}
 
 	return &schema.Resource{
@@ -280,6 +281,41 @@ func resourceMk8s() *schema.Resource {
 						},
 						"networking": Mk8sNetworkingSchema(),
 						"autoscaler": Mk8sAutoscalerSchema(),
+					},
+				},
+			},
+			"oblivus_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"datacenter": {
+							Type:        schema.TypeString,
+							Description: "",
+							Required:    true,
+						},
+						"token_secret_link": {
+							Type:        schema.TypeString,
+							Description: "Link to a secret holding Oblivus access key.",
+							Required:    true,
+						},
+						"node_pool": Mk8sOblivusNodePoolSchema(),
+						"ssh_keys": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
+						"autoscaler":          Mk8sAutoscalerSchema(),
+						"pre_install_script": {
+							Type:        schema.TypeString,
+							Description: "Optional shell script that will be run before K8s is installed.",
+							Optional:    true,
+						},
 					},
 				},
 			},
@@ -679,7 +715,7 @@ func resourceMk8sRead(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "linode_provider", "lambdalabs_provider", "ephemeral_provider", "add_ons") {
+	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "linode_provider", "oblivus_provider", "lambdalabs_provider", "ephemeral_provider", "add_ons") {
 		c := m.(*client.Client)
 
 		// Define & Build
@@ -764,6 +800,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("oblivus_provider", flattenMk8sOblivusProvider(mk8s.Spec.Provider.Oblivus)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("lambdalabs_provider", flattenMk8sLambdalabsProvider(mk8s.Spec.Provider.Lambdalabs)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -777,10 +817,8 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 		}
 	}
 
-	if mk8s.Status != nil {
-		if err := d.Set("status", flattenMk8sStatus(mk8s.Status)); err != nil {
-			return diag.FromErr(err)
-		}
+	if err := d.Set("status", flattenMk8sStatus(mk8s.Status)); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil
@@ -832,6 +870,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("linode_provider") != nil {
 		output.Linode = buildMk8sLinodeProvider(d.Get("linode_provider").([]interface{}))
+	}
+
+	if d.Get("oblivus_provider") != nil {
+		output.Oblivus = buildMk8sOblivusProvider(d.Get("oblivus_provider").([]interface{}))
 	}
 
 	if d.Get("lambdalabs_provider") != nil {
@@ -1088,6 +1130,41 @@ func buildMk8sLinodeProvider(specs []interface{}) *client.Mk8sLinodeProvider {
 	return &output
 }
 
+func buildMk8sOblivusProvider(specs []interface{}) *client.Mk8sOblivusProvider {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sOblivusProvider{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Datacenter = GetString(spec["datacenter"])
+	output.TokenSecretLink = GetString(spec["token_secret_link"])
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sOblivusNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	if spec["ssh_keys"] != nil {
+		output.SshKeys = BuildStringTypeSet(spec["ssh_keys"])
+	}
+
+	if spec["unmanaged_node_pool"] != nil {
+		output.UnmanagedNodePools = buildMk8sGenericNodePools(spec["unmanaged_node_pool"].([]interface{}))
+	}
+
+	if spec["autoscaler"] != nil {
+		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
+	}
+
+	if spec["pre_install_script"] != nil {
+		output.PreInstallScript = GetString(spec["pre_install_script"])
+	}
+
+	return &output
+}
+
 func buildMk8sLambdalabsProvider(specs []interface{}) *client.Mk8sLambdalabsProvider {
 
 	if len(specs) == 0 || specs[0] == nil {
@@ -1297,6 +1374,39 @@ func buildMk8sLinodeNodePools(specs []interface{}) *[]client.Mk8sLinodePool {
 		nodePool.SubnetId = GetString(spec["subnet_id"])
 		nodePool.MinSize = GetInt(spec["min_size"])
 		nodePool.MaxSize = GetInt(spec["max_size"])
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
+func buildMk8sOblivusNodePools(specs []interface{}) *[]client.Mk8sOblivusPool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sOblivusPool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sOblivusPool{}
+		nodePool.Name = GetString(spec["name"])
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
+		}
+
+		nodePool.MinSize = GetInt(spec["min_size"])
+		nodePool.MaxSize = GetInt(spec["max_size"])
+		nodePool.InstanceType = GetString(spec["instance_type"])
 
 		output = append(output, nodePool)
 	}
@@ -1915,6 +2025,42 @@ func flattenMk8sLinodeProvider(linode *client.Mk8sLinodeProvider) []interface{} 
 	}
 }
 
+func flattenMk8sOblivusProvider(oblivus *client.Mk8sOblivusProvider) []interface{} {
+
+	if oblivus == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"datacenter":        *oblivus.Datacenter,
+		"token_secret_link": *oblivus.TokenSecretLink,
+	}
+
+	if oblivus.NodePools != nil {
+		spec["node_pool"] = flattenMk8sOblivusNodePools(oblivus.NodePools)
+	}
+
+	if oblivus.SshKeys != nil {
+		spec["ssh_keys"] = FlattenStringTypeSet(oblivus.SshKeys)
+	}
+
+	if oblivus.UnmanagedNodePools != nil {
+		spec["unmanaged_node_pool"] = flattenMk8sGenericNodePools(oblivus.UnmanagedNodePools)
+	}
+
+	if oblivus.Autoscaler != nil {
+		spec["autoscaler"] = flattenMk8sAutoscaler(oblivus.Autoscaler)
+	}
+
+	if oblivus.PreInstallScript != nil {
+		spec["pre_install_script"] = *oblivus.PreInstallScript
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func flattenMk8sLambdalabsProvider(lambdalabs *client.Mk8sLambdalabsProvider) []interface{} {
 
 	if lambdalabs == nil {
@@ -2116,6 +2262,38 @@ func flattenMk8sLinodeNodePools(nodePools *[]client.Mk8sLinodePool) []interface{
 		spec["subnet_id"] = *pool.SubnetId
 		spec["min_size"] = *pool.MinSize
 		spec["max_size"] = *pool.MaxSize
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenMk8sOblivusNodePools(nodePools *[]client.Mk8sOblivusPool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name": *pool.Name,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
+		}
+
+		spec["min_size"] = *pool.MinSize
+		spec["max_size"] = *pool.MaxSize
+		spec["instance_type"] = *pool.InstanceType
 
 		specs = append(specs, spec)
 	}
@@ -2760,6 +2938,29 @@ func Mk8sLinodeNodePoolSchema() *schema.Schema {
 				},
 				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
 				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
+			},
+		},
+	}
+}
+
+func Mk8sOblivusNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":     Mk8sGenericNodePoolNameSchema(),
+				"labels":   Mk8sGenericNodePoolLabelsSchema(),
+				"taint":    Mk8sGenericNodePoolTaintsSchema(),
+				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
+				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
+				"instance_type": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
 			},
 		},
 	}
