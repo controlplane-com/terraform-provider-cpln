@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+var roles = []interface{}{"roles/viewer", "roles/iam.serviceAccountAdmin", "roles/iam.serviceAccountTokenCreator"}
 var cloudProvidersNames = []string{
 	"aws", "azure", "gcp", "ngs",
 }
@@ -313,11 +314,6 @@ func setCloudAccount(d *schema.ResourceData, ca *client.CloudAccount, orgName st
 				return diag.FromErr(err)
 			}
 
-			roles := []interface{}{"roles/viewer", "roles/iam.serviceAccountAdmin", "roles/iam.serviceAccountTokenCreator"}
-			if err := d.Set("gcp_roles", roles); err != nil {
-				return diag.FromErr(err)
-			}
-
 			if err := d.Set("gcp", gcp); err != nil {
 				return diag.FromErr(err)
 			}
@@ -325,6 +321,10 @@ func setCloudAccount(d *schema.ResourceData, ca *client.CloudAccount, orgName st
 	}
 
 	if err := SetSelfLink(ca.Links, d); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("gcp_roles", roles); err != nil {
 		return diag.FromErr(err)
 	}
 
