@@ -139,7 +139,7 @@ func testAccControlPlaneOrgTracingControlPlane(sampling string, withCustomTags b
 	`, sampling, customTags)
 }
 
-func testAccCheckControlPlaneOrgTracingExists(resourceName string, sampling int, tracingType string, withCustomTags bool) resource.TestCheckFunc {
+func testAccCheckControlPlaneOrgTracingExists(resourceName string, sampling float64, tracingType string, withCustomTags bool) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		_, ok := s.RootModule().Resources[resourceName]
@@ -245,7 +245,7 @@ func TestControlPlane_BuildControlPlaneTracing_WithCustomTags(t *testing.T) {
 
 /*** Generate ***/
 
-func generateLightstepTracing(sampling int, credentials string) (*client.Tracing, *client.Tracing) {
+func generateLightstepTracing(sampling float64, credentials string) (*client.Tracing, *client.Tracing) {
 	endpoint := "test.cpln.local:8080"
 
 	flattened := generateFlatTestLightstepTracing(sampling, endpoint, credentials)
@@ -263,7 +263,7 @@ func generateLightstepTracing(sampling int, credentials string) (*client.Tracing
 	return lightstepTracing, expectedLightstepTracing
 }
 
-func generateOtelTracing(sampling int, endpoint string) (*client.Tracing, *client.Tracing) {
+func generateOtelTracing(sampling float64, endpoint string) (*client.Tracing, *client.Tracing) {
 	flattened := generateFlatTestOtelTracing(sampling, endpoint)
 	otelTracing := buildOtelTracing(flattened)
 	expectedOtelTracing := &client.Tracing{
@@ -278,7 +278,7 @@ func generateOtelTracing(sampling int, endpoint string) (*client.Tracing, *clien
 	return otelTracing, expectedOtelTracing
 }
 
-func generateControlPlaneTracing(sampling int, withCustomTags bool) (*client.Tracing, *client.Tracing) {
+func generateControlPlaneTracing(sampling float64, withCustomTags bool) (*client.Tracing, *client.Tracing) {
 	var customTags *map[string]interface{}
 
 	if withCustomTags {
@@ -302,7 +302,7 @@ func generateControlPlaneTracing(sampling int, withCustomTags bool) (*client.Tra
 
 // Flatten //
 
-func generateFlatTestLightstepTracing(sampling int, endpoint string, credentials string) []interface{} {
+func generateFlatTestLightstepTracing(sampling float64, endpoint string, credentials string) []interface{} {
 	spec := map[string]interface{}{
 		"sampling":    sampling,
 		"endpoint":    endpoint,
@@ -314,7 +314,7 @@ func generateFlatTestLightstepTracing(sampling int, endpoint string, credentials
 	}
 }
 
-func generateFlatTestOtelTracing(sampling int, endpoint string) []interface{} {
+func generateFlatTestOtelTracing(sampling float64, endpoint string) []interface{} {
 	spec := map[string]interface{}{
 		"sampling": sampling,
 		"endpoint": endpoint,
@@ -325,7 +325,7 @@ func generateFlatTestOtelTracing(sampling int, endpoint string) []interface{} {
 	}
 }
 
-func generateFlatTestControlPlaneTracing(sampling int, customTags *map[string]interface{}) []interface{} {
+func generateFlatTestControlPlaneTracing(sampling float64, customTags *map[string]interface{}) []interface{} {
 	spec := map[string]interface{}{
 		"sampling": sampling,
 	}

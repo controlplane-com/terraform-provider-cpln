@@ -162,7 +162,10 @@ func flattenLightstepTracing(trace *client.Tracing) []interface{} {
 
 		outputMap["sampling"] = *trace.Sampling
 		outputMap["endpoint"] = *trace.Provider.Lightstep.Endpoint
-		outputMap["credentials"] = *trace.Provider.Lightstep.Credentials
+
+		if trace.Provider.Lightstep.Credentials != nil {
+			outputMap["credentials"] = *trace.Provider.Lightstep.Credentials
+		}
 
 		if trace.CustomTags != nil {
 			outputMap["custom_tags"] = flattenCustomTags(trace.CustomTags)
@@ -188,7 +191,7 @@ func buildLightStepTracing(tracing []interface{}) *client.Tracing {
 		iTrace.Credentials = GetString(trace["credentials"])
 
 		return &client.Tracing{
-			Sampling:   GetInt(trace["sampling"]),
+			Sampling:   GetFloat64(trace["sampling"]),
 			CustomTags: buildCustomTags(GetStringMap(trace["custom_tags"])),
 			Provider: &client.Provider{
 				Lightstep: iTrace,
@@ -231,7 +234,7 @@ func buildOtelTracing(tracing []interface{}) *client.Tracing {
 		iTrace.Endpoint = GetString(trace["endpoint"])
 
 		return &client.Tracing{
-			Sampling:   GetInt(trace["sampling"]),
+			Sampling:   GetFloat64(trace["sampling"]),
 			CustomTags: buildCustomTags(GetStringMap(trace["custom_tags"])),
 			Provider: &client.Provider{
 				Otel: iTrace,
@@ -269,7 +272,7 @@ func buildControlPlaneTracing(tracing []interface{}) *client.Tracing {
 	iTrace := &client.ControlPlaneTracing{}
 
 	return &client.Tracing{
-		Sampling:   GetInt(trace["sampling"]),
+		Sampling:   GetFloat64(trace["sampling"]),
 		CustomTags: buildCustomTags(GetStringMap(trace["custom_tags"])),
 		Provider: &client.Provider{
 			ControlPlane: iTrace,

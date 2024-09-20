@@ -34,7 +34,7 @@ type CustomTagValue struct {
 
 // Tracing - Tracing
 type Tracing struct {
-	Sampling   *int                  `json:"sampling,omitempty"`
+	Sampling   *float64              `json:"sampling,omitempty"`
 	Provider   *Provider             `json:"provider,omitempty"`
 	CustomTags *map[string]CustomTag `json:"customTags,omitempty"`
 }
@@ -61,7 +61,7 @@ func LightstepSchema(isExactlyOneOf bool) *schema.Schema {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"sampling": {
-					Type:         schema.TypeInt,
+					Type:         schema.TypeFloat,
 					Description:  "Determines what percentage of requests should be traced.",
 					Required:     true,
 					ValidateFunc: validateSamplingFunc,
@@ -96,7 +96,7 @@ func OtelSchema(isExactlyOneOf bool) *schema.Schema {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"sampling": {
-					Type:         schema.TypeInt,
+					Type:         schema.TypeFloat,
 					Description:  "Determines what percentage of requests should be traced.",
 					Required:     true,
 					ValidateFunc: validateSamplingFunc,
@@ -126,7 +126,7 @@ func ControlPlaneTracingSchema(isExactlyOneOf bool) *schema.Schema {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"sampling": {
-					Type:         schema.TypeInt,
+					Type:         schema.TypeFloat,
 					Description:  "Determines what percentage of requests should be traced.",
 					Required:     true,
 					ValidateFunc: validateSamplingFunc,
@@ -144,9 +144,9 @@ func ControlPlaneTracingSchema(isExactlyOneOf bool) *schema.Schema {
 }
 
 func validateSamplingFunc(val interface{}, key string) (warns []string, errs []error) {
-	v := val.(int)
+	v := val.(float64)
 	if v < 0 || v > 100 {
-		errs = append(errs, fmt.Errorf("%q must be between 0 and 100 inclusive, got: %d", key, v))
+		errs = append(errs, fmt.Errorf("%q must be between 0 and 100 inclusive, got: %.2f", key, v))
 		return
 	}
 

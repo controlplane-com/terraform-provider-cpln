@@ -44,10 +44,10 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "50", gvcEnvoyJson, 1),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "55.55", gvcEnvoyJson, 1),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(50, gvcEnvoyJson, 1, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(55.55, gvcEnvoyJson, 1, &testGvc),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
@@ -186,7 +186,7 @@ func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client
 	}
 }
 
-func testAccCheckControlPlaneGvcAttributes(sampling int, envoy string, trustedProxies int, gvc *client.Gvc) resource.TestCheckFunc {
+func testAccCheckControlPlaneGvcAttributes(sampling float64, envoy string, trustedProxies int, gvc *client.Gvc) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		tags := *gvc.Tags
 
