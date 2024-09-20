@@ -37,6 +37,23 @@ func SetBase(d *schema.ResourceData, base client.Base) error {
 	return nil
 }
 
+func FormatTypeToString(v interface{}) string {
+	switch v := v.(type) {
+	case float64, float32:
+		return fmt.Sprintf("%.0f", v)
+	case int, int8, int16, int32, int64:
+		return fmt.Sprintf("%d", v)
+	case uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", v)
+	case bool:
+		return fmt.Sprintf("%t", v)
+	case string:
+		return v
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
 func GetTags(tags *map[string]interface{}) map[string]interface{} {
 
 	stringTypes := make(map[string]interface{})
@@ -53,7 +70,7 @@ func GetTags(tags *map[string]interface{}) map[string]interface{} {
 				continue
 			}
 
-			stringTypes[k] = fmt.Sprintf("%v", v)
+			stringTypes[k] = FormatTypeToString(v)
 		}
 	}
 
