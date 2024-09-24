@@ -290,3 +290,12 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add headers to domain route resource.
     - Force a tag indicating resource was created by terraform.
     - Set networking as required in mk8s resource.
+- v1.1.32
+    - Update docs to include import syntax.
+    - Ignore server-side tags for location resource.
+    - Enable term rel in query.
+    - Fix bug in tracing.
+    - Fix plan not empty issue in cloud account.
+    - Fix tag format.
+    - Add geo locations to security options in workload.
+    - Add load balancer to workload resource.
