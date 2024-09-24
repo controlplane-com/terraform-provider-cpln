@@ -9,22 +9,24 @@ Each header below (i.e., `cpln_agent`) corresponds to a resource within the Cont
 Authenticate using one of the following methods:
 
 1. CLI
-  - [Install the CLI](https://docs.controlplane.com/reference/cli#installation) and execute the command `cpln login`. After a successful login, the provider will use the `default` profile to authenticate. To use a different profile, set the `profile` variable when initializing the provider or set the `CPLN_PROFILE` environment variable.
+
+- [Install the CLI](https://docs.controlplane.com/reference/cli#installation) and execute the command `cpln login`. After a successful login, the provider will use the `default` profile to authenticate. To use a different profile, set the `profile` variable when initializing the provider or set the `CPLN_PROFILE` environment variable.
 
 2. Token
-  - The `token` variable can be set when initializing the provider or by setting the `CPLN_TOKEN` environment variable.
-  - The value of `token` can be either:
-      - The output of running the command `cpln profile token PROFILE_NAME`, or
-      - In the case of a [Service Account](https://docs.controlplane.com/reference/serviceaccount), the value of one of it's [keys](https://docs.controlplane.com/reference/serviceaccount#keys)
 
-**Note** To perform automated tasks using Terraform, the preferred method is to use a `Service Account` and one of it's `keys` as the `token` value. 
+- The `token` variable can be set when initializing the provider or by setting the `CPLN_TOKEN` environment variable.
+- The value of `token` can be either:
+  - The output of running the command `cpln profile token PROFILE_NAME`, or
+  - In the case of a [Service Account](https://docs.controlplane.com/reference/serviceaccount), the value of one of it's [keys](https://docs.controlplane.com/reference/serviceaccount#keys)
 
+**Note** To perform automated tasks using Terraform, the preferred method is to use a `Service Account` and one of it's `keys` as the `token` value.
 
 ## Provider Declaration
 
 ### Required {} --exclude
 
 - **org** (String) The Control Plane org that this provider will perform actions against. Can be specified with the `CPLN_ORG` environment variable.
+
 ### Optional {} --exclude
 
 - **endpoint** (String) The Control Plane Data Service API endpoint. Default is: "https://api.cpln.io". Can be specified with the `CPLN_ENDPOINT` environment variable.
@@ -57,18 +59,18 @@ provider "cpln" {
   endpoint = var.endpoint
 
   # Optional
-  # Can use CPLN_PROFILE Environment Variable  
+  # Can use CPLN_PROFILE Environment Variable
   profile = var.profile
 
   # Optional
-  # Can use CPLN_TOKEN Environment Variable 
+  # Can use CPLN_TOKEN Environment Variable
   token = var.token
 }
 ```
 
 # cpln_agent {#cpln_agent}
 
-Support the creation of an account [Agent](https://docs.controlplane.com/reference/agent). Multiple agents can be created for an account. 
+Support the creation of an account [Agent](https://docs.controlplane.com/reference/agent). Multiple agents can be created for an account.
 
 These allow secure communication between workloads running on the Control Plane platform and TCP endpoints inside private networks such as VPCs.
 
@@ -83,12 +85,11 @@ These allow secure communication between workloads running on the Control Plane 
 - **description** (String) Description of the Agent.
 - **tags** (Map of String) Key-value map of resource tags.
 
-
 ## Outputs {} --exclude
 
 The following attributes are exported:
 
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **user_data** (String, Sensitive) The JSON output used when [creating an agent](https://docs.controlplane.com/guides/agent).
 
 ## Example Usage {} --exclude
@@ -105,7 +106,6 @@ resource "cpln_agent" "example" {
   }
 }
 ```
-  
 
 # cpln_cloud_account {#cpln_cloud_account}
 
@@ -115,7 +115,7 @@ The configuration at the associated cloud provider must exist before using Terra
 
 Refer to the [Cloud Account Reference Page](https://docs.controlplane.com/reference/cloudaccount)
 for additional details.
- 
+
 ## Declaration {} --exclude
 
 ### Required {} --exclude
@@ -126,30 +126,23 @@ for additional details.
 
 - **description** (String) Description of the Cloud Account.
 - **tags** (Map of String) Key-value map of resource tags.
-  
 - **aws** (Block List, Max: 1) ([see below](#nestedblock.aws)).
 - **azure** (Block List, Max: 1) ([see below](#nestedblock.azure)).
 - **gcp** (Block List, Max: 1) ([see below](#nestedblock.gcp)).
 
-
-
- ### aws {#nestedblock.aws} --exclude
+### aws {#nestedblock.aws} --exclude
 
 Required:
 
 - **role_arn** (String) Amazon Resource Name (ARN) Role.
 
-
-
- ### azure {#nestedblock.azure} --exclude
+### azure {#nestedblock.azure} --exclude
 
 Required:
 
 - **secret_link** (String) Full link to an Azure secret. (e.g., /org/ORG_NAME/secret/AZURE_SECRET).
 
-
-
- ### gcp {#nestedblock.gcp} --exclude
+### gcp {#nestedblock.gcp} --exclude
 
 Required:
 
@@ -165,7 +158,7 @@ The following attributes are exported:
 ## Example Usage {} --exclude
 
 ```terraform
-# AWS Cloud Account 
+# AWS Cloud Account
 resource "cpln_cloud_account" "aws" {
 
   name        = "cloud-account-aws"
@@ -181,7 +174,7 @@ resource "cpln_cloud_account" "aws" {
   }
 }
 
-# Azure Cloud Account 
+# Azure Cloud Account
 resource "cpln_cloud_account" "azure" {
 
   name        = "cloud-account-azure"
@@ -198,7 +191,7 @@ resource "cpln_cloud_account" "azure" {
   }
 }
 
-# GCP Cloud Account 
+# GCP Cloud Account
 resource "cpln_cloud_account" "gcp" {
 
   name        = "cloud-account-gcp"
@@ -222,9 +215,9 @@ Manages an org's custom [Domain](https://docs.controlplane.com/reference/domain)
 The required DNS entries must exist before using Terraform to manage a `Domain`.
 
 Refer to the [Configure a Domain](https://docs.controlplane.com/guides/configure-domain#dns-entries)
-page for additional details. 
+page for additional details.
 
-During the creation of a domain, Control Plane will verify that the DNS entries exists. If they do 
+During the creation of a domain, Control Plane will verify that the DNS entries exists. If they do
 not exist, the Terraform script will fail.
 
 ## Declaration {} --exclude
@@ -242,7 +235,7 @@ not exist, the Terraform script will fail.
 
 The following attributes are exported:
 
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage {} --exclude
 
@@ -261,9 +254,9 @@ resource "cpln_domain" "example" {
 
 # cpln_group {#cpln_group}
 
-Manages an org's [Groups](https://docs.controlplane.com/reference/group). 
+Manages an org's [Groups](https://docs.controlplane.com/reference/group).
 
-Groups membership can contain [users](https://docs.controlplane.com/reference/user), [service accounts](https://docs.controlplane.com/reference/serviceaccount), and [custom queries](https://docs.controlplane.com/reference/group#query). 
+Groups membership can contain [users](https://docs.controlplane.com/reference/user), [service accounts](https://docs.controlplane.com/reference/serviceaccount), and [custom queries](https://docs.controlplane.com/reference/group#query).
 
 ## Declaration {} --exclude
 
@@ -275,43 +268,38 @@ Groups membership can contain [users](https://docs.controlplane.com/reference/us
 
 - **description** (String) Description of Group.
 - **tags** (Map of String) Key-value map of resource tags.
-  
 - **service_accounts** (List of String) List of service accounts that exists within the configured org. Group membership will fail if the service account does not exits within the org.
 - **user_ids_and_emails** (List of String) List of either the user ID or email address for a user that exists within the configured org. Group membership will fail if the user ID / email does not exist within the org.
 
 - **member_query** (Block List, Max: 1) ([see below](#nestedblock.member_query)).
 
-
-
- ### member_query {#nestedblock.member_query} --exclude
+### member_query {#nestedblock.member_query} --exclude
 
 Optional:
 
 - **fetch** (String) Type of fetch. Specify either: `links` or `items`. Default: `items`.
 - **spec** (Block List, Max: 1) ([see below](#nestedblock.member_query.spec)).
 
-
- ### member_query.spec {#nestedblock.member_query.spec} --exclude
+### member_query.spec {#nestedblock.member_query.spec} --exclude
 
 Optional:
 
 - **match** (String) Type of match. Available values: `all`, `any`, `none`. Default: `all`.
 - **terms** (Block List) ([see below](#nestedblock.member_query.spec.terms)).
 
-
- ### member_query.spec.terms {#nestedblock.member_query.spec.terms} --exclude
+### member_query.spec.terms {#nestedblock.member_query.spec.terms} --exclude
 
 <!-- Terms can only contain one of the following attributes: `property`, `rel`, `tag`. -->
-Terms can only contain one of the following attributes: `property`, `tag`.
+
+Terms can only contain one of the following attributes: `property`, `rel`, `tag`.
 
 Optional:
 
 - **op** (String) Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.
 
 - **property** (String) Property to use for query evaluation.
-<!-- - **rel** (String) Rel to use use for query evaluation. -->
+- **rel** (String) Rel to use use for query evaluation.
 - **tag** (String) Tag key to use for query evaluation.
-  
 - **value** (String) Testing value for query evaluation.
 
 ## Outputs {} --exclude
@@ -319,7 +307,7 @@ Optional:
 The following attributes are exported:
 
 - **origin** (String) Origin of the service account. Either `builtin` or `default`.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage {} --exclude
 
@@ -376,19 +364,18 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **name** (String) Name of the GVC.
 - **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 
-
 ### Optional {} --exclude
 
 - **description** (String) Description of the GVC.
 - **tags** (Map of String) Key-value map of resource tags.
 
 - **domain** (String) Custom domain used by associated workloads.
-  
+
 ## Outputs {} --exclude
 
 The following attributes are exported:
 
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage {} --exclude
 
@@ -414,7 +401,6 @@ resource "cpln_gvc" "example" {
 
 Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 
-
 ## Declaration {} --exclude
 
 ### Required {} --exclude
@@ -426,20 +412,17 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 
 - **description** (String) Description of the Identity.
 - **tags** (Map of String) Key-value map of resource tags.
-  
 - **aws_access_policy** (Block List, Max: 1) ([see below](#nestedblock.aws_access_policy)).
 - **azure_access_policy** (Block List, Max: 1) ([see below](#nestedblock.azure_access_policy)).
 - **gcp_access_policy** (Block List, Max: 1) ([see below](#nestedblock.gcp_access_policy)).
 
 - **network_resource** (Block List) ([see below](#nestedblock.network_resource)).
 
-
-
- ### aws_access_policy {#nestedblock.aws_access_policy} --exclude
+### aws_access_policy {#nestedblock.aws_access_policy} --exclude
 
 Required:
 
-- **cloud_account_link** (String) Full link to referenced cloud account. 
+- **cloud_account_link** (String) Full link to referenced cloud account.
 
 Optional:
 
@@ -448,51 +431,42 @@ Optional:
 - **policy_refs** (List of String) List of policies.
 - **role_name** (String) Role name.
 
-
-
- ### azure_access_policy {#nestedblock.azure_access_policy} --exclude
+### azure_access_policy {#nestedblock.azure_access_policy} --exclude
 
 Optional:
 
-- **cloud_account_link** (String) Full link to referenced cloud account. 
+- **cloud_account_link** (String) Full link to referenced cloud account.
 - **role_assignment** (Block List) ([see below](#nestedblock.azure_access_policy.role_assignment)).
 
-
- ### azure_access_policy.role_assignment {#nestedblock.azure_access_policy.role_assignment} --exclude
+### azure_access_policy.role_assignment {#nestedblock.azure_access_policy.role_assignment} --exclude
 
 Optional:
 
 - **roles** (List of String) List of assigned roles.
 - **scope** (String) Scope of roles.
 
-
-
-
- ### gcp_access_policy {#nestedblock.gcp_access_policy} --exclude
+### gcp_access_policy {#nestedblock.gcp_access_policy} --exclude
 
 **Note** The GCP access policy can either contain an existing service_account or multiple bindings.
 
-- **cloud_account_link** (String) Full link to referenced Cloud Account. 
+- **cloud_account_link** (String) Full link to referenced Cloud Account.
 - **scopes** (String) Comma delimited list of GCP scope URLs.
 
 - **service_account** (String) Name of existing GCP service account.
 
 - **binding** (Block List) ([see below](#nestedblock.gcp_access_policy.binding)).
 
-
- ### gcp_access_policy.binding {#nestedblock.gcp_access_policy.binding} --exclude
+### gcp_access_policy.binding {#nestedblock.gcp_access_policy.binding} --exclude
 
 Optional:
 
 - **resource** (String) Name of resource for binding.
 - **roles** (List of String) List of allowed roles.
 
-
-
-
- ### network_resource {#nestedblock.network_resource} --exclude
+### network_resource {#nestedblock.network_resource} --exclude
 
 A network resource can be configured with:
+
 - A fully qualified domain name (FQDN) and ports.
 - An FQDN, resolver IP, and ports.
 - IP's and ports.
@@ -501,7 +475,6 @@ Required:
 
 - **name** (String) Name of the Network Resource.
 - **agent_link** (String) Full link to referenced Agent.
-
 
 Optional:
 
@@ -517,7 +490,6 @@ The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Identity.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
-
 
 ## Example Usage {} --exclude
 
@@ -676,8 +648,6 @@ resource "cpln_identity" "example" {
 
 Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 
-
-
 ## Declaration {} --exclude
 
 ### Required {} --exclude
@@ -688,56 +658,47 @@ Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 
 - **description** (String) Description of the Policy.
 - **tags** (Map of String) Key-value map of resource tags.
-  
 - **target_kind** (String) The kind of resource to target (e.g., gvc, serviceaccount, etc.).
 
 - **target** (String) Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.
-    
 - **target_links** (List of String) List of the targets this policy will be applied to. Not used if `target` is set to `all`.
 - **target_query** (Block List, Max: 1) ([see below](#nestedblock.target_query)).
 
 - **binding** (Block Set, Max: 50) ([see below](#nestedblock.binding)).
 
-
- ### binding {#nestedblock.binding} --exclude
+### binding {#nestedblock.binding} --exclude
 
 Optional:
 
-- **permissions** (Set of String) List of permissions to allow. 
+- **permissions** (Set of String) List of permissions to allow.
 - **principal_links** (Set of String) List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`.
 
-
-
- ### target_query {#nestedblock.target_query} --exclude
+### target_query {#nestedblock.target_query} --exclude
 
 Optional:
 
 - **fetch** (String) Type of fetch. Either: `links` or `items`. Default: `items`.
 - **spec** (Block List, Max: 1) ([see below](#nestedblock.target_query.spec)).
 
-
- ### target_query.spec {#nestedblock.target_query.spec} --exclude
+### target_query.spec {#nestedblock.target_query.spec} --exclude
 
 Optional:
 
 - **match** (String) Type of match. Available values: `all`, `any`, `none`. Default: `all`.
 - **terms** (Block List) ([see below](#nestedblock.target_query.spec.terms)).
 
+### target_query.spec.terms {#nestedblock.target_query.spec.terms} --exclude
 
- ### target_query.spec.terms {#nestedblock.target_query.spec.terms} --exclude
-
-Terms can only contain one of the following attributes: `property`, `tag`.
+Terms can only contain one of the following attributes: `property`, `rel`, `tag`.
 
 Optional:
 
 - **op** (String) Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.
 
 - **property** (String) Property to use for query evaluation.
-<!-- - **rel** (String) Rel to use use for query evaluation. -->
+- **rel** (String) Rel to use use for query evaluation.
 - **tag** (String) Tag key to use for query evaluation.
-  
 - **value** (String) Testing value for query evaluation.
-
 
 ## Outputs {} --exclude
 
@@ -837,77 +798,62 @@ Terraform state can contain sensitive data. Please review [Terraform's recommend
 - **tls** (Block List, Max: 1) ([see below](#nestedblock.tls)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
 - **userpass** (Block List, Max: 1) ([see below](#nestedblock.userpass)) [Reference Page](https://docs.controlplane.com/reference/secret#tls).
 
-
-
- ### aws {#nestedblock.aws} --exclude
+### aws {#nestedblock.aws} --exclude
 
 Optional:
 
-- **access_key** (String, Sensitive) Access Key provided by AWS. 
+- **access_key** (String, Sensitive) Access Key provided by AWS.
 - **role_arn** (String) Role ARN provided by AWS.
-- **secret_key** (String, Sensitive) Secret Key provided by AWS. 
+- **secret_key** (String, Sensitive) Secret Key provided by AWS.
 
-
-
- ### azure_connector {#nestedblock.azure_connector} --exclude
+### azure_connector {#nestedblock.azure_connector} --exclude
 
 Optional:
 
 - **code** (String, Sensitive) Code/Key to authenticate to deployment URL.
 - **url** (String, Sensitive) Deployment URL.
 
-
-
- ### ecr {#nestedblock.ecr} --exclude
+### ecr {#nestedblock.ecr} --exclude
 
 [Reference Page](https://docs.controlplane.com/reference/secret#ecr)
 
 Optional:
 
-- **access_key** (String) Access Key provided by AWS. 
-- **repos** (Set of String) List of ECR repositories. 
-- **role_arn** (String) Role ARN provided by AWS. 
+- **access_key** (String) Access Key provided by AWS.
+- **repos** (Set of String) List of ECR repositories.
+- **role_arn** (String) Role ARN provided by AWS.
 - **secret_key** (String, Sensitive) Secret Key provided by AWS.
 
-
-
- ### keypair {#nestedblock.keypair} --exclude
+### keypair {#nestedblock.keypair} --exclude
 
 Optional:
 
-- **passphrase** (String, Sensitive) Passphrase for private key. 
-- **public_key** (String) Public Key. 
-- **secret_key** (String, Sensitive) Secret/Private Key. 
+- **passphrase** (String, Sensitive) Passphrase for private key.
+- **public_key** (String) Public Key.
+- **secret_key** (String, Sensitive) Secret/Private Key.
 
-
-
- ### opaque {#nestedblock.opaque} --exclude
+### opaque {#nestedblock.opaque} --exclude
 
 Optional:
 
-- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`. 
-- **payload** (String, Sensitive)  Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.
+- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`.
+- **payload** (String, Sensitive) Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.
 
-
-
- ### tls {#nestedblock.tls} --exclude
+### tls {#nestedblock.tls} --exclude
 
 Optional:
 
-- **cert** (String) Public Certificate. 
-- **chain** (String) Chain Certificate. 
-- **key** (String, Sensitive) Private Certificate. 
+- **cert** (String) Public Certificate.
+- **chain** (String) Chain Certificate.
+- **key** (String, Sensitive) Private Certificate.
 
-
-
- ### userpass {#nestedblock.userpass} --exclude
+### userpass {#nestedblock.userpass} --exclude
 
 Optional:
 
-- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`. 
-- **password** (String, Sensitive) Password. 
-- **username** (String) Username. 
-
+- **encoding** (String) Available encodings: `plain`, `base64`. Default: `plain`.
+- **password** (String, Sensitive) Password.
+- **username** (String) Username.
 
 ## Outputs {} --exclude
 
@@ -916,8 +862,7 @@ The following attributes are exported:
 - **cpln_id** (String) ID, in GUID format, of the Secret.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **tags** (Map of String) Key-value map of resource tags. Includes any server generated tags.
-  
-  
+
 ## Example Usage {} --exclude
 
 ```terraform
@@ -953,7 +898,7 @@ wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
 5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
 YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
 u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
+-----END CERTIFICATE-----
 EOT
 }
 
@@ -1089,8 +1034,8 @@ resource "cpln_secret" "azure_sdk" {
 resource "cpln_secret" "azure_connector" {
 
   name = "azureconnector-${var.random}"
-  description = "azureconnector description ${var.random}" 
-  
+  description = "azureconnector description ${var.random}"
+
   tags = {
     terraform_generated = "true"
     acceptance_test = "true"
@@ -1101,7 +1046,7 @@ resource "cpln_secret" "azure_connector" {
 
     # Required
     url  = "https://example.azurewebsites.net/api/iam-broker"
-    
+
     # Required
     code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
   }
@@ -1288,7 +1233,6 @@ resource "cpln_secret" "userpass" {
 
 Manages an org's [Service Accounts](https://docs.controlplane.com/reference/serviceaccount).
 
-
 ## Declaration {} --exclude
 
 ### Required {} --exclude
@@ -1306,7 +1250,7 @@ The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Secret.
 - **origin** (String) Origin of the Policy. Either `builtin` or `default`.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage {} --exclude
 
@@ -1331,7 +1275,7 @@ resource "cpln_service_account_key" "example" {
 
 resource "cpln_service_account_key" "example_02" {
 
-  // When adding another key, use `depends_on` to add the keys synchronously 
+  // When adding another key, use `depends_on` to add the keys synchronously
   depends_on = [cpln_service_account_key.example]
 
   service_account_name = cpln_service_account.example.name
@@ -1392,7 +1336,7 @@ resource "cpln_service_account_key" "example" {
 
 resource "cpln_service_account_key" "example_02" {
 
-  // When adding another key, use `depends_on` to add the keys synchronously 
+  // When adding another key, use `depends_on` to add the keys synchronously
   depends_on = [cpln_service_account_key.example]
 
   service_account_name = cpln_service_account.example.name
@@ -1419,7 +1363,6 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **name** (String) Name of the Workload.
 - **gvc** (String) Name of the associated GVC.
 
-
 ### Optional {} --exclude
 
 - **description** (String) Description of the Workload.
@@ -1431,56 +1374,46 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **local_options** (Block List, Max: 1) ([see below](#nestedblock.options)).
 - **tags** (Map of String) Key-value map of resource tags.
 
-
-
- ### container {#nestedblock.container} --exclude
+### container {#nestedblock.container} --exclude
 
 **Note** A Workload must contain at least one container.
 
 Required:
 
 - **name** (String) Name of the container.
+
   - The following rules apply to the name of a container:
     - Cannot be: 'istio-proxy', 'queue-proxy', 'istio-validation'.
     - Cannot start with: `cpln_`.
 
 - **image** (String) The full image and tag path.
 
-
 Optional:
 
 - **port** (Number) The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`.
 
-**Note**  The ports listed below are blocked and are not allowed to be used.
+**Note** The ports listed below are blocked and are not allowed to be used.
 Containers which attempt to use these ports will not be able to bind:
 8012, 8022, 9090, 9091, 15000, 15001, 15006, 15020, 15021, 15090, 41000.
 
-
-  
 - **args** (List of String) Command line arguments passed to the container at runtime.
 - **env** (Map of String) Name-Value list of environment variables.
-- **command** (String) Override the entry point. 
+- **command** (String) Override the entry point.
 - **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
 - **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
-  
-- **liveness_probe** (Block List, Max: 1) Liveness Probe  ([see below](#nestedblock.container.liveness_probe)).
+- **liveness_probe** (Block List, Max: 1) Liveness Probe ([see below](#nestedblock.container.liveness_probe)).
 - **readiness_probe** (Block List, Max: 1) Readiness Probe ([see below](#nestedblock.container.readiness_probe)).
 
 - **metrics** (Block List, Max: 1) ([see below](#nestedblock.container.metrics)) [Reference Page](https://docs.controlplane.com/reference/workload#metrics).
-  
 - **volume** (Block List) ([see below](#nestedblock.container.volume)) [Reference Page](https://docs.controlplane.com/reference/workload#volumes).
 - **working_directory** (String) Override the working directory. Must be an absolute path.
 
-
-
-
-
- ### container.liveness_probe {#nestedblock.container.liveness_probe} --exclude
+### container.liveness_probe {#nestedblock.container.liveness_probe} --exclude
 
 Optional:
 
-- **failure_threshold** (Number) Failure Threshold.  Default: 3. Min: 1. Max: 20.
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120. 
+- **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
 - **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
 - **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
 - **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
@@ -1489,15 +1422,13 @@ Optional:
 - **http_get** (Block List, Max: 1) ([see below](#nestedblock.container.liveness_probe.http_get)).
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock.container.liveness_probe.tcp_socket)).
 
-
- ### container.liveness_probe.exec {#nestedblock.container.liveness_probe.exec} --exclude
+### container.liveness_probe.exec {#nestedblock.container.liveness_probe.exec} --exclude
 
 Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
 
-
- ### container.liveness_probe.http_get {#nestedblock.container.liveness_probe.http_get} --exclude
+### container.liveness_probe.http_get {#nestedblock.container.liveness_probe.http_get} --exclude
 
 Optional:
 
@@ -1506,23 +1437,18 @@ Optional:
 - **port** (Number) Port. Min: `80`. Max: `65535`.
 - **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
-
-
- ### container.liveness_probe.tcp_socket {#nestedblock.container.liveness_probe.tcp_socket} --exclude
+### container.liveness_probe.tcp_socket {#nestedblock.container.liveness_probe.tcp_socket} --exclude
 
 Optional:
 
 - **port** (Number) TCP Socket Port.
 
-
-
-
- ### container.readiness_probe {#nestedblock.container.readiness_probe} --exclude
+### container.readiness_probe {#nestedblock.container.readiness_probe} --exclude
 
 Optional:
 
-- **failure_threshold** (Number) Failure Threshold.  Default: 3. Min: 1. Max: 20.
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120. 
+- **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
 - **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
 - **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
 - **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
@@ -1530,17 +1456,14 @@ Optional:
 - **exec** (Block List, Max: 1) ([see below](#nestedblock.container.readiness_probe.exec)).
 - **http_get** (Block List, Max: 1) ([see below](#nestedblock.container.readiness_probe.http_get)).
 - **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock.container.readiness_probe.tcp_socket)).
-  
 
-
- ### container.readiness_probe.exec {#nestedblock.container.readiness_probe.exec} --exclude
+### container.readiness_probe.exec {#nestedblock.container.readiness_probe.exec} --exclude
 
 Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
-  
 
- ### container.readiness_probe.http_get {#nestedblock.container.readiness_probe.http_get} --exclude
+### container.readiness_probe.http_get {#nestedblock.container.readiness_probe.http_get} --exclude
 
 Optional:
 
@@ -1549,16 +1472,13 @@ Optional:
 - **port** (Number) Port. Min: `80`. Max: `65535`.
 - **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
-
-
- ### container.readiness_probe.tcp_socket {#nestedblock.container.readiness_probe.tcp_socket} --exclude
+### container.readiness_probe.tcp_socket {#nestedblock.container.readiness_probe.tcp_socket} --exclude
 
 Optional:
 
 - **port** (Number) TCP Socket Port.
 
-
- ### container.volume {#nestedblock.container.volume} --exclude
+### container.volume {#nestedblock.container.volume} --exclude
 
 Required:
 
@@ -1567,18 +1487,14 @@ Required:
 
 **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
-
- ### container.metrics {#nestedblock.container.metrics} --exclude
+### container.metrics {#nestedblock.container.metrics} --exclude
 
 Required:
 
 - **path** (String) Path from container emitting custom metrics
 - **port** (Number) Port from container emitting custom metrics
 
-
-
-
- ### firewall_spec {#nestedblock.firewall_spec} --exclude
+### firewall_spec {#nestedblock.firewall_spec} --exclude
 
 Control of inbound and outbound access to the workload for external (public) and internal (service to service) traffic. Access is restricted by default.
 
@@ -1587,8 +1503,7 @@ Optional:
 - **external** (Block List, Max: 1) ([see below](#nestedblock.firewall_spec.external)).
 - **internal** (Block List, Max: 1) ([see below](#nestedblock.firewall_spec.internal)).
 
-
- ### firewall_spec.external {#nestedblock.firewall_spec.external} --exclude
+### firewall_spec.external {#nestedblock.firewall_spec.external} --exclude
 
 Optional:
 
@@ -1596,26 +1511,22 @@ Optional:
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 
-
- ### firewall_spec.internal {#nestedblock.firewall_spec.internal} --exclude
+### firewall_spec.internal {#nestedblock.firewall_spec.internal} --exclude
 
 The internal firewall is used to control access between workloads.
 
 Optional:
 
-- **inbound_allow_type** (String) Used to control the internal firewall configuration and mutual tls. Allowed Values: "none", "same-gvc", "same-org", "workload-list". 
+- **inbound_allow_type** (String) Used to control the internal firewall configuration and mutual tls. Allowed Values: "none", "same-gvc", "same-org", "workload-list".
 
   - 'none': no access is allowed between this workload and other workloads on Control Plane.
   - 'same-gvc': workloads running on the same Global Virtual Cloud are allowed to access this workload internally.
-  - 'same-org': workloads running on the same Control Plane Organization are allowed to access this workload internally.          
+  - 'same-org': workloads running on the same Control Plane Organization are allowed to access this workload internally.
   - 'workload-list': specific workloads provided in the 'inboundAllowWorkload' array are allowed to access this workload internally.
-   
+
 - **inbound_allow_workload** (List of String) A list of specific workloads which are allowed to access this workload internally. This list is only used if the 'inboundAllowType' is set to 'workload-list'.
 
-
-
-
- ### options {#nestedblock.options} --exclude
+### options {#nestedblock.options} --exclude
 
 Optional:
 
@@ -1626,22 +1537,18 @@ Optional:
 
 - **location** (String) Valid only for `local_options`. Local options override for a specific location.
 
-
- ### options.autoscaling {#nestedblock.options.autoscaling} --exclude
+### options.autoscaling {#nestedblock.options.autoscaling} --exclude
 
 Optional:
 
 - **metric** (String) Valid values: `concurrency`, `cpu`, `rps`, `latency`, `disabled`. Default: `concurrency`.
-  
 - **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `100`.
 
-
-
- ### status {#nestedblock.status} --exclude
+### status {#nestedblock.status} --exclude
 
 Status of the workload.
 
@@ -1652,8 +1559,7 @@ Read-Only:
 - **health_check** (List of Object) ([see below](#nestedobjatt.status.health_check)).
 - **parent_id** (String) ID of the parent object.
 
-
- ### status.health_check {#nestedblock.status.health_check} --exclude
+### status.health_check {#nestedblock.status.health_check} --exclude
 
 Current health status.
 
@@ -1672,9 +1578,8 @@ Read-Only:
 The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Workload.
-- **self_link** (String) Full link to this resource. Can be referenced by other resources. 
+- **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (List of Object) ([see below](#nestedatt.status)).
-
 
 ## Example Usage {} --exclude
 
@@ -1772,7 +1677,7 @@ resource "cpln_workload" "new" {
       path = "/s3"
     }
   }
- 
+
   options {
     capacity_ai     = false
     timeout_seconds = 30
@@ -1815,4 +1720,3 @@ resource "cpln_workload" "new" {
   }
 }
 ```
-

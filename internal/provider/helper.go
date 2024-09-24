@@ -516,7 +516,7 @@ func QuerySchemaResource() *schema.Resource {
 						},
 						"terms": {
 							Type:        schema.TypeList,
-							Description: "Terms can only contain one of the following attributes: `property`, `tag`.",
+							Description: "Terms can only contain one of the following attributes: `property`, `rel`, `tag`.",
 							Optional:    true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -541,10 +541,10 @@ func QuerySchemaResource() *schema.Resource {
 										Description: "Property to use for query evaluation.",
 										Optional:    true,
 									},
-									// "rel": {
-									// 	Type:     schema.TypeString,
-									// 	Optional: true,
-									// },
+									"rel": {
+										Type:     schema.TypeString,
+										Optional: true,
+									},
 									"tag": {
 										Type:        schema.TypeString,
 										Description: "Tag key to use for query evaluation.",
