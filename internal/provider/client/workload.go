@@ -246,7 +246,20 @@ type RolloutOptions struct {
 
 // Security Options
 type SecurityOptions struct {
-	FileSystemGroupID *int `json:"filesystemGroupId,omitempty"`
+	FileSystemGroupID *int         `json:"filesystemGroupId,omitempty"`
+	GeoLocation       *GeoLocation `json:"geoLocation,omitempty"`
+}
+
+type GeoLocation struct {
+	Enabled *bool               `json:"enabled,omitempty"`
+	Headers *GeoLocationHeaders `json:"headers,omitempty"`
+}
+
+type GeoLocationHeaders struct {
+	Asn     *string `json:"asn,omitempty"`
+	City    *string `json:"city,omitempty"`
+	Country *string `json:"country,omitempty"`
+	Region  *string `json:"region,omitempty"`
 }
 
 // WorkloadSidecar - Workload Sidecar

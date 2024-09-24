@@ -707,7 +707,7 @@ func resourceWorkload() *schema.Resource {
 			},
 			"security_options": {
 				Type:        schema.TypeList,
-				Description: "Allows for the configuration of the `file system group id`",
+				Description: "Allows for the configuration of the `file system group id` and `geo location`",
 				Optional:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{
@@ -715,7 +715,66 @@ func resourceWorkload() *schema.Resource {
 						"file_system_group_id": {
 							Type:        schema.TypeInt,
 							Description: "The group id assigned to any mounted volume.",
-							Required:    true,
+							Optional:    true,
+							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+								v := val.(int)
+
+								if v < 1 || v > 65534 {
+									errs = append(errs, fmt.Errorf("%q must be between 1 and 65534 inclusive, got: %d", key, v))
+								}
+
+								return
+							},
+						},
+						"geo_location": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"enabled": {
+										Type:        schema.TypeBool,
+										Description: "When enabled, geo location headers will be included on inbound http requests. Existing headers will be replaced.",
+										Optional:    true,
+										Default:     false,
+									},
+									"headers": {
+										Type:        schema.TypeList,
+										Description: "",
+										Optional:    true,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"asn": {
+													Type:         schema.TypeString,
+													Description:  "The geo asn header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
+												},
+												"city": {
+													Type:         schema.TypeString,
+													Description:  "The geo city header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
+												},
+												"country": {
+													Type:         schema.TypeString,
+													Description:  "The geo country header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
+												},
+												"region": {
+													Type:         schema.TypeString,
+													Description:  "The geo region header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -1706,13 +1765,72 @@ func buildRolloutOptions(specs []interface{}) *client.RolloutOptions {
 }
 
 func buildSecurityOptions(specs []interface{}) *client.SecurityOptions {
+
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
 
 	spec := specs[0].(map[string]interface{})
-	output := client.SecurityOptions{
-		FileSystemGroupID: GetInt(spec["file_system_group_id"].(int)),
+	output := client.SecurityOptions{}
+
+	if spec["file_system_group_id"] != nil {
+		fileSystemGroupId := spec["file_system_group_id"].(int)
+
+		if fileSystemGroupId >= 1 && fileSystemGroupId <= 65534 {
+			output.FileSystemGroupID = GetInt(fileSystemGroupId)
+		}
+	}
+
+	if spec["geo_location"] != nil {
+		output.GeoLocation = buildGeoLocation(spec["geo_location"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildGeoLocation(specs []interface{}) *client.GeoLocation {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.GeoLocation{}
+
+	if spec["enabled"] != nil {
+		output.Enabled = GetBool(spec["enabled"])
+	}
+
+	if spec["headers"] != nil {
+		output.Headers = buildGeoLocationHeaders(spec["headers"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildGeoLocationHeaders(specs []interface{}) *client.GeoLocationHeaders {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.GeoLocationHeaders{}
+
+	if spec["asn"] != nil {
+		output.Asn = GetString(spec["asn"])
+	}
+
+	if spec["city"] != nil {
+		output.City = GetString(spec["city"])
+	}
+
+	if spec["country"] != nil {
+		output.Country = GetString(spec["country"])
+	}
+
+	if spec["region"] != nil {
+		output.Region = GetString(spec["region"])
 	}
 
 	return &output
@@ -2514,8 +2632,62 @@ func flattenSecurityOptions(spec *client.SecurityOptions) []interface{} {
 		return nil
 	}
 
-	securityOptions := map[string]interface{}{
-		"file_system_group_id": *spec.FileSystemGroupID,
+	securityOptions := map[string]interface{}{}
+
+	if spec.FileSystemGroupID != nil {
+		securityOptions["file_system_group_id"] = *spec.FileSystemGroupID
+	}
+
+	if spec.GeoLocation != nil {
+		securityOptions["geo_location"] = flattenGeoLocation(spec.GeoLocation)
+	}
+
+	return []interface{}{
+		securityOptions,
+	}
+}
+
+func flattenGeoLocation(spec *client.GeoLocation) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	securityOptions := map[string]interface{}{}
+
+	if spec.Enabled != nil {
+		securityOptions["enabled"] = *spec.Enabled
+	}
+
+	if spec.Headers != nil {
+		securityOptions["headers"] = flattenGeoLocationHeaders(spec.Headers)
+	}
+
+	return []interface{}{
+		securityOptions,
+	}
+}
+
+func flattenGeoLocationHeaders(spec *client.GeoLocationHeaders) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	securityOptions := map[string]interface{}{}
+
+	if spec.Asn != nil {
+		securityOptions["asn"] = *spec.Asn
+	}
+
+	if spec.City != nil {
+		securityOptions["city"] = *spec.City
+	}
+
+	if spec.Country != nil {
+		securityOptions["country"] = *spec.Country
+	}
+
+	if spec.Region != nil {
+		securityOptions["region"] = *spec.Region
 	}
 
 	return []interface{}{
