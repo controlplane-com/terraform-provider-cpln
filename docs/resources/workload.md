@@ -357,9 +357,34 @@ Optional:
 
 ### `security_options`
 
-Required:
+Allows for the configuration of the `file system group id` and `geo location`.
+
+Optional:
 
 - **file_system_group_id** (Number) The group id assigned to any mounted volume.
+- **geo_location** (Block List, Max: 1) ([see below](#nestedblock--security_options--geo_location)).
+
+<a id="nestedblock--security_options--geo_location"></a>
+
+### `security_options.geo_location`
+
+Optional:
+
+- **enabled** (Boolean) When enabled, geo location headers will be included on inbound http requests. Existing headers will be replaced.
+- **headers** (Block List, Max: 1) ([see below](#nestedblock--security_options--geo_location--headers))
+
+<a id="nestedblock--security_options--geo_location--headers"></a>
+
+### `security_options.geo_location.headers`
+
+~> **Note** At least one header must be set when geo headers are enabled.
+
+Optional:
+
+- **asn** (String) The geo asn header.
+- **city** (String) The geo city header.
+- **country** (String) The geo country header.
+- **region** (String) The geo region header.
 
 ## Outputs
 
@@ -610,6 +635,15 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
   }
 
 }
@@ -758,6 +792,15 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
   }
 
 }
@@ -863,6 +906,15 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
   }
 
   job {
@@ -1042,6 +1094,15 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
   }
 }
 
@@ -1205,6 +1266,15 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
   }
 
 }

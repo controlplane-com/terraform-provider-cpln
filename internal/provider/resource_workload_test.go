@@ -328,6 +328,15 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 
 		security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 
 		sidecar {
@@ -562,6 +571,15 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		
 		security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 
 		sidecar {
@@ -726,6 +744,15 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	  
 		security_options {
 		  file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 	  
 		sidecar {
@@ -922,6 +949,15 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 
 		security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 
 		sidecar {
@@ -1154,6 +1190,15 @@ func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescr
 		
 		security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 
 		sidecar {
@@ -1344,6 +1389,15 @@ func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, 
 
 		security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 
 		sidecar {
@@ -1529,6 +1583,15 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 
 		security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 
 		sidecar {
@@ -1801,6 +1864,15 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 	
 	    security_options {
 			file_system_group_id = 1
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
+				}
+			}
 		}
 		
 		sidecar {
@@ -1918,6 +1990,20 @@ func TestControlPlane_BuildSecurityOptions(t *testing.T) {
 	securityOptions, expectedSecurityOptions, _ := generateTestSecurityOptions()
 	if diff := deep.Equal(securityOptions, expectedSecurityOptions); diff != nil {
 		t.Errorf("SecurityOptions was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildGeoLocation(t *testing.T) {
+	geoLocation, expectedGeoLocation, _ := generateTestGeoLocation()
+	if diff := deep.Equal(geoLocation, expectedGeoLocation); diff != nil {
+		t.Errorf("SecurityOptions Geo Location was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildGeoLocationHeaders(t *testing.T) {
+	headers, expectedHeaders, _ := generateTestGeoLocationHeaders()
+	if diff := deep.Equal(headers, expectedHeaders); diff != nil {
+		t.Errorf("SecurityOptions Geo Location Headers was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -2439,14 +2525,50 @@ func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOption
 func generateTestSecurityOptions() (*client.SecurityOptions, *client.SecurityOptions, []interface{}) {
 
 	fileSystemGroupId := 1
+	geoLocation, _, flattenedGeoLocation := generateTestGeoLocation()
 
-	flatten := generateFlatTestSecurityOptions(fileSystemGroupId)
+	flatten := generateFlatTestSecurityOptions(fileSystemGroupId, flattenedGeoLocation)
 	securityOptions := buildSecurityOptions(flatten)
 	expectedSecurityOptions := &client.SecurityOptions{
 		FileSystemGroupID: &fileSystemGroupId,
+		GeoLocation:       geoLocation,
 	}
 
 	return securityOptions, expectedSecurityOptions, flatten
+}
+
+func generateTestGeoLocation() (*client.GeoLocation, *client.GeoLocation, []interface{}) {
+
+	enabled := true
+	headers, _, flattenedHeaders := generateTestGeoLocationHeaders()
+
+	flatten := generateFlatTestGeoLocation(enabled, flattenedHeaders)
+	geoLocation := buildGeoLocation(flatten)
+	expectedGeoLocation := &client.GeoLocation{
+		Enabled: &enabled,
+		Headers: headers,
+	}
+
+	return geoLocation, expectedGeoLocation, flatten
+}
+
+func generateTestGeoLocationHeaders() (*client.GeoLocationHeaders, *client.GeoLocationHeaders, []interface{}) {
+
+	asn := "198.51.100.0/24"
+	city := "Los Angeles"
+	country := "USA"
+	region := "North America"
+
+	flatten := generateFlatTestGeoLocationHeaders(asn, city, country, region)
+	headers := buildGeoLocationHeaders(flatten)
+	expectedHeaders := &client.GeoLocationHeaders{
+		Asn:     &asn,
+		City:    &city,
+		Country: &country,
+		Region:  &region,
+	}
+
+	return headers, expectedHeaders, flatten
 }
 
 func generateTestWorkloadSidecar(stringifiedJson string) (*client.WorkloadSidecar, *client.WorkloadSidecar, []interface{}) {
@@ -2790,9 +2912,34 @@ func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas 
 	}
 }
 
-func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
+func generateFlatTestSecurityOptions(fileSystemGroupId int, geoLocation []interface{}) []interface{} {
 	spec := map[string]interface{}{
 		"file_system_group_id": fileSystemGroupId,
+		"geo_location":         geoLocation,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestGeoLocation(enabled bool, headers []interface{}) []interface{} {
+	spec := map[string]interface{}{
+		"enabled": enabled,
+		"headers": headers,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestGeoLocationHeaders(asn string, city string, country string, region string) []interface{} {
+	spec := map[string]interface{}{
+		"asn":     asn,
+		"city":    city,
+		"country": country,
+		"region":  region,
 	}
 
 	return []interface{}{
