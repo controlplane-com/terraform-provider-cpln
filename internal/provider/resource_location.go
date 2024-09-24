@@ -36,7 +36,7 @@ func resourceLocation() *schema.Resource {
 			"tags": {
 				Type:        schema.TypeMap,
 				Description: "Key-value map of resource tags.",
-				Required:    true,
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},

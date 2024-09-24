@@ -48,7 +48,9 @@ func GetTags(tags *map[string]interface{}) map[string]interface{} {
 			if strings.HasPrefix(k, "cpln/deployTimestamp") || strings.HasPrefix(k, "cpln/aws") ||
 				strings.HasPrefix(k, "cpln/azure") || strings.HasPrefix(k, "cpln/docker") ||
 				strings.HasPrefix(k, "cpln/gcp") || strings.HasPrefix(k, "cpln/tls") ||
-				strings.HasPrefix(k, "cpln/managedByTerraform") {
+				strings.HasPrefix(k, "cpln/managedByTerraform") || strings.HasPrefix(k, "cpln/city") ||
+				strings.HasPrefix(k, "cpln/continent") || strings.HasPrefix(k, "cpln/country") ||
+				strings.HasPrefix(k, "cpln/state") {
 
 				continue
 			}

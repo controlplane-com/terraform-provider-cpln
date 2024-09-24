@@ -20,22 +20,11 @@ func TestAccControlPlaneLocation_basic(t *testing.T) {
 				Config: testAccControlPlaneLocation("false"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "false"),
+					resource.TestCheckResourceAttr("cpln_location.new", "tags.hello", "world"),
 				),
 			},
 			{
-				Config: testAccControlPlaneLocation("true"),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "true"),
-				),
-			},
-			{
-				Config: testAccControlPlaneLocation_ReferenceTags("false"),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "false"),
-				),
-			},
-			{
-				Config: testAccControlPlaneLocation_ReferenceTags("true"),
+				Config: testAccControlPlaneLocation_NoTags("true"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("cpln_location.new", "enabled", "true"),
 				),
@@ -54,30 +43,22 @@ func testAccControlPlaneLocation(enabled string) string {
 		enabled = %s
 
 		tags = {
-			"cpln/city"      = "Frankfurt"
-			"cpln/continent" = "Europe"
-			"cpln/country"   = "Germany"
+			hello = "world"
 		}
 	}
-    `, enabled)
+	`, enabled)
 }
 
-func testAccControlPlaneLocation_ReferenceTags(enabled string) string {
+func testAccControlPlaneLocation_NoTags(enabled string) string {
 
 	TestLogger.Printf("Inside testAccControlPlaneLocation")
 
 	return fmt.Sprintf(`
-	data "cpln_location" "main-location" {
-		name = "aws-eu-central-1"
-	}
-	
 	resource "cpln_location" "new" {
 		name    = "aws-eu-central-1"
 		enabled = %s
-	
-		tags = data.cpln_location.main-location.tags
 	}
-    `, enabled)
+	`, enabled)
 }
 
 func testAccCheckControlPlaneLocationCheckDestroy(s *terraform.State) error {
