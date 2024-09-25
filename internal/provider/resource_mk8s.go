@@ -525,6 +525,7 @@ func resourceMk8s() *schema.Resource {
 				},
 			},
 		},
+		Importer: &schema.ResourceImporter{},
 	}
 }
 
