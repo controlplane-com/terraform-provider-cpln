@@ -891,3 +891,15 @@ resource "cpln_mk8s" "ephemeral" {
     }
 }
 ```
+
+## Import Syntax
+
+The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
+
+To update a statefile with an existing mk8s resource, execute the following import command:
+
+```terraform
+terraform import cpln_mk8s.RESOURCE_NAME MK8S_NAME
+```
+
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute MK8S_NAME with the corresponding mk8s defined in the resource.
