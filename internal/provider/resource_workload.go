@@ -371,7 +371,7 @@ func resourceWorkload() *schema.Resource {
 			"options": {
 				Type:        schema.TypeList,
 				Description: "Configurable settings or parameters that allow fine-tuning and customization of the behavior, performance, and characteristics of the workload.",
-				Required:    true,
+				Optional:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
