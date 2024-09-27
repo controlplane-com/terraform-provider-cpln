@@ -51,11 +51,10 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			Computed: true,
 		},
 		"aws": {
-			Type:         schema.TypeList,
-			Description:  "Contains AWS cloud account configuration.",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: cloudProvidersNames,
+			Type:        schema.TypeList,
+			Description: "Contains AWS cloud account configuration.",
+			Optional:    true,
+			MaxItems:    1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"role_arn": {
@@ -80,11 +79,10 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			},
 		},
 		"azure": {
-			Type:         schema.TypeList,
-			Description:  "Contains Azure cloud account configuration.",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: cloudProvidersNames,
+			Type:        schema.TypeList,
+			Description: "Contains Azure cloud account configuration.",
+			Optional:    true,
+			MaxItems:    1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"secret_link": {
@@ -98,11 +96,10 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			},
 		},
 		"gcp": {
-			Type:         schema.TypeList,
-			Description:  "Contains GCP cloud account configuration.",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: cloudProvidersNames,
+			Type:        schema.TypeList,
+			Description: "Contains GCP cloud account configuration.",
+			Optional:    true,
+			MaxItems:    1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"project_id": {
@@ -132,10 +129,9 @@ func CloudAccountSchema() map[string]*schema.Schema {
 			},
 		},
 		"ngs": {
-			Type:         schema.TypeList,
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: cloudProvidersNames,
+			Type:     schema.TypeList,
+			Optional: true,
+			MaxItems: 1,
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
 					"secret_link": {
@@ -170,20 +166,32 @@ func resourceCloudAccount() *schema.Resource {
 		ReadContext:   resourceCloudAccountRead,
 		UpdateContext: resourceCloudAccountUpdate,
 		DeleteContext: resourceCloudAccountDelete,
-		Schema:        CloudAccountSchema(),
-		Importer:      &schema.ResourceImporter{},
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, i interface{}) error {
+			selectedProviders := getSelectedProviders(d.GetOk)
+
+			// Throw an error if there is more than one provider specified
+			if len(selectedProviders) > 1 {
+				return fmt.Errorf("you can only specifiy one provider per cloud account")
+			}
+
+			return nil
+		},
+		Schema:   CloudAccountSchema(),
+		Importer: &schema.ResourceImporter{},
 	}
 }
 
-func getProvider(d *schema.ResourceData) *string {
+func getSelectedProviders(getOk func(string) (interface{}, bool)) []string {
+
+	selectedProviders := []string{}
 
 	for _, s := range cloudProvidersNames {
-		if _, v := d.GetOk(s); v {
-			return &s
+		if _, v := getOk(s); v {
+			selectedProviders = append(selectedProviders, s)
 		}
 	}
 
-	return nil
+	return selectedProviders
 }
 
 func resourceCloudAccountCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -193,9 +201,14 @@ func resourceCloudAccountCreate(ctx context.Context, d *schema.ResourceData, m i
 	ca.Description = GetDescriptionString(d.Get("description"), *ca.Name)
 	ca.Tags = GetStringMap(d.Get("tags"))
 
-	if ca.Provider = getProvider(d); ca.Provider == nil {
+	selectedProviders := getSelectedProviders(d.GetOk)
+
+	// Throw an error if no provider is set
+	if len(selectedProviders) == 0 {
 		return diag.FromErr(fmt.Errorf("missing or unable to extract provider. must be 'aws', 'azure', 'gcp' or 'ngs'"))
 	}
+
+	ca.Provider = GetString(selectedProviders[0])
 
 	aws := d.Get("aws").([]interface{})
 	azure := d.Get("azure").([]interface{})
