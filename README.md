@@ -301,3 +301,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add load balancer to workload resource.
 - v1.1.33
     - Add import support to mk8s resource.
+- v1.1.34
+    - Make workload options optional.

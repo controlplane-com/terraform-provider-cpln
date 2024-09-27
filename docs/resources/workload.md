@@ -16,13 +16,13 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **gvc** (String) Name of the associated GVC.
 - **type** (String) Workload Type. Either `serverless`, `standard`, `stateful`, or `cron`.
 - **container** (Block List) ([see below](#nestedblock--container)).
-- **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 
 ### Optional
 
 - **description** (String) Description of the Workload.
 - **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
 - **identity_link** (String) Full link to an Identity.
+- **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **local_options** (Block List) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
