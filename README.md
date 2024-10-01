@@ -303,3 +303,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add import support to mk8s resource.
 - v1.1.34
     - Make workload options optional.
+- v1.1.35
+    - Fix empty options bug in workload resource.
