@@ -379,7 +379,7 @@ func resourceWorkload() *schema.Resource {
 							Type:        schema.TypeBool,
 							Description: "Capacity AI. Default: `true`.",
 							Optional:    true,
-							Default:     true,
+							Default:     false,
 						},
 						"debug": {
 							Type:        schema.TypeBool,
@@ -1606,51 +1606,48 @@ func buildLifeCycleSpec(lifecycle []interface{}, containerSpec *client.Container
 
 func buildOptions(options []interface{}, workloadSpec *client.WorkloadSpec, localOptions bool, org string) {
 
-	if options == nil {
+	if len(options) == 0 {
 		return
 	}
 
 	output := []client.Options{}
 
-	if len(options) > 0 {
+	for _, o := range options {
 
-		for _, o := range options {
+		option := o.(map[string]interface{})
 
-			option := o.(map[string]interface{})
+		newOptions := client.Options{}
 
-			newOptions := client.Options{}
-
-			if localOptions {
-				newOptions.Location = GetString(fmt.Sprintf("/org/%s/location/%s", org, option["location"].(string)))
-			}
-
-			newOptions.CapacityAI = GetBool(option["capacity_ai"])
-			newOptions.TimeoutSeconds = GetInt(option["timeout_seconds"])
-			newOptions.Debug = GetBool(option["debug"])
-			newOptions.Suspend = GetBool(option["suspend"])
-
-			autoScaling := option["autoscaling"].([]interface{})
-
-			if len(autoScaling) > 0 {
-
-				as := autoScaling[0].(map[string]interface{})
-
-				cas := client.AutoScaling{
-
-					Metric:           GetString(as["metric"]),
-					MetricPercentile: GetString(as["metric_percentile"]),
-					Target:           GetInt(as["target"]),
-					MaxScale:         GetInt(as["max_scale"]),
-					MinScale:         GetInt(as["min_scale"]),
-					MaxConcurrency:   GetInt(as["max_concurrency"]),
-					ScaleToZeroDelay: GetInt(as["scale_to_zero_delay"]),
-				}
-
-				newOptions.AutoScaling = &cas
-			}
-
-			output = append(output, newOptions)
+		if localOptions {
+			newOptions.Location = GetString(fmt.Sprintf("/org/%s/location/%s", org, option["location"].(string)))
 		}
+
+		newOptions.CapacityAI = GetBool(option["capacity_ai"])
+		newOptions.TimeoutSeconds = GetInt(option["timeout_seconds"])
+		newOptions.Debug = GetBool(option["debug"])
+		newOptions.Suspend = GetBool(option["suspend"])
+
+		autoScaling := option["autoscaling"].([]interface{})
+
+		if len(autoScaling) > 0 {
+
+			as := autoScaling[0].(map[string]interface{})
+
+			cas := client.AutoScaling{
+
+				Metric:           GetString(as["metric"]),
+				MetricPercentile: GetString(as["metric_percentile"]),
+				Target:           GetInt(as["target"]),
+				MaxScale:         GetInt(as["max_scale"]),
+				MinScale:         GetInt(as["min_scale"]),
+				MaxConcurrency:   GetInt(as["max_concurrency"]),
+				ScaleToZeroDelay: GetInt(as["scale_to_zero_delay"]),
+			}
+
+			newOptions.AutoScaling = &cas
+		}
+
+		output = append(output, newOptions)
 	}
 
 	if workloadSpec == nil {
