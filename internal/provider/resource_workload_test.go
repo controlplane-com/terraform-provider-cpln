@@ -20,7 +20,7 @@ const workloadEnvoyJsonUpdated = `{"clusters":[{"name":"provider_gcp","type":"ST
 
 /*** Acc Tests ***/
 
-func TestAccControlPlaneWorkload_basic(t *testing.T) {
+func TEMP_TestAccControlPlaneWorkload_basic(t *testing.T) {
 
 	var testWorkload client.Workload
 

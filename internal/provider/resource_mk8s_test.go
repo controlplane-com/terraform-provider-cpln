@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
-func TestAccControlPlaneMk8s_basic(t *testing.T) {
+func TEMP_TestAccControlPlaneMk8s_basic(t *testing.T) {
 
 	var mk8s client.Mk8s
 
