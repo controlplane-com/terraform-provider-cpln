@@ -20,7 +20,7 @@ const workloadEnvoyJsonUpdated = `{"clusters":[{"name":"provider_gcp","type":"ST
 
 /*** Acc Tests ***/
 
-func TEMP_TestAccControlPlaneWorkload_basic(t *testing.T) {
+func TestAccControlPlaneWorkload_basic(t *testing.T) {
 
 	var testWorkload client.Workload
 
@@ -328,15 +328,6 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 
 		security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 
 		sidecar {
@@ -353,6 +344,16 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 					protocol       = "TCP"
 					scheme         = "http"
 					container_port = 80
+				}
+			}
+
+			geo_location {
+				enabled = true
+				headers {
+					asn = "198.51.100.0/24"
+					city = "Los Angeles"
+					country = "USA"
+					region = "North America"
 				}
 			}
 		}
@@ -585,15 +586,6 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		
 		security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 
 		sidecar {
@@ -758,15 +750,6 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 	  
 		security_options {
 		  file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 	  
 		sidecar {
@@ -963,15 +946,6 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 
 		security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 
 		sidecar {
@@ -1204,15 +1178,6 @@ func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescr
 		
 		security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 
 		sidecar {
@@ -1403,15 +1368,6 @@ func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, 
 
 		security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 
 		sidecar {
@@ -1597,15 +1553,6 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 
 		security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 
 		sidecar {
@@ -1885,15 +1832,6 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 	
 	    security_options {
 			file_system_group_id = 1
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
 		}
 		
 		sidecar {
@@ -2564,13 +2502,11 @@ func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOption
 func generateTestSecurityOptions() (*client.SecurityOptions, *client.SecurityOptions, []interface{}) {
 
 	fileSystemGroupId := 1
-	geoLocation, _, flattenedGeoLocation := generateTestGeoLocation()
 
-	flatten := generateFlatTestSecurityOptions(fileSystemGroupId, flattenedGeoLocation)
+	flatten := generateFlatTestSecurityOptions(fileSystemGroupId)
 	securityOptions := buildSecurityOptions(flatten)
 	expectedSecurityOptions := &client.SecurityOptions{
 		FileSystemGroupID: &fileSystemGroupId,
-		GeoLocation:       geoLocation,
 	}
 
 	return securityOptions, expectedSecurityOptions, flatten
@@ -2628,11 +2564,13 @@ func generateTestWorkloadSidecar(stringifiedJson string) (*client.WorkloadSideca
 func generateTestWorkloadLoadBalancer() (*client.WorkloadLoadBalancer, *client.WorkloadLoadBalancer, []interface{}) {
 
 	direct, _, flattenedDirect := generateTestWorkloadLoadBalancerDirect()
+	geoLocation, _, flattenedGeoLocation := generateTestGeoLocation()
 
-	flattened := generateFlatTestWorkloadLoadBalancer(flattenedDirect)
+	flattened := generateFlatTestWorkloadLoadBalancer(flattenedDirect, flattenedGeoLocation)
 	loadBalancer := buildWorkloadLoadBalancer(flattened)
 	expectedLoadBalancer := &client.WorkloadLoadBalancer{
-		Direct: direct,
+		Direct:      direct,
+		GeoLocation: geoLocation,
 	}
 
 	return loadBalancer, expectedLoadBalancer, flattened
@@ -3000,10 +2938,9 @@ func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas 
 	}
 }
 
-func generateFlatTestSecurityOptions(fileSystemGroupId int, geoLocation []interface{}) []interface{} {
+func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
 	spec := map[string]interface{}{
 		"file_system_group_id": fileSystemGroupId,
-		"geo_location":         geoLocation,
 	}
 
 	return []interface{}{
@@ -3045,9 +2982,10 @@ func generateFlatTestWorkloadSidecar(envoy string) []interface{} {
 	}
 }
 
-func generateFlatTestWorkloadLoadBalancer(direct []interface{}) []interface{} {
+func generateFlatTestWorkloadLoadBalancer(direct []interface{}, geoLocation []interface{}) []interface{} {
 	spec := map[string]interface{}{
-		"direct": direct,
+		"direct":       direct,
+		"geo_location": geoLocation,
 	}
 
 	return []interface{}{
