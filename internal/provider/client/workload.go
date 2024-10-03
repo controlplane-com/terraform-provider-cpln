@@ -253,8 +253,7 @@ type RolloutOptions struct {
 
 // Security Options
 type SecurityOptions struct {
-	FileSystemGroupID *int         `json:"filesystemGroupId,omitempty"`
-	GeoLocation       *GeoLocation `json:"geoLocation,omitempty"`
+	FileSystemGroupID *int `json:"filesystemGroupId,omitempty"`
 }
 
 type GeoLocation struct {
@@ -276,7 +275,8 @@ type WorkloadSidecar struct {
 
 // WorkloadLoadBalancer - Workload Load Balancer
 type WorkloadLoadBalancer struct {
-	Direct *WorkloadLoadBalancerDirect `json:"direct,omitempty"`
+	Direct      *WorkloadLoadBalancerDirect `json:"direct,omitempty"`
+	GeoLocation *GeoLocation                `json:"geoLocation,omitempty"`
 }
 
 // WorkloadLoadBalancerDirect - Workload Load Balancer Direct

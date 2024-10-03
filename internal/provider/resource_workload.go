@@ -745,56 +745,6 @@ func resourceWorkload() *schema.Resource {
 								return
 							},
 						},
-						"geo_location": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"enabled": {
-										Type:        schema.TypeBool,
-										Description: "When enabled, geo location headers will be included on inbound http requests. Existing headers will be replaced.",
-										Optional:    true,
-										Default:     false,
-									},
-									"headers": {
-										Type:        schema.TypeList,
-										Description: "",
-										Optional:    true,
-										MaxItems:    1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"asn": {
-													Type:         schema.TypeString,
-													Description:  "The geo asn header.",
-													Optional:     true,
-													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
-												},
-												"city": {
-													Type:         schema.TypeString,
-													Description:  "The geo city header.",
-													Optional:     true,
-													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
-												},
-												"country": {
-													Type:         schema.TypeString,
-													Description:  "The geo country header.",
-													Optional:     true,
-													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
-												},
-												"region": {
-													Type:         schema.TypeString,
-													Description:  "The geo region header.",
-													Optional:     true,
-													AtLeastOneOf: []string{"security_options.0.geo_location.0.headers.0.asn", "security_options.0.geo_location.0.headers.0.city", "security_options.0.geo_location.0.headers.0.country", "security_options.0.geo_location.0.headers.0.region"},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
 					},
 				},
 			},
@@ -861,6 +811,56 @@ func resourceWorkload() *schema.Resource {
 													Type:        schema.TypeInt,
 													Description: "",
 													Optional:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						"geo_location": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"enabled": {
+										Type:        schema.TypeBool,
+										Description: "When enabled, geo location headers will be included on inbound http requests. Existing headers will be replaced.",
+										Optional:    true,
+										Default:     false,
+									},
+									"headers": {
+										Type:        schema.TypeList,
+										Description: "",
+										Optional:    true,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"asn": {
+													Type:         schema.TypeString,
+													Description:  "The geo asn header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"load_balancer.0.geo_location.0.headers.0.asn", "load_balancer.0.geo_location.0.headers.0.city", "load_balancer.0.geo_location.0.headers.0.country", "load_balancer.0.geo_location.0.headers.0.region"},
+												},
+												"city": {
+													Type:         schema.TypeString,
+													Description:  "The geo city header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"load_balancer.0.geo_location.0.headers.0.asn", "load_balancer.0.geo_location.0.headers.0.city", "load_balancer.0.geo_location.0.headers.0.country", "load_balancer.0.geo_location.0.headers.0.region"},
+												},
+												"country": {
+													Type:         schema.TypeString,
+													Description:  "The geo country header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"load_balancer.0.geo_location.0.headers.0.asn", "load_balancer.0.geo_location.0.headers.0.city", "load_balancer.0.geo_location.0.headers.0.country", "load_balancer.0.geo_location.0.headers.0.region"},
+												},
+												"region": {
+													Type:         schema.TypeString,
+													Description:  "The geo region header.",
+													Optional:     true,
+													AtLeastOneOf: []string{"load_balancer.0.geo_location.0.headers.0.asn", "load_balancer.0.geo_location.0.headers.0.city", "load_balancer.0.geo_location.0.headers.0.country", "load_balancer.0.geo_location.0.headers.0.region"},
 												},
 											},
 										},
@@ -1860,10 +1860,6 @@ func buildSecurityOptions(specs []interface{}) *client.SecurityOptions {
 		}
 	}
 
-	if spec["geo_location"] != nil {
-		output.GeoLocation = buildGeoLocation(spec["geo_location"].([]interface{}))
-	}
-
 	return &output
 }
 
@@ -1976,6 +1972,10 @@ func buildWorkloadLoadBalancer(specs []interface{}) *client.WorkloadLoadBalancer
 
 	if spec["direct"] != nil {
 		output.Direct = buildWorkloadLoadBalancerDirect(spec["direct"].([]interface{}))
+	}
+
+	if spec["geo_location"] != nil {
+		output.GeoLocation = buildGeoLocation(spec["geo_location"].([]interface{}))
 	}
 
 	return &output
@@ -2812,10 +2812,6 @@ func flattenSecurityOptions(spec *client.SecurityOptions) []interface{} {
 		securityOptions["file_system_group_id"] = *spec.FileSystemGroupID
 	}
 
-	if spec.GeoLocation != nil {
-		securityOptions["geo_location"] = flattenGeoLocation(spec.GeoLocation)
-	}
-
 	return []interface{}{
 		securityOptions,
 	}
@@ -2899,6 +2895,10 @@ func flattenWorkloadLoadBalancer(spec *client.WorkloadLoadBalancer) []interface{
 
 	if spec.Direct != nil {
 		loadBalancer["direct"] = flattenWorkloadLoadBalancerDirect(spec.Direct)
+	}
+
+	if spec.GeoLocation != nil {
+		loadBalancer["geo_location"] = flattenGeoLocation(spec.GeoLocation)
 	}
 
 	return []interface{}{
