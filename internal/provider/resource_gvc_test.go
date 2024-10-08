@@ -142,6 +142,12 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 		load_balancer {
 			dedicated = true
 			trusted_proxies = %d
+
+			redirect {
+				class {
+					status_5xx = "https://example.com/error/5xx"
+				}
+			}
 		}
 
 		sidecar {
@@ -389,15 +395,41 @@ func TestControlPlane_FlattenGvcSidecar(t *testing.T) {
 /*** Generate ***/
 func generateTestLoadBalancer(trustedProxies int) (*client.LoadBalancer, *client.LoadBalancer, []interface{}) {
 	dedicated := true
+	_, expectedRedirect, redirectFlatten := generateTestRedirect()
 
-	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies)
+	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies, redirectFlatten)
 	loadBalancer := buildLoadBalancer(flatten)
 	expectedLoadBalancer := &client.LoadBalancer{
 		Dedicated:      &dedicated,
 		TrustedProxies: &trustedProxies,
+		Redirect:       expectedRedirect,
 	}
 
 	return loadBalancer, expectedLoadBalancer, flatten
+}
+
+func generateTestRedirect() (*client.Redirect, *client.Redirect, []interface{}) {
+	_, expectedClass, classFlatten := generateTestRedirectClass()
+
+	flatten := generateFlatTestRedirect(classFlatten)
+	redirect := buildRedirect(flatten)
+	expectedRedirect := &client.Redirect{
+		Class: expectedClass,
+	}
+
+	return redirect, expectedRedirect, flatten
+}
+
+func generateTestRedirectClass() (*client.RedirectClass, *client.RedirectClass, []interface{}) {
+	status5XX := "https://example.com/error/5xx"
+
+	flatten := generateFlatTestRedirectClass(status5XX)
+	class := buildRedirectClass(flatten)
+	expectedClass := &client.RedirectClass{
+		Status5XX: &status5XX,
+	}
+
+	return class, expectedClass, flatten
 }
 
 func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client.GvcSidecar, []interface{}) {
@@ -417,10 +449,31 @@ func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client
 }
 
 // Flatten //
-func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int) []interface{} {
+func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int, redirect []interface{}) []interface{} {
 	spec := map[string]interface{}{
 		"dedicated":       dedicated,
 		"trusted_proxies": trustedProxies,
+		"redirect":        redirect,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestRedirect(class []interface{}) []interface{} {
+	spec := map[string]interface{}{
+		"class": class,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestRedirectClass(status5XX string) []interface{} {
+	spec := map[string]interface{}{
+		"status_5xx": status5XX,
 	}
 
 	return []interface{}{
