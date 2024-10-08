@@ -28,7 +28,7 @@ type GvcSpec struct {
 	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
 	Domain          *string          `json:"domain,omitempty"`
 	Tracing         *Tracing         `json:"tracing,omitempty"`
-	Sidecar			*GvcSidecar		 `json:"sidecar,omitempty"`
+	Sidecar         *GvcSidecar      `json:"sidecar,omitempty"`
 	Env             *[]NameValue     `json:"env,omitempty"`
 	LoadBalancer    *LoadBalancer    `json:"loadBalancer,omitempty"`
 }
@@ -46,8 +46,17 @@ type GvcSidecar struct {
 
 // LoadBalancer - Load Balancer
 type LoadBalancer struct {
-	Dedicated      *bool `json:"dedicated,omitempty"`
-	TrustedProxies *int  `json:"trustedProxies,omitempty"`
+	Dedicated      *bool     `json:"dedicated,omitempty"`
+	TrustedProxies *int      `json:"trustedProxies,omitempty"`
+	Redirect       *Redirect `json:"redirect,omitempty"`
+}
+
+type Redirect struct {
+	Class *RedirectClass `json:"class,omitempty"`
+}
+
+type RedirectClass struct {
+	Status5XX *string `json:"status5xx,omitempty"`
 }
 
 // GetGvcs - Get All Gvcs
