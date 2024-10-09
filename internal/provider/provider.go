@@ -74,6 +74,7 @@ func Provider() *schema.Provider {
 			"cpln_location":      dataSourceLocation(),
 			"cpln_locations":     dataSourceLocations(),
 			"cpln_org":           dataSourceOrg(),
+			"cpln_secret":        dataSourceSecret(),
 		},
 
 		ConfigureContextFunc: providerConfigure,
