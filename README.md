@@ -305,3 +305,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Make workload options optional.
 - v1.1.35
     - Fix empty options bug in workload resource.
+- v1.1.36
+    - Add secret data source.
+    - Add autoscaling by memory.
