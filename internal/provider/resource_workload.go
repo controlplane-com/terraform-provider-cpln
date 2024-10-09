@@ -2960,14 +2960,14 @@ func AutoScalingResource() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"metric": {
 				Type:        schema.TypeString,
-				Description: "Valid values: `disabled`, `concurrency`, `cpu`, `latency`, or `rps`.",
+				Description: "Valid values: `disabled`, `concurrency`, `cpu`, `memory`, `latency`, or `rps`.",
 				Optional:    true,
 				Default:     "disabled",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
 
-					if v != "concurrency" && v != "cpu" && v != "rps" && v != "latency" && v != "disabled" {
+					if v != "concurrency" && v != "cpu" && v != "memory" && v != "rps" && v != "latency" && v != "disabled" {
 						errs = append(errs, fmt.Errorf("%q must be 'concurrency', 'cpu', 'rps', 'latency' or 'disabled', got: %s", key, v))
 					}
 

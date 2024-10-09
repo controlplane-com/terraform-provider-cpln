@@ -316,7 +316,7 @@ Optional:
 
 Optional:
 
-- **metric** (String) Valid values: `concurrency`, `cpu`, `latency`, or `rps`.
+- **metric** (String) Valid values: `disabled`, `concurrency`, `cpu`, `memory`, `latency`, or `rps`.
 - **metric_percentile** (String) For metrics represented as a distribution (e.g. latency) a percentile within the distribution must be chosen as the target.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.

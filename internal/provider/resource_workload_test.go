@@ -59,6 +59,14 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneWorkloadMetricMemory(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-metric-memory", workloadEnvoyJsonUpdated, "with_load_balancer"),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
+				),
+			},
+			{
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
@@ -360,6 +368,238 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 	  }
 	  
 	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+}
+
+func testAccControlPlaneWorkloadMetricMemory(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneWorkloadMetricMemory")
+
+	return fmt.Sprintf(`
+
+		variable "random-name" {
+			type    = string
+			default = "%s"
+	  }
+	  
+	  resource "cpln_gvc" "new" {
+			name        = "%s"
+			description = "%s"
+			
+			locations = ["aws-eu-central-1", "aws-us-west-2"]
+			
+			tags = {
+				terraform_generated = "true"
+				acceptance_test     = "true"
+			}
+	  }
+	  
+	  resource "cpln_identity" "new" {
+	  
+			gvc = cpln_gvc.new.name
+			
+			name        = "terraform-identity-${var.random-name}"
+			description = "Identity created using terraform"
+			
+			tags = {
+				terraform_generated = "true"
+				acceptance_test     = "true"
+			}
+	  }
+	  
+	  resource "cpln_workload" "new" {
+	  
+			gvc = cpln_gvc.new.name
+			
+			name        = "%s"
+			description = "%s"
+			
+			tags = {
+				terraform_generated = "true"
+				acceptance_test     = "true"
+			}
+			
+			identity_link = cpln_identity.new.self_link
+			
+			type = "serverless"
+
+			support_dynamic_tags = true
+			
+			container {
+				name   = "container-01"
+				image  = "gcr.io/knative-samples/helloworld-go"
+				
+				memory = "128Mi"
+				cpu    = "50m"
+
+				ports {
+					protocol = "http"
+					number   = "8080"
+				}
+
+				command           = "override-command"
+				working_directory = "/usr"
+			
+				env = {
+					env-name-01 = "env-value-01",
+					env-name-02 = "env-value-02",
+				}
+			
+				args = ["arg-01", "arg-02"]
+			
+				volume {
+					uri  = "s3://bucket"
+					recovery_policy = "retain"
+					path = "/testpath01"
+				}
+			
+				volume {
+					uri  = "azureblob://storageAccount/container"
+					recovery_policy = "recycle"
+					path = "/testpath02"
+				}
+			
+				metrics {
+					path = "/metrics"
+					port = 8181
+				}
+			
+				readiness_probe {
+			
+					tcp_socket {
+						port = 8181
+					}
+				
+					period_seconds        = 11
+					timeout_seconds       = 2
+					failure_threshold     = 4
+					success_threshold     = 2
+					initial_delay_seconds = 1
+				}
+			
+				liveness_probe {
+			
+					http_get {
+						path   = "/path"
+						port   = 8282
+						scheme = "HTTPS"
+						http_headers = {
+							header-name-01 = "header-value-01"
+							header-name-02 = "header-value-02"
+						}
+					}
+				
+					period_seconds        = 10
+					timeout_seconds       = 3
+					failure_threshold     = 5
+					success_threshold     = 1
+					initial_delay_seconds = 2
+				}
+			
+				lifecycle {
+			
+					post_start {
+						exec {
+							command = ["command_post", "arg_1", "arg_2"]
+						}
+					}
+				
+					pre_stop {
+						exec {
+							command = ["command_pre", "arg_1", "arg_2"]
+						}
+					}
+		  	}
+			}
+	  
+			options {
+				capacity_ai     = true
+				timeout_seconds = 30
+				suspend         = false
+			
+				autoscaling {
+					metric              = "memory"
+					target              = 100
+					min_scale           = 2
+					max_scale           = 3
+					max_concurrency     = 500
+					scale_to_zero_delay = 400
+				}
+			}
+				
+			local_options {
+				location        = "aws-eu-central-1"
+				capacity_ai     = true
+				timeout_seconds = 30
+				suspend         = false
+			
+				autoscaling {
+					metric              = "concurrency"
+					target              = 100
+					max_scale           = 3
+					min_scale           = 2
+					max_concurrency     = 500
+					scale_to_zero_delay = 400
+				}
+			}
+	  
+			firewall_spec {
+			
+				external {
+					inbound_allow_cidr      = ["0.0.0.0/0"]
+					outbound_allow_cidr     = []
+					outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+					
+					outbound_allow_port {
+						protocol = "http"
+						number   = 80
+					}
+
+					outbound_allow_port {
+						protocol = "https"
+						number   = 443
+					}
+				}
+
+				internal {
+					# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+					inbound_allow_type     = "none"
+					inbound_allow_workload = []
+				}
+			}
+
+			security_options {
+				file_system_group_id = 1
+			}
+
+			sidecar {
+				envoy = jsonencode(%s)
+			}
+
+			load_balancer {
+
+				direct {
+					enabled = true
+					
+					port {
+						external_port  = 22
+						protocol       = "TCP"
+						scheme         = "http"
+						container_port = 80
+					}
+				}
+
+				geo_location {
+					enabled = true
+					headers {
+						asn = "198.51.100.0/24"
+						city = "Los Angeles"
+						country = "USA"
+						region = "North America"
+					}
+				}
+			}
+	  }
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
 func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
@@ -2160,7 +2400,7 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		WorkingDirectory: GetString("/usr"),
 	}
 
-	if workloadType == "serverless" {
+	if workloadType == "serverless" || workloadType == "serverless-metric-memory" {
 		// newContainer.Port = GetInt(8080)
 
 		newContainer.Ports = &[]client.PortSpec{
@@ -2357,6 +2597,24 @@ func generateTestOptions(workloadType string) *client.Options {
 
 			AutoScaling: &client.AutoScaling{
 				Metric:           GetString("concurrency"),
+				Target:           GetInt(100),
+				MaxScale:         GetInt(3),
+				MinScale:         GetInt(2),
+				MaxConcurrency:   GetInt(500),
+				ScaleToZeroDelay: GetInt(400),
+			},
+		}
+	}
+
+	if workloadType == "serverless-metric-memory" {
+		return &client.Options{
+			CapacityAI:     GetBool(true),
+			TimeoutSeconds: GetInt(30),
+			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
+
+			AutoScaling: &client.AutoScaling{
+				Metric:           GetString("memory"),
 				Target:           GetInt(100),
 				MaxScale:         GetInt(3),
 				MinScale:         GetInt(2),
@@ -2626,7 +2884,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 		"inherit_env":       false,
 	}
 
-	if workloadType == "serverless" {
+	if workloadType == "serverless" || workloadType == "serverless-metric-memory" {
 
 		// c["port"] = 8080
 		port_01 := make(map[string]interface{})
