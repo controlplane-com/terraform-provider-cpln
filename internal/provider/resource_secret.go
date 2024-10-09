@@ -23,324 +23,334 @@ func resourceSecret() *schema.Resource {
 		ReadContext:   resourceSecretRead,
 		UpdateContext: resourceSecretUpdate,
 		DeleteContext: resourceSecretDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the Secret.",
-				Computed:    true,
+		Schema:        secretSchema(true),
+		Importer:      &schema.ResourceImporter{},
+	}
+}
+
+func secretSchema(expectExactlyOneOf bool) map[string]*schema.Schema {
+	exactlyOneOf := []string{}
+
+	if expectExactlyOneOf {
+		exactlyOneOf = secretDataObjectsNames
+	}
+
+	return map[string]*schema.Schema{
+		"cpln_id": {
+			Type:        schema.TypeString,
+			Description: "The ID, in GUID format, of the Secret.",
+			Computed:    true,
+		},
+		"name": {
+			Type:         schema.TypeString,
+			Description:  "Name of the secret.",
+			ForceNew:     true,
+			Required:     true,
+			ValidateFunc: NameValidator,
+		},
+		"description": {
+			Type:             schema.TypeString,
+			Description:      "Description of the Secret.",
+			Optional:         true,
+			ValidateFunc:     DescriptionValidator,
+			DiffSuppressFunc: DiffSuppressDescription,
+		},
+		"tags": {
+			Type:        schema.TypeMap,
+			Description: "Key-value map of resource tags.",
+			Optional:    true,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
 			},
-			"name": {
-				Type:         schema.TypeString,
-				Description:  "Name of the secret.",
-				ForceNew:     true,
-				Required:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of the Secret.",
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:        schema.TypeMap,
-				Description: "Key-value map of resource tags.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-				ValidateFunc: TagValidator,
-			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to this resource. Can be referenced by other resources.",
-				Computed:    true,
-			},
-			"dictionary": {
-				Type:         schema.TypeMap,
-				Description:  "List of unique key-value pairs. [Reference Page](https://docs.controlplane.com/reference/secret#dictionary).",
-				Optional:     true,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"dictionary_as_envs": {
-				Type:        schema.TypeMap,
-				Description: "If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.",
-				Computed:    true,
-			},
-			"opaque": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#opaque).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"payload": {
-							Type:        schema.TypeString,
-							Description: "Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.",
-							Required:    true,
-							Sensitive:   true,
-						},
-						"encoding": {
-							Type:         schema.TypeString,
-							Description:  "Available encodings: `plain`, `base64`. Default: `plain`.",
-							Optional:     true,
-							Default:      "plain",
-							ValidateFunc: EncodingValidator,
-						},
-					},
-				},
-			},
-			"tls": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#tls).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"key": {
-							Type:        schema.TypeString,
-							Description: "Private Certificate.",
-							Required:    true,
-							Sensitive:   true,
-						},
-						"cert": {
-							Type:        schema.TypeString,
-							Description: "Public Certificate.",
-							Required:    true,
-						},
-						"chain": {
-							Type:        schema.TypeString,
-							Description: "Chain Certificate.",
-							Optional:    true,
-							Default:     "",
-						},
-					},
-				},
-			},
-			"gcp": {
-				Type:             schema.TypeString,
-				Description:      "JSON string containing the GCP secret. [Reference Page](https://docs.controlplane.com/reference/secret#gcp)",
-				Optional:         true,
-				Sensitive:        true,
-				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "nats_account", "opaque", "tls", "userpass"},
-				DiffSuppressFunc: diffSuppressJSON,
-			},
-			"aws": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#aws).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"secret_key": {
-							Type:        schema.TypeString,
-							Description: "Secret Key provided by AWS.",
-							Required:    true,
-							Sensitive:   true,
-						},
-						"access_key": {
-							Type:         schema.TypeString,
-							Description:  "Access Key provided by AWS.",
-							Required:     true,
-							Sensitive:    true,
-							ValidateFunc: AwsAccessKeyValidator,
-						},
-						"role_arn": {
-							Type:         schema.TypeString,
-							Description:  "Role ARN provided by AWS.",
-							Optional:     true,
-							Default:      "",
-							ValidateFunc: AwsRoleArnValidator,
-						},
-						"external_id": {
-							Type:        schema.TypeString,
-							Description: "AWS IAM Role External ID.",
-							Optional:    true,
-						},
-					},
-				},
-			},
-			"ecr": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#ecr)",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"secret_key": {
-							Type:        schema.TypeString,
-							Description: "Secret Key provided by AWS.",
-							Required:    true,
-							Sensitive:   true,
-						},
-						"access_key": {
-							Type:         schema.TypeString,
-							Description:  "Access Key provided by AWS.",
-							Required:     true,
-							ValidateFunc: AwsAccessKeyValidator,
-						},
-						"role_arn": {
-							Type:         schema.TypeString,
-							Description:  "Role ARN provided by AWS.",
-							Optional:     true,
-							Default:      "",
-							ValidateFunc: AwsRoleArnValidator,
-						},
-						"external_id": {
-							Type:        schema.TypeString,
-							Description: "AWS IAM Role External ID. Used when setting up cross-account access to your ECR repositories.",
-							Optional:    true,
-						},
-						"repos": {
-							Type:        schema.TypeSet,
-							Description: "List of ECR repositories.",
-							Required:    true,
-							Elem: &schema.Schema{
-								MinItems: 1,
-								MaxItems: 20,
-								Type:     schema.TypeString,
-							},
-						},
-					},
-				},
-			},
-			"docker": {
-				Type:             schema.TypeString,
-				Description:      "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#docker).",
-				Optional:         true,
-				Sensitive:        true,
-				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "nats_account", "opaque", "tls", "userpass"},
-				DiffSuppressFunc: diffSuppressJSON,
-			},
-			"userpass": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#username).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"username": {
-							Type:         schema.TypeString,
-							Description:  "Username.",
-							Required:     true,
-							ValidateFunc: EmptyValidator,
-						},
-						"password": {
-							Type:         schema.TypeString,
-							Description:  "Password.",
-							Required:     true,
-							Sensitive:    true,
-							ValidateFunc: EmptyValidator,
-						},
-						"encoding": {
-							Type:         schema.TypeString,
-							Description:  "Available encodings: `plain`, `base64`. Default: `plain`.",
-							Optional:     true,
-							Default:      "plain",
-							ValidateFunc: EncodingValidator,
-						},
-					},
-				},
-			},
-			"keypair": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#keypair).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"secret_key": {
-							Type:        schema.TypeString,
-							Description: "Secret/Private Key.",
-							Required:    true,
-							Sensitive:   true,
-						},
-						"public_key": {
-							Type:        schema.TypeString,
-							Description: "Public Key.",
-							Optional:    true,
-							Default:     "",
-						},
-						"passphrase": {
-							Type:        schema.TypeString,
-							Description: "Passphrase for private key.",
-							Optional:    true,
-							Sensitive:   true,
-							Default:     "",
-						},
-					},
-				},
-			},
-			"azure_sdk": {
-				Type:             schema.TypeString,
-				Description:      "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#azure).",
-				Optional:         true,
-				Sensitive:        true,
-				ExactlyOneOf:     []string{"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr", "gcp", "keypair", "nats_account", "opaque", "tls", "userpass"},
-				DiffSuppressFunc: diffSuppressJSON,
-			},
-			"azure_connector": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#azure-connector).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"url": {
-							Type:        schema.TypeString,
-							Description: "Deployment URL.",
-							Required:    true,
-							Sensitive:   true,
-						},
-						"code": {
-							Type:        schema.TypeString,
-							Description: "Code/Key to authenticate to deployment URL.",
-							Required:    true,
-							Sensitive:   true,
-						},
-					},
-				},
-			},
-			"nats_account": {
-				Type:         schema.TypeList,
-				Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#nats-account).",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: secretDataObjectsNames,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"account_id": {
-							Type:        schema.TypeString,
-							Description: "Account ID.",
-							Required:    true,
-						},
-						"private_key": {
-							Type:        schema.TypeString,
-							Description: "Private Key.",
-							Required:    true,
-							Sensitive:   true,
-						},
-					},
-				},
-			},
-			"secret_link": {
-				Type:        schema.TypeString,
-				Description: "Output used when linking a secret to an environment variable or volume.",
-				Computed:    true,
+			ValidateFunc: TagValidator,
+		},
+		"self_link": {
+			Type:        schema.TypeString,
+			Description: "Full link to this resource. Can be referenced by other resources.",
+			Computed:    true,
+		},
+		"dictionary": {
+			Type:         schema.TypeMap,
+			Description:  "List of unique key-value pairs. [Reference Page](https://docs.controlplane.com/reference/secret#dictionary).",
+			Optional:     true,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
 			},
 		},
-		Importer: &schema.ResourceImporter{},
+		"dictionary_as_envs": {
+			Type:        schema.TypeMap,
+			Description: "If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.",
+			Computed:    true,
+		},
+		"opaque": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#opaque).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"payload": {
+						Type:        schema.TypeString,
+						Description: "Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"encoding": {
+						Type:         schema.TypeString,
+						Description:  "Available encodings: `plain`, `base64`. Default: `plain`.",
+						Optional:     true,
+						Default:      "plain",
+						ValidateFunc: EncodingValidator,
+					},
+				},
+			},
+		},
+		"tls": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#tls).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"key": {
+						Type:        schema.TypeString,
+						Description: "Private Certificate.",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"cert": {
+						Type:        schema.TypeString,
+						Description: "Public Certificate.",
+						Required:    true,
+					},
+					"chain": {
+						Type:        schema.TypeString,
+						Description: "Chain Certificate.",
+						Optional:    true,
+						Default:     "",
+					},
+				},
+			},
+		},
+		"gcp": {
+			Type:             schema.TypeString,
+			Description:      "JSON string containing the GCP secret. [Reference Page](https://docs.controlplane.com/reference/secret#gcp)",
+			Optional:         true,
+			Sensitive:        true,
+			ExactlyOneOf:     exactlyOneOf,
+			DiffSuppressFunc: diffSuppressJSON,
+		},
+		"aws": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#aws).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"secret_key": {
+						Type:        schema.TypeString,
+						Description: "Secret Key provided by AWS.",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"access_key": {
+						Type:         schema.TypeString,
+						Description:  "Access Key provided by AWS.",
+						Required:     true,
+						Sensitive:    true,
+						ValidateFunc: AwsAccessKeyValidator,
+					},
+					"role_arn": {
+						Type:         schema.TypeString,
+						Description:  "Role ARN provided by AWS.",
+						Optional:     true,
+						Default:      "",
+						ValidateFunc: AwsRoleArnValidator,
+					},
+					"external_id": {
+						Type:        schema.TypeString,
+						Description: "AWS IAM Role External ID.",
+						Optional:    true,
+					},
+				},
+			},
+		},
+		"ecr": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#ecr)",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"secret_key": {
+						Type:        schema.TypeString,
+						Description: "Secret Key provided by AWS.",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"access_key": {
+						Type:         schema.TypeString,
+						Description:  "Access Key provided by AWS.",
+						Required:     true,
+						ValidateFunc: AwsAccessKeyValidator,
+					},
+					"role_arn": {
+						Type:         schema.TypeString,
+						Description:  "Role ARN provided by AWS.",
+						Optional:     true,
+						Default:      "",
+						ValidateFunc: AwsRoleArnValidator,
+					},
+					"external_id": {
+						Type:        schema.TypeString,
+						Description: "AWS IAM Role External ID. Used when setting up cross-account access to your ECR repositories.",
+						Optional:    true,
+					},
+					"repos": {
+						Type:        schema.TypeSet,
+						Description: "List of ECR repositories.",
+						Required:    true,
+						Elem: &schema.Schema{
+							MinItems: 1,
+							MaxItems: 20,
+							Type:     schema.TypeString,
+						},
+					},
+				},
+			},
+		},
+		"docker": {
+			Type:             schema.TypeString,
+			Description:      "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#docker).",
+			Optional:         true,
+			Sensitive:        true,
+			ExactlyOneOf:     exactlyOneOf,
+			DiffSuppressFunc: diffSuppressJSON,
+		},
+		"userpass": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#username).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"username": {
+						Type:         schema.TypeString,
+						Description:  "Username.",
+						Required:     true,
+						ValidateFunc: EmptyValidator,
+					},
+					"password": {
+						Type:         schema.TypeString,
+						Description:  "Password.",
+						Required:     true,
+						Sensitive:    true,
+						ValidateFunc: EmptyValidator,
+					},
+					"encoding": {
+						Type:         schema.TypeString,
+						Description:  "Available encodings: `plain`, `base64`. Default: `plain`.",
+						Optional:     true,
+						Default:      "plain",
+						ValidateFunc: EncodingValidator,
+					},
+				},
+			},
+		},
+		"keypair": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#keypair).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"secret_key": {
+						Type:        schema.TypeString,
+						Description: "Secret/Private Key.",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"public_key": {
+						Type:        schema.TypeString,
+						Description: "Public Key.",
+						Optional:    true,
+						Default:     "",
+					},
+					"passphrase": {
+						Type:        schema.TypeString,
+						Description: "Passphrase for private key.",
+						Optional:    true,
+						Sensitive:   true,
+						Default:     "",
+					},
+				},
+			},
+		},
+		"azure_sdk": {
+			Type:             schema.TypeString,
+			Description:      "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#azure).",
+			Optional:         true,
+			Sensitive:        true,
+			ExactlyOneOf:     exactlyOneOf,
+			DiffSuppressFunc: diffSuppressJSON,
+		},
+		"azure_connector": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#azure-connector).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"url": {
+						Type:        schema.TypeString,
+						Description: "Deployment URL.",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"code": {
+						Type:        schema.TypeString,
+						Description: "Code/Key to authenticate to deployment URL.",
+						Required:    true,
+						Sensitive:   true,
+					},
+				},
+			},
+		},
+		"nats_account": {
+			Type:         schema.TypeList,
+			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#nats-account).",
+			Optional:     true,
+			MaxItems:     1,
+			ExactlyOneOf: exactlyOneOf,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"account_id": {
+						Type:        schema.TypeString,
+						Description: "Account ID.",
+						Required:    true,
+					},
+					"private_key": {
+						Type:        schema.TypeString,
+						Description: "Private Key.",
+						Required:    true,
+						Sensitive:   true,
+					},
+				},
+			},
+		},
+		"secret_link": {
+			Type:        schema.TypeString,
+			Description: "Output used when linking a secret to an environment variable or volume.",
+			Computed:    true,
+		},
 	}
 }
 
