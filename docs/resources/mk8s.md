@@ -23,6 +23,7 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **linode_provider** (Block List, Max: 1) ([see below](#nestedblock--linode_provider))
 - **oblivus_provider** (Block List, Max: 1) ([see below](#nestedblock--oblivus_provider))
 - **lambdalabs_provider** (Block List, Max: 1) ([see below](#nestedblock--lambdalabs_provider))
+- **paperspace_provider** (Block List, Max: 1) ([see below](#nestedblock--paperspace_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 
 ### Optional
@@ -274,7 +275,7 @@ Optional:
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
 - **min_size** (Number)
 - **max_size** (Number)
-- **instance_type** (String)
+- **flavor** (String)
 
 <a id="nestedblock--oblivus_provider--unmanaged_node_pool"></a>
 
@@ -327,6 +328,58 @@ Optional:
 <a id="nestedblock--lambdalabs_provider--unmanaged_node_pool"></a>
 
 ### `lambdalabs_provider.unmanaged_node_pool`
+
+Required:
+
+- **name** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+
+<a id="nestedblock--paperspace_provider"></a>
+
+### `paperspace_provider`
+
+Required:
+
+- **region** (String) Region where the cluster nodes will live.
+- **token_secret_link** (String) Link to a secret holding Paperspace access key.
+- **network_id** (String)
+
+Optional:
+
+- **shared_drives** (List of String)
+- **node_pool** (Block List) ([see below](#nestedblock--paperspace_provider--node_pool))
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **unmanaged_node_pool** (Block List) ([see below](#nestedblock--paperspace_provider--unmanaged_node_pool))
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+- **user_ids** (List of String)
+
+<a id="nestedblock--paperspace_provider--node_pool"></a>
+
+### `paperspace_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **public_ip_type** (String)
+- **machine_type** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **min_size** (Number)
+- **max_size** (Number)
+- **boot_disk_size** (Number)
+
+<a id="nestedblock--paperspace_provider--unmanaged_node_pool"></a>
+
+### `paperspace_provider.unmanaged_node_pool`
 
 Required:
 
@@ -947,13 +1000,218 @@ resource "cpln_mk8s" "aws" {
 ## Example Usage - Linode Provider
 
 ```terraform
+resource "cpln_mk8s" "linode" {
 
+    name        = "demo-mk8s-linode-provider"
+    description = "demo-mk8s-linode-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    linode_provider {
+        region             = "fr-par"
+        token_secret_link  = "/org/terraform-test-org/secret/linode"
+        image              = "linode/ubuntu24.04"
+        vpc_id             = "93666"
+        firewall_id        = "168425"
+        pre_install_script = "#! echo hello world"
+
+        authorized_users = ["cpln"]
+
+        node_pool {
+            name = "my-linode-node-pool"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+
+            server_type    = "g6-nanode-1"
+            override_image = "linode/debian11"
+            subnet_id      = "90623"
+            min_size 	   = 0
+            max_size 	   = 0
+        }
+
+        networking {
+            service_network = "10.43.0.0/16"
+            pod_network 	= "10.42.0.0/16"
+        }
+
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
+    }
+}
 ```
 
 ## Example Usage - Oblivus Provider
 
 ```terraform
+resource "cpln_mk8s" "oblivus" {
+    
+    name        = "demo-mk8s-oblivus-provider"
+    description = "demo-mk8s-oblivus-provider"
 
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    oblivus_provider {
+        datacenter         = "OSL1"
+        token_secret_link  = "/org/terraform-test-org/secret/oblivus"
+        pre_install_script = "#! echo hello world"
+
+        node_pool {
+            name     = "my-oblivus-node-pool"
+            min_size = 0
+            max_size = 0
+            flavor   = "INTEL_XEON_V3_x4"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+        }
+
+        unmanaged_node_pool {
+            name = "my-node-pool"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+        }
+
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces  = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces  = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
+    }
+}
 ```
 
 ## Example Usage - Lambdalabs Provider
@@ -1058,6 +1316,121 @@ resource "cpln_mk8s" "lambdalabs" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+    }
+}
+```
+
+
+## Example Usage - Paperspace Provider
+
+```terraform
+resource "cpln_mk8s" "paperspace" {
+		
+    name        = "demo-mk8s-paperspace-provider"
+    description = "demo-mk8s-paperspace-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+        "cpln/ignore"       = "true"
+    }
+
+    version = "1.28.4"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    paperspace_provider {
+        region             = "CA1"
+        token_secret_link  = "/org/terraform-test-org/secret/paperspace"
+        pre_install_script = "#! echo hello world"
+        shared_drives      = ["california"]
+        network_id         = "nla0jotp"
+        
+        node_pool {
+            name           = "my-paperspace-node-pool"
+            min_size       = 0
+            max_size       = 0
+            public_ip_type = "dynamic"
+            boot_disk_size = 50
+            machine_type   = "GPU+"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+        }
+
+        unmanaged_node_pool {
+            name = "my-node-pool"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+        }
+
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
     }
 }
 ```

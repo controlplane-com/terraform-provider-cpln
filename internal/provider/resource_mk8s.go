@@ -15,7 +15,7 @@ func resourceMk8s() *schema.Resource {
 	var mk8sProviders = []string{
 		"generic_provider", "hetzner_provider", "aws_provider",
 		"oblivus_provider", "linode_provider", "lambdalabs_provider",
-		"ephemeral_provider",
+		"paperspace_provider", "ephemeral_provider",
 	}
 
 	return &schema.Resource{
@@ -121,12 +121,8 @@ func resourceMk8s() *schema.Resource {
 							Optional:    true,
 							Elem:        StringSchema(),
 						},
-						"networking": Mk8sNetworkingSchema(),
-						"pre_install_script": {
-							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8s is installed.",
-							Optional:    true,
-						},
+						"networking":         Mk8sNetworkingSchema(),
+						"pre_install_script": Mk8sPreInstallScriptSchema(),
 						"token_secret_link": {
 							Type:        schema.TypeString,
 							Description: "Link to a secret holding Hetzner access key.",
@@ -190,13 +186,9 @@ func resourceMk8s() *schema.Resource {
 							Optional:    true,
 							Default:     false,
 						},
-						"networking": Mk8sNetworkingSchema(),
-						"pre_install_script": {
-							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8s is installed. Supports SSM.",
-							Optional:    true,
-						},
-						"image": Mk8sAwsAmiSchema(),
+						"networking":         Mk8sNetworkingSchema(),
+						"pre_install_script": Mk8sPreInstallScriptSchema(),
+						"image":              Mk8sAwsAmiSchema(),
 						"deploy_role_arn": {
 							Type:        schema.TypeString,
 							Description: "Control Plane will set up the cluster by assuming this role.",
@@ -274,13 +266,9 @@ func resourceMk8s() *schema.Resource {
 							Description: "The vpc where nodes will be deployed. Supports SSM.",
 							Required:    true,
 						},
-						"pre_install_script": {
-							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8s is installed.",
-							Optional:    true,
-						},
-						"networking": Mk8sNetworkingSchema(),
-						"autoscaler": Mk8sAutoscalerSchema(),
+						"pre_install_script": Mk8sPreInstallScriptSchema(),
+						"networking":         Mk8sNetworkingSchema(),
+						"autoscaler":         Mk8sAutoscalerSchema(),
 					},
 				},
 			},
@@ -311,11 +299,7 @@ func resourceMk8s() *schema.Resource {
 						},
 						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
 						"autoscaler":          Mk8sAutoscalerSchema(),
-						"pre_install_script": {
-							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8s is installed.",
-							Optional:    true,
-						},
+						"pre_install_script":  Mk8sPreInstallScriptSchema(),
 					},
 				},
 			},
@@ -345,10 +329,48 @@ func resourceMk8s() *schema.Resource {
 						},
 						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
 						"autoscaler":          Mk8sAutoscalerSchema(),
-						"pre_install_script": {
+						"pre_install_script":  Mk8sPreInstallScriptSchema(),
+					},
+				},
+			},
+			"paperspace_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"region": {
 							Type:        schema.TypeString,
-							Description: "Optional shell script that will be run before K8s is installed. Supports SSM.",
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"token_secret_link": {
+							Type:        schema.TypeString,
+							Description: "Link to a secret holding Paperspace access key.",
+							Required:    true,
+						},
+						"shared_drives": {
+							Type:        schema.TypeSet,
+							Description: "",
 							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"node_pool":           Mk8sPaperspaceNodePoolSchema(),
+						"autoscaler":          Mk8sAutoscalerSchema(),
+						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
+						"pre_install_script":  Mk8sPreInstallScriptSchema(),
+						"user_ids": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"network_id": {
+							Type:        schema.TypeString,
+							Description: "",
+							Required:    true,
 						},
 					},
 				},
@@ -808,6 +830,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("paperspace_provider", flattenMk8sPaperspaceProvider(mk8s.Spec.Provider.Paperspace)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("ephemeral_provider", flattenMk8sEphemeralProvider(mk8s.Spec.Provider.Ephemeral)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -878,6 +904,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("lambdalabs_provider") != nil {
 		output.Lambdalabs = buildMk8sLambdalabsProvider(d.Get("lambdalabs_provider").([]interface{}))
+	}
+
+	if d.Get("paperspace_provider") != nil {
+		output.Paperspace = buildMk8sPaperspaceProvider(d.Get("paperspace_provider").([]interface{}))
 	}
 
 	if d.Get("ephemeral_provider") != nil {
@@ -1197,6 +1227,46 @@ func buildMk8sLambdalabsProvider(specs []interface{}) *client.Mk8sLambdalabsProv
 	return &output
 }
 
+func buildMk8sPaperspaceProvider(specs []interface{}) *client.Mk8sPaperspaceProvider {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sPaperspaceProvider{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Region = GetString(spec["region"])
+	output.TokenSecretLink = GetString(spec["token_secret_link"])
+	output.NetworkId = GetString(spec["network_id"])
+
+	if spec["shared_drives"] != nil {
+		output.SharedDrives = BuildStringTypeSet(spec["shared_drives"])
+	}
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sPaperspaceNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	if spec["autoscaler"] != nil {
+		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
+	}
+
+	if spec["unmanaged_node_pool"] != nil {
+		output.UnmanagedNodePools = buildMk8sGenericNodePools(spec["unmanaged_node_pool"].([]interface{}))
+	}
+
+	if spec["pre_install_script"] != nil {
+		output.PreInstallScript = GetString(spec["pre_install_script"])
+	}
+
+	if spec["user_ids"] != nil {
+		output.UserIds = BuildStringTypeSet(spec["user_ids"])
+	}
+
+	return &output
+}
+
 func buildMk8sEphemeralProvider(specs []interface{}) *client.Mk8sEphemeralProvder {
 
 	if len(specs) == 0 || specs[0] == nil {
@@ -1406,7 +1476,7 @@ func buildMk8sOblivusNodePools(specs []interface{}) *[]client.Mk8sOblivusPool {
 
 		nodePool.MinSize = GetInt(spec["min_size"])
 		nodePool.MaxSize = GetInt(spec["max_size"])
-		nodePool.InstanceType = GetString(spec["instance_type"])
+		nodePool.Flavor = GetString(spec["flavor"])
 
 		output = append(output, nodePool)
 	}
@@ -1440,6 +1510,43 @@ func buildMk8sLambdalabsNodePools(specs []interface{}) *[]client.Mk8sLambdalabsP
 		nodePool.MinSize = GetInt(spec["min_size"])
 		nodePool.MaxSize = GetInt(spec["max_size"])
 		nodePool.InstanceType = GetString(spec["instance_type"])
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
+func buildMk8sPaperspaceNodePools(specs []interface{}) *[]client.Mk8sPaperspacePool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sPaperspacePool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sPaperspacePool{}
+		nodePool.Name = GetString(spec["name"])
+		nodePool.MinSize = GetInt(spec["min_size"])
+		nodePool.MaxSize = GetInt(spec["max_size"])
+		nodePool.PublicIpType = GetString(spec["public_ip_type"])
+		nodePool.MachineType = GetString(spec["machine_type"])
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
+		}
+
+		if spec["boot_disk_size"] != nil {
+			nodePool.BootDiskSize = GetInt(spec["boot_disk_size"])
+		}
 
 		output = append(output, nodePool)
 	}
@@ -2094,6 +2201,47 @@ func flattenMk8sLambdalabsProvider(lambdalabs *client.Mk8sLambdalabsProvider) []
 	}
 }
 
+func flattenMk8sPaperspaceProvider(paperspace *client.Mk8sPaperspaceProvider) []interface{} {
+
+	if paperspace == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"region":            *paperspace.Region,
+		"token_secret_link": *paperspace.TokenSecretLink,
+		"network_id":        *paperspace.NetworkId,
+	}
+
+	if paperspace.SharedDrives != nil {
+		spec["shared_drives"] = FlattenStringTypeSet(paperspace.SharedDrives)
+	}
+
+	if paperspace.NodePools != nil {
+		spec["node_pool"] = flattenMk8sPaperspaceNodePools(paperspace.NodePools)
+	}
+
+	if paperspace.Autoscaler != nil {
+		spec["autoscaler"] = flattenMk8sAutoscaler(paperspace.Autoscaler)
+	}
+
+	if paperspace.UnmanagedNodePools != nil {
+		spec["unmanaged_node_pool"] = flattenMk8sGenericNodePools(paperspace.UnmanagedNodePools)
+	}
+
+	if paperspace.PreInstallScript != nil {
+		spec["pre_install_script"] = *paperspace.PreInstallScript
+	}
+
+	if paperspace.UserIds != nil {
+		spec["user_ids"] = FlattenStringTypeSet(paperspace.UserIds)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvder) []interface{} {
 
 	if ephemeral == nil {
@@ -2293,7 +2441,7 @@ func flattenMk8sOblivusNodePools(nodePools *[]client.Mk8sOblivusPool) []interfac
 
 		spec["min_size"] = *pool.MinSize
 		spec["max_size"] = *pool.MaxSize
-		spec["instance_type"] = *pool.InstanceType
+		spec["flavor"] = *pool.Flavor
 
 		specs = append(specs, spec)
 	}
@@ -2326,6 +2474,42 @@ func flattenMk8sLambdalabsNodePools(nodePools *[]client.Mk8sLambdalabsPool) []in
 		spec["min_size"] = *pool.MinSize
 		spec["max_size"] = *pool.MaxSize
 		spec["instance_type"] = *pool.InstanceType
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenMk8sPaperspaceNodePools(nodePools *[]client.Mk8sPaperspacePool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name":           *pool.Name,
+			"min_size":       *pool.MinSize,
+			"max_size":       *pool.MaxSize,
+			"public_ip_type": *pool.PublicIpType,
+			"machine_type":   *pool.MachineType,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
+		}
+
+		if pool.BootDiskSize != nil {
+			spec["boot_disk_size"] = *pool.BootDiskSize
+		}
 
 		specs = append(specs, spec)
 	}
@@ -2956,7 +3140,40 @@ func Mk8sOblivusNodePoolSchema() *schema.Schema {
 				"taint":    Mk8sGenericNodePoolTaintsSchema(),
 				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
 				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-				"instance_type": {
+				"flavor": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
+			},
+		},
+	}
+}
+
+func Mk8sPaperspaceNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":     Mk8sGenericNodePoolNameSchema(),
+				"labels":   Mk8sGenericNodePoolLabelsSchema(),
+				"taint":    Mk8sGenericNodePoolTaintsSchema(),
+				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
+				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
+				"public_ip_type": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
+				"boot_disk_size": {
+					Type:        schema.TypeInt,
+					Description: "",
+					Optional:    true,
+				},
+				"machine_type": {
 					Type:        schema.TypeString,
 					Description: "",
 					Required:    true,
@@ -3201,6 +3418,14 @@ func Mk8sAutoscalerSchema() *schema.Schema {
 				},
 			},
 		},
+	}
+}
+
+func Mk8sPreInstallScriptSchema() *schema.Schema {
+	return &schema.Schema{
+		Type:        schema.TypeString,
+		Description: "Optional shell script that will be run before K8s is installed. Supports SSM.",
+		Optional:    true,
 	}
 }
 

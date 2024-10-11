@@ -132,10 +132,15 @@ type Mk8sLambdalabsProvider struct {
 }
 
 type Mk8sPaperspaceProvider struct {
-	Region          *string               `json:"region,omitempty"`
-	TokenSecretLink *string               `json:"tokenSecretLink,omitempty"`
-	SharedDrives    *[]string             `json:"sharedDrives,omitempty"`
-	NodePools       *[]Mk8sPaperspacePool `json:"nodePools,omitempty"`
+	Region             *string               `json:"region,omitempty"`
+	TokenSecretLink    *string               `json:"tokenSecretLink,omitempty"`
+	SharedDrives       *[]string             `json:"sharedDrives,omitempty"`
+	NodePools          *[]Mk8sPaperspacePool `json:"nodePools,omitempty"`
+	Autoscaler         *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	UnmanagedNodePools *[]Mk8sGenericPool    `json:"unmanagedNodePools,omitempty"`
+	PreInstallScript   *string               `json:"preInstallScript,omitempty"`
+	UserIds            *[]string             `json:"userIds,omitempty"`
+	NetworkId          *string               `json:"networkId,omitempty"`
 }
 
 type Mk8sEphemeralProvder struct {
@@ -184,9 +189,9 @@ type Mk8sLinodePool struct {
 
 type Mk8sOblivusPool struct {
 	Mk8sGenericPool
-	MinSize      *int    `json:"minSize,omitempty"`
-	MaxSize      *int    `json:"maxSize,omitempty"`
-	InstanceType *string `json:"instanceType,omitempty"`
+	MinSize *int    `json:"minSize,omitempty"`
+	MaxSize *int    `json:"maxSize,omitempty"`
+	Flavor  *string `json:"flavor,omitempty"`
 }
 
 type Mk8sLambdalabsPool struct {
@@ -198,9 +203,11 @@ type Mk8sLambdalabsPool struct {
 
 type Mk8sPaperspacePool struct {
 	Mk8sGenericPool
-	MinSize     *int    `json:"minSize,omitempty"`
-	MaxSize     *int    `json:"maxSize,omitempty"`
-	MachineType *string `json:"machineType,omitempty"`
+	MinSize      *int    `json:"minSize,omitempty"`
+	MaxSize      *int    `json:"maxSize,omitempty"`
+	PublicIpType *string `json:"publicIpType,omitempty"`
+	BootDiskSize *int    `json:"bootDiskSize,omitempty"`
+	MachineType  *string `json:"machineType,omitempty"`
 }
 
 type Mk8sEphemeralPool struct {
