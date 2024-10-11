@@ -15,7 +15,7 @@ func resourceMk8s() *schema.Resource {
 	var mk8sProviders = []string{
 		"generic_provider", "hetzner_provider", "aws_provider",
 		"oblivus_provider", "linode_provider", "lambdalabs_provider",
-		"paperspace_provider", "ephemeral_provider",
+		"paperspace_provider", "ephemeral_provider", "triton_provider",
 	}
 
 	return &schema.Resource{
@@ -389,6 +389,77 @@ func resourceMk8s() *schema.Resource {
 							Required:    true,
 						},
 						"node_pool": Mk8sEphemeralNodePoolSchema(),
+					},
+				},
+			},
+			"triton_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"connection": {
+							Type:        schema.TypeList,
+							Description: "",
+							Required:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"url": {
+										Type:        schema.TypeString,
+										Description: "",
+										Required:    true,
+									},
+									"account": {
+										Type:        schema.TypeString,
+										Description: "",
+										Required:    true,
+									},
+									"user": {
+										Type:        schema.TypeString,
+										Description: "",
+										Optional:    true,
+									},
+									"private_key_secret_link": {
+										Type:        schema.TypeString,
+										Description: "Link to a SSH or opaque secret.",
+										Required:    true,
+									},
+								},
+							},
+						},
+						"networking":         Mk8sNetworkingSchema(),
+						"pre_install_script": Mk8sPreInstallScriptSchema(),
+						"location": {
+							Type:        schema.TypeString,
+							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to the Triton datacenter.",
+							Required:    true,
+						},
+						"private_network_id": {
+							Type:        schema.TypeString,
+							Description: "ID of the private Fabric/Network.",
+							Required:    true,
+						},
+						"firewall_enabled": {
+							Type:        schema.TypeBool,
+							Description: "Enable firewall for the instances deployed.",
+							Optional:    true,
+						},
+						"node_pool": Mk8sTritonNodePoolSchema(),
+						"image_id": {
+							Type:        schema.TypeString,
+							Description: "Default image for all nodes.",
+							Required:    true,
+						},
+						"ssh_keys": {
+							Type:        schema.TypeSet,
+							Description: "Extra SSH keys to provision for user root.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"autoscaler": Mk8sAutoscalerSchema(),
 					},
 				},
 			},
@@ -838,6 +909,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("triton_provider", flattenMk8sTritonProvider(mk8s.Spec.Provider.Triton)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("add_ons", flattenMk8sAddOns(mk8s.Spec.AddOns)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -912,6 +987,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("ephemeral_provider") != nil {
 		output.Ephemeral = buildMk8sEphemeralProvider(d.Get("ephemeral_provider").([]interface{}))
+	}
+
+	if d.Get("triton_provider") != nil {
+		output.Triton = buildMk8sTritonProvider(d.Get("triton_provider").([]interface{}))
 	}
 
 	return &output
@@ -1267,19 +1346,60 @@ func buildMk8sPaperspaceProvider(specs []interface{}) *client.Mk8sPaperspaceProv
 	return &output
 }
 
-func buildMk8sEphemeralProvider(specs []interface{}) *client.Mk8sEphemeralProvder {
+func buildMk8sEphemeralProvider(specs []interface{}) *client.Mk8sEphemeralProvider {
 
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
 
-	output := client.Mk8sEphemeralProvder{}
+	output := client.Mk8sEphemeralProvider{}
 	spec := specs[0].(map[string]interface{})
 
 	output.Location = GetString(spec["location"])
 
 	if spec["node_pool"] != nil {
 		output.NodePools = buildMk8sEphemeralNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildMk8sTritonProvider(specs []interface{}) *client.Mk8sTritonProvider {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sTritonProvider{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Connection = buildMk8sTritonConnection(spec["connection"].([]interface{}))
+	output.Location = GetString(spec["location"])
+	output.PrivateNetworkId = GetString(spec["private_network_id"])
+	output.ImageId = GetString(spec["image_id"])
+
+	if spec["networking"] != nil {
+		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
+	}
+
+	if spec["pre_install_script"] != nil {
+		output.PreInstallScript = GetString(spec["pre_install_script"])
+	}
+
+	if spec["firewall_enabled"] != nil {
+		output.FirewallEnabled = GetBool(spec["firewall_enabled"])
+	}
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sTritonNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	if spec["ssh_keys"] != nil {
+		output.SshKeys = BuildStringTypeSet(spec["ssh_keys"])
+	}
+
+	if spec["autoscaler"] != nil {
+		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
 	}
 
 	return &output
@@ -1589,6 +1709,54 @@ func buildMk8sEphemeralNodePools(specs []interface{}) *[]client.Mk8sEphemeralPoo
 	return &output
 }
 
+func buildMk8sTritonNodePools(specs []interface{}) *[]client.Mk8sTritonPool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sTritonPool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sTritonPool{}
+		nodePool.Name = GetString(spec["name"])
+		nodePool.PackageId = GetString(spec["package_id"])
+		nodePool.MinSize = GetInt(spec["min_size"])
+		nodePool.MaxSize = GetInt(spec["max_size"])
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
+		}
+
+		if spec["override_image_id"] != nil {
+			nodePool.OverrideImageId = GetString(spec["override_image_id"])
+		}
+
+		if spec["public_network_id"] != nil {
+			nodePool.PublicNetworkId = GetString(spec["public_network_id"])
+		}
+
+		if spec["private_network_ids"] != nil {
+			nodePool.PrivateNetworkIds = BuildStringTypeSet(spec["private_network_ids"])
+		}
+
+		if spec["triton_tags"] != nil {
+			nodePool.TritonTags = GetStringMap(spec["triton_tags"])
+		}
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
 // AWS
 
 func buildMk8sAwsAmi(specs []interface{}) *client.Mk8sAwsAmi {
@@ -1606,6 +1774,28 @@ func buildMk8sAwsAmi(specs []interface{}) *client.Mk8sAwsAmi {
 
 	if spec["exact"] != nil {
 		output.Exact = GetString(spec["exact"])
+	}
+
+	return &output
+}
+
+// Triton
+
+func buildMk8sTritonConnection(specs []interface{}) *client.Mk8sTritonConnection {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sTritonConnection{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Url = GetString(spec["url"])
+	output.Account = GetString(spec["account"])
+	output.PrivateKeySecretLink = GetString(spec["private_key_secret_link"])
+
+	if spec["user"] != nil {
+		output.User = GetString(spec["user"])
 	}
 
 	return &output
@@ -2242,7 +2432,7 @@ func flattenMk8sPaperspaceProvider(paperspace *client.Mk8sPaperspaceProvider) []
 	}
 }
 
-func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvder) []interface{} {
+func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvider) []interface{} {
 
 	if ephemeral == nil {
 		return nil
@@ -2254,6 +2444,48 @@ func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvder) []inte
 
 	if ephemeral.NodePools != nil {
 		spec["node_pool"] = flattenMk8sEphemeralNodePools(ephemeral.NodePools)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenMk8sTritonProvider(triton *client.Mk8sTritonProvider) []interface{} {
+
+	if triton == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"connection":         flattenMk8sTritonConnection(triton.Connection),
+		"location":           *triton.Location,
+		"private_network_id": *triton.PrivateNetworkId,
+		"image_id":           *triton.ImageId,
+	}
+
+	if triton.Networking != nil {
+		spec["networking"] = flattenMk8sNetworking(triton.Networking)
+	}
+
+	if triton.PreInstallScript != nil {
+		spec["pre_install_script"] = *triton.PreInstallScript
+	}
+
+	if triton.FirewallEnabled != nil {
+		spec["firewall_enabled"] = *triton.FirewallEnabled
+	}
+
+	if triton.NodePools != nil {
+		spec["node_pool"] = flattenMk8sTritonNodePools(triton.NodePools)
+	}
+
+	if triton.SshKeys != nil {
+		spec["ssh_keys"] = FlattenStringTypeSet(triton.SshKeys)
+	}
+
+	if triton.Autoscaler != nil {
+		spec["autoscaler"] = flattenMk8sAutoscaler(triton.Autoscaler)
 	}
 
 	return []interface{}{
@@ -2550,6 +2782,53 @@ func flattenMk8sEphemeralNodePools(nodePools *[]client.Mk8sEphemeralPool) []inte
 	return specs
 }
 
+func flattenMk8sTritonNodePools(nodePools *[]client.Mk8sTritonPool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name":       *pool.Name,
+			"package_id": *pool.PackageId,
+			"min_size":   *pool.MinSize,
+			"max_size":   *pool.MaxSize,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
+		}
+
+		if pool.OverrideImageId != nil {
+			spec["override_image_id"] = *pool.OverrideImageId
+		}
+
+		if pool.PublicNetworkId != nil {
+			spec["public_network_id"] = *pool.PublicNetworkId
+		}
+
+		if pool.PrivateNetworkIds != nil {
+			spec["private_network_ids"] = FlattenStringTypeSet(pool.PrivateNetworkIds)
+		}
+
+		if pool.TritonTags != nil {
+			spec["triton_tags"] = *pool.TritonTags
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
 // AWS
 
 func flattenMk8sAwsAmi(ami *client.Mk8sAwsAmi) []interface{} {
@@ -2566,6 +2845,29 @@ func flattenMk8sAwsAmi(ami *client.Mk8sAwsAmi) []interface{} {
 
 	if ami.Exact != nil {
 		spec["exact"] = *ami.Exact
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+// Triton
+
+func flattenMk8sTritonConnection(connection *client.Mk8sTritonConnection) []interface{} {
+
+	if connection == nil {
+		return nil
+	}
+
+	spec := make(map[string]interface{})
+
+	spec["url"] = *connection.Url
+	spec["account"] = *connection.Account
+	spec["private_key_secret_link"] = *connection.PrivateKeySecretLink
+
+	if connection.User != nil {
+		spec["user"] = *connection.User
 	}
 
 	return []interface{}{
@@ -3242,6 +3544,51 @@ func Mk8sEphemeralNodePoolSchema() *schema.Schema {
 					Description: "Allocated memory.",
 					Required:    true,
 				},
+			},
+		},
+	}
+}
+
+func Mk8sTritonNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":   Mk8sGenericNodePoolNameSchema(),
+				"labels": Mk8sGenericNodePoolLabelsSchema(),
+				"taint":  Mk8sGenericNodePoolTaintsSchema(),
+				"package_id": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
+				"override_image_id": {
+					Type:        schema.TypeString,
+					Description: "",
+					Optional:    true,
+				},
+				"public_network_id": {
+					Type:        schema.TypeString,
+					Description: "If set, machine will also get a public IP.",
+					Optional:    true,
+				},
+				"private_network_ids": {
+					Type:        schema.TypeSet,
+					Description: "More private networks to join.",
+					Optional:    true,
+					Elem:        StringSchema(),
+				},
+				"triton_tags": {
+					Type:        schema.TypeMap,
+					Description: "Extra tags to attach to instances from a node pool.",
+					Optional:    true,
+					Elem:        StringSchema(),
+				},
+				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
+				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
 			},
 		},
 	}

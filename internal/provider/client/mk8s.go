@@ -39,7 +39,8 @@ type Mk8sProvider struct {
 	Oblivus    *Mk8sOblivusProvider    `json:"oblivus,omitempty"`
 	Lambdalabs *Mk8sLambdalabsProvider `json:"lambdalabs,omitempty"`
 	Paperspace *Mk8sPaperspaceProvider `json:"paperspace,omitempty"`
-	Ephemeral  *Mk8sEphemeralProvder   `json:"ephemeral,omitempty"`
+	Ephemeral  *Mk8sEphemeralProvider  `json:"ephemeral,omitempty"`
+	Triton     *Mk8sTritonProvider     `json:"triton,omitempty"`
 }
 
 type Mk8sSpecAddOns struct {
@@ -143,9 +144,22 @@ type Mk8sPaperspaceProvider struct {
 	NetworkId          *string               `json:"networkId,omitempty"`
 }
 
-type Mk8sEphemeralProvder struct {
+type Mk8sEphemeralProvider struct {
 	Location  *string              `json:"location,omitempty"`
 	NodePools *[]Mk8sEphemeralPool `json:"nodePools,omitempty"`
+}
+
+type Mk8sTritonProvider struct {
+	Connection       *Mk8sTritonConnection `json:"connection,omitempty"`
+	Networking       *Mk8sNetworkingConfig `json:"networking,omitempty"`
+	PreInstallScript *string               `json:"preInstallScript,omitempty"`
+	Location         *string               `json:"location,omitempty"`
+	PrivateNetworkId *string               `json:"privateNetworkId,omitempty"`
+	FirewallEnabled  *bool                 `json:"firewallEnabled,omitempty"`
+	NodePools        *[]Mk8sTritonPool     `json:"nodePools,omitempty"`
+	ImageId          *string               `json:"imageId,omitempty"`
+	SshKeys          *[]string             `json:"sshKeys,omitempty"`
+	Autoscaler       *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
 }
 
 // Node Pools //
@@ -221,6 +235,17 @@ type Mk8sEphemeralPool struct {
 	Memory *string                 `json:"memory,omitempty"`
 }
 
+type Mk8sTritonPool struct {
+	Mk8sGenericPool
+	PackageId         *string                 `json:"packageId,omitempty"`
+	OverrideImageId   *string                 `json:"overrideImageId,omitempty"`
+	PublicNetworkId   *string                 `json:"publicNetworkId,omitempty"`
+	PrivateNetworkIds *[]string               `json:"privateNetworkIds,omitempty"`
+	TritonTags        *map[string]interface{} `json:"tritonTags,omitempty"`
+	MinSize           *int                    `json:"minSize,omitempty"`
+	MaxSize           *int                    `json:"maxSize,omitempty"`
+}
+
 // Provider Common //
 
 type Mk8sNetworkingConfig struct {
@@ -246,6 +271,15 @@ type Mk8sAutoscalerConfig struct {
 type Mk8sAwsAmi struct {
 	Recommended *string `json:"recommended,omitempty"`
 	Exact       *string `json:"exact,omitempty"`
+}
+
+// Triton Provider //
+
+type Mk8sTritonConnection struct {
+	Url                  *string `json:"url,omitempty"`
+	Account              *string `json:"account,omitempty"`
+	User                 *string `json:"user,omitempty"`
+	PrivateKeySecretLink *string `json:"privateKeySecretLink,omitempty"`
 }
 
 // Add Ons //

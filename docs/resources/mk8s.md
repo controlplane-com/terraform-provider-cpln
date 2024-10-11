@@ -25,6 +25,7 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **lambdalabs_provider** (Block List, Max: 1) ([see below](#nestedblock--lambdalabs_provider))
 - **paperspace_provider** (Block List, Max: 1) ([see below](#nestedblock--paperspace_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
+- **triton_provider** (Block List, Max: 1) ([see below](#nestedblock--triton_provider))
 
 ### Optional
 
@@ -421,6 +422,62 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+
+<a id="nestedblock--triton_provider"></a>
+
+### `triton_provider`
+
+Required:
+
+- **connection** (Block List, Max: 1) ([see below](#nestedblock--triton_provider--connection))
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
+- **location** (String) Control Plane location that will host the K8s components. Prefer one that is closest to the Triton datacenter.
+- **private_network_id** (String) ID of the private Fabric/Network.
+- **image_id** (String) Default image for all nodes.
+
+Optional:
+
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+- **firewall_enabled** (Boolean) Enable firewall for the instances deployed.
+- **node_pool** (Block List) ([see below](#nestedblock--triton_provider--node_pool))
+- **ssh_keys** (List of String) Extra SSH keys to provision for user root.
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+
+<a id="nestedblock--triton_provider--connection"></a>
+
+### `triton_provider.connection`
+
+Required:
+
+- **url** (String)
+- **account** (String)
+- **private_key_secret_link** (String) Link to a SSH or opaque secret.
+
+Optional:
+
+- **user** (String)
+
+<a id="nestedblock--triton_provider--node_pool"></a>
+
+### `triton_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **package_id** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **override_image_id** (String)
+- **public_network_id** (String) If set, machine will also get a public IP.
+- **private_network_ids** (List of String) More private networks to join.
+- **triton_tags** (Map of String) Extra tags to attach to instances from a node pool.
+- **min_size** (Number)
+- **max_size** (Number)
 
 <a id="nestedblock--autoscaler"></a>
 
@@ -1518,6 +1575,120 @@ resource "cpln_mk8s" "ephemeral" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+    }
+}
+```
+
+## Example Usage - Triton Provider
+
+```terraform
+resource "cpln_mk8s" "triton" {
+
+    name        = "demo-mk8s-triton-provider"
+    description = "demo-mk8s-triton-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+	
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    triton_provider {
+        pre_install_script = "#! echo hello world"
+        location           = "aws-eu-central-1"
+        private_network_id = "6704dae9-00f4-48b5-8bbf-1be538f20587"
+        firewall_enabled   = false
+        image_id           = "6b98a11c-53a4-4a62-99e7-cf3dcf150ab2"
+        
+        networking {}
+
+        connection {
+            url                     = "https://us-central-1.api.mnx.io"
+            account                 = "eric_controlplane.com"
+            user                    = "julian_controlplane.com"
+            private_key_secret_link = "/org/terraform-test-org/secret/triton"
+        }
+
+        node_pool {
+            name                = "my-triton-node-pool"
+            package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
+            override_image_id   = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
+            public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+            min_size            = 0
+            max_size            = 0
+
+            private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+            
+            triton_tags = {
+                drink = "water"
+            }
+        }
+        
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
     }
 }
 ```
