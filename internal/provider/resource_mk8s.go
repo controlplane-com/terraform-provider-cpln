@@ -16,6 +16,7 @@ func resourceMk8s() *schema.Resource {
 		"generic_provider", "hetzner_provider", "aws_provider",
 		"oblivus_provider", "linode_provider", "lambdalabs_provider",
 		"paperspace_provider", "ephemeral_provider", "triton_provider",
+		"digital_ocean_provider",
 	}
 
 	return &schema.Resource{
@@ -463,6 +464,65 @@ func resourceMk8s() *schema.Resource {
 					},
 				},
 			},
+			"digital_ocean_provider": {
+				Type:         schema.TypeList,
+				Description:  "",
+				Optional:     true,
+				MaxItems:     1,
+				ExactlyOneOf: mk8sProviders,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"region": {
+							Type:        schema.TypeString,
+							Description: "Region to deploy nodes to.",
+							Required:    true,
+						},
+						"digital_ocean_tags": {
+							Type:        schema.TypeSet,
+							Description: "Extra tags to attach to droplets.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"networking":         Mk8sNetworkingSchema(),
+						"pre_install_script": Mk8sPreInstallScriptSchema(),
+						"token_secret_link": {
+							Type:        schema.TypeString,
+							Description: "Link to a secret holding personal access token.",
+							Required:    true,
+						},
+						"vpc_id": {
+							Type:        schema.TypeString,
+							Description: "ID of the Hetzner network to deploy nodes to.",
+							Required:    true,
+						},
+						"node_pool": Mk8sDigitalOceanNodePoolSchema(),
+						"image": {
+							Type:        schema.TypeString,
+							Description: "Default image for all nodes.",
+							Required:    true,
+						},
+						"ssh_keys": {
+							Type:        schema.TypeSet,
+							Description: "SSH key name for accessing deployed nodes.",
+							Required:    true,
+							Elem:        StringSchema(),
+						},
+						"extra_ssh_keys": {
+							Type:        schema.TypeSet,
+							Description: "Extra SSH keys to provision for user root that are not registered in the DigitalOcean.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+						"autoscaler": Mk8sAutoscalerSchema(),
+						"reserved_ips": {
+							Type:        schema.TypeSet,
+							Description: "Optional set of IPs to assign as extra IPs for nodes of the cluster.",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
+					},
+				},
+			},
 			"add_ons": {
 				Type:        schema.TypeList,
 				Description: "",
@@ -808,7 +868,7 @@ func resourceMk8sRead(ctx context.Context, d *schema.ResourceData, m interface{}
 
 func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "linode_provider", "oblivus_provider", "lambdalabs_provider", "ephemeral_provider", "add_ons") {
+	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "oblivus_provider", "linode_provider", "lambdalabs_provider", "paperspace_provider", "ephemeral_provider", "triton_provider", "digital_ocean_provider", "add_ons") {
 		c := m.(*client.Client)
 
 		// Define & Build
@@ -913,6 +973,10 @@ func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("digital_ocean_provider", flattenMk8sDigitalOceanProvider(mk8s.Spec.Provider.DigitalOcean)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		if err := d.Set("add_ons", flattenMk8sAddOns(mk8s.Spec.AddOns)); err != nil {
 			return diag.FromErr(err)
 		}
@@ -991,6 +1055,10 @@ func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
 
 	if d.Get("triton_provider") != nil {
 		output.Triton = buildMk8sTritonProvider(d.Get("triton_provider").([]interface{}))
+	}
+
+	if d.Get("digital_ocean_provider") != nil {
+		output.DigitalOcean = buildMk8sDigitalOceanProvider(d.Get("digital_ocean_provider").([]interface{}))
 	}
 
 	return &output
@@ -1405,6 +1473,49 @@ func buildMk8sTritonProvider(specs []interface{}) *client.Mk8sTritonProvider {
 	return &output
 }
 
+func buildMk8sDigitalOceanProvider(specs []interface{}) *client.Mk8sDigitalOceanProvider {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sDigitalOceanProvider{}
+	spec := specs[0].(map[string]interface{})
+
+	output.Region = GetString(spec["region"])
+	output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
+	output.TokenSecretLink = GetString(spec["token_secret_link"])
+	output.VpcId = GetString(spec["vpc_id"])
+	output.Image = GetString(spec["image"])
+	output.SshKeys = BuildStringTypeSet(spec["ssh_keys"])
+
+	if spec["digital_ocean_tags"] != nil {
+		output.DigitalOceanTags = BuildStringTypeSet(spec["digital_ocean_tags"])
+	}
+
+	if spec["pre_install_script"] != nil {
+		output.PreInstallScript = GetString(spec["pre_install_script"])
+	}
+
+	if spec["node_pool"] != nil {
+		output.NodePools = buildMk8sDigitalOceanNodePools(spec["node_pool"].([]interface{}))
+	}
+
+	if spec["extra_ssh_keys"] != nil {
+		output.ExtraSshKeys = BuildStringTypeSet(spec["extra_ssh_keys"])
+	}
+
+	if spec["autoscaler"] != nil {
+		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
+	}
+
+	if spec["reserved_ips"] != nil {
+		output.ReservedIps = BuildStringTypeSet(spec["reserved_ips"])
+	}
+
+	return &output
+}
+
 // Provider Helpers //
 
 // Node Pools
@@ -1749,6 +1860,42 @@ func buildMk8sTritonNodePools(specs []interface{}) *[]client.Mk8sTritonPool {
 
 		if spec["triton_tags"] != nil {
 			nodePool.TritonTags = GetStringMap(spec["triton_tags"])
+		}
+
+		output = append(output, nodePool)
+	}
+
+	return &output
+}
+
+func buildMk8sDigitalOceanNodePools(specs []interface{}) *[]client.Mk8sDigitalOceanPool {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := []client.Mk8sDigitalOceanPool{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		nodePool := client.Mk8sDigitalOceanPool{}
+		nodePool.Name = GetString(spec["name"])
+		nodePool.DropletSize = GetString(spec["droplet_size"])
+		nodePool.MinSize = GetInt(spec["min_size"])
+		nodePool.MaxSize = GetInt(spec["max_size"])
+
+		if spec["labels"] != nil {
+			nodePool.Labels = GetStringMap(spec["labels"])
+		}
+
+		if spec["taint"] != nil {
+			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
+		}
+
+		if spec["override_image"] != nil {
+			nodePool.OverrideImage = GetString(spec["override_image"])
 		}
 
 		output = append(output, nodePool)
@@ -2493,6 +2640,53 @@ func flattenMk8sTritonProvider(triton *client.Mk8sTritonProvider) []interface{} 
 	}
 }
 
+func flattenMk8sDigitalOceanProvider(digitalOcean *client.Mk8sDigitalOceanProvider) []interface{} {
+
+	if digitalOcean == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"region":            *digitalOcean.Region,
+		"token_secret_link": *digitalOcean.TokenSecretLink,
+		"vpc_id":            *digitalOcean.VpcId,
+		"image":             *digitalOcean.Image,
+		"ssh_keys":          FlattenStringTypeSet(digitalOcean.SshKeys),
+	}
+
+	if digitalOcean.DigitalOceanTags != nil {
+		spec["digital_ocean_tags"] = FlattenStringTypeSet(digitalOcean.DigitalOceanTags)
+	}
+
+	if digitalOcean.Networking != nil {
+		spec["networking"] = flattenMk8sNetworking(digitalOcean.Networking)
+	}
+
+	if digitalOcean.PreInstallScript != nil {
+		spec["pre_install_script"] = *digitalOcean.PreInstallScript
+	}
+
+	if digitalOcean.NodePools != nil {
+		spec["node_pool"] = flattenMk8sDigitalOceanNodePools(digitalOcean.NodePools)
+	}
+
+	if digitalOcean.ExtraSshKeys != nil {
+		spec["extra_ssh_keys"] = FlattenStringTypeSet(digitalOcean.ExtraSshKeys)
+	}
+
+	if digitalOcean.Autoscaler != nil {
+		spec["autoscaler"] = flattenMk8sAutoscaler(digitalOcean.Autoscaler)
+	}
+
+	if digitalOcean.ReservedIps != nil {
+		spec["reserved_ips"] = FlattenStringTypeSet(digitalOcean.ReservedIps)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 // Provider Helpers //
 
 // Node Pools
@@ -2821,6 +3015,41 @@ func flattenMk8sTritonNodePools(nodePools *[]client.Mk8sTritonPool) []interface{
 
 		if pool.TritonTags != nil {
 			spec["triton_tags"] = *pool.TritonTags
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
+}
+
+func flattenMk8sDigitalOceanNodePools(nodePools *[]client.Mk8sDigitalOceanPool) []interface{} {
+
+	if nodePools == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, pool := range *nodePools {
+
+		spec := map[string]interface{}{
+			"name":         *pool.Name,
+			"droplet_size": *pool.DropletSize,
+			"min_size":     *pool.MinSize,
+			"max_size":     *pool.MaxSize,
+		}
+
+		if pool.Labels != nil {
+			spec["labels"] = *pool.Labels
+		}
+
+		if pool.Taints != nil {
+			spec["taint"] = flattenMk8sTaints(pool.Taints)
+		}
+
+		if pool.OverrideImage != nil {
+			spec["override_image"] = *pool.OverrideImage
 		}
 
 		specs = append(specs, spec)
@@ -3586,6 +3815,34 @@ func Mk8sTritonNodePoolSchema() *schema.Schema {
 					Description: "Extra tags to attach to instances from a node pool.",
 					Optional:    true,
 					Elem:        StringSchema(),
+				},
+				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
+				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
+			},
+		},
+	}
+}
+
+func Mk8sDigitalOceanNodePoolSchema() *schema.Schema {
+
+	return &schema.Schema{
+		Type:        schema.TypeList,
+		Description: "List of node pools.",
+		Optional:    true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"name":   Mk8sGenericNodePoolNameSchema(),
+				"labels": Mk8sGenericNodePoolLabelsSchema(),
+				"taint":  Mk8sGenericNodePoolTaintsSchema(),
+				"droplet_size": {
+					Type:        schema.TypeString,
+					Description: "",
+					Required:    true,
+				},
+				"override_image": {
+					Type:        schema.TypeString,
+					Description: "",
+					Optional:    true,
 				},
 				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
 				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),

@@ -32,15 +32,16 @@ type Mk8sFirewallRule struct {
 }
 
 type Mk8sProvider struct {
-	Generic    *Mk8sGenericProvider    `json:"generic,omitempty"`
-	Hetzner    *Mk8sHetznerProvider    `json:"hetzner,omitempty"`
-	Aws        *Mk8sAwsProvider        `json:"aws,omitempty"`
-	Linode     *Mk8sLinodeProvider     `json:"linode,omitempty"`
-	Oblivus    *Mk8sOblivusProvider    `json:"oblivus,omitempty"`
-	Lambdalabs *Mk8sLambdalabsProvider `json:"lambdalabs,omitempty"`
-	Paperspace *Mk8sPaperspaceProvider `json:"paperspace,omitempty"`
-	Ephemeral  *Mk8sEphemeralProvider  `json:"ephemeral,omitempty"`
-	Triton     *Mk8sTritonProvider     `json:"triton,omitempty"`
+	Generic      *Mk8sGenericProvider      `json:"generic,omitempty"`
+	Hetzner      *Mk8sHetznerProvider      `json:"hetzner,omitempty"`
+	Aws          *Mk8sAwsProvider          `json:"aws,omitempty"`
+	Linode       *Mk8sLinodeProvider       `json:"linode,omitempty"`
+	Oblivus      *Mk8sOblivusProvider      `json:"oblivus,omitempty"`
+	Lambdalabs   *Mk8sLambdalabsProvider   `json:"lambdalabs,omitempty"`
+	Paperspace   *Mk8sPaperspaceProvider   `json:"paperspace,omitempty"`
+	Ephemeral    *Mk8sEphemeralProvider    `json:"ephemeral,omitempty"`
+	Triton       *Mk8sTritonProvider       `json:"triton,omitempty"`
+	DigitalOcean *Mk8sDigitalOceanProvider `json:"digitalocean,omitempty"`
 }
 
 type Mk8sSpecAddOns struct {
@@ -162,6 +163,21 @@ type Mk8sTritonProvider struct {
 	Autoscaler       *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
 }
 
+type Mk8sDigitalOceanProvider struct {
+	Region           *string                 `json:"region,omitempty"`
+	DigitalOceanTags *[]string               `json:"digitalOceanTags,omitempty"`
+	Networking       *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript *string                 `json:"preInstallScript,omitempty"`
+	TokenSecretLink  *string                 `json:"tokenSecretLink,omitempty"`
+	VpcId            *string                 `json:"vpcId,omitempty"`
+	NodePools        *[]Mk8sDigitalOceanPool `json:"nodePools,omitempty"`
+	Image            *string                 `json:"image,omitempty"`
+	SshKeys          *[]string               `json:"sshKeys,omitempty"`
+	ExtraSshKeys     *[]string               `json:"extraSshKeys,omitempty"`
+	Autoscaler       *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
+	ReservedIps      *[]string               `json:"reservedIps,omitempty"`
+}
+
 // Node Pools //
 
 type Mk8sGenericPool struct {
@@ -244,6 +260,14 @@ type Mk8sTritonPool struct {
 	TritonTags        *map[string]interface{} `json:"tritonTags,omitempty"`
 	MinSize           *int                    `json:"minSize,omitempty"`
 	MaxSize           *int                    `json:"maxSize,omitempty"`
+}
+
+type Mk8sDigitalOceanPool struct {
+	Mk8sGenericPool
+	DropletSize   *string `json:"dropletSize,omitempty"`
+	OverrideImage *string `json:"overrideImage,omitempty"`
+	MinSize       *int    `json:"minSize,omitempty"`
+	MaxSize       *int    `json:"maxSize,omitempty"`
 }
 
 // Provider Common //

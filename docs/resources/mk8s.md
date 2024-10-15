@@ -26,6 +26,7 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **paperspace_provider** (Block List, Max: 1) ([see below](#nestedblock--paperspace_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 - **triton_provider** (Block List, Max: 1) ([see below](#nestedblock--triton_provider))
+- **digital_ocean_provider** (Block List, Max: 1) ([see below](#nestedblock--digital_ocean_provider))
 
 ### Optional
 
@@ -476,6 +477,47 @@ Optional:
 - **public_network_id** (String) If set, machine will also get a public IP.
 - **private_network_ids** (List of String) More private networks to join.
 - **triton_tags** (Map of String) Extra tags to attach to instances from a node pool.
+- **min_size** (Number)
+- **max_size** (Number)
+
+<a id="nestedblock--digital_ocean_provider"></a>
+
+### `digital_ocean_provider`
+
+Required:
+
+- **region** (String) Region to deploy nodes to.
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
+- **token_secret_link** (String) Link to a secret holding personal access token.
+- **vpc_id** (String) ID of the Hetzner network to deploy nodes to.
+- **image** (String) Default image for all nodes.
+- **ssh_keys** (List of String) SSH key name for accessing deployed nodes.
+
+Optional:
+
+- **digital_ocean_tags** (List of String) Extra tags to attach to droplets.
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+- **node_pool** (Block List) ([see below](#nestedblock--digital_ocean_provider--node_pool))
+- **extra_ssh_keys** (List of String) Extra SSH keys to provision for user root that are not registered in the DigitalOcean.
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **reserved_ips** (List of String) Optional set of IPs to assign as extra IPs for nodes of the cluster.
+
+<a id="nestedblock--digital_ocean_provider--node_pool"></a>
+
+### `digital_ocean_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **droplet_size** (String)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **override_image** (String)
 - **min_size** (Number)
 - **max_size** (Number)
 
@@ -1637,6 +1679,111 @@ resource "cpln_mk8s" "triton" {
             
             triton_tags = {
                 drink = "water"
+            }
+        }
+        
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
+    }
+}
+```
+
+# Example Usage - Digital Ocean Provider
+
+```terraform
+resource "cpln_mk8s" "triton" {
+
+    name        = "demo-mk8s-digital-ocean-provider"
+    description = "demo-mk8s-digital-ocean-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+	
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    digital_ocean_provider {
+        region             = "ams3"
+        pre_install_script = "#! echo hello world"
+        tokenSecretLink    = "/org/terraform-test-org/secret/digital-ocean"
+        vpc_id             = "vpc-1"
+        image              = "debian-11"
+
+        digital_ocean_tags = ["tag1"]
+        ssh_keys           = ["key1"]
+        extra_ssh_keys     = ["extraKey1"]
+        reserved_ips       = ["192.0.2.10"]
+        
+        networking {}
+
+        node_pool {
+            name                = "my-triton-node-pool"
+            droplet_size        = "s-1vcpu-512mb-10gb"
+            override_image      = "ubuntu-22"
+            min_size            = 0
+            max_size            = 0
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
             }
         }
         

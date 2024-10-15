@@ -1607,6 +1607,15 @@ func TestControlPlane_BuildMk8sTritonProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sDigitalOceanProvider(t *testing.T) {
+
+	digitalOcean, expectedDigitalOcean, _ := generateTestMk8sDigitalOceanProvider()
+
+	if diff := deep.Equal(digitalOcean, expectedDigitalOcean); diff != nil {
+		t.Errorf("Mk8s Digital Ocean Provider was not built correctly, Diff: %s", diff)
+	}
+}
+
 // !SECTION
 
 // SECTION Node Pools
@@ -1689,6 +1698,15 @@ func TestControlPlane_BuildMk8sTritonNodePools(t *testing.T) {
 
 	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
 		t.Errorf("Mk8s Triton Node Pools was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMk8sDigitalOceanNodePools(t *testing.T) {
+
+	nodePools, expectedNodePools, _ := generateTestMk8sDigitalOceanNodePools()
+
+	if diff := deep.Equal(nodePools, expectedNodePools); diff != nil {
+		t.Errorf("Mk8s Digital Ocean Node Pools was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -2021,6 +2039,36 @@ func TestControlPlane_FlattenMk8sTritonProvider(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sDigitalOceanProvider(t *testing.T) {
+
+	_, expectedDigitalOcean, expectedFlatten := generateTestMk8sDigitalOceanProvider()
+	flattenedDigitalOcean := flattenMk8sDigitalOceanProvider(expectedDigitalOcean)
+
+	// Extract the interface slice from *schema.Set
+	// Provider
+	expectedFlattenItem := expectedFlatten[0].(map[string]interface{})
+
+	// Digital Ocean Tags
+	expectedFlattenItem["digital_ocean_tags"] = expectedFlattenItem["digital_ocean_tags"].(*schema.Set).List()
+
+	// SSH Keys
+	expectedFlattenItem["ssh_keys"] = expectedFlattenItem["ssh_keys"].(*schema.Set).List()
+
+	// Extra SSH Keys
+	expectedFlattenItem["extra_ssh_keys"] = expectedFlattenItem["extra_ssh_keys"].(*schema.Set).List()
+
+	// Reserved IPs
+	expectedFlattenItem["reserved_ips"] = expectedFlattenItem["reserved_ips"].(*schema.Set).List()
+
+	// Autoscaler
+	autoscaler := expectedFlattenItem["autoscaler"].([]interface{})[0].(map[string]interface{})
+	autoscaler["expander"] = autoscaler["expander"].(*schema.Set).List()
+
+	if diff := deep.Equal(expectedFlatten, flattenedDigitalOcean); diff != nil {
+		t.Errorf("Mk8s Digital Ocean Provider was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 // !SECTION
 
 // SECTION Node Pools
@@ -2125,6 +2173,16 @@ func TestControlPlane_FlattenMk8sTritonNodePools(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
 		t.Errorf("Mk8s Triton Node Pools was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenMk8sDigitalOceanNodePools(t *testing.T) {
+
+	_, expectedNodePools, expectedFlatten := generateTestMk8sDigitalOceanNodePools()
+	flattenedNodePools := flattenMk8sDigitalOceanNodePools(expectedNodePools)
+
+	if diff := deep.Equal(expectedFlatten, flattenedNodePools); diff != nil {
+		t.Errorf("Mk8s Digital Ocean Node Pools was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -2665,6 +2723,42 @@ func generateTestMk8sTritonProvider() (*client.Mk8sTritonProvider, *client.Mk8sT
 	return triton, &expectedTriton, flattened
 }
 
+func generateTestMk8sDigitalOceanProvider() (*client.Mk8sDigitalOceanProvider, *client.Mk8sDigitalOceanProvider, []interface{}) {
+
+	region := "ams3"
+	preInstallScript := "#! echo hello world"
+	tokenSecretLink := "/org/terraform-test-org/secret/digitalocean"
+	vpcId := "6704dae9-00f4-48b5-8bbf-1be538f20587"
+	image := "debian-11"
+	digitalOceanTags := []string{}
+	sshKeys := []string{}
+	extraSshKeys := []string{}
+	reservedIps := []string{}
+
+	networking, _, flattenedNetworking := generateTestMk8sNetworking()
+	nodePools, _, flattenedNodePools := generateTestMk8sDigitalOceanNodePools()
+	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
+
+	flattened := generateFlatTestMk8sDigitalOceanProvider(region, digitalOceanTags, flattenedNetworking, preInstallScript, tokenSecretLink, vpcId, flattenedNodePools, image, sshKeys, extraSshKeys, flattenedAutoscaler, reservedIps)
+	digitalOcean := buildMk8sDigitalOceanProvider(flattened)
+	expectedDigitalOcean := client.Mk8sDigitalOceanProvider{
+		Region:           &region,
+		DigitalOceanTags: &digitalOceanTags,
+		Networking:       networking,
+		PreInstallScript: &preInstallScript,
+		TokenSecretLink:  &tokenSecretLink,
+		VpcId:            &vpcId,
+		NodePools:        nodePools,
+		Image:            &image,
+		SshKeys:          &sshKeys,
+		ExtraSshKeys:     &extraSshKeys,
+		Autoscaler:       autoscaler,
+		ReservedIps:      &reservedIps,
+	}
+
+	return digitalOcean, &expectedDigitalOcean, flattened
+}
+
 // !SECTION
 
 // SECTION Node Pools
@@ -2972,6 +3066,41 @@ func generateTestMk8sTritonNodePools() (*[]client.Mk8sTritonPool, *[]client.Mk8s
 
 	// Define expected node pools
 	expectedNodePools := []client.Mk8sTritonPool{expectedNodePool}
+
+	return nodePools, &expectedNodePools, flattened
+}
+
+func generateTestMk8sDigitalOceanNodePools() (*[]client.Mk8sDigitalOceanPool, *[]client.Mk8sDigitalOceanPool, []interface{}) {
+
+	name := "my-digital-ocean-node-pool"
+	dropletSize := "da311341-b42b-45a8-9386-78ede625d0a4"
+	overrideImage := "debian-11"
+	minSize := 0
+	maxSize := 0
+
+	labels := map[string]interface{}{
+		"hello": "world",
+	}
+
+	taints, _, flattenedTaints := generateTestMk8sTaints()
+
+	flattened := generateFlatTestMk8sDigitalOceanNodePools(name, labels, flattenedTaints, dropletSize, overrideImage, minSize, maxSize)
+	nodePools := buildMk8sDigitalOceanNodePools(flattened)
+
+	// Define expected node pool
+	expectedNodePool := client.Mk8sDigitalOceanPool{
+		DropletSize:   &dropletSize,
+		OverrideImage: &overrideImage,
+		MinSize:       &minSize,
+		MaxSize:       &maxSize,
+	}
+
+	expectedNodePool.Name = &name
+	expectedNodePool.Labels = &labels
+	expectedNodePool.Taints = taints
+
+	// Define expected node pools
+	expectedNodePools := []client.Mk8sDigitalOceanPool{expectedNodePool}
 
 	return nodePools, &expectedNodePools, flattened
 }
@@ -3381,6 +3510,28 @@ func generateFlatTestMk8sTritonProvider(connection []interface{}, networking []i
 	}
 }
 
+func generateFlatTestMk8sDigitalOceanProvider(region string, digitalOceanTags []string, networking []interface{}, preInstallScript string, tokenSecretLink string, vpcId string, nodePools []interface{}, image string, sshKeys []string, extraSshKeys []string, autoscaler []interface{}, reservedIps []string) []interface{} {
+
+	spec := map[string]interface{}{
+		"region":             region,
+		"digital_ocean_tags": ConvertStringSliceToSet(digitalOceanTags),
+		"networking":         networking,
+		"pre_install_script": preInstallScript,
+		"token_secret_link":  tokenSecretLink,
+		"vpc_id":             vpcId,
+		"node_pool":          nodePools,
+		"image":              image,
+		"ssh_keys":           ConvertStringSliceToSet(sshKeys),
+		"extra_ssh_keys":     ConvertStringSliceToSet(extraSshKeys),
+		"autoscaler":         autoscaler,
+		"reserved_ips":       ConvertStringSliceToSet(reservedIps),
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 // !SECTION
 
 // SECTION Node Pools
@@ -3537,6 +3688,23 @@ func generateFlatTestMk8sTritonNodePools(name string, labels map[string]interfac
 		"triton_tags":         tritonTags,
 		"min_size":            minSize,
 		"max_size":            maxSize,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sDigitalOceanNodePools(name string, labels map[string]interface{}, taints []interface{}, dropletSize string, overrideImage string, minSize int, maxSize int) []interface{} {
+
+	spec := map[string]interface{}{
+		"name":           name,
+		"labels":         labels,
+		"taint":          taints,
+		"droplet_size":   dropletSize,
+		"override_image": overrideImage,
+		"min_size":       minSize,
+		"max_size":       maxSize,
 	}
 
 	return []interface{}{
