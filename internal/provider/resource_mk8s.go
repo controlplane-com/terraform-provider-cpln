@@ -2148,8 +2148,10 @@ func buildMk8sAwsAddOn(specs []interface{}) *client.Mk8sAwsAddOnConfig {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sAwsAddOnConfig{
-		RoleArn: GetString(spec["role_arn"]),
+	output := client.Mk8sAwsAddOnConfig{}
+
+	if spec["role_arn"] != nil {
+		output.RoleArn = GetString(spec["role_arn"])
 	}
 
 	return &output
@@ -3319,8 +3321,10 @@ func flattenMk8sAwsAddOn(aws *client.Mk8sAwsAddOnConfig) []interface{} {
 		return nil
 	}
 
-	spec := map[string]interface{}{
-		"role_arn": *aws.RoleArn,
+	spec := map[string]interface{}{}
+
+	if aws.RoleArn != nil {
+		spec["role_arn"] = *aws.RoleArn
 	}
 
 	return []interface{}{
@@ -3953,7 +3957,7 @@ func Mk8sHasRoleArnSchema(description string) *schema.Schema {
 				"role_arn": {
 					Type:        schema.TypeString,
 					Description: description,
-					Required:    true,
+					Optional:    true,
 				},
 			},
 		},
