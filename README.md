@@ -308,3 +308,12 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.36
     - Add secret data source.
     - Add autoscaling by memory.
+- v1.1.37
+    - Add cpln_ipset resource.
+    - Add redirect to GVC load balancer.
+    - Add lambdalabs to mk8s.
+    - Add linode to mk8s.
+    - Add oblivus to mk8s.
+    - Add paperspace to mk8s.
+    - Add triton to mk8s.
+    - Add digital ocean to mk8s.
