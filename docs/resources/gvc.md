@@ -80,6 +80,28 @@ Optional:
 
 - **trusted_proxies** (Int) Controls the address used for request logging and for setting the X-Envoy-External-Address header. If set to 1, then the last address in an existing X-Forwarded-For header will be used in place of the source client IP address. If set to 2, then the second to last address in an existing X-Forwarded-For header will be used in place of the source client IP address. If the XFF header does not have at least two addresses or does not exist then the source client IP address will be used instead.
 
+- **redirect** (Block List, Max: 1) ([see below](#nestedblock--load_balancer--redirect)).
+
+<a id="nestedblock--load_balancer--redirect"></a>
+
+### `load_balancer.redirect`
+
+Specify the url to be redirected to for different http status codes.
+
+Optional:
+
+- **class** (Block List, Max: 1) ([see below](#nestedblock--load_balancer--redirect--class)).
+
+<a id="nestedblock--load_balancer--redirect--class"></a>
+
+### `load_balancer.redirect.class`
+
+Specify the redirect url for all status codes in a class.
+
+Optional:
+
+- **status_5xx** (String) Specify the redirect url for any 500 level status code.
+
 ## Outputs
 
 The following attributes are exported:
@@ -155,8 +177,13 @@ resource "cpln_gvc" "example" {
   load_balancer {
     dedicated = true
     trusted_proxies = 1
-  }
 
+    redirect {
+      class {
+        status_5xx = "https://example.com/error/5xx"
+      }
+    }
+  }
 }
 
 ```

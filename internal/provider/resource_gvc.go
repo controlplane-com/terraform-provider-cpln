@@ -137,6 +137,31 @@ func GvcSchema() map[string]*schema.Schema {
 						Optional:    true,
 						Default:     0,
 					},
+					"redirect": {
+						Type:        schema.TypeList,
+						Description: "Specify the url to be redirected to for different http status codes.",
+						Optional:    true,
+						MaxItems:    1,
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"class": {
+									Type:        schema.TypeList,
+									Description: "Specify the redirect url for all status codes in a class.",
+									Optional:    true,
+									MaxItems:    1,
+									Elem: &schema.Resource{
+										Schema: map[string]*schema.Schema{
+											"status_5xx": {
+												Type:        schema.TypeString,
+												Description: "Specify the redirect url for any 500 level status code.",
+												Optional:    true,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -436,6 +461,42 @@ func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {
 		output.TrustedProxies = GetInt(spec["trusted_proxies"].(int))
 	}
 
+	if spec["redirect"] != nil {
+		output.Redirect = buildRedirect(spec["redirect"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildRedirect(specs []interface{}) *client.Redirect {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.Redirect{}
+
+	if spec["class"] != nil {
+		output.Class = buildRedirectClass(spec["class"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildRedirectClass(specs []interface{}) *client.RedirectClass {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.RedirectClass{}
+
+	if spec["status_5xx"] != nil {
+		output.Status5XX = GetString(spec["status_5xx"])
+	}
+
 	return &output
 }
 
@@ -517,8 +578,46 @@ func flattenLoadBalancer(gvcSpec *client.LoadBalancer) []interface{} {
 		loadBalancer["trusted_proxies"] = *gvcSpec.TrustedProxies
 	}
 
+	if gvcSpec.Redirect != nil {
+		loadBalancer["redirect"] = flattenRedirect(gvcSpec.Redirect)
+	}
+
 	return []interface{}{
 		loadBalancer,
+	}
+}
+
+func flattenRedirect(spec *client.Redirect) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	redirect := map[string]interface{}{}
+
+	if spec.Class != nil {
+		redirect["class"] = flattenRedirectClass(spec.Class)
+	}
+
+	return []interface{}{
+		redirect,
+	}
+}
+
+func flattenRedirectClass(spec *client.RedirectClass) []interface{} {
+
+	if spec == nil {
+		return nil
+	}
+
+	class := map[string]interface{}{}
+
+	if spec.Status5XX != nil {
+		class["status_5xx"] = *spec.Status5XX
+	}
+
+	return []interface{}{
+		class,
 	}
 }
 
