@@ -3829,6 +3829,7 @@ func generateFlatTestMk8sAzureWorkloadIdentityAddOn(tenantId string) []interface
 
 	spec := map[string]interface{}{
 		"tenant_id": tenantId,
+		"_sentinel": true,
 	}
 
 	return []interface{}{
@@ -3846,6 +3847,7 @@ func generateFlatTestMk8sMetricsAddOn(kubeState bool, coreDns bool, kubelet bool
 		"node_exporter":    nodeExporter,
 		"cadvisor":         cadvisor,
 		"scrape_annotated": scrapeAnnotated,
+		"_sentinel":        true,
 	}
 
 	return []interface{}{
@@ -3860,6 +3862,7 @@ func generateFlatTestMk8sMetricsScrapeAnnotated(intervalSeconds int, includeName
 		"include_namespaces": includeNamespaces,
 		"exclude_namespaces": excludeNamespaces,
 		"retain_labels":      retainLabels,
+		"_sentinel":          true,
 	}
 
 	return []interface{}{
@@ -3873,6 +3876,7 @@ func generateFlatTestMk8sLogsAddOn(auditEnabled bool, includeNamespaces string, 
 		"audit_enabled":      auditEnabled,
 		"include_namespaces": includeNamespaces,
 		"exclude_namespaces": excludeNamespaces,
+		"_sentinel":          true,
 	}
 
 	return []interface{}{
@@ -3884,6 +3888,7 @@ func generateFlatTestMk8sNvidiaAddOn(taintGpuNodes bool) []interface{} {
 
 	spec := map[string]interface{}{
 		"taint_gpu_nodes": taintGpuNodes,
+		"_sentinel":       true,
 	}
 
 	return []interface{}{
@@ -3893,7 +3898,9 @@ func generateFlatTestMk8sNvidiaAddOn(taintGpuNodes bool) []interface{} {
 
 func generateFlatTestMk8sAwsAddOn(roleArn *string) []interface{} {
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if roleArn != nil {
 		spec["role_arn"] = *roleArn

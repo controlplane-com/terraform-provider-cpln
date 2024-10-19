@@ -14,7 +14,7 @@ func resourceMk8s() *schema.Resource {
 
 	var mk8sProviders = []string{
 		"generic_provider", "hetzner_provider", "aws_provider",
-		"oblivus_provider", "linode_provider", "lambdalabs_provider",
+		"linode_provider", "oblivus_provider", "lambdalabs_provider",
 		"paperspace_provider", "ephemeral_provider", "triton_provider",
 		"digital_ocean_provider",
 	}
