@@ -545,7 +545,12 @@ func resourceMk8s() *schema.Resource {
 									"tenant_id": {
 										Type:        schema.TypeString,
 										Description: "Tenant ID to use for workload identity.",
-										Required:    true,
+										Optional:    true,
+									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
 									},
 								},
 							},
@@ -624,8 +629,18 @@ func resourceMk8s() *schema.Resource {
 													Description: "",
 													Optional:    true,
 												},
+												"_sentinel": {
+													Type:     schema.TypeBool,
+													Optional: true,
+													Default:  true,
+												},
 											},
 										},
+									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
 									},
 								},
 							},
@@ -652,6 +667,11 @@ func resourceMk8s() *schema.Resource {
 										Description: "",
 										Optional:    true,
 									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
+									},
 								},
 							},
 						},
@@ -665,7 +685,12 @@ func resourceMk8s() *schema.Resource {
 									"taint_gpu_nodes": {
 										Type:        schema.TypeBool,
 										Description: "",
-										Required:    true,
+										Optional:    true,
+									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
 									},
 								},
 							},
@@ -2028,8 +2053,10 @@ func buildMk8sAzureWorkloadIdentityAddOn(specs []interface{}) *client.Mk8sAzureW
 	}
 
 	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sAzureWorkloadIdentityAddOnConfig{
-		TenantId: GetString(spec["tenant_id"]),
+	output := client.Mk8sAzureWorkloadIdentityAddOnConfig{}
+
+	if spec["tenant_id"] != nil {
+		output.TenantId = GetString(spec["tenant_id"])
 	}
 
 	return &output
@@ -2134,8 +2161,10 @@ func buildMk8sNvidiaAddOn(specs []interface{}) *client.Mk8sNvidiaAddOnConfig {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sNvidiaAddOnConfig{
-		TaintGPUNodes: GetBool(spec["taint_gpu_nodes"]),
+	output := client.Mk8sNvidiaAddOnConfig{}
+
+	if spec["taint_gpu_nodes"] != nil {
+		output.TaintGPUNodes = GetBool(spec["taint_gpu_nodes"])
 	}
 
 	return &output
@@ -3197,7 +3226,11 @@ func flattenMk8sAzureWorkloadIdentityAddOn(azureWorkloadIdentity *client.Mk8sAzu
 	}
 
 	spec := map[string]interface{}{
-		"tenant_id": *azureWorkloadIdentity.TenantId,
+		"_sentinel": true,
+	}
+
+	if azureWorkloadIdentity.TenantId != nil {
+		spec["tenant_id"] = *azureWorkloadIdentity.TenantId
 	}
 
 	return []interface{}{
@@ -3211,7 +3244,9 @@ func flattenMk8sMetricsAddOn(metrics *client.Mk8sMetricsAddOnConfig) []interface
 		return nil
 	}
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if metrics.KubeState != nil {
 		spec["kube_state"] = *metrics.KubeState
@@ -3252,7 +3287,9 @@ func flattenMk8sMetricsScrapeAnnotated(scrapeAnnotated *client.Mk8sMetricsScrape
 		return nil
 	}
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if scrapeAnnotated.IntervalSeconds != nil {
 		spec["interval_seconds"] = *scrapeAnnotated.IntervalSeconds
@@ -3281,7 +3318,9 @@ func flattenMk8sLogsAddOn(logs *client.Mk8sLogsAddOnConfig) []interface{} {
 		return nil
 	}
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if logs.AuditEnabled != nil {
 		spec["audit_enabled"] = *logs.AuditEnabled
@@ -3307,7 +3346,11 @@ func flattenMk8sNvidiaAddOn(nvidia *client.Mk8sNvidiaAddOnConfig) []interface{} 
 	}
 
 	spec := map[string]interface{}{
-		"taint_gpu_nodes": *nvidia.TaintGPUNodes,
+		"_sentinel": true,
+	}
+
+	if nvidia.TaintGPUNodes != nil {
+		spec["taint_gpu_nodes"] = *nvidia.TaintGPUNodes
 	}
 
 	return []interface{}{
@@ -3321,7 +3364,9 @@ func flattenMk8sAwsAddOn(aws *client.Mk8sAwsAddOnConfig) []interface{} {
 		return nil
 	}
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if aws.RoleArn != nil {
 		spec["role_arn"] = *aws.RoleArn
@@ -3958,6 +4003,11 @@ func Mk8sHasRoleArnSchema(description string) *schema.Schema {
 					Type:        schema.TypeString,
 					Description: description,
 					Optional:    true,
+				},
+				"_sentinel": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  true,
 				},
 			},
 		},
