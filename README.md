@@ -317,3 +317,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add paperspace to mk8s.
     - Add triton to mk8s.
     - Add digital ocean to mk8s.
+- v1.1.38
+    - Fix empty object issue in mk8s.

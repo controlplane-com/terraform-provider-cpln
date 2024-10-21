@@ -43,15 +43,15 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("cpln_mk8s.hetzner", "description", description),
 				),
 			},
-			// {
-			// 	Config: testAccControlPlaneMk8sAwsProvider(name+"-aws", description),
-			// 	Check: resource.ComposeTestCheckFunc(
-			// 		testAccCheckControlPlaneMk8sExists("cpln_mk8s.aws", name+"-aws", &mk8s),
-			// 		testAccCheckControlPlaneMk8sAttributes(&mk8s, "aws", ""),
-			// 		resource.TestCheckResourceAttr("cpln_mk8s.aws", "name", name+"-aws"),
-			// 		resource.TestCheckResourceAttr("cpln_mk8s.aws", "description", description),
-			// 	),
-			// },
+			{
+				Config: testAccControlPlaneMk8sAwsProvider(name+"-aws", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.aws", name+"-aws", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "aws", ""),
+					resource.TestCheckResourceAttr("cpln_mk8s.aws", "name", name+"-aws"),
+					resource.TestCheckResourceAttr("cpln_mk8s.aws", "description", description),
+				),
+			},
 			{
 				Config: testAccControlPlaneMk8sLinodeProvider(name+"-linode", description),
 				Check: resource.ComposeTestCheckFunc(
@@ -453,148 +453,146 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 	`, name, description)
 }
 
-// func testAccControlPlaneMk8sAwsProvider(name string, description string) string {
+func testAccControlPlaneMk8sAwsProvider(name string, description string) string {
 
-// 	return fmt.Sprintf(`
+	return fmt.Sprintf(`
 
-// 	resource "cpln_mk8s" "aws" {
+	resource "cpln_mk8s" "aws" {
 
-// 		name        = "%s"
-// 		description = "%s"
+		name        = "%s"
+		description = "%s"
 
-// 		tags = {
-// 			terraform_generated = "true"
-// 			acceptance_test     = "true"
-// 			"cpln/ignore"       = "true"
-// 		}
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+			"cpln/ignore"       = "true"
+		}
 
-// 		version = "1.28.4"
+		version = "1.28.4"
 
-// 		firewall {
-// 			source_cidr = "192.168.1.255"
-// 			description = "hello world"
-// 		}
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
 
-// 		aws_provider {
+		aws_provider {
 
-// 			region            = "us-west-2"
+			region            = "eu-central-1"
 
-// 			aws_tags = {
-// 				hello = "world"
-// 			}
+			aws_tags = {
+				hello = "world"
+			}
 
-// 			skip_create_roles = false
+			skip_create_roles = false
 
-// 			networking {}
+			networking {}
 
-// 			pre_install_script = "#! echo hello world"
+			pre_install_script = "#! echo hello world"
 
-// 			image {
-// 				recommended = "amazon/al2023"
-// 			}
+			image {
+				recommended = "amazon/al2023"
+			}
 
-// 			deploy_role_arn         = "arn:aws:iam::989132402664:role/cpln-mk8s-terraform-test-org"
-// 			vpc_id                  = "vpc-087b3e0f680a7e91e"
-// 			key_pair                = "debug-eks"
-// 			disk_encryption_key_arn = "arn:aws:kms:us-west-2:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
+			deploy_role_arn         = "arn:aws:iam::483676437512:role/cpln-mk8s-terraform-test-org"
+			vpc_id                  = "vpc-03105bd4dc058d3a8"
+			key_pair                = "debug-terraform"
+			disk_encryption_key_arn = "arn:aws:kms:eu-central-1:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
 
-// 			security_group_ids = ["sg-0f659b1b0711edce1"]
+			security_group_ids = ["sg-031480aa7a1e6e38b"]
 
-// 			node_pool {
-// 				name = "my-aws-node-pool"
+			node_pool {
+				name = "my-aws-node-pool"
 
-// 				labels = {
-// 					hello = "world"
-// 				}
+				labels = {
+					hello = "world"
+				}
 
-// 				taint {
-// 					key    = "hello"
-// 					value  = "world"
-// 					effect = "NoSchedule"
-// 				}
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
 
-// 				instance_types = ["t4g.nano"]
+				instance_types = ["t4g.nano"]
 
-// 				override_image {
-// 					exact = "ami-0c5ee33c81cf67a7f"
-// 				}
+				override_image {
+					exact = "ami-0c5ee33c81cf67a7f"
+				}
 
-// 				boot_disk_size                           = 20
-// 				min_size                                 = 0
-// 				max_size                                 = 0
-// 				on_demand_base_capacity                  = 0
-// 				on_demand_percentage_above_base_capacity = 0
-// 				spot_allocation_strategy                 = "lowest-price"
+				boot_disk_size                           = 20
+				min_size                                 = 0
+				max_size                                 = 0
+				on_demand_base_capacity                  = 0
+				on_demand_percentage_above_base_capacity = 0
+				spot_allocation_strategy                 = "lowest-price"
 
-// 				subnet_ids               = ["subnet-077fe72ab6259d9a2"]
-// 				extra_security_group_ids = []
-// 			}
+				subnet_ids               = ["subnet-0e564a042e2a45009"]
+				extra_security_group_ids = []
+			}
 
-// 			autoscaler {
-// 				expander 	  		  = ["most-pods"]
-// 				unneeded_time         = "10m"
-// 				unready_time  		  = "20m"
-// 				utilization_threshold = 0.7
-// 			}
-// 		}
+			autoscaler {
+				expander 	  		  = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time  		  = "20m"
+				utilization_threshold = 0.7
+			}
+		}
 
-// 		add_ons {
-// 			dashboard = true
+		add_ons {
+			dashboard = true
 
-// 			azure_workload_identity {
-// 				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
-// 			}
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
 
-// 			aws_workload_identity = true
-// 			local_path_storage    = true
+			aws_workload_identity = true
+			local_path_storage    = true
 
-// 			metrics {
-// 				kube_state    = true
-// 				core_dns      = true
-// 				kubelet       = true
-// 				api_server    = true
-// 				node_exporter = true
-// 				cadvisor      = true
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
 
-// 				scrape_annotated {
-// 					interval_seconds   = 30
-// 					include_namespaces = "^\\d+$"
-// 					exclude_namespaces  = "^[a-z]$"
-// 					retain_labels      = "^\\w+$"
-// 				}
-// 			}
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
 
-// 			logs {
-// 				audit_enabled      = true
-// 				include_namespaces = "^\\d+$"
-// 				exclude_namespaces  = "^[a-z]$"
-// 			}
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces = "^[a-z]$"
+			}
 
-// 			nvidia {
-// 				taint_gpu_nodes = true
-// 			}
+			nvidia {
+				taint_gpu_nodes = true
+			}
 
-// 			aws_efs {
-// 				role_arn = "arn:aws:iam::123456789012:role/my-custom-role"
-// 			}
+			aws_efs {
+				role_arn = "arn:aws:iam::123456789012:role/my-custom-role"
+			}
 
-// 			aws_ecr {
-// 				role_arn = "arn:aws:iam::123456789012:role/my-custom-role"
-// 			}
+			aws_ecr {
+				role_arn = "arn:aws:iam::123456789012:role/my-custom-role"
+			}
 
-// 			aws_elb {
-// 				role_arn = "arn:aws:iam::123456789012:role/my-custom-role"
-// 			}
+			aws_elb {}
 
-// 			azure_acr {
-// 				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
-// 			}
-
-// 			sysbox = true
-// 		}
-// 	}
-// 	`, name, description)
-// }
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+			
+			sysbox = true
+		}
+	}
+	`, name, description)
+}
 
 func testAccControlPlaneMk8sLinodeProvider(name string, description string) string {
 	return fmt.Sprintf(`
@@ -1827,7 +1825,7 @@ func TestControlPlane_BuildMk8sNvidiaAddOn(t *testing.T) {
 
 func TestControlPlane_BuildMk8sAwsAddOn(t *testing.T) {
 
-	awsAddOn, expectedAwsAddOn, _ := generateTestMk8sAwsAddOn()
+	awsAddOn, expectedAwsAddOn, _ := generateTestMk8sAwsAddOn(true)
 
 	if diff := deep.Equal(awsAddOn, expectedAwsAddOn); diff != nil {
 		t.Errorf("Mk8s AWS Add On was not built correctly, Diff: %s", diff)
@@ -2318,7 +2316,7 @@ func TestControlPlane_FlattenMk8sNvidiaAddOn(t *testing.T) {
 
 func TestControlPlane_FlattenMk8sAwsAddOn(t *testing.T) {
 
-	_, expectedAddOn, expectedFlatten := generateTestMk8sAwsAddOn()
+	_, expectedAddOn, expectedFlatten := generateTestMk8sAwsAddOn(true)
 	flattenedAddOn := flattenMk8sAwsAddOn(expectedAddOn)
 
 	if diff := deep.Equal(expectedFlatten, flattenedAddOn); diff != nil {
@@ -2432,9 +2430,9 @@ func generateTestMk8sAddOns(providerName string, update string) (*client.Mk8sSpe
 	var flattenedAwsElb []interface{}
 
 	if providerName == "aws" {
-		awsEfs, _, flattenedAwsEfs = generateTestMk8sAwsAddOn()
-		awsEcr, _, flattenedAwsEcr = generateTestMk8sAwsAddOn()
-		awsElb, _, flattenedAwsElb = generateTestMk8sAwsAddOn()
+		awsEfs, _, flattenedAwsEfs = generateTestMk8sAwsAddOn(true)
+		awsEcr, _, flattenedAwsEcr = generateTestMk8sAwsAddOn(true)
+		awsElb, _, flattenedAwsElb = generateTestMk8sAwsAddOn(false)
 	}
 
 	flattened := generateFlatTestMk8sAddOns(dashboard, flattenedAzureWorkloadIdentity, awsWorkloadIdentity, localPathStorage, flattenedMetrics, flattenedLogs, flattenedNvidia, flattenedAwsEfs, flattenedAwsEcr, flattenedAwsElb, flattenedAzureAcr, sysbox)
@@ -2526,7 +2524,7 @@ func generateTestMk8sHetznerProvider(update string) (*client.Mk8sHetznerProvider
 
 func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProvider, []interface{}) {
 
-	region := "us-west-2"
+	region := "eu-central-1"
 	awsTags := map[string]interface{}{
 		"hello": "world",
 	}
@@ -2534,11 +2532,11 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
 	preInstallScript := "#! echo hello world"
 	image, _, flattenedImage := generateTestMk8sAwsAmi("recommended")
-	deployRoleArn := "arn:aws:iam::989132402664:role/cpln-mk8s-terraform-test-org"
-	vpcId := "vpc-087b3e0f680a7e91e"
-	keyPair := "debug-eks"
-	diskEncryptionKeyArn := "arn:aws:kms:us-west-2:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
-	securityGroupIds := []string{"sg-0f659b1b0711edce1"}
+	deployRoleArn := "arn:aws:iam::483676437512:role/cpln-mk8s-terraform-test-org"
+	vpcId := "vpc-03105bd4dc058d3a8"
+	keyPair := "debug-terraform"
+	diskEncryptionKeyArn := "arn:aws:kms:eu-central-1:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
+	securityGroupIds := []string{"sg-031480aa7a1e6e38b"}
 	nodePools, _, flattenedNodePools := generateTestMk8sAwsNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
@@ -2832,7 +2830,7 @@ func generateTestMk8sAwsNodePools() (*[]client.Mk8sAwsPool, *[]client.Mk8sAwsPoo
 	onDemandBaseCapacity := 0
 	onDemandPercentageAboveBaseCapacity := 0
 	spotAllocationStrategy := "lowest-price"
-	subnetIds := []string{"subnet-077fe72ab6259d9a2"}
+	subnetIds := []string{"subnet-0e564a042e2a45009"}
 	extraSecurityGroupIds := []string{}
 
 	flattened := generateFlatTestMk8sAwsNodePools(name, labels, flattenedTaints, instanceTypes, flattenedOverrideImage, bootDiskSize, minSize, maxSize, onDemandBaseCapacity, onDemandPercentageAboveBaseCapacity, spotAllocationStrategy, subnetIds, extraSecurityGroupIds)
@@ -3301,14 +3299,18 @@ func generateTestMk8sNvidiaAddOn() (*client.Mk8sNvidiaAddOnConfig, *client.Mk8sN
 	return nvidia, &expectedNvidia, flattened
 }
 
-func generateTestMk8sAwsAddOn() (*client.Mk8sAwsAddOnConfig, *client.Mk8sAwsAddOnConfig, []interface{}) {
+func generateTestMk8sAwsAddOn(withRoleArn bool) (*client.Mk8sAwsAddOnConfig, *client.Mk8sAwsAddOnConfig, []interface{}) {
 
-	roleArn := "arn:aws:iam::123456789012:role/my-custom-role"
+	var roleArn *string = nil
+
+	if withRoleArn {
+		roleArn = GetString("arn:aws:iam::123456789012:role/my-custom-role")
+	}
 
 	flattened := generateFlatTestMk8sAwsAddOn(roleArn)
 	aws := buildMk8sAwsAddOn(flattened)
 	expectedAws := client.Mk8sAwsAddOnConfig{
-		RoleArn: &roleArn,
+		RoleArn: roleArn,
 	}
 
 	return aws, &expectedAws, flattened
@@ -3827,6 +3829,7 @@ func generateFlatTestMk8sAzureWorkloadIdentityAddOn(tenantId string) []interface
 
 	spec := map[string]interface{}{
 		"tenant_id": tenantId,
+		"_sentinel": true,
 	}
 
 	return []interface{}{
@@ -3844,6 +3847,7 @@ func generateFlatTestMk8sMetricsAddOn(kubeState bool, coreDns bool, kubelet bool
 		"node_exporter":    nodeExporter,
 		"cadvisor":         cadvisor,
 		"scrape_annotated": scrapeAnnotated,
+		"_sentinel":        true,
 	}
 
 	return []interface{}{
@@ -3858,6 +3862,7 @@ func generateFlatTestMk8sMetricsScrapeAnnotated(intervalSeconds int, includeName
 		"include_namespaces": includeNamespaces,
 		"exclude_namespaces": excludeNamespaces,
 		"retain_labels":      retainLabels,
+		"_sentinel":          true,
 	}
 
 	return []interface{}{
@@ -3871,6 +3876,7 @@ func generateFlatTestMk8sLogsAddOn(auditEnabled bool, includeNamespaces string, 
 		"audit_enabled":      auditEnabled,
 		"include_namespaces": includeNamespaces,
 		"exclude_namespaces": excludeNamespaces,
+		"_sentinel":          true,
 	}
 
 	return []interface{}{
@@ -3882,6 +3888,7 @@ func generateFlatTestMk8sNvidiaAddOn(taintGpuNodes bool) []interface{} {
 
 	spec := map[string]interface{}{
 		"taint_gpu_nodes": taintGpuNodes,
+		"_sentinel":       true,
 	}
 
 	return []interface{}{
@@ -3889,10 +3896,14 @@ func generateFlatTestMk8sNvidiaAddOn(taintGpuNodes bool) []interface{} {
 	}
 }
 
-func generateFlatTestMk8sAwsAddOn(roleArn string) []interface{} {
+func generateFlatTestMk8sAwsAddOn(roleArn *string) []interface{} {
 
 	spec := map[string]interface{}{
-		"role_arn": roleArn,
+		"_sentinel": true,
+	}
+
+	if roleArn != nil {
+		spec["role_arn"] = *roleArn
 	}
 
 	return []interface{}{
