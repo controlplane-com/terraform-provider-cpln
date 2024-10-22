@@ -500,6 +500,12 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 
 			security_group_ids = ["sg-031480aa7a1e6e38b"]
 
+			deploy_role_chain {
+				role_arn            = "arn:aws:iam::483676437512:role/mk8s-chain-1"
+				external_id         = "chain-1"
+				session_name_prefix = "foo-"
+			}
+
 			node_pool {
 				name = "my-aws-node-pool"
 
@@ -1730,6 +1736,15 @@ func TestControlPlane_BuildMk8sAwsAmi_Exact(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildMk8sAwsDeployRoleChain(t *testing.T) {
+
+	deployRoleChain, expectedDeployRoleChain, _ := generateTestMk8sAwsDeployRoleChain()
+
+	if diff := deep.Equal(deployRoleChain, expectedDeployRoleChain); diff != nil {
+		t.Errorf("Mk8s AWS Deploy Role Chain was not built correctly, Diff: %s", diff)
+	}
+}
+
 // !SECTION
 
 // SECTION Triton
@@ -2208,6 +2223,16 @@ func TestControlPlane_FlattenMk8sAwsAmi_Exact(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sAwsDeployRoleChain(t *testing.T) {
+
+	_, expectedDeployRoleChain, expectedFlatten := generateTestMk8sAwsDeployRoleChain()
+	flattenedDeployRoleChain := flattenMk8sAwsDeployRoleChain(expectedDeployRoleChain)
+
+	if diff := deep.Equal(expectedFlatten, flattenedDeployRoleChain); diff != nil {
+		t.Errorf("Mk8s AWS Deploy Role Chain was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 // !SECTION
 
 // SECTION Triton
@@ -2533,6 +2558,7 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	preInstallScript := "#! echo hello world"
 	image, _, flattenedImage := generateTestMk8sAwsAmi("recommended")
 	deployRoleArn := "arn:aws:iam::483676437512:role/cpln-mk8s-terraform-test-org"
+	deployRoleChain, _, flattenedDeployRoleChain := generateTestMk8sAwsDeployRoleChain()
 	vpcId := "vpc-03105bd4dc058d3a8"
 	keyPair := "debug-terraform"
 	diskEncryptionKeyArn := "arn:aws:kms:eu-central-1:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
@@ -2540,7 +2566,7 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	nodePools, _, flattenedNodePools := generateTestMk8sAwsNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sAwsProvider(region, awsTags, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sAwsProvider(region, awsTags, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, flattenedDeployRoleChain, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
 	aws := buildMk8sAwsProvider(flattened)
 	expectedAws := client.Mk8sAwsProvider{
 		Region:               &region,
@@ -2550,6 +2576,7 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 		PreInstallScript:     &preInstallScript,
 		Image:                image,
 		DeployRoleArn:        &deployRoleArn,
+		DeployRoleChain:      deployRoleChain,
 		VpcId:                &vpcId,
 		KeyPair:              &keyPair,
 		DiskEncryptionKeyArn: &diskEncryptionKeyArn,
@@ -3128,6 +3155,26 @@ func generateTestMk8sAwsAmi(choice string) (*client.Mk8sAwsAmi, *client.Mk8sAwsA
 	return ami, &expectedAmi, flattened
 }
 
+func generateTestMk8sAwsDeployRoleChain() (*[]client.Mk8sAwsAssumeRoleLink, *[]client.Mk8sAwsAssumeRoleLink, []interface{}) {
+
+	roleArn := "arn:aws:iam::483676437512:role/mk8s-chain-1"
+	externalId := "chain-1"
+	sessionNamePrefix := "foo-"
+
+	flattened := generateFlatTestMk8sAwsDeployRoleChain(roleArn, externalId, sessionNamePrefix)
+	deployRoleChain := buildMk8sAwsDeployRoleChain(flattened)
+
+	expectedDeployRoleChain := []client.Mk8sAwsAssumeRoleLink{
+		{
+			RoleArn:           &roleArn,
+			ExternalId:        &externalId,
+			SessionNamePrefix: &sessionNamePrefix,
+		},
+	}
+
+	return deployRoleChain, &expectedDeployRoleChain, flattened
+}
+
 // !SECTION
 
 // SECTION Triton
@@ -3383,7 +3430,7 @@ func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string
 	}
 }
 
-func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface{}, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface{}, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, deployRoleChain []interface{}, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                  region,
@@ -3393,6 +3440,7 @@ func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface
 		"pre_install_script":      preInstallScript,
 		"image":                   image,
 		"deploy_role_arn":         deployRoleArn,
+		"deploy_role_chain":       deployRoleChain,
 		"vpc_id":                  vpcId,
 		"key_pair":                keyPair,
 		"disk_encryption_key_arn": diskEncryptionKeyArn,
@@ -3728,6 +3776,19 @@ func generateFlatTestMk8sAwsAmi(recommended *string, exact *string) []interface{
 
 	if exact != nil {
 		spec["exact"] = *exact
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sAwsDeployRoleChain(roleArn string, externalId string, sessionNamePrefix string) []interface{} {
+
+	spec := map[string]interface{}{
+		"role_arn":            roleArn,
+		"external_id":         externalId,
+		"session_name_prefix": sessionNamePrefix,
 	}
 
 	return []interface{}{
