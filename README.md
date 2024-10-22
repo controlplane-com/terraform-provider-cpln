@@ -319,3 +319,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add digital ocean to mk8s.
 - v1.1.38
     - Fix empty object issue in mk8s.
+- v1.1.39
+    - Add deploy role chain to AWS mk8s provider.

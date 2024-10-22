@@ -195,6 +195,30 @@ func resourceMk8s() *schema.Resource {
 							Description: "Control Plane will set up the cluster by assuming this role.",
 							Required:    true,
 						},
+						"deploy_role_chain": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"role_arn": {
+										Type:        schema.TypeString,
+										Description: "",
+										Required:    true,
+									},
+									"external_id": {
+										Type:        schema.TypeString,
+										Description: "",
+										Optional:    true,
+									},
+									"session_name_prefix": {
+										Type:        schema.TypeString,
+										Description: "Control Plane will append random.",
+										Optional:    true,
+									},
+								},
+							},
+						},
 						"vpc_id": {
 							Type:        schema.TypeString,
 							Description: "The vpc where nodes will be deployed. Supports SSM.",
@@ -1264,6 +1288,10 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 	output.DeployRoleArn = GetString(spec["deploy_role_arn"])
 	output.VpcId = GetString(spec["vpc_id"])
 
+	if spec["deploy_role_chain"] != nil {
+		output.DeployRoleChain = buildMk8sAwsDeployRoleChain(spec["deploy_role_chain"].([]interface{}))
+	}
+
 	if spec["key_pair"] != nil {
 		output.KeyPair = GetString(spec["key_pair"])
 	}
@@ -1951,6 +1979,36 @@ func buildMk8sAwsAmi(specs []interface{}) *client.Mk8sAwsAmi {
 	return &output
 }
 
+func buildMk8sAwsDeployRoleChain(specs []interface{}) *[]client.Mk8sAwsAssumeRoleLink {
+
+	if len(specs) == 0 {
+		return nil
+	}
+
+	output := []client.Mk8sAwsAssumeRoleLink{}
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+
+		assumeRoleLink := client.Mk8sAwsAssumeRoleLink{
+			RoleArn: GetString(spec["role_arn"]),
+		}
+
+		if spec["external_id"] != nil {
+			assumeRoleLink.ExternalId = GetString(spec["external_id"])
+		}
+
+		if spec["session_name_prefix"] != nil {
+			assumeRoleLink.SessionNamePrefix = GetString(spec["session_name_prefix"])
+		}
+
+		output = append(output, assumeRoleLink)
+	}
+
+	return &output
+}
+
 // Triton
 
 func buildMk8sTritonConnection(specs []interface{}) *client.Mk8sTritonConnection {
@@ -2428,6 +2486,10 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 	spec["image"] = flattenMk8sAwsAmi(aws.Image)
 	spec["deploy_role_arn"] = *aws.DeployRoleArn
 	spec["vpc_id"] = *aws.VpcId
+
+	if aws.DeployRoleChain != nil {
+		spec["deploy_role_chain"] = flattenMk8sAwsDeployRoleChain(aws.DeployRoleChain)
+	}
 
 	if aws.KeyPair != nil {
 		spec["key_pair"] = *aws.KeyPair
@@ -3110,6 +3172,34 @@ func flattenMk8sAwsAmi(ami *client.Mk8sAwsAmi) []interface{} {
 	return []interface{}{
 		spec,
 	}
+}
+
+func flattenMk8sAwsDeployRoleChain(deployRoleChain *[]client.Mk8sAwsAssumeRoleLink) []interface{} {
+
+	if deployRoleChain == nil {
+		return nil
+	}
+
+	specs := []interface{}{}
+
+	for _, assumeRoleLink := range *deployRoleChain {
+
+		spec := map[string]interface{}{
+			"role_arn": *assumeRoleLink.RoleArn,
+		}
+
+		if assumeRoleLink.ExternalId != nil {
+			spec["external_id"] = *assumeRoleLink.ExternalId
+		}
+
+		if assumeRoleLink.SessionNamePrefix != nil {
+			spec["session_name_prefix"] = *assumeRoleLink.SessionNamePrefix
+		}
+
+		specs = append(specs, spec)
+	}
+
+	return specs
 }
 
 // Triton

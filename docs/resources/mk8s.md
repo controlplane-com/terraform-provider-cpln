@@ -158,6 +158,7 @@ Required:
 
 Optional:
 
+- **deploy_role_chain** (Block List) ([see below](#nestedblock--aws_provider--deploy_role_chain))
 - **aws_tags** (Map of String) Extra tags to attach to all created objects.
 - **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
 - **key_pair** (String) Name of keyPair. Supports SSM
@@ -203,6 +204,19 @@ Required:
 
 - **recommended** (String)
 - **exact** (String) Support SSM.
+
+<a id="nestedblock--aws_provider--deploy_role_chain"></a>
+
+### `aws_provider.deploy_role_chain`
+
+Required:
+
+- **role_arn** (String)
+
+Optional:
+
+- **external_id** (String)
+- **session_name_prefix** (String) Control Plane will append random.
 
 <a id="nestedblock--linode_provider"></a>
 
@@ -1000,6 +1014,12 @@ resource "cpln_mk8s" "aws" {
         disk_encryption_key_arn = "arn:aws:kms:eu-central-1:12345678901:key/0a1bcd23-4567-8901-e2fg-3h4i5jk678lm"
 
         security_group_ids = ["sg-031480aa7a1e6e38b"]
+
+        deploy_role_chain {
+            role_arn            = "arn:aws:iam::483676437512:role/mk8s-chain-1"
+            external_id         = "chain-1"
+            session_name_prefix = "foo-"
+        }
 
         node_pool {
             name = "my-aws-node-pool"
