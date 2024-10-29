@@ -842,3 +842,119 @@ func ExtractNumberAndCharactersFromString(value string) (int, string) {
 
 	return number, characters
 }
+
+func MinValidator(min interface{}) schema.SchemaValidateFunc {
+	return func(val interface{}, key string) (warns []string, errs []error) {
+
+		// Convert values to float64 for comparison
+		valFloat := toFloat64(val)
+		minFloat := toFloat64(min)
+
+		// Perform minimum value validation
+		if valFloat < minFloat {
+			errs = append(errs, fmt.Errorf("%s must be at least %v, got: %v", key, min, val))
+		}
+
+		return
+	}
+}
+
+func RangeValidator(min, max interface{}) schema.SchemaValidateFunc {
+	return func(val interface{}, key string) (warns []string, errs []error) {
+
+		// Convert values to float64 for comparison
+		valFloat := toFloat64(val)
+		minFloat := toFloat64(min)
+		maxFloat := toFloat64(max)
+
+		// Perform range validation
+		if valFloat < minFloat {
+			errs = append(errs, fmt.Errorf("%s must be at least %v, got: %v", key, min, val))
+		}
+		if valFloat > maxFloat {
+			errs = append(errs, fmt.Errorf("%s must be at most %v, got: %v", key, max, val))
+		}
+
+		return
+	}
+}
+
+func RegexValidator(pattern string) schema.SchemaValidateFunc {
+	return func(val interface{}, key string) (warns []string, errs []error) {
+
+		v := val.(string)
+
+		// Compile the regex pattern
+		re, err := regexp.Compile(pattern)
+
+		if err != nil {
+			errs = append(errs, fmt.Errorf("invalid regex pattern for %s: %s", key, err))
+			return
+		}
+
+		// Validate the value against the pattern
+		if !re.MatchString(v) {
+			errs = append(errs, fmt.Errorf("%s must match the pattern %s, got: %s", key, pattern, v))
+		}
+
+		return
+	}
+}
+
+func InSliceValidator(validValues []string) schema.SchemaValidateFunc {
+	return func(val interface{}, key string) (warns []string, errs []error) {
+		v := val.(string)
+
+		// Check if the value is in the validValues slice
+		valid := false
+
+		for _, allowed := range validValues {
+			if v == allowed {
+				valid = true
+				break
+			}
+		}
+
+		if !valid {
+			errs = append(errs, fmt.Errorf("%q must be one of %v, got: %s", key, validValues, v))
+		}
+
+		return
+	}
+}
+
+func CompositeValidator(base schema.SchemaValidateFunc, additional ...schema.SchemaValidateFunc) schema.SchemaValidateFunc {
+	return func(val interface{}, key string) ([]string, []error) {
+		var allWarnings []string
+		var allErrors []error
+
+		// Run base validation
+		baseWarnings, baseErrors := base(val, key)
+		allWarnings = append(allWarnings, baseWarnings...)
+		allErrors = append(allErrors, baseErrors...)
+
+		// Run additional validations
+		for _, validator := range additional {
+			warnings, errs := validator(val, key)
+			allWarnings = append(allWarnings, warnings...)
+			allErrors = append(allErrors, errs...)
+		}
+
+		return allWarnings, allErrors
+	}
+}
+
+func toFloat64(value interface{}) float64 {
+	switch v := value.(type) {
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	default:
+		return 0.0
+	}
+}

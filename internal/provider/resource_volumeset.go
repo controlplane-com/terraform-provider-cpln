@@ -92,26 +92,29 @@ func resourceVolumeSet() *schema.Resource {
 			},
 			"initial_capacity": {
 				Type:        schema.TypeInt,
-				Description: "The initial size in GB of volumes in this set. Minimum value: `10`.",
+				Description: "The initial volume size in this set, specified in GB. The minimum size for the performance class `general-purpose-ssd` is `10 GB`, while `high-throughput-ssd` requires at least `200 GB`.",
 				Required:    true,
 			},
 			"performance_class": {
-				Type:        schema.TypeString,
-				Description: "Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`",
-				Required:    true,
-				ForceNew:    true,
+				Type:         schema.TypeString,
+				Description:  "Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`",
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: InSliceValidator([]string{"general-purpose-ssd", "high-throughput-ssd"}),
 			},
 			"storage_class_suffix": {
-				Type:        schema.TypeString,
-				Description: "For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}",
-				Optional:    true,
+				Type:         schema.TypeString,
+				Description:  "For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}",
+				Optional:     true,
+				ValidateFunc: RegexValidator(`^[a-zA-Z][0-9a-zA-Z\-_]*$`),
 			},
 			"file_system_type": {
-				Type:        schema.TypeString,
-				Description: "Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`",
-				Optional:    true,
-				ForceNew:    true,
-				Default:     "ext4",
+				Type:         schema.TypeString,
+				Description:  "Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`",
+				Optional:     true,
+				ForceNew:     true,
+				Default:      "ext4",
+				ValidateFunc: InSliceValidator([]string{"xfs", "ext4"}),
 			},
 			"snapshots": {
 				Type:        schema.TypeList,
@@ -128,9 +131,10 @@ func resourceVolumeSet() *schema.Resource {
 							Default:     true,
 						},
 						"retention_duration": {
-							Type:        schema.TypeString,
-							Description: "The default retention period for volume snapshots. This string should contain a floating point number followed by either d, h, or m. For example, \"10d\" would retain snapshots for 10 days.",
-							Optional:    true,
+							Type:         schema.TypeString,
+							Description:  "The default retention period for volume snapshots. This string should contain a floating point number followed by either d, h, or m. For example, \"10d\" would retain snapshots for 10 days.",
+							Optional:     true,
+							ValidateFunc: RegexValidator(`^([0-9]+(\.[0-9]+)?[dhm])$`),
 						},
 						"schedule": {
 							Type:        schema.TypeString,
@@ -149,19 +153,22 @@ func resourceVolumeSet() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"max_capacity": {
-							Type:        schema.TypeInt,
-							Description: "The maximum size in GB for a volume in this set. A volume cannot grow to be bigger than this value. Minimum value: `10`.",
-							Required:    true,
+							Type:         schema.TypeInt,
+							Description:  "The maximum size in GB for a volume in this set. A volume cannot grow to be bigger than this value. Minimum value: `10`.",
+							Optional:     true,
+							ValidateFunc: MinValidator(10),
 						},
 						"min_free_percentage": {
-							Type:        schema.TypeInt,
-							Description: "The guaranteed free space on the volume as a percentage of the volume's total size. Control Plane will try to maintain at least that many percent free by scaling up the total size. Minimum percentage: `1`. Maximum Percentage: `100`.",
-							Required:    true,
+							Type:         schema.TypeInt,
+							Description:  "The guaranteed free space on the volume as a percentage of the volume's total size. Control Plane will try to maintain at least that many percent free by scaling up the total size. Minimum percentage: `1`. Maximum Percentage: `100`.",
+							Optional:     true,
+							ValidateFunc: RangeValidator(1, 100),
 						},
 						"scaling_factor": {
-							Type:        schema.TypeFloat,
-							Description: "When scaling is necessary, then `new_capacity = current_capacity * storageScalingFactor`. Minimum value: `1.1`.",
-							Required:    true,
+							Type:         schema.TypeFloat,
+							Description:  "When scaling is necessary, then `new_capacity = current_capacity * storageScalingFactor`. Minimum value: `1.1`.",
+							Optional:     true,
+							ValidateFunc: MinValidator(1.1),
 						},
 					},
 				},
@@ -174,6 +181,28 @@ func resourceVolumeSet() *schema.Resource {
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateVolumeSet,
+		},
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+			// Retrieve values of initial_capacity and performance_class
+			initialCapacity := d.Get("initial_capacity").(int)
+			performanceClass := d.Get("performance_class").(string)
+
+			// Determine the minimum capacity based on performance_class
+			var minCapacity int
+
+			switch performanceClass {
+			case "general-purpose-ssd":
+				minCapacity = 10
+			case "high-throughput-ssd":
+				minCapacity = 200
+			}
+
+			// Validate initial_capacity against the minimum capacity
+			if initialCapacity < minCapacity {
+				return fmt.Errorf("initial capacity must be at least %d GB for performance class %s", minCapacity, performanceClass)
+			}
+
+			return nil
 		},
 	}
 }

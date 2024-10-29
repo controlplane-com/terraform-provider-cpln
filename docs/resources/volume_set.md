@@ -16,7 +16,7 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 
 - **name** (String) Name of the Volume Set.
 - **gvc** (String) Name of the associated GVC.
-- **initial_capacity** (Integer) The initial size in GB of volumes in this set. Minimum value: `10`.
+- **initial_capacity** (Integer) The initial volume size in this set, specified in GB. The minimum size for the performance class `general-purpose-ssd` is `10 GB`, while `high-throughput-ssd` requires at least `200 GB`.
 - **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`
 - **storage_class_suffix** (String) For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}
 - **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`
