@@ -53,7 +53,7 @@ func resourceDomain() *schema.Resource {
 			},
 			"spec": {
 				Type:        schema.TypeList,
-				Description: "Domain specificiation.",
+				Description: "Domain specification.",
 				Required:    true,
 				MaxItems:    1,
 				Elem: &schema.Resource{

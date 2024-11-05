@@ -233,17 +233,8 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = route.Port
 					}
 
-					if route.HostPrefix == nil || *route.HostPrefix == "" {
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = nil
-					} else {
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
-					}
-
-					if route.Headers == nil || route.Headers.Request == nil || route.Headers.Request.Set == nil {
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = nil
-					} else {
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
-					}
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
 
 					// Update resource
 					domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)

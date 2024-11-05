@@ -82,7 +82,7 @@ func resourceIdentity() *schema.Resource {
 						"agent_link": {
 							Type:         schema.TypeString,
 							Description:  "Full link to referenced Agent.",
-							Required:     true,
+							Optional:     true,
 							ValidateFunc: LinkValidator,
 						},
 						"fqdn": {
@@ -106,7 +106,7 @@ func resourceIdentity() *schema.Resource {
 						"ports": {
 							Type:        schema.TypeSet,
 							Description: "Ports to expose.",
-							Optional:    true,
+							Required:    true,
 							Elem: &schema.Schema{
 								Type: schema.TypeInt,
 							},
@@ -238,6 +238,11 @@ func resourceIdentity() *schema.Resource {
 											Type: schema.TypeString,
 										},
 									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
+									},
 								},
 							},
 						},
@@ -276,6 +281,11 @@ func resourceIdentity() *schema.Resource {
 										Elem: &schema.Schema{
 											Type: schema.TypeString,
 										},
+									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
 									},
 								},
 							},
@@ -452,7 +462,10 @@ func importStateIdentity(ctx context.Context, d *schema.ResourceData, meta inter
 		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax 'gvc:identity'. Example: 'terraform import cpln_identity.RESOURCE_NAME GVC_NAME:IDENTITY_NAME'", d.Id())
 	}
 
-	d.Set("gvc", parts[0])
+	if err := d.Set("gvc", parts[0]); err != nil {
+		return nil, err
+	}
+
 	d.SetId(parts[1])
 
 	return []*schema.ResourceData{d}, nil
@@ -1020,9 +1033,9 @@ func flattenAwsIdentity(awsIdentity *client.AwsIdentity) []interface{} {
 
 	if awsIdentity != nil {
 
-		output := make(map[string]interface{})
-
-		output["cloud_account_link"] = *awsIdentity.CloudAccountLink
+		output := map[string]interface{}{
+			"cloud_account_link": *awsIdentity.CloudAccountLink,
+		}
 
 		if awsIdentity.PolicyRefs != nil && len(*awsIdentity.PolicyRefs) > 0 {
 
@@ -1060,7 +1073,9 @@ func flattenAzureIdentity(azureIdentity *client.AzureIdentity) []interface{} {
 
 			for _, r := range *azureIdentity.RoleAssignments {
 
-				ra := make(map[string]interface{})
+				ra := map[string]interface{}{
+					"_sentinel": true,
+				}
 
 				if r.Scope != nil {
 					ra["scope"] = *r.Scope
@@ -1113,7 +1128,9 @@ func flattenGcpIdentity(gcpIdentity *client.GcpIdentity) []interface{} {
 
 			for _, b := range *gcpIdentity.Bindings {
 
-				bs := make(map[string]interface{})
+				bs := map[string]interface{}{
+					"_sentinel": true,
+				}
 
 				if b.Resource != nil {
 					bs["resource"] = *b.Resource
