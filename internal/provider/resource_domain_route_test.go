@@ -431,7 +431,7 @@ func TestControlPlane_FlattenDomainRouteHeaders(t *testing.T) {
 	flattenedHeaders := flattenDomainRouteHeaders(expectedHeaders)
 
 	if diff := deep.Equal(expectedFlatten, flattenedHeaders); diff != nil {
-		t.Errorf("Mk8s Firewall was not flattened correctly. Diff: %s", diff)
+		t.Errorf("Domain Route Headers were not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -584,7 +584,8 @@ func generateTestDomainHeaderOperation() (*client.DomainHeaderOperation, *client
 func generateFlatTestDomainRouteHeaders(request []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
-		"request": request,
+		"request":   request,
+		"_sentinel": true,
 	}
 
 	return []interface{}{
@@ -595,7 +596,8 @@ func generateFlatTestDomainRouteHeaders(request []interface{}) []interface{} {
 func generateFlatTestDomainHeaderOperation(set map[string]interface{}) []interface{} {
 
 	spec := map[string]interface{}{
-		"set": set,
+		"set":       set,
+		"_sentinel": true,
 	}
 
 	return []interface{}{

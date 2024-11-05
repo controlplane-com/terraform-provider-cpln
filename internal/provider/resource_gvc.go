@@ -129,7 +129,7 @@ func GvcSchema() map[string]*schema.Schema {
 					"dedicated": {
 						Type:        schema.TypeBool,
 						Description: "Creates a dedicated load balancer in each location and enables additional Domain features: custom ports, protocols and wildcard hostnames. Charges apply for each location.",
-						Required:    true,
+						Optional:    true,
 					},
 					"trusted_proxies": {
 						Type:        schema.TypeInt,
@@ -156,8 +156,18 @@ func GvcSchema() map[string]*schema.Schema {
 												Description: "Specify the redirect url for any 500 level status code.",
 												Optional:    true,
 											},
+											"_sentinel": {
+												Type:     schema.TypeBool,
+												Optional: true,
+												Default:  true,
+											},
 										},
 									},
+								},
+								"_sentinel": {
+									Type:     schema.TypeBool,
+									Optional: true,
+									Default:  true,
 								},
 							},
 						},
@@ -453,8 +463,10 @@ func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {
 	}
 
 	spec := specs[0].(map[string]interface{})
-	output := client.LoadBalancer{
-		Dedicated: GetBool(spec["dedicated"].(bool)),
+	output := client.LoadBalancer{}
+
+	if spec["dedicated"] != nil {
+		output.Dedicated = GetBool(spec["dedicated"].(bool))
 	}
 
 	if spec["trusted_proxies"] != nil {
@@ -570,8 +582,10 @@ func flattenLoadBalancer(gvcSpec *client.LoadBalancer) []interface{} {
 		return nil
 	}
 
-	loadBalancer := map[string]interface{}{
-		"dedicated": *gvcSpec.Dedicated,
+	loadBalancer := map[string]interface{}{}
+
+	if gvcSpec.Dedicated != nil {
+		loadBalancer["dedicated"] = *gvcSpec.Dedicated
 	}
 
 	if gvcSpec.TrustedProxies != nil {
@@ -593,7 +607,9 @@ func flattenRedirect(spec *client.Redirect) []interface{} {
 		return nil
 	}
 
-	redirect := map[string]interface{}{}
+	redirect := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if spec.Class != nil {
 		redirect["class"] = flattenRedirectClass(spec.Class)
@@ -610,7 +626,9 @@ func flattenRedirectClass(spec *client.RedirectClass) []interface{} {
 		return nil
 	}
 
-	class := map[string]interface{}{}
+	class := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if spec.Status5XX != nil {
 		class["status_5xx"] = *spec.Status5XX

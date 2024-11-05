@@ -167,7 +167,7 @@ func orgSchema() map[string]*schema.Schema {
 								"enabled": {
 									Type:        schema.TypeBool,
 									Description: "Indicates whether threat detection should be forwarded or not.",
-									Optional:    true,
+									Required:    true,
 								},
 								"minimum_severity": {
 									Type:        schema.TypeString,
@@ -190,7 +190,7 @@ func orgSchema() map[string]*schema.Schema {
 											"host": {
 												Type:        schema.TypeString,
 												Description: "The hostname to send syslog messages to.",
-												Optional:    true,
+												Required:    true,
 											},
 											"port": {
 												Type:        schema.TypeInt,
@@ -202,6 +202,11 @@ func orgSchema() map[string]*schema.Schema {
 								},
 							},
 						},
+					},
+					"_sentinel": {
+						Type:     schema.TypeBool,
+						Optional: true,
+						Default:  true,
 					},
 				},
 			},
@@ -561,7 +566,9 @@ func flattenOrgSecurity(spec *client.OrgSecurity) []interface{} {
 		return nil
 	}
 
-	output := map[string]interface{}{}
+	output := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if spec.ThreatDetection != nil {
 		output["threat_detection"] = flattenOrgThreatDetection(spec.ThreatDetection)
