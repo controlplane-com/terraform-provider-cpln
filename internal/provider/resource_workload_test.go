@@ -3103,9 +3103,7 @@ func generateFlatTestOptions() []interface{} {
 func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 
 	stringFunc := schema.HashSchema(StringSchema())
-	e := map[string]interface{}{
-		"_sentinel": true,
-	}
+	e := map[string]interface{}{}
 
 	if useSet {
 		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
