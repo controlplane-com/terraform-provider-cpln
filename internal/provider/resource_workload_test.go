@@ -75,6 +75,14 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				),
 			},
 			{
+				Config: testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard-multi-metrics", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard-multi-metrics", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-multi-metrics", workloadEnvoyJson, ""),
+					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
+				),
+			},
+			{
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests Updated", workloadEnvoyJsonUpdated),
 			},
 			{
@@ -793,6 +801,221 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		// 	  scale_to_zero_delay = 400
 		// 	}
 		// }
+	  
+		firewall_spec {
+		  external {
+			inbound_allow_cidr =  ["0.0.0.0/0"]
+			outbound_allow_cidr =  []
+			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
+		  }
+		  internal { 
+			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+			inbound_allow_type = "none"
+			inbound_allow_workload = []
+		  }
+		}
+		
+		rollout_options {
+			min_ready_seconds = 2
+			max_unavailable_replicas = "10"
+			max_surge_replicas = "20"
+			scaling_policy = "Parallel"
+		}
+		
+		security_options {
+			file_system_group_id = 1
+		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+	  }
+	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+}
+
+func testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
+
+	TestLogger.Printf("Inside testAccControlPlaneStandardWorkload_MultiMetrics")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"	
+		description = "%s"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+	}
+	  
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		identity_link = cpln_identity.new.self_link
+
+		type = "standard"
+		
+		support_dynamic_tags = true
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+		  memory = "128Mi"
+		  cpu = "50m"	  
+
+		  ports {
+		    protocol = "http"
+			number   = "80" 
+		  }
+
+		  ports {
+			protocol = "http2"
+			number   = "8080" 
+	      }
+
+		  ports {
+			protocol = "grpc"
+			number   = "3000" 
+	      }
+
+		  ports {
+			protocol = "tcp"
+			number   = "3001" 
+	      }
+
+		  command = "override-command"
+		  working_directory = "/usr"
+	  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  lifecycle {
+	  
+			post_start {
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
+			}
+		  }
+
+		  volume {
+			uri  = "s3://bucket"
+			recovery_policy = "retain"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+
+		  readiness_probe {
+
+			tcp_socket {
+			  port = 8181
+			}
+
+			period_seconds       = 11
+			timeout_seconds      = 2
+			failure_threshold    = 4
+			success_threshold    = 2
+			initial_delay_seconds = 1
+		  }
+
+		  liveness_probe {
+
+			http_get {
+				path = "/path"
+				port = 8282
+				scheme = "HTTPS"
+				http_headers = {
+					header-name-01 = "header-value-01"
+					header-name-02 = "header-value-02"
+				}
+			}
+	  
+			period_seconds       = 10
+			timeout_seconds      = 3
+			failure_threshold    = 5
+			success_threshold    = 1
+			initial_delay_seconds = 2
+		  }
+		}
+	 	  	  
+		options {
+		  capacity_ai = false
+		  timeout_seconds = 30
+		  suspend = false
+	  
+		  autoscaling {
+			metric_percentile = "p50"
+			min_scale = 2
+			max_scale = 3
+			max_concurrency = 500
+			scale_to_zero_delay = 400
+
+			multi {
+				metric = "cpu"
+				target = 50
+			}
+		  }
+		}
 	  
 		firewall_spec {
 		  external {
@@ -1873,7 +2096,7 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			}
 		}
 
-		if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
+		if workloadType == "standard" || workloadType == "standard-readiness-grpc" || workloadType == "standard-multi-metrics" {
 			expectedRolloutOptions, _, _ := generateTestRolloutOptions()
 			if diff := deep.Equal(expectedRolloutOptions, workload.Spec.RolloutOptions); diff != nil {
 				return fmt.Errorf("RolloutOptions mismatch, Diff: %s", diff)
@@ -2114,6 +2337,7 @@ func testAccCheckControlPlaneWorkloadCheckDestroy(s *terraform.State) error {
 
 /*** Unit Tests ***/
 // Build //
+
 func TestControlPlane_BuildContainersServerless(t *testing.T) {
 
 	unitTestWorkload := client.Workload{}
@@ -2163,6 +2387,15 @@ func TestControlPlane_BuildOptions(t *testing.T) {
 
 	if diff := deep.Equal(unitTestWorkload.Spec.DefaultOptions, generateTestOptions("serverless")); diff != nil {
 		t.Errorf("Options was not built correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMultiMetrics(t *testing.T) {
+
+	multi, expectedMulti, _ := generateTestMultiMetrics()
+
+	if diff := deep.Equal(multi, expectedMulti); diff != nil {
+		t.Errorf("Workload Autoscaling Multi was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -2242,6 +2475,7 @@ func TestControlPlane_BuildWorkloadLoadBalancer(t *testing.T) {
 }
 
 // Flatten //
+
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
 	endpoint := "endpoint"
@@ -2338,6 +2572,16 @@ func TestControlPlane_FlattenOptions(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMultiMetrics(t *testing.T) {
+
+	_, expectedMulti, expectedFlatten := generateTestMultiMetrics()
+	flattenedMulti := flattenMultiMetrics(expectedMulti)
+
+	if diff := deep.Equal(expectedFlatten, flattenedMulti); diff != nil {
+		t.Errorf("Workload Autoscaling Multi was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 func TestControlPlane_FlattenFirewallSpec(t *testing.T) {
 
 	spec := generateTestFirewallSpec("")
@@ -2388,6 +2632,7 @@ func TestControlPlane_FlattenWorkloadLoadBalancer(t *testing.T) {
 }
 
 /*** Generate ***/
+
 func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 
 	newContainer := client.ContainerSpec{
@@ -2434,7 +2679,7 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 				Number:   GetInt(8080),
 			},
 		}
-	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
+	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" || workloadType == "standard-multi-metrics" {
 		newContainer.Ports = &[]client.PortSpec{
 			{
 				Protocol: GetString("http"),
@@ -2660,6 +2905,26 @@ func generateTestOptions(workloadType string) *client.Options {
 		}
 	}
 
+	if workloadType == "standard-multi-metrics" {
+		multi, _, _ := generateTestMultiMetrics()
+
+		return &client.Options{
+			CapacityAI:     GetBool(false),
+			TimeoutSeconds: GetInt(30),
+			Debug:          GetBool(false),
+			Suspend:        GetBool(false),
+
+			AutoScaling: &client.AutoScaling{
+				MetricPercentile: GetString("p50"),
+				MinScale:         GetInt(2),
+				MaxScale:         GetInt(3),
+				MaxConcurrency:   GetInt(500),
+				ScaleToZeroDelay: GetInt(400),
+				Multi:            multi,
+			},
+		}
+	}
+
 	if workloadType == "cron" {
 		return &client.Options{
 			CapacityAI:     GetBool(false),
@@ -2692,6 +2957,23 @@ func generateTestOptions(workloadType string) *client.Options {
 			ScaleToZeroDelay: GetInt(400),
 		},
 	}
+}
+
+func generateTestMultiMetrics() (*[]client.MultiMetrics, *[]client.MultiMetrics, []interface{}) {
+
+	metric := "cpu"
+	target := 50
+
+	flattened := generateFlatTestMultiMetrics(metric, target)
+	multi := buildMultiMetrics(flattened)
+	expectedMulti := &[]client.MultiMetrics{
+		{
+			Metric: &metric,
+			Target: &target,
+		},
+	}
+
+	return multi, expectedMulti, flattened
 }
 
 func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
@@ -2871,6 +3153,7 @@ func generateTestWorkloadLoadBalancerDirectPorts() (*[]client.WorkloadLoadBalanc
 }
 
 // Flatten //
+
 func generateFlatTestContainer(workloadType string) []interface{} {
 
 	c := map[string]interface{}{
@@ -2906,7 +3189,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 		c["ports"] = []interface{}{
 			port_01,
 		}
-	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
+	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" || workloadType == "standard-multi-metrics" {
 
 		port_01 := make(map[string]interface{})
 		port_01["protocol"] = "http"
@@ -3091,6 +3374,17 @@ func generateFlatTestOptions() []interface{} {
 
 	return []interface{}{
 		o,
+	}
+}
+
+func generateFlatTestMultiMetrics(metric string, target int) []interface{} {
+	spec := map[string]interface{}{
+		"metric": metric,
+		"target": target,
+	}
+
+	return []interface{}{
+		spec,
 	}
 }
 

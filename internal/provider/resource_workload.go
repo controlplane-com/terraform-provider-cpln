@@ -18,6 +18,7 @@ import (
 )
 
 /*** Main ***/
+
 func resourceWorkload() *schema.Resource {
 
 	return &schema.Resource{
@@ -1637,11 +1638,18 @@ func buildOptions(options []interface{}, workloadSpec *client.WorkloadSpec, loca
 
 				Metric:           GetString(as["metric"]),
 				MetricPercentile: GetString(as["metric_percentile"]),
-				Target:           GetInt(as["target"]),
 				MaxScale:         GetInt(as["max_scale"]),
 				MinScale:         GetInt(as["min_scale"]),
 				MaxConcurrency:   GetInt(as["max_concurrency"]),
 				ScaleToZeroDelay: GetInt(as["scale_to_zero_delay"]),
+			}
+
+			if as["target"].(int) > 0 {
+				cas.Target = GetInt(as["target"])
+			}
+
+			if as["multi"] != nil {
+				cas.Multi = buildMultiMetrics(as["multi"].([]interface{}))
 			}
 
 			newOptions.AutoScaling = &cas
@@ -1659,6 +1667,28 @@ func buildOptions(options []interface{}, workloadSpec *client.WorkloadSpec, loca
 	} else {
 		workloadSpec.DefaultOptions = &output[0]
 	}
+}
+
+func buildMultiMetrics(specs []interface{}) *[]client.MultiMetrics {
+
+	if len(specs) == 0 {
+		return nil
+	}
+
+	var output []client.MultiMetrics
+
+	for _, _spec := range specs {
+
+		spec := _spec.(map[string]interface{})
+		item := client.MultiMetrics{
+			Metric: GetString(spec["metric"]),
+			Target: GetInt(spec["target"]),
+		}
+
+		output = append(output, item)
+	}
+
+	return &output
 }
 
 func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
@@ -2573,6 +2603,11 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 				if o.AutoScaling.ScaleToZeroDelay != nil {
 					as["scale_to_zero_delay"] = *o.AutoScaling.ScaleToZeroDelay
 				}
+
+				if o.AutoScaling.Multi != nil {
+					as["multi"] = flattenMultiMetrics(o.AutoScaling.Multi)
+				}
+
 				autoScaling := make([]interface{}, 1)
 				autoScaling[0] = as
 				option["autoscaling"] = autoScaling
@@ -2585,6 +2620,32 @@ func flattenOptions(options []client.Options, localOptions bool, org string) []i
 	}
 
 	return nil
+}
+
+func flattenMultiMetrics(multi *[]client.MultiMetrics) []interface{} {
+
+	if multi == nil || len(*multi) == 0 {
+		return []interface{}{}
+	}
+
+	var output []interface{}
+
+	for _, item := range *multi {
+
+		spec := map[string]interface{}{}
+
+		if item.Metric != nil {
+			spec["metric"] = *item.Metric
+		}
+
+		if item.Target != nil {
+			spec["target"] = *item.Target
+		}
+
+		output = append(output, spec)
+	}
+
+	return output
 }
 
 func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
@@ -2955,6 +3016,7 @@ func flattenWorkloadLoadBalancerDirectPorts(ports *[]client.WorkloadLoadBalancer
 }
 
 /*** Helpers ***/
+
 func AutoScalingResource() *schema.Resource {
 	return &schema.Resource{
 		Schema: map[string]*schema.Schema{
@@ -2962,7 +3024,7 @@ func AutoScalingResource() *schema.Resource {
 				Type:        schema.TypeString,
 				Description: "Valid values: `disabled`, `concurrency`, `cpu`, `memory`, `latency`, or `rps`.",
 				Optional:    true,
-				Default:     "disabled",
+				//Default:     "disabled",
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 
 					v := val.(string)
@@ -2972,6 +3034,33 @@ func AutoScalingResource() *schema.Resource {
 					}
 
 					return
+				},
+			},
+			"multi": {
+				Type:        schema.TypeList,
+				Description: "",
+				Optional:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"metric": {
+							Type:        schema.TypeString,
+							Description: "Valid values: `cpu` or `memory`.",
+							Optional:    true,
+						},
+						"target": {
+							Type:        schema.TypeInt,
+							Description: "Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.",
+							Optional:    true,
+							Default:     95,
+							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
+								v := val.(int)
+								if v < 1 || v > 20000 {
+									errs = append(errs, fmt.Errorf("%q must be between 1 and 20000 inclusive, got: %d", key, v))
+								}
+								return
+							},
+						},
+					},
 				},
 			},
 			"metric_percentile": {
@@ -2991,13 +3080,13 @@ func AutoScalingResource() *schema.Resource {
 			},
 			"target": {
 				Type:        schema.TypeInt,
-				Description: "Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.",
+				Description: "Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.",
 				Optional:    true,
-				Default:     95,
+				//Default:     95,
 				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
 					v := val.(int)
-					if v < 0 || v > 20000 {
-						errs = append(errs, fmt.Errorf("%q must be between 0 and 20000 inclusive, got: %d", key, v))
+					if v < 1 || v > 20000 {
+						errs = append(errs, fmt.Errorf("%q must be between 1 and 20000 inclusive, got: %d", key, v))
 					}
 					return
 				},
@@ -3409,7 +3498,19 @@ func validateOptions(workloadType, errorMsg string, options *client.Options, has
 				return diag.FromErr(fmt.Errorf(errorMsg + "max scale must be set to 1 when workload type is 'cron'"))
 			}
 		} else {
-			if options.AutoScaling.Metric == nil || strings.TrimSpace(*options.AutoScaling.Metric) == "" {
+			if options.AutoScaling.Multi != nil {
+				if options.AutoScaling.Metric != nil {
+					return diag.FromErr(fmt.Errorf(errorMsg + "'metric' must not exist simultaneously with 'multi'"))
+				}
+
+				if options.AutoScaling.Target != nil && *options.AutoScaling.Target > 0 {
+					return diag.FromErr(fmt.Errorf(errorMsg + "'target' must not exist simultaneously with 'multi'"))
+				}
+
+				if options.AutoScaling.MetricPercentile == nil {
+					return diag.FromErr(fmt.Errorf(errorMsg + "'metric_percentile' is required when 'multi' is set"))
+				}
+			} else if options.AutoScaling.Metric == nil || strings.TrimSpace(*options.AutoScaling.Metric) == "" {
 				return diag.FromErr(fmt.Errorf(errorMsg + "scaling strategy metric is required"))
 			}
 
