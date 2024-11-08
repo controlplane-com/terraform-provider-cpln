@@ -498,7 +498,8 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 			key_pair                = "debug-terraform"
 			disk_encryption_key_arn = "arn:aws:kms:eu-central-1:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
 
-			security_group_ids = ["sg-031480aa7a1e6e38b"]
+			security_group_ids  = ["sg-031480aa7a1e6e38b"]
+			extra_node_policies = ["arn:aws:iam::aws:policy/IAMFullAccess"]
 
 			deploy_role_chain {
 				role_arn            = "arn:aws:iam::483676437512:role/mk8s-chain-1"
@@ -1920,6 +1921,7 @@ func TestControlPlane_FlattenMk8sAwsProvider(t *testing.T) {
 	// Provider
 	expectedFlattenItem := expectedFlatten[0].(map[string]interface{})
 	expectedFlattenItem["security_group_ids"] = expectedFlattenItem["security_group_ids"].(*schema.Set).List()
+	expectedFlattenItem["extra_node_policies"] = expectedFlattenItem["extra_node_policies"].(*schema.Set).List()
 
 	// Node Pool
 	nodePool := expectedFlattenItem["node_pool"].([]interface{})[0].(map[string]interface{})
@@ -2563,10 +2565,11 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 	keyPair := "debug-terraform"
 	diskEncryptionKeyArn := "arn:aws:kms:eu-central-1:989132402664:key/2e9f25ea-efb4-49bf-ae39-007be298726d"
 	securityGroupIds := []string{"sg-031480aa7a1e6e38b"}
+	extraNodePolicies := []string{"arn:aws:iam::aws:policy/IAMFullAccess"}
 	nodePools, _, flattenedNodePools := generateTestMk8sAwsNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sAwsProvider(region, awsTags, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, flattenedDeployRoleChain, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, flattenedNodePools, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sAwsProvider(region, awsTags, skipCreateRoles, flattenedNetworking, preInstallScript, flattenedImage, deployRoleArn, flattenedDeployRoleChain, vpcId, keyPair, diskEncryptionKeyArn, securityGroupIds, extraNodePolicies, flattenedNodePools, flattenedAutoscaler)
 	aws := buildMk8sAwsProvider(flattened)
 	expectedAws := client.Mk8sAwsProvider{
 		Region:               &region,
@@ -2581,6 +2584,7 @@ func generateTestMk8sAwsProvider() (*client.Mk8sAwsProvider, *client.Mk8sAwsProv
 		KeyPair:              &keyPair,
 		DiskEncryptionKeyArn: &diskEncryptionKeyArn,
 		SecurityGroupIds:     &securityGroupIds,
+		ExtraNodePolicies:    &extraNodePolicies,
 		NodePools:            nodePools,
 		Autoscaler:           autoscaler,
 	}
@@ -3430,7 +3434,7 @@ func generateFlatTestMk8sHetznerProvider(region string, hetznerLabels map[string
 	}
 }
 
-func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface{}, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, deployRoleChain []interface{}, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface{}, skipCreateRoles bool, networking []interface{}, preInstallScript string, image []interface{}, deployRoleArn string, deployRoleChain []interface{}, vpcId string, keyPair string, diskEncryptionKeyArn string, securityGroupIds []string, extraNodePolicies []string, nodePools []interface{}, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"region":                  region,
@@ -3445,6 +3449,7 @@ func generateFlatTestMk8sAwsProvider(region string, awsTags map[string]interface
 		"key_pair":                keyPair,
 		"disk_encryption_key_arn": diskEncryptionKeyArn,
 		"security_group_ids":      ConvertStringSliceToSet(securityGroupIds),
+		"extra_node_policies":     ConvertStringSliceToSet(extraNodePolicies),
 		"node_pool":               nodePools,
 		"autoscaler":              autoscaler,
 	}

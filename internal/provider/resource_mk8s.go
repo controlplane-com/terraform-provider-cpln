@@ -240,6 +240,12 @@ func resourceMk8s() *schema.Resource {
 							Optional:    true,
 							Elem:        StringSchema(),
 						},
+						"extra_node_policies": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem:        StringSchema(),
+						},
 						"node_pool":  Mk8sAwsNodePoolSchema(),
 						"autoscaler": Mk8sAutoscalerSchema(),
 					},
@@ -1302,6 +1308,10 @@ func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
 
 	if spec["security_group_ids"] != nil {
 		output.SecurityGroupIds = BuildStringTypeSet(spec["security_group_ids"])
+	}
+
+	if spec["extra_node_policies"] != nil {
+		output.ExtraNodePolicies = BuildStringTypeSet(spec["extra_node_policies"])
 	}
 
 	if spec["node_pool"] != nil {
@@ -2501,6 +2511,10 @@ func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
 
 	if aws.SecurityGroupIds != nil {
 		spec["security_group_ids"] = FlattenStringTypeSet(aws.SecurityGroupIds)
+	}
+
+	if aws.ExtraNodePolicies != nil {
+		spec["extra_node_policies"] = FlattenStringTypeSet(aws.ExtraNodePolicies)
 	}
 
 	if aws.NodePools != nil {

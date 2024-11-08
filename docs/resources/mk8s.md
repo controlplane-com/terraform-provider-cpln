@@ -164,6 +164,7 @@ Optional:
 - **key_pair** (String) Name of keyPair. Supports SSM
 - **disk_encryption_key_arn** (String) KMS key used to encrypt volumes. Supports SSM.
 - **security_group_ids** (List of String) Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.
+- **extra_node_policies** (List of String)
 - **node_pool** (Block List) ([see below](#nestedblock--aws_provider--node_pool))
 - **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
 
@@ -1014,6 +1015,7 @@ resource "cpln_mk8s" "aws" {
         disk_encryption_key_arn = "arn:aws:kms:eu-central-1:12345678901:key/0a1bcd23-4567-8901-e2fg-3h4i5jk678lm"
 
         security_group_ids = ["sg-031480aa7a1e6e38b"]
+        extra_node_policies = ["arn:aws:iam::aws:policy/IAMFullAccess"]
 
         deploy_role_chain {
             role_arn            = "arn:aws:iam::483676437512:role/mk8s-chain-1"

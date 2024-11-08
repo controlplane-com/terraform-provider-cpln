@@ -96,6 +96,7 @@ type Mk8sAwsProvider struct {
 	KeyPair              *string                  `json:"keyPair,omitempty"`
 	DiskEncryptionKeyArn *string                  `json:"diskEncryptionKeyArn,omitempty"`
 	SecurityGroupIds     *[]string                `json:"securityGroupIds,omitempty"`
+	ExtraNodePolicies    *[]string                `json:"extraNodePolicies,omitempty"`
 	NodePools            *[]Mk8sAwsPool           `json:"nodePools,omitempty"`
 	Autoscaler           *Mk8sAutoscalerConfig    `json:"autoscaler,omitempty"`
 }
