@@ -321,3 +321,8 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Fix empty object issue in mk8s.
 - v1.1.39
     - Add deploy role chain to AWS mk8s provider.
+- v1.1.40
+    - Add extraNodePolicies to aws provider.
+    - Add multi to workload autoscaling.
+    - Allow more empty objects and fix bugs.
+    - Add validators to volume set resource.
