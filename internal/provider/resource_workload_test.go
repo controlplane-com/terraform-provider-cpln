@@ -2985,7 +2985,9 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 		preStopExec,
 	}
 
-	lifecycle := make(map[string]interface{})
+	lifecycle := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	lifecycle["post_start"] = []interface{}{
 		postStart,
@@ -3008,13 +3010,17 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	readiness["failure_threshold"] = 4
 
 	if workloadType == "standard-readiness-grpc" {
-		gRPC := make(map[string]interface{})
-		gRPC["port"] = 3000
+		gRPC := map[string]interface{}{
+			"port":      3000,
+			"_sentinel": true,
+		}
 
 		grpcAsInterface := []interface{}{gRPC}
 		readiness["grpc"] = grpcAsInterface
 	} else {
-		tcpSocket := make(map[string]interface{})
+		tcpSocket := map[string]interface{}{
+			"_sentinel": true,
+		}
 		tcpSocket["port"] = 8181
 
 		tcpSocketAsInterface := []interface{}{tcpSocket}
@@ -3097,7 +3103,7 @@ func generateFlatTestOptions() []interface{} {
 func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 
 	stringFunc := schema.HashSchema(StringSchema())
-	e := make(map[string]interface{})
+	e := map[string]interface{}{}
 
 	if useSet {
 		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
@@ -3142,6 +3148,7 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 		"internal": []interface{}{
 			i,
 		},
+		"_sentinel": true,
 	}
 
 	return []interface{}{
@@ -3199,6 +3206,7 @@ func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas 
 func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
 	spec := map[string]interface{}{
 		"file_system_group_id": fileSystemGroupId,
+		"_sentinel":            true,
 	}
 
 	return []interface{}{
@@ -3244,6 +3252,7 @@ func generateFlatTestWorkloadLoadBalancer(direct []interface{}, geoLocation []in
 	spec := map[string]interface{}{
 		"direct":       direct,
 		"geo_location": geoLocation,
+		"_sentinel":    true,
 	}
 
 	return []interface{}{

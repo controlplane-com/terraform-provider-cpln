@@ -88,8 +88,18 @@ func resourceDomainRoute() *schema.Resource {
 										Optional:    true,
 										Elem:        StringSchema(),
 									},
+									"_sentinel": {
+										Type:     schema.TypeBool,
+										Optional: true,
+										Default:  true,
+									},
 								},
 							},
+						},
+						"_sentinel": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  true,
 						},
 					},
 				},
@@ -176,19 +186,30 @@ func importStateDomainRoute(ctx context.Context, d *schema.ResourceData, m inter
 	}
 
 	// Set values and Id
-	d.Set("domain_link", domainLink)
-	d.Set("domain_port", domainPort)
+	if err := d.Set("domain_link", domainLink); err != nil {
+		return nil, err
+	}
+
+	if err := d.Set("domain_port", domainPort); err != nil {
+		return nil, err
+	}
 
 	var routeIdentifier string
 
 	if prefix != nil {
 		routeIdentifier = *prefix
-		d.Set("prefix", *prefix)
+
+		if err := d.Set("prefix", *prefix); err != nil {
+			return nil, err
+		}
 	}
 
 	if regex != nil {
 		routeIdentifier = *regex
-		d.Set("regex", *regex)
+
+		if err := d.Set("regex", *regex); err != nil {
+			return nil, err
+		}
 	}
 
 	d.SetId(fmt.Sprintf("%s_%d_%s", domainLink, domainPort, routeIdentifier))
@@ -285,7 +306,7 @@ func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m in
 			ReplacePrefix: GetString(d.Get("replace_prefix")),
 			WorkloadLink:  GetString(d.Get("workload_link")),
 			Port:          GetInt(d.Get("port")),
-			HostPrefix:    GetString(d.Get(("host_prefix"))),
+			HostPrefix:    GetString(d.Get("host_prefix")),
 		}
 
 		if d.Get("prefix") != nil {
@@ -449,7 +470,9 @@ func flattenDomainRouteHeaders(headers *client.DomainRouteHeaders) []interface{}
 		return nil
 	}
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if headers.Request != nil {
 		spec["request"] = flattenDomainHeaderOperation(headers.Request)
@@ -466,7 +489,9 @@ func flattenDomainHeaderOperation(request *client.DomainHeaderOperation) []inter
 		return nil
 	}
 
-	spec := map[string]interface{}{}
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
 
 	if request.Set != nil {
 		spec["set"] = *request.Set
