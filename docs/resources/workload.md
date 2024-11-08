@@ -317,12 +317,22 @@ Optional:
 Optional:
 
 - **metric** (String) Valid values: `disabled`, `concurrency`, `cpu`, `memory`, `latency`, or `rps`.
+- **multi** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--multi))
 - **metric_percentile** (String) For metrics represented as a distribution (e.g. latency) a percentile within the distribution must be chosen as the target.
-- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `0`. Max: `20000`. Default: `95`.
+- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
 - **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+
+<a id="nestedblock--options--autoscaling--multi"></a>
+
+### `options.autoscaling.multi`
+
+Optional:
+
+- **metric** (String) Valid values: `cpu` or `memory`.
+- **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
 
 <a id="nestedblock--job"></a>
 
@@ -814,6 +824,187 @@ resource "cpln_workload" "new" {
       max_scale       = 3
       min_scale       = 2
       max_concurrency = 500
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_cidr     = []
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+      outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
+    }
+    internal {
+      # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
+
+  rollout_options {
+    min_ready_seconds = 2
+    max_unavailable_replicas = "10"
+    max_surge_replicas = "20"
+    scaling_policy = "Parallel"
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+
+    direct {
+      enabled = true
+      
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
+  }
+}
+
+```
+
+## Example Usage - Standard With Multi Metrics
+
+```terraform
+
+resource "cpln_gvc" "example" {
+  name        = "gvc-example"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_identity" "example" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "identity-example"
+  description = "Example Identity"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.example.name
+
+  type = "standard"
+
+  name        = "workload-example"
+  description = "Example Workload"
+
+  support_dynamic_tags = false
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    memory = "128Mi"
+    cpu    = "50m"
+
+		ports {
+		  protocol = "http"
+			number   = "80"
+		}
+
+		ports {
+			protocol = "http2"
+			number   = "8080"
+	  }
+
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02",
+    }
+
+    lifecycle {
+
+      post_start {
+        exec {
+          command = ["command_post", "arg_1", "arg_2"]
+        }
+      }
+
+      pre_stop {
+        exec {
+          command = ["command_pre", "arg_1", "arg_2"]
+        }
+      }
+    }
+
+    readiness_probe {
+
+			grpc {
+			  port = 3000
+			}
+
+			period_seconds        = 11
+			timeout_seconds       = 2
+			failure_threshold     = 4
+			success_threshold     = 2
+			initial_delay_seconds = 1
+    }
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = false
+
+    autoscaling {
+      metric_percentile = "p50" 
+      max_scale         = 3
+      min_scale         = 2
+      max_concurrency   = 500
+      
+      multi {
+        metric = "cpu"
+        target = 95
+      }
+
+      multi {
+        metric = "memory"
+        target = 95
+      }
     }
   }
 

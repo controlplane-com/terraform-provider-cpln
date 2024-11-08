@@ -95,13 +95,20 @@ type Options struct {
 
 // AutoScaling - Auto Scaling Options
 type AutoScaling struct {
-	Metric           *string `json:"metric,omitempty"`
-	MetricPercentile *string `json:"metricPercentile,omitempty"`
-	Target           *int    `json:"target,omitempty"`
-	MaxScale         *int    `json:"maxScale,omitempty"`
-	MinScale         *int    `json:"minScale,omitempty"`
-	MaxConcurrency   *int    `json:"maxConcurrency,omitempty"`
-	ScaleToZeroDelay *int    `json:"scaleToZeroDelay,omitempty"`
+	Metric           *string         `json:"metric,omitempty"`
+	Multi            *[]MultiMetrics `json:"multi,omitempty"`
+	MetricPercentile *string         `json:"metricPercentile,omitempty"`
+	Target           *int            `json:"target,omitempty"`
+	MaxScale         *int            `json:"maxScale,omitempty"`
+	MinScale         *int            `json:"minScale,omitempty"`
+	MaxConcurrency   *int            `json:"maxConcurrency,omitempty"`
+	ScaleToZeroDelay *int            `json:"scaleToZeroDelay,omitempty"`
+}
+
+// MultiMetrics - Multi Metrics
+type MultiMetrics struct {
+	Metric *string `json:"metric,omitempty"`
+	Target *int    `json:"target,omitempty"`
 }
 
 // FirewallSpec - Firewall Config
