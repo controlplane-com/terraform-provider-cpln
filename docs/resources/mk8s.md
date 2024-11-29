@@ -815,16 +815,16 @@ resource "cpln_mk8s" "generic" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces  = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces  = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces  = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces  = "^elastic"
         }
 
         nvidia {
@@ -946,16 +946,16 @@ resource "cpln_mk8s" "hetzner" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces  = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces  = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces  = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces  = "^elastic"
         }
 
         nvidia {
@@ -1081,16 +1081,16 @@ resource "cpln_mk8s" "aws" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces  = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces  = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces  = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces  = "^elastic"
         }
 
         nvidia {
@@ -1201,16 +1201,16 @@ resource "cpln_mk8s" "linode" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
         }
 
         nvidia {
@@ -1310,16 +1310,16 @@ resource "cpln_mk8s" "oblivus" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces  = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces  = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces  = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces  = "^elastic"
         }
 
         nvidia {
@@ -1418,16 +1418,16 @@ resource "cpln_mk8s" "lambdalabs" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces  = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces  = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces  = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces  = "^elastic"
         }
 
         nvidia {
@@ -1531,16 +1531,16 @@ resource "cpln_mk8s" "paperspace" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
         }
 
         nvidia {
@@ -1620,16 +1620,16 @@ resource "cpln_mk8s" "ephemeral" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces  = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces  = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces  = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces  = "^elastic"
         }
 
         nvidia {
@@ -1732,16 +1732,16 @@ resource "cpln_mk8s" "triton" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
         }
 
         nvidia {
@@ -1837,16 +1837,16 @@ resource "cpln_mk8s" "triton" {
 
             scrape_annotated {
                 interval_seconds   = 30
-                include_namespaces = "^\\d+$"
-                exclude_namespaces = "^[a-z]$"
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
                 retain_labels      = "^\\w+$"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
         }
 
         nvidia {
