@@ -153,16 +153,17 @@ type Mk8sEphemeralProvider struct {
 }
 
 type Mk8sTritonProvider struct {
-	Connection       *Mk8sTritonConnection `json:"connection,omitempty"`
-	Networking       *Mk8sNetworkingConfig `json:"networking,omitempty"`
-	PreInstallScript *string               `json:"preInstallScript,omitempty"`
-	Location         *string               `json:"location,omitempty"`
-	PrivateNetworkId *string               `json:"privateNetworkId,omitempty"`
-	FirewallEnabled  *bool                 `json:"firewallEnabled,omitempty"`
-	NodePools        *[]Mk8sTritonPool     `json:"nodePools,omitempty"`
-	ImageId          *string               `json:"imageId,omitempty"`
-	SshKeys          *[]string             `json:"sshKeys,omitempty"`
-	Autoscaler       *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	Connection       *Mk8sTritonConnection   `json:"connection,omitempty"`
+	Networking       *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript *string                 `json:"preInstallScript,omitempty"`
+	Location         *string                 `json:"location,omitempty"`
+	LoadBalancer     *Mk8sTritonLoadBalancer `json:"loadBalancer,omitempty"`
+	PrivateNetworkId *string                 `json:"privateNetworkId,omitempty"`
+	FirewallEnabled  *bool                   `json:"firewallEnabled,omitempty"`
+	NodePools        *[]Mk8sTritonPool       `json:"nodePools,omitempty"`
+	ImageId          *string                 `json:"imageId,omitempty"`
+	SshKeys          *[]string               `json:"sshKeys,omitempty"`
+	Autoscaler       *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
 }
 
 type Mk8sDigitalOceanProvider struct {
@@ -313,6 +314,22 @@ type Mk8sTritonConnection struct {
 	User                 *string `json:"user,omitempty"`
 	PrivateKeySecretLink *string `json:"privateKeySecretLink,omitempty"`
 }
+
+type Mk8sTritonLoadBalancer struct {
+	Manual  *Mk8sTritonManual  `json:"manual,omitempty"`
+	Gateway *Mk8sTritonGateway `json:"gateway,omitempty"`
+}
+
+type Mk8sTritonManual struct {
+	PackageId         *string `json:"packageId,omitempty"`
+	ImageId           *string `json:"imageId,omitempty"`
+	PublicNetworkId   *string `json:"publicNetworkId,omitempty"`
+	Count             *int    `json:"count,omitempty"`
+	CnsInternalDomain *string `json:"cnsInternalDomain,omitempty"`
+	CnsPublicDomain   *string `json:"cnsPublicDomain,omitempty"`
+}
+
+type Mk8sTritonGateway struct{}
 
 // Add Ons //
 

@@ -3,7 +3,6 @@ package cpln
 import (
 	"context"
 	"encoding/json"
-
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -467,6 +466,75 @@ func resourceMk8s() *schema.Resource {
 							Type:        schema.TypeString,
 							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to the Triton datacenter.",
 							Required:    true,
+						},
+						"load_balancer": {
+							Type:        schema.TypeList,
+							Description: "",
+							Required:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"manual": {
+										Type:        schema.TypeList,
+										Description: "",
+										Optional:    true,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"package_id": {
+													Type:        schema.TypeString,
+													Description: "",
+													Required:    true,
+												},
+												"image_id": {
+													Type:        schema.TypeString,
+													Description: "",
+													Required:    true,
+												},
+												"public_network_id": {
+													Type:        schema.TypeString,
+													Description: "If set, machine will also get a public IP.",
+													Required:    true,
+												},
+												"count": {
+													Type:         schema.TypeInt,
+													Description:  "",
+													Required:     true,
+													ValidateFunc: RangeValidator(1, 3),
+												},
+												"cns_internal_domain": {
+													Type:        schema.TypeString,
+													Description: "",
+													Required:    true,
+												},
+												"cns_public_domain": {
+													Type:        schema.TypeString,
+													Description: "",
+													Required:    true,
+												},
+											},
+										},
+										ExactlyOneOf: []string{"triton_provider.0.load_balancer.0.gateway", "triton_provider.0.load_balancer.0.manual"},
+									},
+									"gateway": {
+										Type:        schema.TypeList,
+										Description: "",
+										Optional:    true,
+										MaxItems:    1,
+										Elem: &schema.Resource{
+											Schema: map[string]*schema.Schema{
+												"_sentinel": {
+													Type:        schema.TypeBool,
+													Description: "",
+													Optional:    true,
+													Default:     true,
+												},
+											},
+										},
+										ExactlyOneOf: []string{"triton_provider.0.load_balancer.0.gateway", "triton_provider.0.load_balancer.0.manual"},
+									},
+								},
+							},
 						},
 						"private_network_id": {
 							Type:        schema.TypeString,
@@ -1517,6 +1585,10 @@ func buildMk8sTritonProvider(specs []interface{}) *client.Mk8sTritonProvider {
 		output.PreInstallScript = GetString(spec["pre_install_script"])
 	}
 
+	if spec["load_balancer"] != nil {
+		output.LoadBalancer = buildMk8sTritonLoadBalancer(spec["load_balancer"].([]interface{}))
+	}
+
 	if spec["firewall_enabled"] != nil {
 		output.FirewallEnabled = GetBool(spec["firewall_enabled"])
 	}
@@ -2039,6 +2111,50 @@ func buildMk8sTritonConnection(specs []interface{}) *client.Mk8sTritonConnection
 	}
 
 	return &output
+}
+
+func buildMk8sTritonLoadBalancer(specs []interface{}) *client.Mk8sTritonLoadBalancer {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	output := client.Mk8sTritonLoadBalancer{}
+	spec := specs[0].(map[string]interface{})
+
+	if spec["manual"] != nil {
+		output.Manual = buildMk8sTritonManual(spec["manual"].([]interface{}))
+	}
+
+	if spec["gateway"] != nil {
+		output.Gateway = buildMk8sTritonGateway(spec["gateway"].([]interface{}))
+	}
+
+	return &output
+}
+
+func buildMk8sTritonManual(specs []interface{}) *client.Mk8sTritonManual {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+
+	return &client.Mk8sTritonManual{
+		PackageId:         GetString(spec["package_id"]),
+		ImageId:           GetString(spec["image_id"]),
+		PublicNetworkId:   GetString(spec["public_network_id"]),
+		Count:             GetInt(spec["count"]),
+		CnsInternalDomain: GetString(spec["cns_internal_domain"]),
+		CnsPublicDomain:   GetString(spec["cns_public_domain"]),
+	}
+}
+
+func buildMk8sTritonGateway(specs []interface{}) *client.Mk8sTritonGateway {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	return &client.Mk8sTritonGateway{}
 }
 
 // Common
@@ -2726,6 +2842,10 @@ func flattenMk8sTritonProvider(triton *client.Mk8sTritonProvider) []interface{} 
 		spec["pre_install_script"] = *triton.PreInstallScript
 	}
 
+	if triton.LoadBalancer != nil {
+		spec["load_balancer"] = flattenMk8sTritonLoadBalancer(triton.LoadBalancer)
+	}
+
 	if triton.FirewallEnabled != nil {
 		spec["firewall_enabled"] = *triton.FirewallEnabled
 	}
@@ -3232,6 +3352,59 @@ func flattenMk8sTritonConnection(connection *client.Mk8sTritonConnection) []inte
 
 	if connection.User != nil {
 		spec["user"] = *connection.User
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenMk8sTritonLoadBalancer(loadBalancer *client.Mk8sTritonLoadBalancer) []interface{} {
+	if loadBalancer == nil {
+		return nil
+	}
+
+	spec := make(map[string]interface{})
+
+	if loadBalancer.Manual != nil {
+		spec["manual"] = flattenMk8sTritonManual(loadBalancer.Manual)
+	}
+
+	if loadBalancer.Gateway != nil {
+		spec["gateway"] = flattenMk8sTritonGateway(loadBalancer.Gateway)
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenMk8sTritonManual(manual *client.Mk8sTritonManual) []interface{} {
+	if manual == nil {
+		return nil
+	}
+
+	spec := make(map[string]interface{})
+
+	spec["package_id"] = *manual.PackageId
+	spec["image_id"] = *manual.ImageId
+	spec["public_network_id"] = *manual.PublicNetworkId
+	spec["count"] = *manual.Count
+	spec["cns_internal_domain"] = *manual.CnsInternalDomain
+	spec["cns_public_domain"] = *manual.CnsPublicDomain
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func flattenMk8sTritonGateway(gateway *client.Mk8sTritonGateway) []interface{} {
+	if gateway == nil {
+		return nil
+	}
+
+	spec := map[string]interface{}{
+		"_sentinel": true,
 	}
 
 	return []interface{}{

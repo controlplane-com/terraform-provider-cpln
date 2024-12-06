@@ -448,6 +448,7 @@ Required:
 - **connection** (Block List, Max: 1) ([see below](#nestedblock--triton_provider--connection))
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **location** (String) Control Plane location that will host the K8s components. Prefer one that is closest to the Triton datacenter.
+- **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--triton_provider--load_balancer))
 - **private_network_id** (String) ID of the private Fabric/Network.
 - **image_id** (String) Default image for all nodes.
 
@@ -472,6 +473,30 @@ Required:
 Optional:
 
 - **user** (String)
+
+<a id="nestedblock--triton_provider--load_balancer"></a>
+
+### `triton_provider.load_balancer`
+
+Required:
+
+~> **Note** Only one of the attributes listed below can be included in load balancer.
+
+- **gateway** (Block List, Max: 1) Just an empty list. E.g. `gateway {}`.
+- **manual** (Block List, Max: 1) ([see below](#nestedblock--triton_provider--load_balancer--manual))
+
+<a id="nestedblock--triton_provider--load_balancer--manual"></a>
+
+### `triton_provider.load_balancer.manual`
+
+Required:
+
+- **package_id** (String)
+- **image_id** (String)
+- **public_network_id** (String) If set, machine will also get a public IP.
+- **count** (Number)
+- **cns_internal_domain** (String)
+- **cns_public_domain** (String)
 
 <a id="nestedblock--triton_provider--node_pool"></a>
 
@@ -1678,6 +1703,135 @@ resource "cpln_mk8s" "triton" {
             user                    = "julian_controlplane.com"
             private_key_secret_link = "/org/terraform-test-org/secret/triton"
         }
+      
+        load_balancer {
+            gateway {}
+        }
+
+        node_pool {
+            name                = "my-triton-node-pool"
+            package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
+            override_image_id   = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
+            public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+            min_size            = 0
+            max_size            = 0
+
+            private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+            
+            triton_tags = {
+                drink = "water"
+            }
+        }
+        
+        autoscaler {
+            expander 	  		  = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^\\d+$"
+                exclude_namespaces = "^[a-z]$"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^\\d+$"
+            exclude_namespaces = "^[a-z]$"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
+    }
+}
+```
+
+## Example Usage - Triton Provider - Load Balancer Manual
+
+```terraform
+resource "cpln_mk8s" "triton" {
+
+    name        = "demo-mk8s-triton-provider"
+    description = "demo-mk8s-triton-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.28.4"
+	
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    triton_provider {
+        pre_install_script = "#! echo hello world"
+        location           = "aws-eu-central-1"
+        private_network_id = "6704dae9-00f4-48b5-8bbf-1be538f20587"
+        firewall_enabled   = false
+        image_id           = "6b98a11c-53a4-4a62-99e7-cf3dcf150ab2"
+        
+        networking {}
+
+        connection {
+            url                     = "https://us-central-1.api.mnx.io"
+            account                 = "eric_controlplane.com"
+            user                    = "julian_controlplane.com"
+            private_key_secret_link = "/org/terraform-test-org/secret/triton"
+        }
+      
+        load_balancer {
+            manual {
+                package_id          = "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
+                image_id            = "8605a524-0655-43b9-adf1-7d572fe797eb"
+                public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+                count               = 1
+                cns_internal_domain = "example.com"
+                cns_public_domain   = "example.com"
+            }
+        }
 
         node_pool {
             name                = "my-triton-node-pool"
@@ -1760,7 +1914,7 @@ resource "cpln_mk8s" "triton" {
 # Example Usage - Digital Ocean Provider
 
 ```terraform
-resource "cpln_mk8s" "triton" {
+resource "cpln_mk8s" "digital-ocean-provider" {
 
     name        = "demo-mk8s-digital-ocean-provider"
     description = "demo-mk8s-digital-ocean-provider"

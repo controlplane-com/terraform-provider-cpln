@@ -101,7 +101,7 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 				Config: testAccControlPlaneTritonProvider(name+"-triton", description),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneMk8sExists("cpln_mk8s.triton", name+"-triton", &mk8s),
-					testAccCheckControlPlaneMk8sAttributes(&mk8s, "triton", ""),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "triton", "gateway"),
 					resource.TestCheckResourceAttr("cpln_mk8s.triton", "name", name+"-triton"),
 					resource.TestCheckResourceAttr("cpln_mk8s.triton", "description", description),
 				),
@@ -123,6 +123,15 @@ func TestAccControlPlaneMk8s_basic(t *testing.T) {
 					testAccCheckControlPlaneMk8sAttributes(&mk8s, "lambdalabs", "case1"),
 					resource.TestCheckResourceAttr("cpln_mk8s.lambdalabs", "name", name+"-lambdalabs"),
 					resource.TestCheckResourceAttr("cpln_mk8s.lambdalabs", "description", description),
+				),
+			},
+			{
+				Config: testAccControlPlaneTritonProviderUpdate(name+"-triton", description),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneMk8sExists("cpln_mk8s.triton", name+"-triton", &mk8s),
+					testAccCheckControlPlaneMk8sAttributes(&mk8s, "triton", "manual"),
+					resource.TestCheckResourceAttr("cpln_mk8s.triton", "name", name+"-triton"),
+					resource.TestCheckResourceAttr("cpln_mk8s.triton", "description", description),
 				),
 			},
 		},
@@ -1174,6 +1183,10 @@ func testAccControlPlaneTritonProvider(name string, description string) string {
 				private_key_secret_link = "/org/terraform-test-org/secret/triton"
 			}
 
+			load_balancer {
+				gateway {}
+			}
+
 			node_pool {
 				name                = "my-triton-node-pool"
 				package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
@@ -1504,6 +1517,133 @@ func testAccControlPlaneMk8sLambdalabsProviderUpdate(name string, description st
 	`, name, description)
 }
 
+func testAccControlPlaneTritonProviderUpdate(name string, description string) string {
+	return fmt.Sprintf(`
+
+	resource "cpln_mk8s" "triton" {
+		
+		name        = "%s"
+		description = "%s"
+
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+			"cpln/ignore"       = "true"
+		}
+	
+		version = "1.28.4"
+	
+		firewall {
+			source_cidr = "192.168.1.255"
+			description = "hello world"
+		}
+
+		triton_provider {
+			pre_install_script = "#! echo hello world"
+			location           = "aws-eu-central-1"
+			private_network_id = "6704dae9-00f4-48b5-8bbf-1be538f20587"
+			firewall_enabled   = false
+			image_id           = "6b98a11c-53a4-4a62-99e7-cf3dcf150ab2"
+			
+			networking {}
+
+			connection {
+				url                     = "https://us-central-1.api.mnx.io"
+				account                 = "eric_controlplane.com"
+				user                    = "julian_controlplane.com"
+				private_key_secret_link = "/org/terraform-test-org/secret/triton"
+			}
+
+			load_balancer {
+				manual {
+					package_id          = "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
+					image_id            = "8605a524-0655-43b9-adf1-7d572fe797eb"
+					public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+					count               = 1
+					cns_internal_domain = "example.com"
+					cns_public_domain   = "example.com"
+				}
+			}
+
+			node_pool {
+				name                = "my-triton-node-pool"
+				package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
+				override_image_id   = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
+				public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+				min_size            = 0
+				max_size            = 0
+
+				private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
+
+				labels = {
+					hello = "world"
+				}
+
+				taint {
+					key    = "hello"
+					value  = "world"
+					effect = "NoSchedule"
+				}
+				
+				triton_tags = {
+				  drink = "water"
+				}
+			}
+			
+			autoscaler {
+				expander              = ["most-pods"]
+				unneeded_time         = "10m"
+				unready_time          = "20m"
+				utilization_threshold = 0.7
+			}
+		}
+
+		add_ons {
+			dashboard = true
+
+			azure_workload_identity {
+				tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+			}
+
+			aws_workload_identity = true
+			local_path_storage    = true
+
+			metrics {
+				kube_state    = true
+				core_dns      = true
+				kubelet       = true
+				api_server    = true
+				node_exporter = true
+				cadvisor      = true
+
+				scrape_annotated {
+					interval_seconds   = 30
+					include_namespaces = "^\\d+$"
+					exclude_namespaces = "^[a-z]$"
+					retain_labels      = "^\\w+$"
+				}
+			}
+
+			logs {
+				audit_enabled      = true
+				include_namespaces = "^\\d+$"
+				exclude_namespaces = "^[a-z]$"
+			}
+
+			nvidia {
+				taint_gpu_nodes = true
+			}
+
+			azure_acr {
+				client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+			}
+
+			sysbox = true
+		}
+	}
+	`, name, description)
+}
+
 // !SECTION
 // !SECTION
 
@@ -1605,7 +1745,7 @@ func TestControlPlane_BuildMk8sEphemeralProvider(t *testing.T) {
 
 func TestControlPlane_BuildMk8sTritonProvider(t *testing.T) {
 
-	triton, expectedTriton, _ := generateTestMk8sTritonProvider()
+	triton, expectedTriton, _ := generateTestMk8sTritonProvider("gateway")
 
 	if diff := deep.Equal(triton, expectedTriton); diff != nil {
 		t.Errorf("Mk8s Triton Provider was not built correctly, Diff: %s", diff)
@@ -1756,6 +1896,24 @@ func TestControlPlane_BuildMk8sTritonConnection(t *testing.T) {
 
 	if diff := deep.Equal(connection, expectedConnection); diff != nil {
 		t.Errorf("Mk8s Triton Connection was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMk8sTritonLoadBalancerGateway(t *testing.T) {
+
+	loadBalancer, expectedLoadBalancer, _ := generateTestMk8sTritonLoadBalancer("gateway")
+
+	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
+		t.Errorf("Mk8s Triton Load Balancer Gateway was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildMk8sTritonLoadBalancerManual(t *testing.T) {
+
+	loadBalancer, expectedLoadBalancer, _ := generateTestMk8sTritonLoadBalancer("manual")
+
+	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
+		t.Errorf("Mk8s Triton Load Balancer Manual was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -2031,7 +2189,7 @@ func TestControlPlane_FlattenMk8sEphemeralProvider(t *testing.T) {
 
 func TestControlPlane_FlattenMk8sTritonProvider(t *testing.T) {
 
-	_, expectedTriton, expectedFlatten := generateTestMk8sTritonProvider()
+	_, expectedTriton, expectedFlatten := generateTestMk8sTritonProvider("gateway")
 	flattenedTriton := flattenMk8sTritonProvider(expectedTriton)
 
 	// Extract the interface slice from *schema.Set
@@ -2249,6 +2407,26 @@ func TestControlPlane_FlattenMk8sTritonConnection(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenMk8sTritonLoadBalancerGateway(t *testing.T) {
+
+	_, expectedLoadBalancer, expectedFlatten := generateTestMk8sTritonLoadBalancer("gateway")
+	flattenedLoadBalancer := flattenMk8sTritonLoadBalancer(expectedLoadBalancer)
+
+	if diff := deep.Equal(expectedFlatten, flattenedLoadBalancer); diff != nil {
+		t.Errorf("Mk8s Triton LoadBalancer Gateway was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenMk8sTritonLoadBalancerManual(t *testing.T) {
+
+	_, expectedLoadBalancer, expectedFlatten := generateTestMk8sTritonLoadBalancer("manual")
+	flattenedLoadBalancer := flattenMk8sTritonLoadBalancer(expectedLoadBalancer)
+
+	if diff := deep.Equal(expectedFlatten, flattenedLoadBalancer); diff != nil {
+		t.Errorf("Mk8s Triton LoadBalancer Manual was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 // !SECTION
 
 // SECTION Common
@@ -2416,7 +2594,7 @@ func generateTestMk8sProvider(provider string, update string) *client.Mk8sProvid
 		generated, _, _ := generateTestMk8sEphemeralProvider()
 		output.Ephemeral = generated
 	case "triton":
-		generated, _, _ := generateTestMk8sTritonProvider()
+		generated, _, _ := generateTestMk8sTritonProvider(update)
 		output.Triton = generated
 	}
 
@@ -2720,7 +2898,7 @@ func generateTestMk8sEphemeralProvider() (*client.Mk8sEphemeralProvider, *client
 	return ephemeral, &expectedEphemeral, flattened
 }
 
-func generateTestMk8sTritonProvider() (*client.Mk8sTritonProvider, *client.Mk8sTritonProvider, []interface{}) {
+func generateTestMk8sTritonProvider(update string) (*client.Mk8sTritonProvider, *client.Mk8sTritonProvider, []interface{}) {
 
 	preInstallScript := "#! echo hello world"
 	location := "aws-eu-central-1"
@@ -2731,16 +2909,18 @@ func generateTestMk8sTritonProvider() (*client.Mk8sTritonProvider, *client.Mk8sT
 
 	connection, _, flattenedConnection := generateTestMk8sTritonConnection()
 	networking, _, flattenedNetworking := generateTestMk8sNetworking()
+	loadBalancer, _, flattenedLoadBalancer := generateTestMk8sTritonLoadBalancer(update)
 	nodePools, _, flattenedNodePools := generateTestMk8sTritonNodePools()
 	autoscaler, _, flattenedAutoscaler := generateTestMk8sAutoscaler()
 
-	flattened := generateFlatTestMk8sTritonProvider(flattenedConnection, flattenedNetworking, preInstallScript, location, privateNetworkId, firewallEnabled, flattenedNodePools, imageId, sshKeys, flattenedAutoscaler)
+	flattened := generateFlatTestMk8sTritonProvider(flattenedConnection, flattenedNetworking, preInstallScript, location, flattenedLoadBalancer, privateNetworkId, firewallEnabled, flattenedNodePools, imageId, sshKeys, flattenedAutoscaler)
 	triton := buildMk8sTritonProvider(flattened)
 	expectedTriton := client.Mk8sTritonProvider{
 		Connection:       connection,
 		Networking:       networking,
 		PreInstallScript: &preInstallScript,
 		Location:         &location,
+		LoadBalancer:     loadBalancer,
 		PrivateNetworkId: &privateNetworkId,
 		FirewallEnabled:  &firewallEnabled,
 		NodePools:        nodePools,
@@ -3202,6 +3382,47 @@ func generateTestMk8sTritonConnection() (*client.Mk8sTritonConnection, *client.M
 	return connection, &expectedConnection, flattened
 }
 
+func generateTestMk8sTritonLoadBalancer(option string) (*client.Mk8sTritonLoadBalancer, *client.Mk8sTritonLoadBalancer, []interface{}) {
+	var gateway *client.Mk8sTritonGateway
+	var manual *client.Mk8sTritonManual
+	var gatewayFlattened *[]interface{}
+	var manualFlattened *[]interface{}
+
+	switch option {
+	case "gateway":
+		_flattened := generateFlatTestMk8sTritonGateway()
+		gatewayFlattened = &_flattened
+		gateway = &client.Mk8sTritonGateway{}
+	case "manual":
+		packageId := "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
+		imageId := "8605a524-0655-43b9-adf1-7d572fe797eb"
+		publicNetworkId := "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+		count := 1
+		cnsInternalDomain := "example.com"
+		cnsPublicDomain := "example.com"
+
+		_flattened := generateFlatTestMk8sTritonManual(packageId, imageId, publicNetworkId, count, cnsInternalDomain, cnsPublicDomain)
+		manualFlattened = &_flattened
+		manual = &client.Mk8sTritonManual{
+			PackageId:         &packageId,
+			ImageId:           &imageId,
+			PublicNetworkId:   &publicNetworkId,
+			Count:             &count,
+			CnsInternalDomain: &cnsInternalDomain,
+			CnsPublicDomain:   &cnsPublicDomain,
+		}
+	}
+
+	flattened := generateFlatTestMk8sTritonLoadBalancer(gatewayFlattened, manualFlattened)
+	loadBalancer := buildMk8sTritonLoadBalancer(flattened)
+	expectedLoadBalancer := client.Mk8sTritonLoadBalancer{
+		Gateway: gateway,
+		Manual:  manual,
+	}
+
+	return loadBalancer, &expectedLoadBalancer, flattened
+}
+
 // !SECTION
 
 // SECTION Common
@@ -3545,13 +3766,14 @@ func generateFlatTestMk8sEphemeralProvider(location string, nodePools []interfac
 	}
 }
 
-func generateFlatTestMk8sTritonProvider(connection []interface{}, networking []interface{}, preInstallScript string, location string, privateNetworkId string, firewallEnabled bool, nodePools []interface{}, imageId string, sshKeys []string, autoscaler []interface{}) []interface{} {
+func generateFlatTestMk8sTritonProvider(connection []interface{}, networking []interface{}, preInstallScript string, location string, loadBalancer []interface{}, privateNetworkId string, firewallEnabled bool, nodePools []interface{}, imageId string, sshKeys []string, autoscaler []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
 		"connection":         connection,
 		"networking":         networking,
 		"pre_install_script": preInstallScript,
 		"location":           location,
+		"load_balancer":      loadBalancer,
 		"private_network_id": privateNetworkId,
 		"firewall_enabled":   firewallEnabled,
 		"node_pool":          nodePools,
@@ -3812,6 +4034,47 @@ func generateFlatTestMk8sTritonConnection(url string, account string, user strin
 		"account":                 account,
 		"user":                    user,
 		"private_key_secret_link": privateKeySecretLink,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sTritonLoadBalancer(gateway *[]interface{}, manual *[]interface{}) []interface{} {
+	spec := map[string]interface{}{}
+
+	if gateway != nil {
+		spec["gateway"] = *gateway
+	}
+
+	if manual != nil {
+		spec["manual"] = *manual
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sTritonGateway() []interface{} {
+	spec := map[string]interface{}{
+		"_sentinel": true,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestMk8sTritonManual(packageId string, imageId string, publicNetworkId string, count int, cnsInternalDomain string, cnsPublicDomain string) []interface{} {
+	spec := map[string]interface{}{
+		"package_id":          packageId,
+		"image_id":            imageId,
+		"public_network_id":   publicNetworkId,
+		"count":               count,
+		"cns_internal_domain": cnsInternalDomain,
+		"cns_public_domain":   cnsPublicDomain,
 	}
 
 	return []interface{}{
