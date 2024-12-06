@@ -294,16 +294,16 @@ func testAccControlPlaneMk8sGenericProvider(name string, description string) str
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -427,16 +427,16 @@ func testAccControlPlaneMk8sHetznerProvider(name string, description string) str
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -565,16 +565,16 @@ func testAccControlPlaneMk8sAwsProvider(name string, description string) string 
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces = "^elastic"
 			}
 
 			nvidia {
@@ -685,16 +685,16 @@ func testAccControlPlaneMk8sLinodeProvider(name string, description string) stri
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces = "^elastic"
 			}
 
 			nvidia {
@@ -796,16 +796,16 @@ func testAccControlPlaneMk8sOblivusProvider(name string, description string) str
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -907,16 +907,16 @@ func testAccControlPlaneMk8sLambdalabsProvider(name string, description string) 
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -1022,16 +1022,16 @@ func testAccControlPlaneMk8sPaperspaceProvider(name string, description string) 
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces = "^elastic"
 			}
 
 			nvidia {
@@ -1113,16 +1113,16 @@ func testAccControlPlaneEphemeralProvider(name string, description string) strin
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -1227,16 +1227,16 @@ func testAccControlPlaneTritonProvider(name string, description string) string {
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces = "^elastic"
 			}
 
 			nvidia {
@@ -1365,16 +1365,16 @@ func testAccControlPlaneMk8sHetznerProviderUpdate(name string, description strin
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -1478,16 +1478,16 @@ func testAccControlPlaneMk8sLambdalabsProviderUpdate(name string, description st
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces  = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces  = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces  = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces  = "^elastic"
 			}
 
 			nvidia {
@@ -3304,8 +3304,8 @@ func generateTestMk8sMetricsAddOn() (*client.Mk8sMetricsAddOnConfig, *client.Mk8
 func generateTestMk8sMetricsScrapeAnnotated() (*client.Mk8sMetricsScrapeAnnotated, *client.Mk8sMetricsScrapeAnnotated, []interface{}) {
 
 	intervalSeconds := 30
-	includeNamespaces := "^\\d+$"
-	excludeNamespaces := "^[a-z]$"
+	includeNamespaces := "^elastic"
+	excludeNamespaces := "^elastic"
 	retainLabels := "^\\w+$"
 
 	flattened := generateFlatTestMk8sMetricsScrapeAnnotated(intervalSeconds, includeNamespaces, excludeNamespaces, retainLabels)
@@ -3323,8 +3323,8 @@ func generateTestMk8sMetricsScrapeAnnotated() (*client.Mk8sMetricsScrapeAnnotate
 func generateTestMk8sLogsAddOn() (*client.Mk8sLogsAddOnConfig, *client.Mk8sLogsAddOnConfig, []interface{}) {
 
 	auditEnabled := true
-	includeNamespaces := "^\\d+$"
-	excludeNamespaces := "^[a-z]$"
+	includeNamespaces := "^elastic"
+	excludeNamespaces := "^elastic"
 
 	flattened := generateFlatTestMk8sLogsAddOn(auditEnabled, includeNamespaces, excludeNamespaces)
 	logs := buildMk8sLogsAddOn(flattened)
