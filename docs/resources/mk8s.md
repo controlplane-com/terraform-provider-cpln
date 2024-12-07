@@ -1762,15 +1762,15 @@ resource "cpln_mk8s" "triton" {
             scrape_annotated {
                 interval_seconds   = 30
                 include_namespaces = "^\\d+$"
-                exclude_namespaces = "^[a-z]$"
-                retain_labels      = "^\\w+$"
+                exclude_namespaces = "^elastic"
+                retain_labels      = "^elastic"
             }
         }
 
         logs {
             audit_enabled      = true
-            include_namespaces = "^\\d+$"
-            exclude_namespaces = "^[a-z]$"
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
         }
 
         nvidia {

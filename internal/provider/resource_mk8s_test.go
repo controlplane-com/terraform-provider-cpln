@@ -1618,16 +1618,16 @@ func testAccControlPlaneTritonProviderUpdate(name string, description string) st
 
 				scrape_annotated {
 					interval_seconds   = 30
-					include_namespaces = "^\\d+$"
-					exclude_namespaces = "^[a-z]$"
+					include_namespaces = "^elastic"
+					exclude_namespaces = "^elastic"
 					retain_labels      = "^\\w+$"
 				}
 			}
 
 			logs {
 				audit_enabled      = true
-				include_namespaces = "^\\d+$"
-				exclude_namespaces = "^[a-z]$"
+				include_namespaces = "^elastic"
+				exclude_namespaces = "^elastic"
 			}
 
 			nvidia {
