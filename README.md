@@ -326,3 +326,7 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add multi to workload autoscaling.
     - Allow more empty objects and fix bugs.
     - Add validators to volume set resource.
+- v1.1.41
+    - Update Mk8s namespaces example.
+    - Add load balancer to mk8s triton.
+
