@@ -329,4 +329,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
 - v1.1.41
     - Update Mk8s namespaces example.
     - Add load balancer to mk8s triton.
-
+- v1.1.42
+    - Fix issue with policies that require a GVC reference. 
