@@ -141,9 +141,14 @@ func resourcePolicyCreate(ctx context.Context, d *schema.ResourceData, m interfa
 	policy.Target = GetString(d.Get("target"))
 
 	gvc := d.Get("gvc").(string)
+	targetLinks := d.Get("target_links")
 
-	if (*policy.TargetKind == "identity" || *policy.TargetKind == "workload" || *policy.TargetKind == "volumeset") && gvc == "" {
-		return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", *policy.TargetKind))
+	if targetLinks != nil {
+		targetArray := targetLinks.(*schema.Set).List()
+
+		if (*policy.TargetKind == "identity" || *policy.TargetKind == "workload" || *policy.TargetKind == "volumeset") && gvc == "" && len(targetArray) > 0 {
+			return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", *policy.TargetKind))
+		}
 	}
 
 	c := m.(*client.Client)
@@ -270,9 +275,13 @@ func resourcePolicyUpdate(ctx context.Context, d *schema.ResourceData, m interfa
 
 		gvc := d.Get("gvc").(string)
 		targetKind := d.Get("target_kind").(string)
+		targetLinks := d.Get("target_links")
 
-		if (targetKind == "identity" || targetKind == "workload" || targetKind == "volumeset") && gvc == "" {
-			return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", targetKind))
+		if targetLinks != nil {
+			targetArray := targetLinks.(*schema.Set).List()
+			if (targetKind == "identity" || targetKind == "workload" || targetKind == "volumeset") && gvc == "" && len(targetArray) > 0 {
+				return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", targetKind))
+			}
 		}
 
 		policyToUpdate := client.Policy{}
