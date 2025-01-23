@@ -494,6 +494,9 @@ Required:
 - **package_id** (String)
 - **image_id** (String)
 - **public_network_id** (String) If set, machine will also get a public IP.
+- **private_network_ids** (List of String) More private networks to join.
+- **metadata** (Map of String) Extra tags to attach to instances from a node pool.
+- **tags** (Map of String) Extra tags to attach to instances from a node pool.
 - **count** (Number)
 - **cns_internal_domain** (String)
 - **cns_public_domain** (String)
@@ -1827,9 +1830,20 @@ resource "cpln_mk8s" "triton" {
                 package_id          = "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
                 image_id            = "8605a524-0655-43b9-adf1-7d572fe797eb"
                 public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+                private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
                 count               = 1
                 cns_internal_domain = "example.com"
                 cns_public_domain   = "example.com"
+
+                metadata = {
+                    key1 = "value1"
+                    key2 = "value2"
+                }
+
+                tags = {
+                    tag1 = "value1"
+                    tag2 = "value2"
+                }
             }
         }
 

@@ -3,6 +3,7 @@ package cpln
 import (
 	"context"
 	"encoding/json"
+
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -495,6 +496,24 @@ func resourceMk8s() *schema.Resource {
 													Type:        schema.TypeString,
 													Description: "If set, machine will also get a public IP.",
 													Required:    true,
+												},
+												"private_network_ids": {
+													Type:        schema.TypeSet,
+													Description: "More private networks to join.",
+													Optional:    true,
+													Elem:        StringSchema(),
+												},
+												"metadata": {
+													Type:        schema.TypeMap,
+													Description: "Extra tags to attach to instances from a node pool.",
+													Optional:    true,
+													Elem:        StringSchema(),
+												},
+												"tags": {
+													Type:        schema.TypeMap,
+													Description: "Extra tags to attach to instances from a node pool.",
+													Optional:    true,
+													Elem:        StringSchema(),
 												},
 												"count": {
 													Type:         schema.TypeInt,
@@ -2138,8 +2157,7 @@ func buildMk8sTritonManual(specs []interface{}) *client.Mk8sTritonManual {
 	}
 
 	spec := specs[0].(map[string]interface{})
-
-	return &client.Mk8sTritonManual{
+	output := client.Mk8sTritonManual{
 		PackageId:         GetString(spec["package_id"]),
 		ImageId:           GetString(spec["image_id"]),
 		PublicNetworkId:   GetString(spec["public_network_id"]),
@@ -2147,6 +2165,20 @@ func buildMk8sTritonManual(specs []interface{}) *client.Mk8sTritonManual {
 		CnsInternalDomain: GetString(spec["cns_internal_domain"]),
 		CnsPublicDomain:   GetString(spec["cns_public_domain"]),
 	}
+
+	if spec["private_network_ids"] != nil {
+		output.PrivateNetworkIds = BuildStringTypeSet(spec["private_network_ids"])
+	}
+
+	if spec["metadata"] != nil {
+		output.Metadata = GetStringMap(spec["metadata"])
+	}
+
+	if spec["tags"] != nil {
+		output.Tags = GetStringMap(spec["tags"])
+	}
+
+	return &output
 }
 
 func buildMk8sTritonGateway(specs []interface{}) *client.Mk8sTritonGateway {
@@ -3392,6 +3424,18 @@ func flattenMk8sTritonManual(manual *client.Mk8sTritonManual) []interface{} {
 	spec["count"] = *manual.Count
 	spec["cns_internal_domain"] = *manual.CnsInternalDomain
 	spec["cns_public_domain"] = *manual.CnsPublicDomain
+
+	if manual.PrivateNetworkIds != nil {
+		spec["private_network_ids"] = FlattenStringTypeSet(manual.PrivateNetworkIds)
+	}
+
+	if manual.Metadata != nil {
+		spec["metadata"] = *manual.Metadata
+	}
+
+	if manual.Tags != nil {
+		spec["tags"] = *manual.Tags
+	}
 
 	return []interface{}{
 		spec,
