@@ -1559,9 +1559,20 @@ func testAccControlPlaneTritonProviderUpdate(name string, description string) st
 					package_id          = "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
 					image_id            = "8605a524-0655-43b9-adf1-7d572fe797eb"
 					public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+					private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
 					count               = 1
 					cns_internal_domain = "example.com"
 					cns_public_domain   = "example.com"
+
+					metadata = {
+						key1 = "value1"
+						key2 = "value2"
+					}
+
+					tags = {
+						tag1 = "value1"
+						tag2 = "value2"
+					}
 				}
 			}
 
@@ -2421,6 +2432,11 @@ func TestControlPlane_FlattenMk8sTritonLoadBalancerManual(t *testing.T) {
 
 	_, expectedLoadBalancer, expectedFlatten := generateTestMk8sTritonLoadBalancer("manual")
 	flattenedLoadBalancer := flattenMk8sTritonLoadBalancer(expectedLoadBalancer)
+
+	// Extract the interface slice from *schema.Set
+	loadBalancer := expectedFlatten[0].(map[string]interface{})
+	manual := loadBalancer["manual"].([]interface{})[0].(map[string]interface{})
+	manual["private_network_ids"] = manual["private_network_ids"].(*schema.Set).List()
 
 	if diff := deep.Equal(expectedFlatten, flattenedLoadBalancer); diff != nil {
 		t.Errorf("Mk8s Triton LoadBalancer Manual was not flattened correctly. Diff: %s", diff)
@@ -3397,16 +3413,30 @@ func generateTestMk8sTritonLoadBalancer(option string) (*client.Mk8sTritonLoadBa
 		packageId := "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
 		imageId := "8605a524-0655-43b9-adf1-7d572fe797eb"
 		publicNetworkId := "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+		privateNetworkIds := []string{"6704dae9-00f4-48b5-8bbf-1be538f20587"}
 		count := 1
 		cnsInternalDomain := "example.com"
 		cnsPublicDomain := "example.com"
 
-		_flattened := generateFlatTestMk8sTritonManual(packageId, imageId, publicNetworkId, count, cnsInternalDomain, cnsPublicDomain)
+		metadata := map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+		}
+
+		tags := map[string]interface{}{
+			"tag1": "value1",
+			"tag2": "value2",
+		}
+
+		_flattened := generateFlatTestMk8sTritonManual(packageId, imageId, publicNetworkId, privateNetworkIds, metadata, tags, count, cnsInternalDomain, cnsPublicDomain)
 		manualFlattened = &_flattened
 		manual = &client.Mk8sTritonManual{
 			PackageId:         &packageId,
 			ImageId:           &imageId,
 			PublicNetworkId:   &publicNetworkId,
+			PrivateNetworkIds: &privateNetworkIds,
+			Metadata:          &metadata,
+			Tags:              &tags,
 			Count:             &count,
 			CnsInternalDomain: &cnsInternalDomain,
 			CnsPublicDomain:   &cnsPublicDomain,
@@ -4067,11 +4097,14 @@ func generateFlatTestMk8sTritonGateway() []interface{} {
 	}
 }
 
-func generateFlatTestMk8sTritonManual(packageId string, imageId string, publicNetworkId string, count int, cnsInternalDomain string, cnsPublicDomain string) []interface{} {
+func generateFlatTestMk8sTritonManual(packageId string, imageId string, publicNetworkId string, privateNetworkIds []string, metadata map[string]interface{}, tags map[string]interface{}, count int, cnsInternalDomain string, cnsPublicDomain string) []interface{} {
 	spec := map[string]interface{}{
 		"package_id":          packageId,
 		"image_id":            imageId,
 		"public_network_id":   publicNetworkId,
+		"private_network_ids": ConvertStringSliceToSet(privateNetworkIds),
+		"metadata":            metadata,
+		"tags":                tags,
 		"count":               count,
 		"cns_internal_domain": cnsInternalDomain,
 		"cns_public_domain":   cnsPublicDomain,

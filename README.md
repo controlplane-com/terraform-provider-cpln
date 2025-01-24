@@ -331,3 +331,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add load balancer to mk8s triton.
 - v1.1.42
     - Fix issue with policies that require a GVC reference. 
+- v1.1.43
+    - Add privateNetworkIds, metadata and tags to Triton load balancer manual attribute
+    - Update dependencies
