@@ -468,16 +468,10 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 
 					if secretData["role_arn"] != nil && secretData["role_arn"] != "" {
 						dataMap["roleArn"] = secretData["role_arn"]
-					} else {
-						if update {
-							dataMap["roleArn"] = nil
-						}
 					}
 
 					if secretData["external_id"] != nil && secretData["external_id"] != "" {
 						dataMap["externalId"] = secretData["external_id"]
-					} else if update {
-						dataMap["externalId"] = nil
 					}
 				}
 
@@ -500,18 +494,10 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 
 					if secretData["public_key"] != nil && secretData["public_key"] != "" {
 						dataMap["publicKey"] = secretData["public_key"]
-					} else {
-						if update {
-							dataMap["publicKey"] = nil
-						}
 					}
 
 					if secretData["passphrase"] != nil && secretData["passphrase"] != "" {
 						dataMap["passphrase"] = secretData["passphrase"]
-					} else {
-						if update {
-							dataMap["passphrase"] = nil
-						}
 					}
 				}
 
@@ -521,18 +507,10 @@ func buildData(secretType string, data interface{}, secret *client.Secret, updat
 
 					if secretData["cert"] != nil && secretData["cert"] != "" {
 						dataMap["cert"] = secretData["cert"]
-					} else {
-						if update {
-							dataMap["cert"] = nil
-						}
 					}
 
 					if secretData["chain"] != nil && secretData["chain"] != "" {
 						dataMap["chain"] = secretData["chain"]
-					} else {
-						if update {
-							dataMap["chain"] = nil
-						}
 					}
 				}
 
