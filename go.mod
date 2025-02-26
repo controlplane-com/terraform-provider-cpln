@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/hashicorp/terraform-plugin-docs v0.13.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.33.0
-	github.com/imroc/req/v3 v3.49.1
+	github.com/imroc/req/v3 v3.43.4
 )
 
 require (
