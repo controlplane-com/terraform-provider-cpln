@@ -336,3 +336,5 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Update dependencies
 - v1.1.44
     - Fix secret resource update.
+- v1.1.45
+    - Replace _sentinel with placeholder_attribute to fix an issue in pulumi-go.
