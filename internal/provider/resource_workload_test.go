@@ -3269,7 +3269,7 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 	}
 
 	lifecycle := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	lifecycle["post_start"] = []interface{}{
@@ -3294,15 +3294,15 @@ func generateFlatTestContainer(workloadType string) []interface{} {
 
 	if workloadType == "standard-readiness-grpc" {
 		gRPC := map[string]interface{}{
-			"port":      3000,
-			"_sentinel": true,
+			"port":                  3000,
+			"placeholder_attribute": true,
 		}
 
 		grpcAsInterface := []interface{}{gRPC}
 		readiness["grpc"] = grpcAsInterface
 	} else {
 		tcpSocket := map[string]interface{}{
-			"_sentinel": true,
+			"placeholder_attribute": true,
 		}
 		tcpSocket["port"] = 8181
 
@@ -3442,7 +3442,7 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 		"internal": []interface{}{
 			i,
 		},
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -3499,8 +3499,8 @@ func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas 
 
 func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
 	spec := map[string]interface{}{
-		"file_system_group_id": fileSystemGroupId,
-		"_sentinel":            true,
+		"file_system_group_id":  fileSystemGroupId,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -3544,9 +3544,9 @@ func generateFlatTestWorkloadSidecar(envoy string) []interface{} {
 
 func generateFlatTestWorkloadLoadBalancer(direct []interface{}, geoLocation []interface{}) []interface{} {
 	spec := map[string]interface{}{
-		"direct":       direct,
-		"geo_location": geoLocation,
-		"_sentinel":    true,
+		"direct":                direct,
+		"geo_location":          geoLocation,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{

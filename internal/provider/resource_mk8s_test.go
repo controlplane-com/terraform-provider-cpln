@@ -4089,7 +4089,7 @@ func generateFlatTestMk8sTritonLoadBalancer(gateway *[]interface{}, manual *[]in
 
 func generateFlatTestMk8sTritonGateway() []interface{} {
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -4190,8 +4190,8 @@ func generateFlatTestMk8sAddOns(dashboard bool, azureWorkloadIdentity []interfac
 func generateFlatTestMk8sAzureWorkloadIdentityAddOn(tenantId string) []interface{} {
 
 	spec := map[string]interface{}{
-		"tenant_id": tenantId,
-		"_sentinel": true,
+		"tenant_id":             tenantId,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -4202,14 +4202,14 @@ func generateFlatTestMk8sAzureWorkloadIdentityAddOn(tenantId string) []interface
 func generateFlatTestMk8sMetricsAddOn(kubeState bool, coreDns bool, kubelet bool, apiServer bool, nodeExporter bool, cadvisor bool, scrapeAnnotated []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
-		"kube_state":       kubeState,
-		"core_dns":         coreDns,
-		"kubelet":          kubelet,
-		"api_server":       apiServer,
-		"node_exporter":    nodeExporter,
-		"cadvisor":         cadvisor,
-		"scrape_annotated": scrapeAnnotated,
-		"_sentinel":        true,
+		"kube_state":            kubeState,
+		"core_dns":              coreDns,
+		"kubelet":               kubelet,
+		"api_server":            apiServer,
+		"node_exporter":         nodeExporter,
+		"cadvisor":              cadvisor,
+		"scrape_annotated":      scrapeAnnotated,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -4220,11 +4220,11 @@ func generateFlatTestMk8sMetricsAddOn(kubeState bool, coreDns bool, kubelet bool
 func generateFlatTestMk8sMetricsScrapeAnnotated(intervalSeconds int, includeNamespaces string, excludeNamespaces string, retainLabels string) []interface{} {
 
 	spec := map[string]interface{}{
-		"interval_seconds":   intervalSeconds,
-		"include_namespaces": includeNamespaces,
-		"exclude_namespaces": excludeNamespaces,
-		"retain_labels":      retainLabels,
-		"_sentinel":          true,
+		"interval_seconds":      intervalSeconds,
+		"include_namespaces":    includeNamespaces,
+		"exclude_namespaces":    excludeNamespaces,
+		"retain_labels":         retainLabels,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -4235,10 +4235,10 @@ func generateFlatTestMk8sMetricsScrapeAnnotated(intervalSeconds int, includeName
 func generateFlatTestMk8sLogsAddOn(auditEnabled bool, includeNamespaces string, excludeNamespaces string) []interface{} {
 
 	spec := map[string]interface{}{
-		"audit_enabled":      auditEnabled,
-		"include_namespaces": includeNamespaces,
-		"exclude_namespaces": excludeNamespaces,
-		"_sentinel":          true,
+		"audit_enabled":         auditEnabled,
+		"include_namespaces":    includeNamespaces,
+		"exclude_namespaces":    excludeNamespaces,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -4249,8 +4249,8 @@ func generateFlatTestMk8sLogsAddOn(auditEnabled bool, includeNamespaces string, 
 func generateFlatTestMk8sNvidiaAddOn(taintGpuNodes bool) []interface{} {
 
 	spec := map[string]interface{}{
-		"taint_gpu_nodes": taintGpuNodes,
-		"_sentinel":       true,
+		"taint_gpu_nodes":       taintGpuNodes,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -4261,7 +4261,7 @@ func generateFlatTestMk8sNvidiaAddOn(taintGpuNodes bool) []interface{} {
 func generateFlatTestMk8sAwsAddOn(roleArn *string) []interface{} {
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if roleArn != nil {

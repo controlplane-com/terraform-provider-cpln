@@ -542,7 +542,7 @@ func resourceMk8s() *schema.Resource {
 										MaxItems:    1,
 										Elem: &schema.Resource{
 											Schema: map[string]*schema.Schema{
-												"_sentinel": {
+												"placeholder_attribute": {
 													Type:        schema.TypeBool,
 													Description: "",
 													Optional:    true,
@@ -664,7 +664,7 @@ func resourceMk8s() *schema.Resource {
 										Description: "Tenant ID to use for workload identity.",
 										Optional:    true,
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -746,7 +746,7 @@ func resourceMk8s() *schema.Resource {
 													Description: "",
 													Optional:    true,
 												},
-												"_sentinel": {
+												"placeholder_attribute": {
 													Type:     schema.TypeBool,
 													Optional: true,
 													Default:  true,
@@ -754,7 +754,7 @@ func resourceMk8s() *schema.Resource {
 											},
 										},
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -784,7 +784,7 @@ func resourceMk8s() *schema.Resource {
 										Description: "",
 										Optional:    true,
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -804,7 +804,7 @@ func resourceMk8s() *schema.Resource {
 										Description: "",
 										Optional:    true,
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -3448,7 +3448,7 @@ func flattenMk8sTritonGateway(gateway *client.Mk8sTritonGateway) []interface{} {
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -3547,7 +3547,7 @@ func flattenMk8sAzureWorkloadIdentityAddOn(azureWorkloadIdentity *client.Mk8sAzu
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if azureWorkloadIdentity.TenantId != nil {
@@ -3566,7 +3566,7 @@ func flattenMk8sMetricsAddOn(metrics *client.Mk8sMetricsAddOnConfig) []interface
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if metrics.KubeState != nil {
@@ -3609,7 +3609,7 @@ func flattenMk8sMetricsScrapeAnnotated(scrapeAnnotated *client.Mk8sMetricsScrape
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if scrapeAnnotated.IntervalSeconds != nil {
@@ -3640,7 +3640,7 @@ func flattenMk8sLogsAddOn(logs *client.Mk8sLogsAddOnConfig) []interface{} {
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if logs.AuditEnabled != nil {
@@ -3667,7 +3667,7 @@ func flattenMk8sNvidiaAddOn(nvidia *client.Mk8sNvidiaAddOnConfig) []interface{} 
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if nvidia.TaintGPUNodes != nil {
@@ -3686,7 +3686,7 @@ func flattenMk8sAwsAddOn(aws *client.Mk8sAwsAddOnConfig) []interface{} {
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if aws.RoleArn != nil {
@@ -4325,7 +4325,7 @@ func Mk8sHasRoleArnSchema(description string) *schema.Schema {
 					Description: description,
 					Optional:    true,
 				},
-				"_sentinel": {
+				"placeholder_attribute": {
 					Type:     schema.TypeBool,
 					Optional: true,
 					Default:  true,

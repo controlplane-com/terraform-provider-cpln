@@ -363,7 +363,7 @@ func resourceWorkload() *schema.Resource {
 										MaxItems: 1,
 										Elem:     lifeCycleSpec(),
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -496,7 +496,7 @@ func resourceWorkload() *schema.Resource {
 							MaxItems:    1,
 							Elem:        InternalFirewallResource(),
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -756,7 +756,7 @@ func resourceWorkload() *schema.Resource {
 								return
 							},
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -884,7 +884,7 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -2508,7 +2508,7 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 
 		if healthCheck.GRPC != nil {
 			g := map[string]interface{}{
-				"_sentinel": true,
+				"placeholder_attribute": true,
 			}
 
 			if healthCheck.GRPC.Port != nil && *healthCheck.GRPC.Port > 0 {
@@ -2520,7 +2520,7 @@ func flattenHealthCheckSpec(healthCheck *client.HealthCheckSpec) []interface{} {
 
 		if healthCheck.TCPSocket != nil {
 			t := map[string]interface{}{
-				"_sentinel": true,
+				"placeholder_attribute": true,
 			}
 
 			if healthCheck.TCPSocket.Port != nil && *healthCheck.TCPSocket.Port > 0 {
@@ -2677,7 +2677,7 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 	if spec != nil {
 
 		localSpec := map[string]interface{}{
-			"_sentinel": true,
+			"placeholder_attribute": true,
 		}
 
 		if spec.External != nil {
@@ -2806,7 +2806,7 @@ func flattenLifeCycle(spec *client.LifeCycleSpec) []interface{} {
 	if spec != nil {
 
 		lc := map[string]interface{}{
-			"_sentinel": true,
+			"placeholder_attribute": true,
 		}
 
 		if spec.PostStart != nil {
@@ -2896,7 +2896,7 @@ func flattenSecurityOptions(spec *client.SecurityOptions) []interface{} {
 	}
 
 	securityOptions := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if spec.FileSystemGroupID != nil {
@@ -2983,7 +2983,7 @@ func flattenWorkloadLoadBalancer(spec *client.WorkloadLoadBalancer) []interface{
 	}
 
 	loadBalancer := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if spec.Direct != nil {
@@ -3341,7 +3341,7 @@ func healthCheckSpec() *schema.Resource {
 							Type:     schema.TypeInt,
 							Optional: true,
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -3373,7 +3373,7 @@ func healthCheckSpec() *schema.Resource {
 								return
 							},
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
