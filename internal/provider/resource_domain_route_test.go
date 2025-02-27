@@ -584,8 +584,8 @@ func generateTestDomainHeaderOperation() (*client.DomainHeaderOperation, *client
 func generateFlatTestDomainRouteHeaders(request []interface{}) []interface{} {
 
 	spec := map[string]interface{}{
-		"request":   request,
-		"_sentinel": true,
+		"request":               request,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -596,8 +596,8 @@ func generateFlatTestDomainRouteHeaders(request []interface{}) []interface{} {
 func generateFlatTestDomainHeaderOperation(set map[string]interface{}) []interface{} {
 
 	spec := map[string]interface{}{
-		"set":       set,
-		"_sentinel": true,
+		"set":                   set,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{

@@ -463,8 +463,8 @@ func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int, redirect [
 
 func generateFlatTestRedirect(class []interface{}) []interface{} {
 	spec := map[string]interface{}{
-		"class":     class,
-		"_sentinel": true,
+		"class":                 class,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{
@@ -474,8 +474,8 @@ func generateFlatTestRedirect(class []interface{}) []interface{} {
 
 func generateFlatTestRedirectClass(status5XX string) []interface{} {
 	spec := map[string]interface{}{
-		"status_5xx": status5XX,
-		"_sentinel":  true,
+		"status_5xx":            status5XX,
+		"placeholder_attribute": true,
 	}
 
 	return []interface{}{

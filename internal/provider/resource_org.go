@@ -203,7 +203,7 @@ func orgSchema() map[string]*schema.Schema {
 							},
 						},
 					},
-					"_sentinel": {
+					"placeholder_attribute": {
 						Type:     schema.TypeBool,
 						Optional: true,
 						Default:  true,
@@ -567,7 +567,7 @@ func flattenOrgSecurity(spec *client.OrgSecurity) []interface{} {
 	}
 
 	output := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if spec.ThreatDetection != nil {

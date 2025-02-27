@@ -156,7 +156,7 @@ func GvcSchema() map[string]*schema.Schema {
 												Description: "Specify the redirect url for any 500 level status code.",
 												Optional:    true,
 											},
-											"_sentinel": {
+											"placeholder_attribute": {
 												Type:     schema.TypeBool,
 												Optional: true,
 												Default:  true,
@@ -164,7 +164,7 @@ func GvcSchema() map[string]*schema.Schema {
 										},
 									},
 								},
-								"_sentinel": {
+								"placeholder_attribute": {
 									Type:     schema.TypeBool,
 									Optional: true,
 									Default:  true,
@@ -608,7 +608,7 @@ func flattenRedirect(spec *client.Redirect) []interface{} {
 	}
 
 	redirect := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if spec.Class != nil {
@@ -627,7 +627,7 @@ func flattenRedirectClass(spec *client.RedirectClass) []interface{} {
 	}
 
 	class := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if spec.Status5XX != nil {

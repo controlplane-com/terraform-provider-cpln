@@ -238,7 +238,7 @@ func resourceIdentity() *schema.Resource {
 											Type: schema.TypeString,
 										},
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -282,7 +282,7 @@ func resourceIdentity() *schema.Resource {
 											Type: schema.TypeString,
 										},
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -1074,7 +1074,7 @@ func flattenAzureIdentity(azureIdentity *client.AzureIdentity) []interface{} {
 			for _, r := range *azureIdentity.RoleAssignments {
 
 				ra := map[string]interface{}{
-					"_sentinel": true,
+					"placeholder_attribute": true,
 				}
 
 				if r.Scope != nil {
@@ -1129,7 +1129,7 @@ func flattenGcpIdentity(gcpIdentity *client.GcpIdentity) []interface{} {
 			for _, b := range *gcpIdentity.Bindings {
 
 				bs := map[string]interface{}{
-					"_sentinel": true,
+					"placeholder_attribute": true,
 				}
 
 				if b.Resource != nil {

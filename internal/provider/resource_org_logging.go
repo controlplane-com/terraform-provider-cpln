@@ -260,7 +260,7 @@ func resourceOrgLogging() *schema.Resource {
 								},
 							},
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -1036,7 +1036,7 @@ func flattenElasticLogging(logs []client.ElasticLogging) []interface{} {
 		for l, log := range logs {
 
 			result := map[string]interface{}{
-				"_sentinel": true,
+				"placeholder_attribute": true,
 			}
 
 			if log.AWS != nil {

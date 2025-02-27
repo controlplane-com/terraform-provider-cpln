@@ -88,7 +88,7 @@ func resourceDomainRoute() *schema.Resource {
 										Optional:    true,
 										Elem:        StringSchema(),
 									},
-									"_sentinel": {
+									"placeholder_attribute": {
 										Type:     schema.TypeBool,
 										Optional: true,
 										Default:  true,
@@ -96,7 +96,7 @@ func resourceDomainRoute() *schema.Resource {
 								},
 							},
 						},
-						"_sentinel": {
+						"placeholder_attribute": {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  true,
@@ -471,7 +471,7 @@ func flattenDomainRouteHeaders(headers *client.DomainRouteHeaders) []interface{}
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if headers.Request != nil {
@@ -490,7 +490,7 @@ func flattenDomainHeaderOperation(request *client.DomainHeaderOperation) []inter
 	}
 
 	spec := map[string]interface{}{
-		"_sentinel": true,
+		"placeholder_attribute": true,
 	}
 
 	if request.Set != nil {
