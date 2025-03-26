@@ -892,6 +892,11 @@ func resourceWorkload() *schema.Resource {
 					},
 				},
 			},
+			"extras": {
+				Type:        schema.TypeString,
+				Description: "Extra Kubernetes modifications. Only used for BYOK.",
+				Optional:    true,
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -979,6 +984,16 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 
 	if d.Get("load_balancer") != nil {
 		workload.Spec.LoadBalancer = buildWorkloadLoadBalancer(d.Get("load_balancer").([]interface{}))
+	}
+
+	if d.Get("extras") != nil {
+		extras, err := buildWorkloadExtras(GetString(d.Get("extras")))
+
+		if err != nil {
+			return err
+		}
+
+		workload.Spec.Extras = extras
 	}
 
 	if e := workloadSpecValidate(workload.Spec); e != nil {
@@ -1070,7 +1085,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer", "extras") {
 
 		if checkLegacyPort(d.Get("container").([]interface{})) {
 			var diags diag.Diagnostics
@@ -1106,6 +1121,15 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
 		workloadToUpdate.SpecReplace.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
 		workloadToUpdate.SpecReplace.LoadBalancer = buildWorkloadLoadBalancer(d.Get("load_balancer").([]interface{}))
+
+		// Build workload extras
+		extras, e := buildWorkloadExtras(GetString(d.Get("extras")))
+		if e != nil {
+			return e
+		}
+
+		// Set extras
+		workloadToUpdate.SpecReplace.Extras = extras
 
 		if d.Get("identity_link") != nil {
 
@@ -1219,6 +1243,15 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, org string, 
 		}
 
 		if err := d.Set("load_balancer", flattenWorkloadLoadBalancer(workload.Spec.LoadBalancer)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		extrasJsonString, err := flattenWorkloadExtras(workload.Spec.Extras)
+		if err != nil {
+			return err
+		}
+
+		if err := d.Set("extras", extrasJsonString); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -2078,6 +2111,22 @@ func buildWorkloadLoadBalancerDirectPorts(specs []interface{}) *[]client.Workloa
 	}
 
 	return &output
+}
+
+func buildWorkloadExtras(extrasJsonString *string) (*any, diag.Diagnostics) {
+	if extrasJsonString == nil {
+		return nil, nil
+	}
+
+	var extras any
+
+	// Attempt to unmarshal extras
+	if err := json.Unmarshal([]byte(*extrasJsonString), &extras); err != nil {
+		return nil, diag.Errorf("Error occurred during unmarshaling 'extras'. Error: %s", err.Error())
+	}
+
+	// Return extras object
+	return &extras, nil
 }
 
 /*** Flatten ***/
@@ -3045,6 +3094,24 @@ func flattenWorkloadLoadBalancerDirectPorts(ports *[]client.WorkloadLoadBalancer
 	}
 
 	return specs
+}
+
+func flattenWorkloadExtras(extras *any) (*string, diag.Diagnostics) {
+	if extras == nil {
+		return nil, nil
+	}
+
+	// Attempt to marshal
+	extrasJsonBytes, err := json.Marshal(*extras)
+	if err != nil {
+		return nil, diag.Errorf("Error occurred during marshaling 'extras'. Error: %s", err.Error())
+	}
+
+	// Convert the bytes to a string
+	extrasJsonString := string(extrasJsonBytes)
+
+	// Return the result
+	return &extrasJsonString, nil
 }
 
 /*** Helpers ***/
