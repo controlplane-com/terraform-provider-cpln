@@ -1,10 +1,12 @@
 package cpln
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -120,4 +122,62 @@ func (c *Client) updateAccessToken() error {
 // UnixNow returns the current Unix time.
 func UnixNow() UnixTime {
 	return UnixTime(time.Now().Unix())
+}
+
+// CplnClaims represents authentication claims for Cloud Plane users
+type CplnClaims struct {
+	Name          string `json:"name,omitempty"`
+	AuthTime      int64  `json:"auth_time,omitempty"`
+	UserId        string `json:"user_id,omitempty"`
+	Email         string `json:"email,omitempty"`
+	EmailVerified bool   `json:"email_verified,omitempty"`
+
+	jwt.Claims
+}
+
+// ServiceAccountToken represents the organization and name extracted from a service account token.
+type ServiceAccountToken struct {
+	Org  string // The organization part of the token
+	Name string // The name part of the token
+}
+
+// ParseServiceAccountToken decodes a service account token and extracts the org and name if valid.
+func ParseServiceAccountToken(token string) *ServiceAccountToken {
+	// Return nil if the input is empty or undefined
+	if token == "" {
+		return nil
+	}
+
+	// Check if the token starts with 's', indicating it's possibly a service account
+	if strings.HasPrefix(token, "s") {
+		// Split the token by '.' and take the second part (index 1)
+		parts := strings.Split(token, ".")
+		if len(parts) < 2 {
+			// Return nil if the format is invalid
+			return nil
+		}
+
+		// Decode the base64url-encoded part
+		decoded, err := base64.RawURLEncoding.DecodeString(parts[1])
+		if err != nil {
+			// Return nil if decoding fails
+			return nil
+		}
+
+		// Split the decoded string by '.' to get org and name
+		keyParts := strings.Split(string(decoded), ".")
+		if len(keyParts) < 2 {
+			// Return nil if the decoded format is invalid
+			return nil
+		}
+
+		// Return the parsed token as a struct
+		return &ServiceAccountToken{
+			Org:  keyParts[0], // First part is the organization
+			Name: keyParts[1], // Second part is the key name
+		}
+	}
+
+	// Return nil if the token doesn't start with 's'
+	return nil
 }

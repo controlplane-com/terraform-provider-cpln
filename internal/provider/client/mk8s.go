@@ -1,6 +1,28 @@
 package cpln
 
-import "fmt"
+import (
+	"encoding/base64"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"gopkg.in/yaml.v3"
+)
+
+const (
+	CplnCommand    = "cpln"
+	EnvCplnProfile = "CPLN_PROFILE"
+	EnvCplnOrg     = "CPLN_ORG"
+
+	// K8s Related
+	K8sConfigVersion                  = "v1"
+	K8sConfigKind                     = "Config"
+	K8sExecAuthVersion                = "client.authentication.k8s.io/v1"
+	K8sExecInteractiveModeNever       = "Never"
+	K8sExecInteractiveModeIfAvailable = "IfAvailable"
+	K8sExecInteractiveModeAlways      = "Always"
+)
 
 type Mk8s struct {
 	Base
@@ -418,6 +440,74 @@ type Mk8sAwsAddOnStatus struct {
 
 type Mk8sNonCustomizableAddonConfig struct{}
 
+/*** MK8s Common ***/
+
+type Mk8sCacertsResponse struct {
+	Cacerts *string `json:"cacerts,omitempty"`
+}
+
+/*** K8s Config Related ***/
+
+type K8sConfig struct {
+	APIVersion     string                 `yaml:"apiVersion"`
+	Kind           string                 `yaml:"kind"`
+	Preferences    map[string]interface{} `yaml:"preferences,omitempty"`
+	Clusters       []K8sNamedCluster      `yaml:"clusters"`
+	Contexts       []K8sNamedContext      `yaml:"contexts"`
+	CurrentContext string                 `yaml:"current-context"`
+	Users          []K8sNamedUser         `yaml:"users"`
+}
+
+type K8sNamedCluster struct {
+	Name    string     `yaml:"name"`
+	Cluster K8sCluster `yaml:"cluster"`
+}
+
+type K8sCluster struct {
+	Server                   string `yaml:"server"`
+	CertificateAuthorityData string `yaml:"certificate-authority-data,omitempty"` // base64 encoded
+	InsecureSkipTLSVerify    bool   `yaml:"insecure-skip-tls-verify,omitempty"`
+}
+
+type K8sNamedContext struct {
+	Name    string     `yaml:"name"`
+	Context K8sContext `yaml:"context"`
+}
+
+type K8sContext struct {
+	Cluster   string `yaml:"cluster"`
+	User      string `yaml:"user"`
+	Namespace string `yaml:"namespace,omitempty"`
+}
+
+type K8sNamedUser struct {
+	Name string  `yaml:"name"`
+	User K8sUser `yaml:"user"`
+}
+
+type K8sUser struct {
+	ClientCertificateData string        `yaml:"client-certificate-data,omitempty"` // base64 encoded
+	ClientKeyData         string        `yaml:"client-key-data,omitempty"`         // base64 encoded
+	Token                 string        `yaml:"token,omitempty"`
+	Username              string        `yaml:"username,omitempty"`
+	Password              string        `yaml:"password,omitempty"`
+	Exec                  K8sExecConfig `yaml:"exec,omitempty"`
+}
+
+type K8sExecConfig struct {
+	APIVersion         string          `yaml:"apiVersion,omitempty"`
+	Command            string          `yaml:"command"`
+	Args               []string        `yaml:"args,omitempty"`
+	Env                []K8sExecEnvVar `yaml:"env,omitempty"`
+	ProvideClusterInfo bool            `yaml:"provideClusterInfo,omitempty"`
+	InteractiveMode    string          `yaml:"interactiveMode,omitempty"`
+}
+
+type K8sExecEnvVar struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
 /*** Client Functions ***/
 
 func (c *Client) CreateMk8s(mk8s Mk8s) (*Mk8s, int, error) {
@@ -455,4 +545,206 @@ func (c *Client) UpdateMk8s(mk8s Mk8s) (*Mk8s, int, error) {
 
 func (c *Client) DeleteMk8s(name string) error {
 	return c.DeleteResource(fmt.Sprintf("mk8s/%s", name))
+}
+
+// CreateMk8sKubeconfig retrieves MK8s cluster info and cacerts, builds a kubeconfig in YAML format, and returns a pointer to the YAML string along with an error.
+func (c *Client) CreateMk8sKubeconfig(mk8sName string, profileName *string, serviceAccountName *string) (*string, error) {
+	// Construct the /-cacerts link out of the MK8s link
+	cacertsLink := fmt.Sprintf("org/%s/mk8s/%s/-cacerts", c.Org, mk8sName)
+
+	// Get the cluster
+	mk8s, _, err := c.GetResource(fmt.Sprintf("mk8s/%s", mk8sName), new(Mk8s))
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the cacerts
+	cacerts, _, err := c.Get(cacertsLink, new(Mk8sCacertsResponse))
+	if err != nil {
+		return nil, err
+	}
+
+	// Cacerts cannot be nil
+	if cacerts.(*Mk8sCacertsResponse).Cacerts == nil {
+		return nil, fmt.Errorf("the MK8s cluster '%s' has empty cacerts, please try again later", mk8sName)
+	}
+
+	// Build the kubeconfig
+	kubeconfig, err := c.buildKubeconfig(mk8s.(*Mk8s), cacerts.(*Mk8sCacertsResponse), profileName, serviceAccountName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert kubeconfig to YAML format
+	kubeconfigYamlBytes, err := yaml.Marshal(kubeconfig)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling to YAML: %v", err)
+	}
+
+	// Convert YAML bytes to YAML string
+	kubeconfigYaml := string(kubeconfigYamlBytes)
+
+	// Return the kubeconfig in YAML format
+	return &kubeconfigYaml, err
+}
+
+// buildKubeconfig constructs a K8sConfig object for the given MK8s cluster using cacerts and user data, and returns it or an error.
+func (c *Client) buildKubeconfig(mk8s *Mk8s, cacerts *Mk8sCacertsResponse, profileName *string, serviceAccountName *string) (*K8sConfig, error) {
+	// Extract the server url
+	serverUrl := mk8s.Status.ServerUrl
+
+	// Handle server url does not exist
+	if serverUrl == nil {
+		return nil, fmt.Errorf("the specified MK8s cluster '%s' has no serverUrl", *mk8s.Name)
+	}
+
+	// Construct the cluster name
+	clusterName := fmt.Sprintf("%s/%s/%s", c.Org, *mk8s.Name, *mk8s.Alias)
+
+	// Build the Kubernetes user
+	user, err := c.buildK8sUser(*mk8s.Name, clusterName, profileName, serviceAccountName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build and return the kubeconfig
+	return &K8sConfig{
+		APIVersion:     K8sConfigVersion,
+		Kind:           K8sConfigKind,
+		CurrentContext: clusterName,
+		Users: []K8sNamedUser{
+			*user,
+		},
+		Clusters: []K8sNamedCluster{
+			{
+				Name: clusterName,
+				Cluster: K8sCluster{
+					CertificateAuthorityData: base64.StdEncoding.EncodeToString([]byte(*cacerts.Cacerts)),
+					Server:                   *serverUrl,
+				},
+			},
+		},
+		Contexts: []K8sNamedContext{
+			{
+				Name: clusterName,
+				Context: K8sContext{
+					Cluster: clusterName,
+					User:    user.Name,
+				},
+			},
+		},
+	}, nil
+}
+
+// buildK8sUser creates a K8sNamedUser based on either a profile token or service account key (ensuring only one is provided) and returns it or an error.
+func (c *Client) buildK8sUser(mk8sName string, clusterName string, profileName *string, serviceAccountName *string) (*K8sNamedUser, error) {
+	// Profile and service account cannot be defined together
+	if profileName != nil && len(*profileName) != 0 && serviceAccountName != nil && len(*serviceAccountName) != 0 {
+		return nil, fmt.Errorf("exactly one of cpln profile or an existing service account can be specified in order to create the kubeconfig")
+	}
+
+	// Create a user using profile name
+	if profileName != nil && len(*profileName) != 0 {
+		// Extract token from the specified profile
+		token, err := c.ExtractTokenFromProfile(*profileName)
+		if err != nil {
+			return nil, err
+		}
+
+		// Remove Bearer from the start
+		*token = strings.TrimPrefix(*token, "Bearer ")
+
+		// Build K8s username
+		username, isServiceAccountToken := buildK8sProfileUsername(c.Org, clusterName, *token)
+
+		// Handle service account token from profile differently
+		if isServiceAccountToken {
+			return &K8sNamedUser{
+				Name: username,
+				User: K8sUser{
+					Token: *token,
+				},
+			}, nil
+		}
+
+		// Construct and return the user
+		return &K8sNamedUser{
+			Name: username,
+			User: K8sUser{
+				Exec: K8sExecConfig{
+					APIVersion: K8sExecAuthVersion,
+					Command:    CplnCommand,
+					Args:       []string{"mk8s", "auth", mk8sName},
+					Env: []K8sExecEnvVar{
+						{
+							Name:  EnvCplnProfile,
+							Value: *profileName,
+						},
+						{
+							Name:  EnvCplnOrg,
+							Value: c.Org,
+						},
+					},
+					ProvideClusterInfo: false,
+					InteractiveMode:    K8sExecInteractiveModeIfAvailable,
+				},
+			},
+		}, nil
+	}
+
+	// Create a user using a service account, this will add a new key to the specified service account
+	if serviceAccountName != nil && len(*serviceAccountName) != 0 {
+		// Create a new key for the kubeconfig
+		key, err := c.AddServiceAccountKey(*serviceAccountName, fmt.Sprintf("A Kubeconfig key for cluster '%s'", mk8sName))
+		if err != nil {
+			return nil, err
+		}
+
+		// Declare the username
+		username := buildK8sServiceAccountUsername(clusterName, *serviceAccountName)
+
+		// Construct and return the user
+		return &K8sNamedUser{
+			Name: username,
+			User: K8sUser{
+				Token: key.Key,
+			},
+		}, nil
+	}
+
+	// If none of the above, then the user must provide either of them
+	return nil, fmt.Errorf("at lease one of a cpln profile or an existing service account must be specified in order to create the kubeconfig")
+}
+
+// buildK8sProfileUsername parses the token to extract an email for username (or treats it as a service account token)
+// and returns the username along with a bool indicating if it is a service account token.
+func buildK8sProfileUsername(org string, clusterName string, token string) (string, bool) {
+	// Assuming that this is a refresh token, let's attempt to parse the JWT
+	// token into a struct and extract the email of the user
+	jwtToken, _, err := new(jwt.Parser).ParseUnverified(token, &CplnClaims{})
+	if err == nil && jwtToken != nil && jwtToken.Claims != nil {
+		// Refer to the claims as CplnClaims
+		cplnClaims := jwtToken.Claims.(*CplnClaims)
+
+		// If the parse was successful, let's use the email in the username
+		if len(cplnClaims.Email) != 0 {
+			return fmt.Sprintf("%s/%s", org, cplnClaims.Email), false
+		}
+	}
+
+	// Otherwise, let's treat it as a service account token
+	serviceAccountToken := ParseServiceAccountToken(token)
+
+	// If the service account was parsed successfully, then we will be able to create a username for it
+	if serviceAccountToken != nil {
+		return buildK8sServiceAccountUsername(clusterName, serviceAccountToken.Name), true
+	}
+
+	// Default to a generic username if none of the above worked
+	return fmt.Sprintf("mk8s-user-%d", time.Now().UnixMilli()), false
+}
+
+// buildK8sServiceAccountUsername formats and returns a K8s username string for a service account.
+func buildK8sServiceAccountUsername(clusterName string, serviceAccountName string) string {
+	return fmt.Sprintf("%s/sa:%s", clusterName, serviceAccountName)
 }

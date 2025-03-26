@@ -55,6 +55,7 @@ func Provider() *schema.Provider {
 			"cpln_ipset":               resourceIpSet(),
 			"cpln_location":            resourceLocation(),
 			"cpln_mk8s":                resourceMk8s(),
+			"cpln_mk8s_kubeconfig":     resourceMk8sKubeconfig(),
 			"cpln_org_logging":         resourceOrgLogging(),
 			"cpln_org_tracing":         resourceOrgTracing(),
 			"cpln_org":                 resourceOrg(),

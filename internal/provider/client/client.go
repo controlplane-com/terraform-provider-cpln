@@ -41,30 +41,14 @@ func NewClient(org, host, profile, token, refreshToken *string) (*Client, error)
 			return nil, fmt.Errorf("unable to obtain access token using the refresh token. Error: %s", err)
 		}
 	} else if c.Token == "" {
-		// Create command
-		cmd := exec.Command("cpln", "profile", "token", *profile)
-
-		// Create buffers for stdout and stderr
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-
-		// Run the command
-		err := cmd.Run()
-
-		// Handle error
+		// Attempt to extract the token from the profile
+		token, err := c.ExtractTokenFromProfile(*profile)
 		if err != nil {
-			return nil, fmt.Errorf("unable to obtain access token. Verify cpln is installed and added to PATH. Error: %s. Stderr: %s. Stderr: %s", err, stderr.String(), stderr.String())
+			return nil, err
 		}
 
-		// Handle token
-		out := stdout.String()
-
-		if strings.TrimSpace(string(out)) == "" {
-			return nil, fmt.Errorf("empty access token")
-		}
-
-		c.Token = strings.TrimSuffix(string(out), "\n")
+		// Set the token
+		c.Token = *token
 	}
 
 	// log.Printf("[INFO] New Client instantiated. Endpoint: %s. Org: %s. Profile: %s", *host, *org, *profile)
@@ -288,4 +272,53 @@ func (c *Client) ForceCreatedByTerraformTag(resource interface{}) {
 		tags := tagsField.Interface().(*map[string]interface{})
 		(*tags)["cpln/managedByTerraform"] = "true"
 	}
+}
+
+func (c *Client) ExtractTokenFromProfile(profileName string) (*string, error) {
+	// Create the command
+	cmd := exec.Command("cpln", "profile", "token", profileName)
+
+	// Create buffers for stdout and stderr
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Attempt to execute the cpln command and handle errors accordingly
+	err := cmd.Run()
+	if err != nil {
+		errorMessage := ""
+		stdoutString := stdout.String()
+		stderrString := stderr.String()
+
+		// Add stdout to the error message
+		if len(strings.TrimSpace(stdoutString)) != 0 {
+			errorMessage = fmt.Sprintf("Stdout: %s", stdoutString)
+		}
+
+		// Add stderr to the error message
+		if len(strings.TrimSpace(stderrString)) != 0 {
+			// Add a white space if error message is not empty so we can cleanly add stderr to the message
+			if len(errorMessage) != 0 {
+				errorMessage = fmt.Sprintf("%s ", errorMessage)
+			}
+
+			errorMessage = fmt.Sprintf("%sStderr: %s", errorMessage, stderrString)
+		}
+
+		return nil, fmt.Errorf("unable to obtain access token from profile '%s'. Verify cpln is installed and added to PATH. Error: %s. %s", profileName, err, errorMessage)
+	}
+
+	// Convert stdout from bytes to a string
+	stringifiedStdout := stdout.String()
+
+	// Handle the case where the token is empty
+	if strings.TrimSpace(string(stringifiedStdout)) == "" {
+		return nil, fmt.Errorf("empty access token")
+	}
+
+	// Finalize the token
+	token := strings.TrimSuffix(string(stringifiedStdout), "\n")
+
+	// Return a pointer to the token
+	return &token, nil
 }
