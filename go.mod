@@ -10,6 +10,7 @@ require (
 	github.com/hashicorp/terraform-plugin-docs v0.13.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.35.0
 	github.com/imroc/req/v3 v3.49.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
