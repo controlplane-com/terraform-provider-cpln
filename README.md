@@ -338,3 +338,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Fix secret resource update.
 - v1.1.45
     - Replace _sentinel with placeholder_attribute to fix an issue in pulumi-go.
+- v1.1.46 
+    - Add MK8s Kubeconfig resource
+    - Add extras to workload resource    
