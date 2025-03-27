@@ -36,6 +36,7 @@ type WorkloadSpec struct {
 	SupportDynamicTags *bool                 `json:"supportDynamicTags,omitempty"`
 	Sidecar            *WorkloadSidecar      `json:"sidecar,omitempty"`
 	LoadBalancer       *WorkloadLoadBalancer `json:"loadBalancer,omitempty"`
+	Extras             *any                  `json:"extras,omitempty"`
 }
 
 // ContainerSpec - Workload Container Definition

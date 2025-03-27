@@ -30,6 +30,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 - **support_dynamic_tags** (Boolean) Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
+- **extras** (String) Extra Kubernetes modifications. Only used for BYOK.
 
 <a id="nestedblock--container"></a>
 
@@ -1563,7 +1564,235 @@ resource "cpln_workload" "new" {
 
 ```
 
+## Example Usage - Serverless With Extras for BYOK Workload
 
+```terraform
+resource "cpln_gvc" "example" {
+  name        = "gvc-example"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_identity" "example" {
+
+  gvc = cpln_gvc.example.name
+
+  name        = "identity-example"
+  description = "Example Identity"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.example.name
+
+  type = "serverless"
+
+  name        = "workload-example"
+  description = "Example Workload"
+
+  support_dynamic_tags = false
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  identity_link = cpln_identity.example.self_link
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+
+    memory = "128Mi"
+    cpu    = "50m"
+
+    min_memory = "56Mi"
+    min_cpu    = "25m"
+
+    ports {
+			protocol = "http"
+			number   = "8080"
+		}
+
+    command = "override-command"
+    working_directory = "/usr"
+
+    inherit_env = false
+
+    env = {
+      env-name-01 = "env-value-01",
+      env-name-02 = "env-value-02",
+    }
+
+    args = ["arg-01", "arg-02"]
+
+    readiness_probe {
+
+      tcp_socket {
+        port = 8181
+      }
+
+      period_seconds        = 11
+      timeout_seconds       = 2
+      failure_threshold     = 4
+      success_threshold     = 2
+      initial_delay_seconds = 1
+    }
+
+    liveness_probe {
+
+      http_get {
+        path   = "/path"
+        port   = 8282
+        scheme = "HTTPS"
+        http_headers = {
+          header-name-01 = "header-value-01"
+          header-name-02 = "header-value-02"
+        }
+      }
+
+      period_seconds        = 10
+      timeout_seconds       = 3
+      failure_threshold     = 5
+      success_threshold     = 1
+      initial_delay_seconds = 2
+    }
+
+    lifecycle {
+
+      post_start {
+        exec {
+          command = ["command_post", "arg_1", "arg_2"]
+        }
+      }
+
+      pre_stop {
+        exec {
+          command = ["command_pre", "arg_1", "arg_2"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      path            = "/s3"
+    }
+  }
+
+  options {
+    capacity_ai     = true
+    timeout_seconds = 30
+    suspend         = false
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 3
+      min_scale       = 2
+      max_concurrency = 500
+    }
+  }
+
+  local_options {
+
+    location        = "aws-us-west-2"
+    capacity_ai     = true
+    timeout_seconds = 30
+    suspend         = false
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 3
+      min_scale       = 2
+      max_concurrency = 500
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      outbound_allow_cidr     = []
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+      outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
+    }
+    internal {
+      # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+
+    direct {
+      enabled = true
+      
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+      headers {
+        asn = "198.51.100.0/24"
+        city = "Los Angeles"
+        country = "USA"
+        region = "North America"
+      }
+    }
+  }
+
+  extras = jsonencode({
+    affinity = {
+      nodeAffinity = {
+        preferredDuringSchedulingIgnoredDuringExecution = [
+          {
+            weight = 1
+            preference = {
+              matchExpressions = [
+                {
+                  key      = "cpln.io/zone"
+                  operator = "In"
+                  values   = ["us-west", "us-east"]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  })
+}
+```
 
 ## Import Syntax
 

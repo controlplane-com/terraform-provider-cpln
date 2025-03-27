@@ -17,6 +17,7 @@ import (
 
 const workloadEnvoyJson = `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`
 const workloadEnvoyJsonUpdated = `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"15s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`
+const workloadExtrasJsonString = `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`
 
 /*** Acc Tests ***/
 
@@ -115,6 +116,13 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
 					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, ""),
+				),
+			},
+			{
+				Config: testAccControlPlaneWorkloadWithExtras(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, "with_extras"),
 				),
 			},
 			{
@@ -1839,6 +1847,198 @@ func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, 
 	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
 }
 
+func testAccControlPlaneWorkloadWithExtras(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"	
+		description = "%s"
+
+		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test     = "true"
+		}
+	}
+	  
+	resource "cpln_workload" "new" {
+
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+	  
+		tags = {
+		  terraform_generated = "true"
+		  acceptance_test = "true"
+		}
+
+		type = "serverless"
+		support_dynamic_tags = true
+
+		identity_link = cpln_identity.new.self_link
+	  
+		container {
+		  name  = "container-01"
+		  image = "gcr.io/knative-samples/helloworld-go"
+
+		  cpu = "50m"
+		  memory = "128Mi"
+
+		  min_cpu = "50m"
+		  min_memory = "128Mi"
+
+		  ports {
+		    protocol = "http"
+			number   = "8080" 
+		  }
+
+		  command = "override-command"
+		  working_directory = "/usr"
+	  
+		  env = {
+			env-name-01 = "env-value-01",
+			env-name-02 = "env-value-02",
+		  }
+	  
+		  args = ["arg-01", "arg-02"]
+
+		  lifecycle {
+	  
+			post_start {
+			  exec {
+				command = ["command_post", "arg_1", "arg_2"]
+			  }
+			}
+	  
+			pre_stop {
+			  exec {
+				command = ["command_pre", "arg_1", "arg_2"]
+			  }
+			}
+		  }
+
+		  volume {
+			uri  = "s3://bucket"
+			recovery_policy = "retain"
+			path = "/testpath01"
+		  }
+
+		  volume {
+			uri  = "azureblob://storageAccount/container"
+			recovery_policy = "recycle"
+			path = "/testpath02"
+		  }
+
+		  metrics {
+			path = "/metrics"
+			port = 8181
+		  }
+
+		  readiness_probe {
+	  
+			tcp_socket {
+			  port = 8181
+			}
+	  
+			period_seconds        = 11
+			timeout_seconds       = 2
+			failure_threshold     = 4
+			success_threshold     = 2
+			initial_delay_seconds = 1
+		  }
+	  
+		  liveness_probe {
+	  
+			http_get {
+			  path   = "/path"
+			  port   = 8282
+			  scheme = "HTTPS"
+			  http_headers = {
+				header-name-01 = "header-value-01"
+				header-name-02 = "header-value-02"
+			  }
+			}
+	  
+			period_seconds        = 10
+			timeout_seconds       = 3
+			failure_threshold     = 5
+			success_threshold     = 1
+			initial_delay_seconds = 2
+		  }
+		}
+	 	  	  
+		options {
+		  capacity_ai     = true
+		  timeout_seconds = 30
+		  suspend         = false
+	  
+		  autoscaling {
+			metric              = "concurrency"
+			target              = 100
+			max_scale           = 3
+			min_scale           = 2
+			max_concurrency     = 500
+			scale_to_zero_delay = 400
+		  }
+		}
+	  
+		firewall_spec {
+		  external {
+			inbound_allow_cidr =  ["0.0.0.0/0"]
+			outbound_allow_cidr =  []
+			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+
+			outbound_allow_port {
+				protocol = "http"
+				number   = 80
+			}
+
+			outbound_allow_port {
+				protocol = "https"
+				number   = 443
+			}
+		  }
+		  internal { 
+			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+			inbound_allow_type = "none"
+			inbound_allow_workload = []
+		  }
+		}
+
+		security_options {
+			file_system_group_id = 1
+		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+
+		extras = jsonencode(%s)
+	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy, workloadExtrasJsonString)
+}
+
 func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
 	TestLogger.Printf("Inside testAccControlPlaneGpuWorkloadUpdate")
 
@@ -2117,6 +2317,18 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
 			if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
 				return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
+			}
+		}
+
+		if option == "with_extras" {
+			extrasJsonStringCopy := workloadExtrasJsonString
+			expectedExtras, err := buildWorkloadExtras(&extrasJsonStringCopy)
+			if err != nil {
+				return fmt.Errorf("Expected extras JSON unmarshal error")
+			}
+
+			if diff := deep.Equal(expectedExtras, workload.Spec.Extras); diff != nil {
+				return fmt.Errorf("Extras mismatch, Diff: %s", diff)
 			}
 		}
 
@@ -2474,6 +2686,30 @@ func TestControlPlane_BuildWorkloadLoadBalancer(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildWorkloadExtras(t *testing.T) {
+	// Create a copy of the generic extras JSON string
+	extrasJsonString := workloadExtrasJsonString
+
+	// Build the extras
+	extras, err := buildWorkloadExtras(&extrasJsonString)
+	if err != nil {
+		t.Errorf("Workload Extras was not built correctly, JSON unmarshal error.")
+		return
+	}
+
+	// Build the expected extras
+	var expectedExtras *any
+	if err := json.Unmarshal([]byte(extrasJsonString), &expectedExtras); err != nil {
+		t.Errorf("Workload Extras was not built correctly, JSON unmarshal error during building expected extras.")
+		return
+	}
+
+	// Check for difference
+	if diff := deep.Equal(*extras, *expectedExtras); diff != nil {
+		t.Errorf("Workload Extras was not built correctly, Diff: %s", diff)
+	}
+}
+
 // Flatten //
 
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
@@ -2628,6 +2864,30 @@ func TestControlPlane_FlattenWorkloadLoadBalancer(t *testing.T) {
 
 	if diff := deep.Equal(expectedFlatten, flattenLoadBalancer); diff != nil {
 		t.Errorf("Workload Load Balancer was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenWorkloadExtras(t *testing.T) {
+	// Create a copy of the generic extras JSON string
+	extrasJsonString := workloadExtrasJsonString
+
+	// Build extras
+	var extras *any
+	if err := json.Unmarshal([]byte(extrasJsonString), &extras); err != nil {
+		t.Errorf("Workload Extras was not flattened correctly, JSON unmarshal error during extras build.")
+		return
+	}
+
+	// Flatten extras
+	flattenedExtrasJsonString, err := flattenWorkloadExtras(extras)
+	if err != nil {
+		t.Errorf("Workload Extras was not flattened correctly, JSON unmarshal error during flattening.")
+		return
+	}
+
+	// Check for difference
+	if diff := deep.Equal(*flattenedExtrasJsonString, extrasJsonString); diff != nil {
+		t.Errorf("Workload Extras was not flattened correctly, Diff: %s", diff)
 	}
 }
 
