@@ -85,10 +85,19 @@ func resourceLocationCreate(ctx context.Context, d *schema.ResourceData, m inter
 	isLocationEnabled := d.Get("enabled").(bool)
 
 	// Get location
-	location, _, err := c.GetLocation(locationName)
+	location, code, err := c.GetLocation(locationName)
+
+	if code == 404 {
+		return diag.Errorf("Location '/org/%s/location/%s' does not exist. Did you want to create a BYOK location? Please refer to the 'cpln_custom_location' resource. You can find more info here: https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs/resources/custom_location", c.Org, locationName)
+	}
 
 	if err != nil {
 		return diag.FromErr(err)
+	}
+
+	// If this is one of the custom locations, tell users to use the custom location resource
+	if IsCustomLocation(*location.Provider) {
+		return diag.Errorf("You are trying to create an existing '%s' location, please use the 'cpln_custom_location' resource and import using the 'terraform import' command. You can find more info here: https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs/resources/custom_location", *location.Provider)
 	}
 
 	// Handle nil just to be on the safe side
@@ -128,6 +137,11 @@ func resourceLocationRead(ctx context.Context, d *schema.ResourceData, m interfa
 
 	if err != nil {
 		return diag.FromErr(err)
+	}
+
+	// If this is one of the custom locations, tell users to use the custom location resource
+	if IsCustomLocation(*location.Provider) {
+		return diag.Errorf("The location '/org/%s/location/%s' is a '%s' location, please use the 'cpln_custom_location' resource and import using the 'terraform import' command. You can find more info here: https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs/resources/custom_location#import-syntax", c.Org, *location.Name, *location.Provider)
 	}
 
 	return setLocationResource(d, location)
@@ -219,12 +233,18 @@ func setLocationResource(d *schema.ResourceData, location *client.Location) diag
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set("geo", flattenLocationGeo(location.Status.Geo)); err != nil {
-		return diag.FromErr(err)
-	}
+	if location.Status != nil {
+		if location.Status.Geo != nil {
+			if err := d.Set("geo", flattenLocationGeo(location.Status.Geo)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 
-	if err := d.Set("ip_ranges", flattenIpRanges(location.Status.IpRanges)); err != nil {
-		return diag.FromErr(err)
+		if location.Status.IpRanges != nil {
+			if err := d.Set("ip_ranges", flattenIpRanges(location.Status.IpRanges)); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	if err := SetSelfLink(location.Links, d); err != nil {
