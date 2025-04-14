@@ -252,7 +252,7 @@ func NameValidator(val interface{}, key string) (warns []string, errs []error) {
 
 	v := val.(string)
 
-	re := regexp.MustCompile(`^[a-z][-a-z0-9]([-a-z0-9])*[a-z0-9]$`)
+	re := regexp.MustCompile(`^[a-z]([-a-z0-9])*[a-z0-9]$`)
 
 	if !re.MatchString(v) {
 		errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
