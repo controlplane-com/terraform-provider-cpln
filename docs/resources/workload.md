@@ -279,9 +279,11 @@ Optional:
 Optional:
 
 - **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
+- **inbound_blocked_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
 - **outbound_allow_port** (Block List) ([see below](#nestedblock--firewall_spec--external--outbound_allow_port)).
+- **outbound_blocked_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is NOT allowed to reach. Addresses in the allow list will only be allowed if they do not exist in this list.
 
 <a id="nestedblock--firewall_spec--external--outbound_allow_port"></a>
 
@@ -681,8 +683,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
 
       outbound_allow_port {
 				protocol = "http"
@@ -845,8 +849,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
 
       outbound_allow_port {
 				protocol = "http"
@@ -1026,8 +1032,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
 
       outbound_allow_port {
 				protocol = "http"
@@ -1168,6 +1176,7 @@ resource "cpln_workload" "new" {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
 
       outbound_allow_port {
         protocol = "http"
@@ -1351,8 +1360,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
     }
 
     internal {
@@ -1548,8 +1559,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
     }
 
     internal {
@@ -1719,8 +1732,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
 
       outbound_allow_port {
         protocol = "http"
@@ -1936,8 +1951,10 @@ resource "cpln_workload" "new" {
   firewall_spec {
     external {
       inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.123"]
       outbound_allow_cidr     = []
       outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_blocked_cidr   = ["198.51.100.77", "192.0.2.45"]
 
       outbound_allow_port {
 				protocol = "http"

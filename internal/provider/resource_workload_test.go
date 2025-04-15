@@ -337,8 +337,10 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		firewall_spec {
 		  external {
 			inbound_allow_cidr      = ["0.0.0.0/0"]
+			inbound_blocked_cidr    = ["127.0.0.1"]
 			outbound_allow_cidr     = []
 			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 			
 			outbound_allow_port {
 				protocol = "http"
@@ -569,8 +571,10 @@ func testAccControlPlaneWorkloadMetricMemory(randomName, gvcName, gvcDescription
 			
 				external {
 					inbound_allow_cidr      = ["0.0.0.0/0"]
+					inbound_blocked_cidr    = ["127.0.0.1"]
 					outbound_allow_cidr     = []
 					outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+					outbound_blocked_cidr   = ["::1"]
 					
 					outbound_allow_port {
 						protocol = "http"
@@ -820,8 +824,10 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1035,8 +1041,10 @@ func testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gvcName, gvcDes
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1208,6 +1216,7 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  external {
 			outbound_allow_cidr     = ["192.168.0.1/16"]
 			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1405,8 +1414,10 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 		firewall_spec {
 			external {
 				inbound_allow_cidr      = ["0.0.0.0/0"]
+				inbound_blocked_cidr    = ["127.0.0.1"]
 				outbound_allow_cidr     = []
 				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+				outbound_blocked_cidr   = ["::1"]
 
 				outbound_allow_port {
 					protocol = "http"
@@ -1601,8 +1612,10 @@ func testAccControlPlaneGpuCustomWorkload(randomName string, gvcName string, gvc
 		firewall_spec {
 			external {
 				inbound_allow_cidr      = ["0.0.0.0/0"]
+				inbound_blocked_cidr    = ["127.0.0.1"]
 				outbound_allow_cidr     = []
 				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+				outbound_blocked_cidr   = ["::1"]
 
 				outbound_allow_port {
 					protocol = "http"
@@ -1827,8 +1840,10 @@ func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescr
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -2024,8 +2039,10 @@ func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, 
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -2214,8 +2231,10 @@ func testAccControlPlaneWorkloadWithExtras(randomName string, gvcName string, gv
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -2410,8 +2429,10 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 		firewall_spec {
 			external {
 				inbound_allow_cidr      = ["0.0.0.0/0"]
+				inbound_blocked_cidr    = ["127.0.0.1"]
 				outbound_allow_cidr     = []
 				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+				outbound_blocked_cidr   = ["::1"]
 			}
 
 			internal {
@@ -2692,6 +2713,7 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -3483,6 +3505,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 		return &client.FirewallSpec{
 			External: &client.FirewallSpecExternal{
 				InboundAllowCIDR:      &[]string{},
+				InboundBlockedCIDR:    &[]string{},
 				OutboundAllowCIDR:     &[]string{"192.168.0.1/16"},
 				OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 				OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
@@ -3495,6 +3518,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 						Number:   GetInt(443),
 					},
 				},
+				OutboundBlockedCIDR: &[]string{"::1"},
 			},
 		}
 	}
@@ -3502,6 +3526,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 	return &client.FirewallSpec{
 		External: &client.FirewallSpecExternal{
 			InboundAllowCIDR:      &[]string{"0.0.0.0/0"},
+			InboundBlockedCIDR:    &[]string{"127.0.0.1"},
 			OutboundAllowCIDR:     &[]string{},
 			OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 			OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
@@ -3514,6 +3539,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 					Number:   GetInt(443),
 				},
 			},
+			OutboundBlockedCIDR: &[]string{"::1"},
 		},
 		Internal: &client.FirewallSpecInternal{
 			InboundAllowType:     GetString("none"),
@@ -3911,28 +3937,26 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 
 	stringFunc := schema.HashSchema(StringSchema())
 	e := map[string]interface{}{}
-
-	if useSet {
-		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
-	} else {
-		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
-	}
-
-	if useSet {
-		e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
-	}
-
-	if useSet {
-		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
-	} else {
-		e["outbound_allow_hostname"] = []interface{}{"*.cpln.io", "*.controlplane.com"}
-	}
-
 	i := make(map[string]interface{})
+
 	i["inbound_allow_type"] = "none"
 
 	if useSet {
+		// External
+		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
+		e["inbound_blocked_cidr"] = schema.NewSet(stringFunc, []interface{}{"127.0.0.1"})
+		e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
+		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
+		e["outbound_blocked_cidr"] = schema.NewSet(stringFunc, []interface{}{"::1"})
+
+		// Internal
 		i["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
+	} else {
+		// External
+		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
+		e["inbound_blocked_cidr"] = []interface{}{"127.0.0.1"}
+		e["outbound_allow_hostname"] = []interface{}{"*.cpln.io", "*.controlplane.com"}
+		e["outbound_blocked_cidr"] = []interface{}{"::1"}
 	}
 
 	e["outbound_allow_port"] = flattenFirewallOutboundAllowPort(

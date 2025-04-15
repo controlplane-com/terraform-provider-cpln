@@ -1843,6 +1843,10 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 
 				}
 
+				if e["inbound_blocked_cidr"] != nil {
+					we.InboundBlockedCIDR = BuildStringTypeSet(e["inbound_blocked_cidr"])
+				}
+
 				if e["outbound_allow_cidr"] != nil {
 					outboundAllowCIDR := []string{}
 
@@ -1868,6 +1872,10 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 				if e["outbound_allow_port"] != nil {
 
 					we.OutboundAllowPort = buildFirewallOutboundAllowPort(e["outbound_allow_port"].([]interface{}))
+				}
+
+				if e["outbound_blocked_cidr"] != nil {
+					we.OutboundBlockedCIDR = BuildStringTypeSet(e["outbound_blocked_cidr"])
 				}
 			}
 
@@ -2831,6 +2839,10 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				}
 			}
 
+			if spec.External.InboundBlockedCIDR != nil && len(*spec.External.InboundBlockedCIDR) > 0 {
+				external["inbound_blocked_cidr"] = FlattenStringTypeSet(spec.External.InboundBlockedCIDR)
+			}
+
 			if spec.External.OutboundAllowCIDR != nil && len(*spec.External.OutboundAllowCIDR) > 0 {
 				external["outbound_allow_cidr"] = []interface{}{}
 
@@ -2849,6 +2861,10 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 
 			if spec.External.OutboundAllowPort != nil && len(*spec.External.OutboundAllowPort) > 0 {
 				external["outbound_allow_port"] = flattenFirewallOutboundAllowPort(spec.External.OutboundAllowPort)
+			}
+
+			if spec.External.OutboundBlockedCIDR != nil && len(*spec.External.OutboundBlockedCIDR) > 0 {
+				external["outbound_blocked_cidr"] = FlattenStringTypeSet(spec.External.OutboundBlockedCIDR)
 			}
 
 			e := make([]interface{}, 1)
@@ -3347,6 +3363,14 @@ func ExternalFirewallResource() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"inbound_blocked_cidr": {
+				Type:        schema.TypeSet,
+				Description: "The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.",
+				Optional:    true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"outbound_allow_cidr": {
 				Type:        schema.TypeSet,
 				Description: "The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.",
@@ -3380,6 +3404,14 @@ func ExternalFirewallResource() *schema.Resource {
 							Required:    true,
 						},
 					},
+				},
+			},
+			"outbound_blocked_cidr": {
+				Type:        schema.TypeSet,
+				Description: "The list of ipv4/ipv6 addresses or cidr blocks that this workload is NOT allowed to reach. Addresses in the allow list will only be allowed if they do not exist in this list.",
+				Optional:    true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
 				},
 			},
 		},
