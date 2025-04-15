@@ -170,6 +170,31 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
+						"gpu_custom": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"resource": {
+										Type:        schema.TypeString,
+										Description: "",
+										Required:    true,
+									},
+									"runtime_class": {
+										Type:        schema.TypeString,
+										Description: "",
+										Optional:    true,
+									},
+									"quantity": {
+										Type:        schema.TypeInt,
+										Description: "Number of GPUs.",
+										Required:    true,
+									},
+								},
+							},
+						},
 						"memory": {
 							Type:         schema.TypeString,
 							Description:  "Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: \"128Mi\".",
@@ -1310,9 +1335,31 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 			WorkingDirectory: GetString(c["working_directory"].(string)),
 		}
 
+		var gpu *client.GpuResource = nil
+
 		if c["gpu_nvidia"] != nil {
-			newContainer.GPU = buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
+			_gpu := buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
+
+			if _gpu != nil {
+				gpu = &client.GpuResource{
+					Nvidia: _gpu.Nvidia,
+				}
+			}
 		}
+
+		if newContainer.GPU == nil && c["gpu_custom"] != nil {
+			_gpu := buildGpuCustom(c["gpu_custom"].([]interface{}))
+
+			if _gpu != nil {
+				if gpu == nil {
+					gpu = &client.GpuResource{}
+				}
+
+				gpu.Custom = _gpu.Custom
+			}
+		}
+
+		newContainer.GPU = gpu
 
 		if c["min_cpu"] != nil {
 			newContainer.MinCPU = GetString(c["min_cpu"].(string))
@@ -1437,6 +1484,24 @@ func buildGpuNvidia(specs []interface{}) *client.GpuResource {
 		Nvidia: &client.Nvidia{
 			Model:    GetString(spec["model"].(string)),
 			Quantity: GetInt(spec["quantity"].(int)),
+		},
+	}
+
+	return &gpuResource
+}
+
+func buildGpuCustom(specs []interface{}) *client.GpuResource {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+
+	gpuResource := client.GpuResource{
+		Custom: &client.CustomGpu{
+			Resource:     GetString(spec["resource"].(string)),
+			RuntimeClass: GetString(spec["runtime_class"].(string)),
+			Quantity:     GetInt(spec["quantity"].(int)),
 		},
 	}
 
@@ -2355,8 +2420,14 @@ func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []int
 			c["cpu"] = *container.CPU
 			c["memory"] = *container.Memory
 
-			if container.GPU != nil && container.GPU.Nvidia != nil {
-				c["gpu_nvidia"] = flattenGpuNvidia(container.GPU)
+			if container.GPU != nil {
+				if container.GPU.Nvidia != nil {
+					c["gpu_nvidia"] = flattenGpuNvidia(container.GPU)
+				}
+
+				if container.GPU.Custom != nil {
+					c["gpu_custom"] = flattenGpuCustom(container.GPU)
+				}
 			}
 
 			if container.MinCPU != nil {
@@ -2492,6 +2563,25 @@ func flattenGpuNvidia(spec *client.GpuResource) []interface{} {
 	gpu := map[string]interface{}{
 		"model":    *spec.Nvidia.Model,
 		"quantity": *spec.Nvidia.Quantity,
+	}
+
+	return []interface{}{
+		gpu,
+	}
+}
+
+func flattenGpuCustom(spec *client.GpuResource) []interface{} {
+	if spec == nil || spec.Custom == nil {
+		return nil
+	}
+
+	gpu := map[string]interface{}{
+		"resource": *spec.Custom.Resource,
+		"quantity": *spec.Custom.Quantity,
+	}
+
+	if spec.Custom.RuntimeClass != nil {
+		gpu["runtime_class"] = *spec.Custom.RuntimeClass
 	}
 
 	return []interface{}{
@@ -3537,6 +3627,10 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 				if c.ReadinessProbe != nil || c.LivenessProbe != nil {
 					return diag.FromErr(fmt.Errorf("probes are not allowed when workload type is 'cron'"))
 				}
+			}
+
+			if c.GPU != nil && c.GPU.Nvidia != nil && c.GPU.Custom != nil {
+				return diag.Errorf("either 'gpu_nvidia' or 'gpu_custom' may be specified, not both")
 			}
 
 			if c.GPU != nil && c.GPU.Nvidia != nil {

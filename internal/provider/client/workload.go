@@ -64,12 +64,19 @@ type ContainerSpec struct {
 
 // GPU - GPU Settings
 type GpuResource struct {
-	Nvidia *Nvidia `json:"nvidia,omitempty"`
+	Nvidia *Nvidia    `json:"nvidia,omitempty"`
+	Custom *CustomGpu `json:"custom,omitempty"`
 }
 
 type Nvidia struct {
 	Model    *string `json:"model,omitempty"`
 	Quantity *int    `json:"quantity,omitempty"`
+}
+
+type CustomGpu struct {
+	Resource     *string `json:"resource,omitempty"`
+	RuntimeClass *string `json:"runtimeClass,omitempty"`
+	Quantity     *int    `json:"quantity,omitempty"`
 }
 
 // NameValue - Name/Value Struct

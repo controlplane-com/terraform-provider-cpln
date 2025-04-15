@@ -21,7 +21,7 @@ const workloadExtrasJsonString = `{"affinity":{"nodeAffinity":{"requiredDuringSc
 
 /*** Acc Tests ***/
 
-func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
+func TestAccControlPlaneWorkload_basic(t *testing.T) {
 
 	var testWorkload client.Workload
 
@@ -102,6 +102,13 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
 					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, ""),
+				),
+			},
+			{
+				Config: testAccControlPlaneGpuCustomWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, "custom"),
 				),
 			},
 			{
@@ -1187,10 +1194,14 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  suspend     = false
 		  capacity_ai = false
 	  
-		  #autoscaling {
-		#	min_scale = 1
-		#	max_scale = 1
-		  #}
+		  autoscaling {
+				metric = "concurrency"
+				max_concurrency = 0
+				min_scale = 1
+				max_scale = 1
+				scale_to_zero_delay = 300
+				target = 95
+		  }
 		}
 	  
 		firewall_spec {
@@ -1299,6 +1310,202 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 			gpu_nvidia {
 				model 	 = "t1"
 				quantity = 1
+			}
+	  
+			command           = "override-command"
+			working_directory = "/usr"
+	  
+			env = {
+				env-name-01 = "env-value-01",
+				env-name-02 = "env-value-02",
+			}
+	  
+		  	args = ["arg-01", "arg-02"]
+	  
+			volume {
+				uri  = "s3://bucket"
+				recovery_policy = "retain"
+				path = "/testpath01"
+			}
+	  
+		  	volume {
+				uri  = "azureblob://storageAccount/container"
+				recovery_policy = "recycle"
+				path = "/testpath02"
+		  	}
+			
+			metrics {
+				path = "/metrics"
+				port = 8181
+		  	}
+	  
+			readiness_probe {
+		
+				tcp_socket {
+					port = 8181
+				}
+		
+				period_seconds        = 11
+				timeout_seconds       = 2
+				failure_threshold     = 4
+				success_threshold     = 2
+				initial_delay_seconds = 1
+			}
+		
+			liveness_probe {
+				
+				http_get {
+					path   = "/path"
+					port   = 8282
+					scheme = "HTTPS"
+					http_headers = {
+						header-name-01 = "header-value-01"
+						header-name-02 = "header-value-02"
+					}
+				}
+		
+				period_seconds        = 10
+				timeout_seconds       = 3
+				failure_threshold     = 5
+				success_threshold     = 1
+				initial_delay_seconds = 2
+			}
+	  
+			lifecycle {
+				
+				post_start {
+					exec {
+						command = ["command_post", "arg_1", "arg_2"]
+					}
+				}
+		
+				pre_stop {
+					exec {
+						command = ["command_pre", "arg_1", "arg_2"]
+					}
+				}
+			}
+		}
+
+		options {
+			capacity_ai     = false
+			timeout_seconds = 30
+			suspend         = false
+	
+			autoscaling {
+				metric              = "concurrency"
+				target              = 100
+				max_scale           = 3
+				min_scale           = 2
+				max_concurrency     = 500
+				scale_to_zero_delay = 400
+			}
+		}
+	  
+		firewall_spec {
+			external {
+				inbound_allow_cidr      = ["0.0.0.0/0"]
+				outbound_allow_cidr     = []
+				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+
+				outbound_allow_port {
+					protocol = "http"
+					number   = 80
+				}
+	
+				outbound_allow_port {
+					protocol = "https"
+					number   = 443
+				}
+			}
+
+			internal {
+				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+				inbound_allow_type     = "none"
+				inbound_allow_workload = []
+			}
+		}
+
+		security_options {
+			file_system_group_id = 1
+		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+	}
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+}
+
+func testAccControlPlaneGpuCustomWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type    = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"
+		description = "%s"
+	  
+		locations = ["aws-us-west-2", "gcp-us-east1"]
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+	  
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+
+	resource "cpln_workload" "new" {
+		
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+		type = "serverless"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	  
+		identity_link = cpln_identity.new.self_link
+		support_dynamic_tags = true
+	  
+		container {
+			name   = "container-01"
+			image  = "gcr.io/knative-samples/helloworld-go"
+			// port   = 8080
+		  	
+			ports {
+				protocol = "http"
+				number   = "8080"
+			} 
+			
+			memory = "7Gi"
+		  	cpu    = "2"
+
+			gpu_custom {
+				resource      = "amd.com/gpu"
+				runtime_class = "amd"
+				quantity      = 1
 			}
 	  
 			command           = "override-command"
@@ -2271,7 +2478,7 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("Tags - workload acceptance_test attribute does not match")
 		}
 
-		containers := generateTestContainers(workloadType)
+		containers := generateTestContainers(workloadType, option)
 
 		if diff := deep.Equal(containers, workload.Spec.Containers); diff != nil {
 			return fmt.Errorf("Containers attributes does not match. Diff: %s", diff)
@@ -2454,13 +2661,14 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		  #timeout_seconds = 5
 		  suspend = false
 	  
-		  #autoscaling {
-		#	target = 100
-		#	max_scale = 1
-		#	min_scale = 1
-		#	max_concurrency = 0
-		#	scale_to_zero_delay = 300
-		#  }
+		  autoscaling {
+				metric = "concurrency"
+				max_concurrency = 0
+				min_scale = 1
+				max_scale = 1
+				scale_to_zero_delay = 300
+				target = 95
+		  }
 		}
 
 		local_options {
@@ -2469,13 +2677,14 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 			timeout_seconds = 5
 			suspend = false
 		
-			#autoscaling {
-			#  target = 100
-			#  max_scale = 1
-			#  min_scale = 1
-			#  max_concurrency = 0
-			#  scale_to_zero_delay = 300
-			#}
+			autoscaling {
+				metric = "concurrency"
+				max_concurrency = 0
+				min_scale = 1
+				max_scale = 1
+				scale_to_zero_delay = 300
+				target = 95
+		  }
 		}
 		
 	  
@@ -2556,7 +2765,7 @@ func TestControlPlane_BuildContainersServerless(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("serverless"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless", "")); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2567,7 +2776,7 @@ func TestControlPlane_BuildContainersStandard(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("standard"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard", "")); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2578,7 +2787,7 @@ func TestControlPlane_BuildContainersWithMinCpuMemory(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("serverless-min-cpu-memory"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory", "")); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2743,7 +2952,7 @@ func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
 func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
-	containers := generateTestContainers("serverless")
+	containers := generateTestContainers("serverless", "")
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless")
@@ -2755,7 +2964,7 @@ func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
 func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
-	containers := generateTestContainers("standard")
+	containers := generateTestContainers("standard", "")
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard")
@@ -2767,7 +2976,7 @@ func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
 func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 
-	containers := generateTestContainers("standard-readiness-grpc")
+	containers := generateTestContainers("standard-readiness-grpc", "")
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard-readiness-grpc")
@@ -2779,7 +2988,7 @@ func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 
 func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
 
-	containers := generateTestContainers("serverless-min-cpu-memory")
+	containers := generateTestContainers("serverless-min-cpu-memory", "")
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless-min-cpu-memory")
@@ -2789,11 +2998,19 @@ func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
 	}
 }
 
-func TestControlPlane_FlattenGpu(t *testing.T) {
+func TestControlPlane_FlattenGpuNvidia(t *testing.T) {
 	gpu, _, flattenedGpu := generateTestGpuNvidia()
 	expectedFlattenedGpu := flattenGpuNvidia(gpu)
 	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
-		t.Errorf("Gpu was not flattened correctly. Diff: %s", diff)
+		t.Errorf("Gpu Nvidia was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenGpuCustom(t *testing.T) {
+	gpu, _, flattenedGpu := generateTestGpuCustom()
+	expectedFlattenedGpu := flattenGpuCustom(gpu)
+	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
+		t.Errorf("Gpu Custom was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -2893,7 +3110,7 @@ func TestControlPlane_FlattenWorkloadExtras(t *testing.T) {
 
 /*** Generate ***/
 
-func generateTestContainers(workloadType string) *[]client.ContainerSpec {
+func generateTestContainers(workloadType string, option string) *[]client.ContainerSpec {
 
 	newContainer := client.ContainerSpec{
 		Name:             GetString("container-01"),
@@ -2918,8 +3135,13 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		newContainer.CPU = GetString("2")
 		newContainer.Memory = GetString("7Gi")
 
-		gpuNvidia, _, _ := generateTestGpuNvidia()
-		newContainer.GPU = gpuNvidia
+		if option == "custom" {
+			gpuCustom, _, _ := generateTestGpuCustom()
+			newContainer.GPU = gpuCustom
+		} else {
+			gpuNvidia, _, _ := generateTestGpuNvidia()
+			newContainer.GPU = gpuNvidia
+		}
 		// newContainer.Port = GetInt(8080)
 
 		newContainer.Ports = &[]client.PortSpec{
@@ -3091,6 +3313,24 @@ func generateTestGpuNvidia() (*client.GpuResource, *client.GpuResource, []interf
 	return gpu, expectedGpu, flatten
 }
 
+func generateTestGpuCustom() (*client.GpuResource, *client.GpuResource, []interface{}) {
+	resource := "amd.com/gpu"
+	runtimeClass := "amd"
+	quantity := 1
+
+	flatten := generateFlatTestGpuCustom(resource, runtimeClass, quantity)
+	gpu := buildGpuCustom(flatten)
+	expectedGpu := &client.GpuResource{
+		Custom: &client.CustomGpu{
+			Resource:     &resource,
+			RuntimeClass: &runtimeClass,
+			Quantity:     &quantity,
+		},
+	}
+
+	return gpu, expectedGpu, flatten
+}
+
 func generateTestOptions(workloadType string) *client.Options {
 
 	if workloadType == "serverless-min-cpu-memory" {
@@ -3192,13 +3432,14 @@ func generateTestOptions(workloadType string) *client.Options {
 			Debug:          GetBool(false),
 			Suspend:        GetBool(false),
 
-			// AutoScaling: &client.AutoScaling{
-			// 	Target:           GetInt(95),
-			// 	MaxScale:         GetInt(1),
-			// 	MinScale:         GetInt(1),
-			// 	MaxConcurrency:   GetInt(0),
-			// 	ScaleToZeroDelay: GetInt(300),
-			// },
+			AutoScaling: &client.AutoScaling{
+				Metric:           GetString("concurrency"),
+				MaxConcurrency:   GetInt(0),
+				MaxScale:         GetInt(1),
+				MinScale:         GetInt(1),
+				ScaleToZeroDelay: GetInt(300),
+				Target:           GetInt(95),
+			},
 		}
 	}
 
@@ -3608,6 +3849,18 @@ func generateFlatTestGpuNvidia(model string, quantity int) []interface{} {
 	spec := map[string]interface{}{
 		"model":    model,
 		"quantity": quantity,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestGpuCustom(resource string, runtimeClass string, quantity int) []interface{} {
+	spec := map[string]interface{}{
+		"resource":      resource,
+		"runtime_class": runtimeClass,
+		"quantity":      quantity,
 	}
 
 	return []interface{}{
