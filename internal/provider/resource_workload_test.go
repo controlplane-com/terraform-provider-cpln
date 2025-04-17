@@ -38,7 +38,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, []string{"with_load_balancer", "with_request_retry_policy"}),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
 				),
@@ -47,7 +47,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, []string{"with_load_balancer"}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
 				),
 			},
@@ -55,7 +55,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated, []string{"with_load_balancer"}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -63,7 +63,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkloadMetricMemory(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-metric-memory", workloadEnvoyJsonUpdated, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-metric-memory", workloadEnvoyJsonUpdated, []string{"with_load_balancer"}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -71,7 +71,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson, []string{}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -79,7 +79,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard-multi-metrics", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard-multi-metrics", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-multi-metrics", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-multi-metrics", workloadEnvoyJson, []string{}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -90,7 +90,7 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson, []string{}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -101,35 +101,35 @@ func TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
 				Config: testAccControlPlaneGpuCustomWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, "custom"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, []string{"custom"}),
 				),
 			},
 			{
 				Config: testAccControlPlaneGrpcWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"grpc", "Workload with a grpc protocol created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"grpc", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
 				Config: testAccControlPlaneMinCpuMemoryWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
 				Config: testAccControlPlaneWorkloadWithExtras(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, "with_extras"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
@@ -389,6 +389,11 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 					region = "North America"
 				}
 			}
+		}
+			
+		request_retry_policy {
+			attempts = 3
+			retry_on = ["connect-failure", "refused-stream", "unavailable"]
 		}
 	  }
 	  
@@ -2486,7 +2491,7 @@ func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName 
 	}
 }
 
-func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string, option string) resource.TestCheckFunc {
+func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string, testOptions []string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		tags := *workload.Tags
@@ -2499,7 +2504,7 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("Tags - workload acceptance_test attribute does not match")
 		}
 
-		containers := generateTestContainers(workloadType, option)
+		containers := generateTestContainers(workloadType, testOptions)
 
 		if diff := deep.Equal(containers, workload.Spec.Containers); diff != nil {
 			return fmt.Errorf("Containers attributes does not match. Diff: %s", diff)
@@ -2541,22 +2546,32 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("Sidecar mismatch, Diff: %s", diff)
 		}
 
-		if option == "with_load_balancer" {
-			expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
-			if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
-				return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
-			}
-		}
+		for _, o := range testOptions {
+			switch o {
+			case "with_load_balancer":
+				expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
 
-		if option == "with_extras" {
-			extrasJsonStringCopy := workloadExtrasJsonString
-			expectedExtras, err := buildWorkloadExtras(&extrasJsonStringCopy)
-			if err != nil {
-				return fmt.Errorf("Expected extras JSON unmarshal error")
-			}
+				if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
+					return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
+				}
+			case "with_extras":
 
-			if diff := deep.Equal(expectedExtras, workload.Spec.Extras); diff != nil {
-				return fmt.Errorf("Extras mismatch, Diff: %s", diff)
+				extrasJsonStringCopy := workloadExtrasJsonString
+				expectedExtras, err := buildWorkloadExtras(&extrasJsonStringCopy)
+
+				if err != nil {
+					return fmt.Errorf("Expected extras JSON unmarshal error")
+				}
+
+				if diff := deep.Equal(expectedExtras, workload.Spec.Extras); diff != nil {
+					return fmt.Errorf("Extras mismatch, Diff: %s", diff)
+				}
+			case "with_request_retry_policy":
+				expectedRequestRetryPolicy, _, _ := generateTestWorkloadRequestRetryPolicy()
+
+				if diff := deep.Equal(expectedRequestRetryPolicy, workload.Spec.RequestRetryPolicy); diff != nil {
+					return fmt.Errorf("Request Retry Policy mismatch, Diff: %s", diff)
+				}
 			}
 		}
 
@@ -2787,7 +2802,7 @@ func TestControlPlane_BuildContainersServerless(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("serverless"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless", "")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless", []string{})); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2798,7 +2813,7 @@ func TestControlPlane_BuildContainersStandard(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("standard"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard", "")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard", []string{})); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2809,7 +2824,7 @@ func TestControlPlane_BuildContainersWithMinCpuMemory(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("serverless-min-cpu-memory"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory", "")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory", []string{})); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2941,6 +2956,15 @@ func TestControlPlane_BuildWorkloadExtras(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildWorkloadRequestRetryPolicy(t *testing.T) {
+
+	requestRetryPolicy, expectedRequestRetryPolicy, _ := generateTestWorkloadRequestRetryPolicy()
+
+	if diff := deep.Equal(requestRetryPolicy, expectedRequestRetryPolicy); diff != nil {
+		t.Errorf("Workload Request Retry Policy was not built correctly, Diff: %s", diff)
+	}
+}
+
 // Flatten //
 
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
@@ -2974,7 +2998,7 @@ func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
 func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
-	containers := generateTestContainers("serverless", "")
+	containers := generateTestContainers("serverless", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless")
@@ -2986,7 +3010,7 @@ func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
 func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
-	containers := generateTestContainers("standard", "")
+	containers := generateTestContainers("standard", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard")
@@ -2998,7 +3022,7 @@ func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
 func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 
-	containers := generateTestContainers("standard-readiness-grpc", "")
+	containers := generateTestContainers("standard-readiness-grpc", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard-readiness-grpc")
@@ -3010,7 +3034,7 @@ func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 
 func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
 
-	containers := generateTestContainers("serverless-min-cpu-memory", "")
+	containers := generateTestContainers("serverless-min-cpu-memory", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless-min-cpu-memory")
@@ -3130,9 +3154,19 @@ func TestControlPlane_FlattenWorkloadExtras(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenWorkloadRequestRetryPolicy(t *testing.T) {
+	_, expectedRequestRetryPolicy, _ := generateTestWorkloadRequestRetryPolicy()
+	flattenRequestRetryPolicy := flattenWorkloadRequestRetryPolicy(expectedRequestRetryPolicy)
+	expectedFlatten := generateFlatTestWorkloadRequestRetryPolicy(false, *expectedRequestRetryPolicy.Attempts, *expectedRequestRetryPolicy.RetryOn)
+
+	if diff := deep.Equal(expectedFlatten, flattenRequestRetryPolicy); diff != nil {
+		t.Errorf("Workload Request Retry Policy was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 /*** Generate ***/
 
-func generateTestContainers(workloadType string, option string) *[]client.ContainerSpec {
+func generateTestContainers(workloadType string, testOptions []string) *[]client.ContainerSpec {
 
 	newContainer := client.ContainerSpec{
 		Name:             GetString("container-01"),
@@ -3157,7 +3191,7 @@ func generateTestContainers(workloadType string, option string) *[]client.Contai
 		newContainer.CPU = GetString("2")
 		newContainer.Memory = GetString("7Gi")
 
-		if option == "custom" {
+		if contains(testOptions, "custom") {
 			gpuCustom, _, _ := generateTestGpuCustom()
 			newContainer.GPU = gpuCustom
 		} else {
@@ -3679,6 +3713,21 @@ func generateTestWorkloadLoadBalancerDirectPorts() (*[]client.WorkloadLoadBalanc
 	return ports, expectedPorts, flattened
 }
 
+func generateTestWorkloadRequestRetryPolicy() (*client.WorkloadRequestRetryPolicy, *client.WorkloadRequestRetryPolicy, []interface{}) {
+
+	attempts := 3
+	retryOn := []string{"connect-failure", "refused-stream", "unavailable"}
+
+	flattened := generateFlatTestWorkloadRequestRetryPolicy(true, attempts, retryOn)
+	requestRetryPolicy := buildWorkloadRequestRetryPolicy(flattened)
+	expectedRequestRetryPolicy := &client.WorkloadRequestRetryPolicy{
+		Attempts: &attempts,
+		RetryOn:  &retryOn,
+	}
+
+	return requestRetryPolicy, expectedRequestRetryPolicy, flattened
+}
+
 // Flatten //
 
 func generateFlatTestContainer(workloadType string) []interface{} {
@@ -4108,6 +4157,25 @@ func generateFlatTestWorkloadLoadBalancerDirectPort(externalPort int, protocol s
 		"protocol":       protocol,
 		"scheme":         scheme,
 		"container_port": containerPort,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestWorkloadRequestRetryPolicy(useSet bool, attempts int, retryOn []string) []interface{} {
+	stringFunc := schema.HashSchema(StringSchema())
+	spec := map[string]interface{}{
+		"attempts": attempts,
+	}
+
+	retryOnInterfaceSlice := toInterfaceSlice(retryOn)
+
+	if useSet {
+		spec["retry_on"] = schema.NewSet(stringFunc, retryOnInterfaceSlice)
+	} else {
+		spec["retry_on"] = retryOnInterfaceSlice
 	}
 
 	return []interface{}{

@@ -958,3 +958,23 @@ func toFloat64(value interface{}) float64 {
 		return 0.0
 	}
 }
+
+func toInterfaceSlice[T any](src []T) []interface{} {
+	dst := make([]interface{}, len(src))
+
+	for i, v := range src {
+		dst[i] = v
+	}
+
+	return dst
+}
+
+func contains(opts []string, opt string) bool {
+	for _, o := range opts {
+		if o == opt {
+			return true
+		}
+	}
+
+	return false
+}

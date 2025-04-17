@@ -922,6 +922,30 @@ func resourceWorkload() *schema.Resource {
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
 				Optional:    true,
 			},
+			"request_retry_policy": {
+				Type:        schema.TypeList,
+				Description: "",
+				Optional:    true,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"attempts": {
+							Type:        schema.TypeInt,
+							Description: "",
+							Optional:    true,
+							Default:     2,
+						},
+						"retry_on": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -1021,6 +1045,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		workload.Spec.Extras = extras
 	}
 
+	if d.Get("request_retry_policy") != nil {
+		workload.Spec.RequestRetryPolicy = buildWorkloadRequestRetryPolicy(d.Get("request_retry_policy").([]interface{}))
+	}
+
 	if e := workloadSpecValidate(workload.Spec); e != nil {
 		return e
 	}
@@ -1110,7 +1138,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer", "extras") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer", "extras", "request_retry_policy") {
 
 		if checkLegacyPort(d.Get("container").([]interface{})) {
 			var diags diag.Diagnostics
@@ -1146,6 +1174,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
 		workloadToUpdate.SpecReplace.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
 		workloadToUpdate.SpecReplace.LoadBalancer = buildWorkloadLoadBalancer(d.Get("load_balancer").([]interface{}))
+		workloadToUpdate.SpecReplace.RequestRetryPolicy = buildWorkloadRequestRetryPolicy(d.Get("request_retry_policy").([]interface{}))
 
 		// Build workload extras
 		extras, e := buildWorkloadExtras(GetString(d.Get("extras")))
@@ -1268,6 +1297,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, org string, 
 		}
 
 		if err := d.Set("load_balancer", flattenWorkloadLoadBalancer(workload.Spec.LoadBalancer)); err != nil {
+			return diag.FromErr(err)
+		}
+
+		if err := d.Set("request_retry_policy", flattenWorkloadRequestRetryPolicy(workload.Spec.RequestRetryPolicy)); err != nil {
 			return diag.FromErr(err)
 		}
 
@@ -2200,6 +2233,26 @@ func buildWorkloadExtras(extrasJsonString *string) (*any, diag.Diagnostics) {
 
 	// Return extras object
 	return &extras, nil
+}
+
+func buildWorkloadRequestRetryPolicy(specs []interface{}) *client.WorkloadRequestRetryPolicy {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.WorkloadRequestRetryPolicy{}
+
+	if spec["attempts"] != nil {
+		output.Attempts = GetInt(spec["attempts"])
+	}
+
+	if spec["retry_on"] != nil {
+		output.RetryOn = BuildStringTypeSet(spec["retry_on"])
+	}
+
+	return &output
 }
 
 /*** Flatten ***/
@@ -3218,6 +3271,26 @@ func flattenWorkloadExtras(extras *any) (*string, diag.Diagnostics) {
 
 	// Return the result
 	return &extrasJsonString, nil
+}
+
+func flattenWorkloadRequestRetryPolicy(spec *client.WorkloadRequestRetryPolicy) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	retryPolicy := map[string]interface{}{}
+
+	if spec.Attempts != nil {
+		retryPolicy["attempts"] = *spec.Attempts
+	}
+
+	if spec.RetryOn != nil {
+		retryPolicy["retry_on"] = FlattenStringTypeSet(spec.RetryOn)
+	}
+
+	return []interface{}{
+		retryPolicy,
+	}
 }
 
 /*** Helpers ***/

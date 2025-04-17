@@ -31,6 +31,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **support_dynamic_tags** (Boolean) Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
 - **extras** (String) Extra Kubernetes modifications. Only used for BYOK.
+- **request_retry_policy** (Block List, Max: 1) ([see below](#nestedblock--request_retry_policy))
 
 <a id="nestedblock--container"></a>
 
@@ -455,6 +456,15 @@ The following attributes are exported:
 - **cpln_id** (String) ID, in GUID format, of the Workload.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (List of Object) ([see below](#nestedatt--status)).
+
+<a id="nestedblock--request_retry_policy"></a>
+
+### `request_retry_policy`
+
+Optional:
+
+- **attempts** (Number) Default: `2`
+- **retry_on** (List of String)
 
 <a id="nestedatt--status"></a>
 
