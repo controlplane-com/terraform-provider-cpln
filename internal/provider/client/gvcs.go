@@ -49,6 +49,7 @@ type LoadBalancer struct {
 	Dedicated      *bool     `json:"dedicated,omitempty"`
 	TrustedProxies *int      `json:"trustedProxies,omitempty"`
 	Redirect       *Redirect `json:"redirect,omitempty"`
+	IpSet          *string   `json:"ipSet,omitempty"`
 }
 
 type Redirect struct {
