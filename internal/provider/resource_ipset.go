@@ -49,7 +49,7 @@ func resourceIpSet() *schema.Resource {
 			},
 			"link": {
 				Type:        schema.TypeString,
-				Description: "The self link of a workload.",
+				Description: "The self link of a workload or a GVC.",
 				Optional:    true,
 			},
 			"location": {

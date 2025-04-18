@@ -18,7 +18,7 @@ Manages an org's IpSet.
 
 - **description** - (String) Description of the IpSet.
 - **tags** (Map of String) Key-value map of resource tags.
-- **link** (String) The self link of a workload.
+- **link** (String) The self link of a workload or a GVC.
 - **location** (Block List) ([see below](#nestedblock--location)).
 
 <a id="nestedblock--location"></a>
