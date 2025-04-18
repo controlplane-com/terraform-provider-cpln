@@ -98,6 +98,7 @@ Specify the redirect url for all status codes in a class.
 Optional:
 
 - **status_5xx** (String) Specify the redirect url for any 500 level status code.
+- **status_401** (String) An optional url redirect for 401 responses. Supports envoy format strings to include request information. E.g. https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id
 
 ## Outputs
 
@@ -179,6 +180,7 @@ resource "cpln_gvc" "example" {
     redirect {
       class {
         status_5xx = "https://example.com/error/5xx"
+        status_401 = "https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id"
       }
     }
   }

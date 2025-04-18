@@ -158,6 +158,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 			redirect {
 				class {
 					status_5xx = "https://example.com/error/5xx"
+					status_401 = "https://your-oauth-server/oauth2/authorize?return_to=%%REQ(:path)%%&client_id=your-client-id"
 				}
 			}
 		}
@@ -465,11 +466,13 @@ func generateTestRedirect() (*client.Redirect, *client.Redirect, []interface{}) 
 
 func generateTestRedirectClass() (*client.RedirectClass, *client.RedirectClass, []interface{}) {
 	status5XX := "https://example.com/error/5xx"
+	status401 := "https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id"
 
-	flatten := generateFlatTestRedirectClass(status5XX)
+	flatten := generateFlatTestRedirectClass(status5XX, status401)
 	class := buildRedirectClass(flatten)
 	expectedClass := &client.RedirectClass{
 		Status5XX: &status5XX,
+		Status401: &status401,
 	}
 
 	return class, expectedClass, flatten
@@ -516,9 +519,10 @@ func generateFlatTestRedirect(class []interface{}) []interface{} {
 	}
 }
 
-func generateFlatTestRedirectClass(status5XX string) []interface{} {
+func generateFlatTestRedirectClass(status5XX string, status401 string) []interface{} {
 	spec := map[string]interface{}{
 		"status_5xx":            status5XX,
+		"status_401":            status401,
 		"placeholder_attribute": true,
 	}
 

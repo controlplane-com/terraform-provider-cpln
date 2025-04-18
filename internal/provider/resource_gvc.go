@@ -156,6 +156,11 @@ func GvcSchema() map[string]*schema.Schema {
 												Description: "Specify the redirect url for any 500 level status code.",
 												Optional:    true,
 											},
+											"status_401": {
+												Type:        schema.TypeString,
+												Description: "An optional url redirect for 401 responses. Supports envoy format strings to include request information. E.g. https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id",
+												Optional:    true,
+											},
 											"placeholder_attribute": {
 												Type:     schema.TypeBool,
 												Optional: true,
@@ -521,6 +526,10 @@ func buildRedirectClass(specs []interface{}) *client.RedirectClass {
 		output.Status5XX = GetString(spec["status_5xx"])
 	}
 
+	if spec["status_401"] != nil {
+		output.Status401 = GetString(spec["status_401"])
+	}
+
 	return &output
 }
 
@@ -655,6 +664,10 @@ func flattenRedirectClass(spec *client.RedirectClass) []interface{} {
 
 	if spec.Status5XX != nil {
 		class["status_5xx"] = *spec.Status5XX
+	}
+
+	if spec.Status401 != nil {
+		class["status_401"] = *spec.Status401
 	}
 
 	return []interface{}{
