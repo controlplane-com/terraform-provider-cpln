@@ -24,19 +24,20 @@ type Workload struct {
 
 // WorkloadSpec - Workload Specifications
 type WorkloadSpec struct {
-	Type               *string               `json:"type,omitempty"`
-	IdentityLink       *string               `json:"identityLink,omitempty"`
-	Containers         *[]ContainerSpec      `json:"containers,omitempty"`
-	FirewallConfig     *FirewallSpec         `json:"firewallConfig,omitempty"`
-	DefaultOptions     *Options              `json:"defaultOptions,omitempty"`
-	LocalOptions       *[]Options            `json:"localOptions,omitempty"`
-	RolloutOptions     *RolloutOptions       `json:"rolloutOptions,omitempty"`
-	Job                *JobSpec              `json:"job,omitempty"`
-	SecurityOptions    *SecurityOptions      `json:"securityOptions,omitempty"`
-	SupportDynamicTags *bool                 `json:"supportDynamicTags,omitempty"`
-	Sidecar            *WorkloadSidecar      `json:"sidecar,omitempty"`
-	LoadBalancer       *WorkloadLoadBalancer `json:"loadBalancer,omitempty"`
-	Extras             *any                  `json:"extras,omitempty"`
+	Type               *string                     `json:"type,omitempty"`
+	IdentityLink       *string                     `json:"identityLink,omitempty"`
+	Containers         *[]ContainerSpec            `json:"containers,omitempty"`
+	FirewallConfig     *FirewallSpec               `json:"firewallConfig,omitempty"`
+	DefaultOptions     *Options                    `json:"defaultOptions,omitempty"`
+	LocalOptions       *[]Options                  `json:"localOptions,omitempty"`
+	RolloutOptions     *RolloutOptions             `json:"rolloutOptions,omitempty"`
+	Job                *JobSpec                    `json:"job,omitempty"`
+	SecurityOptions    *SecurityOptions            `json:"securityOptions,omitempty"`
+	SupportDynamicTags *bool                       `json:"supportDynamicTags,omitempty"`
+	Sidecar            *WorkloadSidecar            `json:"sidecar,omitempty"`
+	LoadBalancer       *WorkloadLoadBalancer       `json:"loadBalancer,omitempty"`
+	Extras             *any                        `json:"extras,omitempty"`
+	RequestRetryPolicy *WorkloadRequestRetryPolicy `json:"requestRetryPolicy,omitempty"`
 }
 
 // ContainerSpec - Workload Container Definition
@@ -64,12 +65,19 @@ type ContainerSpec struct {
 
 // GPU - GPU Settings
 type GpuResource struct {
-	Nvidia *Nvidia `json:"nvidia,omitempty"`
+	Nvidia *Nvidia    `json:"nvidia,omitempty"`
+	Custom *CustomGpu `json:"custom,omitempty"`
 }
 
 type Nvidia struct {
 	Model    *string `json:"model,omitempty"`
 	Quantity *int    `json:"quantity,omitempty"`
+}
+
+type CustomGpu struct {
+	Resource     *string `json:"resource,omitempty"`
+	RuntimeClass *string `json:"runtimeClass,omitempty"`
+	Quantity     *int    `json:"quantity,omitempty"`
 }
 
 // NameValue - Name/Value Struct
@@ -121,9 +129,11 @@ type FirewallSpec struct {
 // FirewallSpecExternal - Firewall Spec External
 type FirewallSpecExternal struct {
 	InboundAllowCIDR      *[]string                    `json:"inboundAllowCIDR,omitempty"`
+	InboundBlockedCIDR    *[]string                    `json:"inboundBlockedCIDR,omitempty"`
 	OutboundAllowCIDR     *[]string                    `json:"outboundAllowCIDR,omitempty"`
 	OutboundAllowHostname *[]string                    `json:"outboundAllowHostname,omitempty"`
 	OutboundAllowPort     *[]FirewallOutboundAllowPort `json:"outboundAllowPort,omitempty"`
+	OutboundBlockedCIDR   *[]string                    `json:"outboundBlockedCIDR,omitempty"`
 }
 
 type FirewallOutboundAllowPort struct {
@@ -298,6 +308,11 @@ type WorkloadLoadBalancerDirectPort struct {
 	Protocol      *string `json:"protocol,omitempty"`
 	Scheme        *string `json:"scheme,omitempty"`
 	ContainerPort *int    `json:"containerPort,omitempty"`
+}
+
+type WorkloadRequestRetryPolicy struct {
+	Attempts *int      `json:"attempts,omitempty"`
+	RetryOn  *[]string `json:"retryOn,omitempty"`
 }
 
 func (w Workload) RemoveEmptySlices() {

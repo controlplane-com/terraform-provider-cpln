@@ -21,7 +21,7 @@ const workloadExtrasJsonString = `{"affinity":{"nodeAffinity":{"requiredDuringSc
 
 /*** Acc Tests ***/
 
-func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
+func TestAccControlPlaneWorkload_basic(t *testing.T) {
 
 	var testWorkload client.Workload
 
@@ -38,7 +38,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, []string{"with_load_balancer", "with_request_retry_policy"}),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
 				),
@@ -47,7 +47,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, []string{"with_load_balancer"}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
 				),
 			},
@@ -55,7 +55,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated, []string{"with_load_balancer"}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -63,7 +63,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneWorkloadMetricMemory(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-metric-memory", workloadEnvoyJsonUpdated, "with_load_balancer"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-metric-memory", workloadEnvoyJsonUpdated, []string{"with_load_balancer"}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -71,7 +71,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson, []string{}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -79,7 +79,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard-multi-metrics", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard-multi-metrics", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-multi-metrics", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-multi-metrics", workloadEnvoyJson, []string{}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -90,7 +90,7 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson, []string{}),
 					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
 				),
 			},
@@ -101,28 +101,35 @@ func ToBeFixed_TestAccControlPlaneWorkload_basic(t *testing.T) {
 				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, []string{}),
+				),
+			},
+			{
+				Config: testAccControlPlaneGpuCustomWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, []string{"custom"}),
 				),
 			},
 			{
 				Config: testAccControlPlaneGrpcWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"grpc", "Workload with a grpc protocol created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"grpc", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
 				Config: testAccControlPlaneMinCpuMemoryWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, ""),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
 				Config: testAccControlPlaneWorkloadWithExtras(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, "with_extras"),
+					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, []string{}),
 				),
 			},
 			{
@@ -330,8 +337,10 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 		firewall_spec {
 		  external {
 			inbound_allow_cidr      = ["0.0.0.0/0"]
+			inbound_blocked_cidr    = ["127.0.0.1"]
 			outbound_allow_cidr     = []
 			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 			
 			outbound_allow_port {
 				protocol = "http"
@@ -380,6 +389,11 @@ func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadNa
 					region = "North America"
 				}
 			}
+		}
+			
+		request_retry_policy {
+			attempts = 3
+			retry_on = ["connect-failure", "refused-stream", "unavailable"]
 		}
 	  }
 	  
@@ -562,8 +576,10 @@ func testAccControlPlaneWorkloadMetricMemory(randomName, gvcName, gvcDescription
 			
 				external {
 					inbound_allow_cidr      = ["0.0.0.0/0"]
+					inbound_blocked_cidr    = ["127.0.0.1"]
 					outbound_allow_cidr     = []
 					outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+					outbound_blocked_cidr   = ["::1"]
 					
 					outbound_allow_port {
 						protocol = "http"
@@ -813,8 +829,10 @@ func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, wo
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1028,8 +1046,10 @@ func testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gvcName, gvcDes
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1187,16 +1207,21 @@ func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, worklo
 		  suspend     = false
 		  capacity_ai = false
 	  
-		  #autoscaling {
-		#	min_scale = 1
-		#	max_scale = 1
-		  #}
+		  autoscaling {
+				metric = "concurrency"
+				max_concurrency = 0
+				min_scale = 1
+				max_scale = 1
+				scale_to_zero_delay = 300
+				target = 95
+		  }
 		}
 	  
 		firewall_spec {
 		  external {
 			outbound_allow_cidr     = ["192.168.0.1/16"]
 			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1394,8 +1419,208 @@ func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescri
 		firewall_spec {
 			external {
 				inbound_allow_cidr      = ["0.0.0.0/0"]
+				inbound_blocked_cidr    = ["127.0.0.1"]
 				outbound_allow_cidr     = []
 				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+				outbound_blocked_cidr   = ["::1"]
+
+				outbound_allow_port {
+					protocol = "http"
+					number   = 80
+				}
+	
+				outbound_allow_port {
+					protocol = "https"
+					number   = 443
+				}
+			}
+
+			internal {
+				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
+				inbound_allow_type     = "none"
+				inbound_allow_workload = []
+			}
+		}
+
+		security_options {
+			file_system_group_id = 1
+		}
+
+		sidecar {
+			envoy = jsonencode(%s)
+		}
+	}
+	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+}
+
+func testAccControlPlaneGpuCustomWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
+	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
+
+	return fmt.Sprintf(`
+
+	variable "random-name" {
+		type    = string
+		default = "%s"
+	}
+
+	resource "cpln_gvc" "new" {
+		name        = "%s"
+		description = "%s"
+	  
+		locations = ["aws-us-west-2", "gcp-us-east1"]
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+	resource "cpln_identity" "new" {
+	  
+		gvc = cpln_gvc.new.name
+	  
+		name        = "terraform-identity-${var.random-name}"
+		description = "Identity created using terraform"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	}
+
+
+	resource "cpln_workload" "new" {
+		
+		gvc = cpln_gvc.new.name
+	  
+		name        = "%s"
+		description = "%s"
+		type = "serverless"
+	  
+		tags = {
+			terraform_generated = "true"
+			acceptance_test     = "true"
+		}
+	  
+		identity_link = cpln_identity.new.self_link
+		support_dynamic_tags = true
+	  
+		container {
+			name   = "container-01"
+			image  = "gcr.io/knative-samples/helloworld-go"
+			// port   = 8080
+		  	
+			ports {
+				protocol = "http"
+				number   = "8080"
+			} 
+			
+			memory = "7Gi"
+		  	cpu    = "2"
+
+			gpu_custom {
+				resource      = "amd.com/gpu"
+				runtime_class = "amd"
+				quantity      = 1
+			}
+	  
+			command           = "override-command"
+			working_directory = "/usr"
+	  
+			env = {
+				env-name-01 = "env-value-01",
+				env-name-02 = "env-value-02",
+			}
+	  
+		  	args = ["arg-01", "arg-02"]
+	  
+			volume {
+				uri  = "s3://bucket"
+				recovery_policy = "retain"
+				path = "/testpath01"
+			}
+	  
+		  	volume {
+				uri  = "azureblob://storageAccount/container"
+				recovery_policy = "recycle"
+				path = "/testpath02"
+		  	}
+			
+			metrics {
+				path = "/metrics"
+				port = 8181
+		  	}
+	  
+			readiness_probe {
+		
+				tcp_socket {
+					port = 8181
+				}
+		
+				period_seconds        = 11
+				timeout_seconds       = 2
+				failure_threshold     = 4
+				success_threshold     = 2
+				initial_delay_seconds = 1
+			}
+		
+			liveness_probe {
+				
+				http_get {
+					path   = "/path"
+					port   = 8282
+					scheme = "HTTPS"
+					http_headers = {
+						header-name-01 = "header-value-01"
+						header-name-02 = "header-value-02"
+					}
+				}
+		
+				period_seconds        = 10
+				timeout_seconds       = 3
+				failure_threshold     = 5
+				success_threshold     = 1
+				initial_delay_seconds = 2
+			}
+	  
+			lifecycle {
+				
+				post_start {
+					exec {
+						command = ["command_post", "arg_1", "arg_2"]
+					}
+				}
+		
+				pre_stop {
+					exec {
+						command = ["command_pre", "arg_1", "arg_2"]
+					}
+				}
+			}
+		}
+
+		options {
+			capacity_ai     = false
+			timeout_seconds = 30
+			suspend         = false
+	
+			autoscaling {
+				metric              = "concurrency"
+				target              = 100
+				max_scale           = 3
+				min_scale           = 2
+				max_concurrency     = 500
+				scale_to_zero_delay = 400
+			}
+		}
+	  
+		firewall_spec {
+			external {
+				inbound_allow_cidr      = ["0.0.0.0/0"]
+				inbound_blocked_cidr    = ["127.0.0.1"]
+				outbound_allow_cidr     = []
+				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+				outbound_blocked_cidr   = ["::1"]
 
 				outbound_allow_port {
 					protocol = "http"
@@ -1620,8 +1845,10 @@ func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescr
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -1817,8 +2044,10 @@ func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, 
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -2007,8 +2236,10 @@ func testAccControlPlaneWorkloadWithExtras(randomName string, gvcName string, gv
 		firewall_spec {
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
+			inbound_blocked_cidr = ["127.0.0.1"]
 			outbound_allow_cidr =  []
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -2203,8 +2434,10 @@ func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvc
 		firewall_spec {
 			external {
 				inbound_allow_cidr      = ["0.0.0.0/0"]
+				inbound_blocked_cidr    = ["127.0.0.1"]
 				outbound_allow_cidr     = []
 				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+				outbound_blocked_cidr   = ["::1"]
 			}
 
 			internal {
@@ -2258,7 +2491,7 @@ func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName 
 	}
 }
 
-func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string, option string) resource.TestCheckFunc {
+func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string, testOptions []string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 
 		tags := *workload.Tags
@@ -2271,7 +2504,7 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("Tags - workload acceptance_test attribute does not match")
 		}
 
-		containers := generateTestContainers(workloadType)
+		containers := generateTestContainers(workloadType, testOptions)
 
 		if diff := deep.Equal(containers, workload.Spec.Containers); diff != nil {
 			return fmt.Errorf("Containers attributes does not match. Diff: %s", diff)
@@ -2313,22 +2546,32 @@ func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workl
 			return fmt.Errorf("Sidecar mismatch, Diff: %s", diff)
 		}
 
-		if option == "with_load_balancer" {
-			expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
-			if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
-				return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
-			}
-		}
+		for _, o := range testOptions {
+			switch o {
+			case "with_load_balancer":
+				expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
 
-		if option == "with_extras" {
-			extrasJsonStringCopy := workloadExtrasJsonString
-			expectedExtras, err := buildWorkloadExtras(&extrasJsonStringCopy)
-			if err != nil {
-				return fmt.Errorf("Expected extras JSON unmarshal error")
-			}
+				if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
+					return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
+				}
+			case "with_extras":
 
-			if diff := deep.Equal(expectedExtras, workload.Spec.Extras); diff != nil {
-				return fmt.Errorf("Extras mismatch, Diff: %s", diff)
+				extrasJsonStringCopy := workloadExtrasJsonString
+				expectedExtras, err := buildWorkloadExtras(&extrasJsonStringCopy)
+
+				if err != nil {
+					return fmt.Errorf("Expected extras JSON unmarshal error")
+				}
+
+				if diff := deep.Equal(expectedExtras, workload.Spec.Extras); diff != nil {
+					return fmt.Errorf("Extras mismatch, Diff: %s", diff)
+				}
+			case "with_request_retry_policy":
+				expectedRequestRetryPolicy, _, _ := generateTestWorkloadRequestRetryPolicy()
+
+				if diff := deep.Equal(expectedRequestRetryPolicy, workload.Spec.RequestRetryPolicy); diff != nil {
+					return fmt.Errorf("Request Retry Policy mismatch, Diff: %s", diff)
+				}
 			}
 		}
 
@@ -2454,13 +2697,14 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		  #timeout_seconds = 5
 		  suspend = false
 	  
-		  #autoscaling {
-		#	target = 100
-		#	max_scale = 1
-		#	min_scale = 1
-		#	max_concurrency = 0
-		#	scale_to_zero_delay = 300
-		#  }
+		  autoscaling {
+				metric = "concurrency"
+				max_concurrency = 0
+				min_scale = 1
+				max_scale = 1
+				scale_to_zero_delay = 300
+				target = 95
+		  }
 		}
 
 		local_options {
@@ -2469,13 +2713,14 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 			timeout_seconds = 5
 			suspend = false
 		
-			#autoscaling {
-			#  target = 100
-			#  max_scale = 1
-			#  min_scale = 1
-			#  max_concurrency = 0
-			#  scale_to_zero_delay = 300
-			#}
+			autoscaling {
+				metric = "concurrency"
+				max_concurrency = 0
+				min_scale = 1
+				max_scale = 1
+				scale_to_zero_delay = 300
+				target = 95
+		  }
 		}
 		
 	  
@@ -2483,6 +2728,7 @@ func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, 
 		  external {
 			inbound_allow_cidr =  ["0.0.0.0/0"]
 			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
+			outbound_blocked_cidr   = ["::1"]
 
 			outbound_allow_port {
 				protocol = "http"
@@ -2556,7 +2802,7 @@ func TestControlPlane_BuildContainersServerless(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("serverless"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless", []string{})); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2567,7 +2813,7 @@ func TestControlPlane_BuildContainersStandard(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("standard"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard", []string{})); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2578,7 +2824,7 @@ func TestControlPlane_BuildContainersWithMinCpuMemory(t *testing.T) {
 	unitTestWorkload.Spec = &client.WorkloadSpec{}
 	buildContainers(generateFlatTestContainer("serverless-min-cpu-memory"), unitTestWorkload.Spec)
 
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory")); diff != nil {
+	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory", []string{})); diff != nil {
 		t.Errorf("Container was not built correctly. Diff: %s", diff)
 	}
 }
@@ -2710,6 +2956,15 @@ func TestControlPlane_BuildWorkloadExtras(t *testing.T) {
 	}
 }
 
+func TestControlPlane_BuildWorkloadRequestRetryPolicy(t *testing.T) {
+
+	requestRetryPolicy, expectedRequestRetryPolicy, _ := generateTestWorkloadRequestRetryPolicy()
+
+	if diff := deep.Equal(requestRetryPolicy, expectedRequestRetryPolicy); diff != nil {
+		t.Errorf("Workload Request Retry Policy was not built correctly, Diff: %s", diff)
+	}
+}
+
 // Flatten //
 
 func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
@@ -2743,7 +2998,7 @@ func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
 
 func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
-	containers := generateTestContainers("serverless")
+	containers := generateTestContainers("serverless", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless")
@@ -2755,7 +3010,7 @@ func TestControlPlane_FlattenContainerServerless(t *testing.T) {
 
 func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
-	containers := generateTestContainers("standard")
+	containers := generateTestContainers("standard", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard")
@@ -2767,7 +3022,7 @@ func TestControlPlane_FlattenContainerStandard(t *testing.T) {
 
 func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 
-	containers := generateTestContainers("standard-readiness-grpc")
+	containers := generateTestContainers("standard-readiness-grpc", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("standard-readiness-grpc")
@@ -2779,7 +3034,7 @@ func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
 
 func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
 
-	containers := generateTestContainers("serverless-min-cpu-memory")
+	containers := generateTestContainers("serverless-min-cpu-memory", []string{})
 	flattenedContainer := flattenContainer(containers, false)
 
 	flatContainer := generateFlatTestContainer("serverless-min-cpu-memory")
@@ -2789,11 +3044,19 @@ func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
 	}
 }
 
-func TestControlPlane_FlattenGpu(t *testing.T) {
+func TestControlPlane_FlattenGpuNvidia(t *testing.T) {
 	gpu, _, flattenedGpu := generateTestGpuNvidia()
 	expectedFlattenedGpu := flattenGpuNvidia(gpu)
 	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
-		t.Errorf("Gpu was not flattened correctly. Diff: %s", diff)
+		t.Errorf("Gpu Nvidia was not flattened correctly. Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_FlattenGpuCustom(t *testing.T) {
+	gpu, _, flattenedGpu := generateTestGpuCustom()
+	expectedFlattenedGpu := flattenGpuCustom(gpu)
+	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
+		t.Errorf("Gpu Custom was not flattened correctly. Diff: %s", diff)
 	}
 }
 
@@ -2891,9 +3154,19 @@ func TestControlPlane_FlattenWorkloadExtras(t *testing.T) {
 	}
 }
 
+func TestControlPlane_FlattenWorkloadRequestRetryPolicy(t *testing.T) {
+	_, expectedRequestRetryPolicy, _ := generateTestWorkloadRequestRetryPolicy()
+	flattenRequestRetryPolicy := flattenWorkloadRequestRetryPolicy(expectedRequestRetryPolicy)
+	expectedFlatten := generateFlatTestWorkloadRequestRetryPolicy(false, *expectedRequestRetryPolicy.Attempts, *expectedRequestRetryPolicy.RetryOn)
+
+	if diff := deep.Equal(expectedFlatten, flattenRequestRetryPolicy); diff != nil {
+		t.Errorf("Workload Request Retry Policy was not flattened correctly. Diff: %s", diff)
+	}
+}
+
 /*** Generate ***/
 
-func generateTestContainers(workloadType string) *[]client.ContainerSpec {
+func generateTestContainers(workloadType string, testOptions []string) *[]client.ContainerSpec {
 
 	newContainer := client.ContainerSpec{
 		Name:             GetString("container-01"),
@@ -2918,8 +3191,13 @@ func generateTestContainers(workloadType string) *[]client.ContainerSpec {
 		newContainer.CPU = GetString("2")
 		newContainer.Memory = GetString("7Gi")
 
-		gpuNvidia, _, _ := generateTestGpuNvidia()
-		newContainer.GPU = gpuNvidia
+		if contains(testOptions, "custom") {
+			gpuCustom, _, _ := generateTestGpuCustom()
+			newContainer.GPU = gpuCustom
+		} else {
+			gpuNvidia, _, _ := generateTestGpuNvidia()
+			newContainer.GPU = gpuNvidia
+		}
 		// newContainer.Port = GetInt(8080)
 
 		newContainer.Ports = &[]client.PortSpec{
@@ -3091,6 +3369,24 @@ func generateTestGpuNvidia() (*client.GpuResource, *client.GpuResource, []interf
 	return gpu, expectedGpu, flatten
 }
 
+func generateTestGpuCustom() (*client.GpuResource, *client.GpuResource, []interface{}) {
+	resource := "amd.com/gpu"
+	runtimeClass := "amd"
+	quantity := 1
+
+	flatten := generateFlatTestGpuCustom(resource, runtimeClass, quantity)
+	gpu := buildGpuCustom(flatten)
+	expectedGpu := &client.GpuResource{
+		Custom: &client.CustomGpu{
+			Resource:     &resource,
+			RuntimeClass: &runtimeClass,
+			Quantity:     &quantity,
+		},
+	}
+
+	return gpu, expectedGpu, flatten
+}
+
 func generateTestOptions(workloadType string) *client.Options {
 
 	if workloadType == "serverless-min-cpu-memory" {
@@ -3192,13 +3488,14 @@ func generateTestOptions(workloadType string) *client.Options {
 			Debug:          GetBool(false),
 			Suspend:        GetBool(false),
 
-			// AutoScaling: &client.AutoScaling{
-			// 	Target:           GetInt(95),
-			// 	MaxScale:         GetInt(1),
-			// 	MinScale:         GetInt(1),
-			// 	MaxConcurrency:   GetInt(0),
-			// 	ScaleToZeroDelay: GetInt(300),
-			// },
+			AutoScaling: &client.AutoScaling{
+				Metric:           GetString("concurrency"),
+				MaxConcurrency:   GetInt(0),
+				MaxScale:         GetInt(1),
+				MinScale:         GetInt(1),
+				ScaleToZeroDelay: GetInt(300),
+				Target:           GetInt(95),
+			},
 		}
 	}
 
@@ -3242,6 +3539,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 		return &client.FirewallSpec{
 			External: &client.FirewallSpecExternal{
 				InboundAllowCIDR:      &[]string{},
+				InboundBlockedCIDR:    &[]string{},
 				OutboundAllowCIDR:     &[]string{"192.168.0.1/16"},
 				OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 				OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
@@ -3254,6 +3552,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 						Number:   GetInt(443),
 					},
 				},
+				OutboundBlockedCIDR: &[]string{"::1"},
 			},
 		}
 	}
@@ -3261,6 +3560,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 	return &client.FirewallSpec{
 		External: &client.FirewallSpecExternal{
 			InboundAllowCIDR:      &[]string{"0.0.0.0/0"},
+			InboundBlockedCIDR:    &[]string{"127.0.0.1"},
 			OutboundAllowCIDR:     &[]string{},
 			OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
 			OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
@@ -3273,6 +3573,7 @@ func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
 					Number:   GetInt(443),
 				},
 			},
+			OutboundBlockedCIDR: &[]string{"::1"},
 		},
 		Internal: &client.FirewallSpecInternal{
 			InboundAllowType:     GetString("none"),
@@ -3410,6 +3711,21 @@ func generateTestWorkloadLoadBalancerDirectPorts() (*[]client.WorkloadLoadBalanc
 	}
 
 	return ports, expectedPorts, flattened
+}
+
+func generateTestWorkloadRequestRetryPolicy() (*client.WorkloadRequestRetryPolicy, *client.WorkloadRequestRetryPolicy, []interface{}) {
+
+	attempts := 3
+	retryOn := []string{"connect-failure", "refused-stream", "unavailable"}
+
+	flattened := generateFlatTestWorkloadRequestRetryPolicy(true, attempts, retryOn)
+	requestRetryPolicy := buildWorkloadRequestRetryPolicy(flattened)
+	expectedRequestRetryPolicy := &client.WorkloadRequestRetryPolicy{
+		Attempts: &attempts,
+		RetryOn:  &retryOn,
+	}
+
+	return requestRetryPolicy, expectedRequestRetryPolicy, flattened
 }
 
 // Flatten //
@@ -3615,6 +3931,18 @@ func generateFlatTestGpuNvidia(model string, quantity int) []interface{} {
 	}
 }
 
+func generateFlatTestGpuCustom(resource string, runtimeClass string, quantity int) []interface{} {
+	spec := map[string]interface{}{
+		"resource":      resource,
+		"runtime_class": runtimeClass,
+		"quantity":      quantity,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
 func generateFlatTestOptions() []interface{} {
 
 	as := map[string]interface{}{
@@ -3658,28 +3986,26 @@ func generateFlatTestFirewallSpec(useSet bool) []interface{} {
 
 	stringFunc := schema.HashSchema(StringSchema())
 	e := map[string]interface{}{}
-
-	if useSet {
-		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
-	} else {
-		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
-	}
-
-	if useSet {
-		e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
-	}
-
-	if useSet {
-		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
-	} else {
-		e["outbound_allow_hostname"] = []interface{}{"*.cpln.io", "*.controlplane.com"}
-	}
-
 	i := make(map[string]interface{})
+
 	i["inbound_allow_type"] = "none"
 
 	if useSet {
+		// External
+		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
+		e["inbound_blocked_cidr"] = schema.NewSet(stringFunc, []interface{}{"127.0.0.1"})
+		e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
+		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
+		e["outbound_blocked_cidr"] = schema.NewSet(stringFunc, []interface{}{"::1"})
+
+		// Internal
 		i["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
+	} else {
+		// External
+		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
+		e["inbound_blocked_cidr"] = []interface{}{"127.0.0.1"}
+		e["outbound_allow_hostname"] = []interface{}{"*.cpln.io", "*.controlplane.com"}
+		e["outbound_blocked_cidr"] = []interface{}{"::1"}
 	}
 
 	e["outbound_allow_port"] = flattenFirewallOutboundAllowPort(
@@ -3831,6 +4157,25 @@ func generateFlatTestWorkloadLoadBalancerDirectPort(externalPort int, protocol s
 		"protocol":       protocol,
 		"scheme":         scheme,
 		"container_port": containerPort,
+	}
+
+	return []interface{}{
+		spec,
+	}
+}
+
+func generateFlatTestWorkloadRequestRetryPolicy(useSet bool, attempts int, retryOn []string) []interface{} {
+	stringFunc := schema.HashSchema(StringSchema())
+	spec := map[string]interface{}{
+		"attempts": attempts,
+	}
+
+	retryOnInterfaceSlice := toInterfaceSlice(retryOn)
+
+	if useSet {
+		spec["retry_on"] = schema.NewSet(stringFunc, retryOnInterfaceSlice)
+	} else {
+		spec["retry_on"] = retryOnInterfaceSlice
 	}
 
 	return []interface{}{
