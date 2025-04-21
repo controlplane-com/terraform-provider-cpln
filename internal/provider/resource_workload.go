@@ -170,6 +170,31 @@ func resourceWorkload() *schema.Resource {
 								},
 							},
 						},
+						"gpu_custom": {
+							Type:        schema.TypeList,
+							Description: "",
+							Optional:    true,
+							MaxItems:    1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"resource": {
+										Type:        schema.TypeString,
+										Description: "",
+										Required:    true,
+									},
+									"runtime_class": {
+										Type:        schema.TypeString,
+										Description: "",
+										Optional:    true,
+									},
+									"quantity": {
+										Type:        schema.TypeInt,
+										Description: "Number of GPUs.",
+										Required:    true,
+									},
+								},
+							},
+						},
 						"memory": {
 							Type:         schema.TypeString,
 							Description:  "Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: \"128Mi\".",
@@ -897,6 +922,30 @@ func resourceWorkload() *schema.Resource {
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
 				Optional:    true,
 			},
+			"request_retry_policy": {
+				Type:        schema.TypeList,
+				Description: "",
+				Optional:    true,
+				MaxItems:    1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"attempts": {
+							Type:        schema.TypeInt,
+							Description: "",
+							Optional:    true,
+							Default:     2,
+						},
+						"retry_on": {
+							Type:        schema.TypeSet,
+							Description: "",
+							Optional:    true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+					},
+				},
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: importStateWorkload,
@@ -996,6 +1045,10 @@ func resourceWorkloadCreate(ctx context.Context, d *schema.ResourceData, m inter
 		workload.Spec.Extras = extras
 	}
 
+	if d.Get("request_retry_policy") != nil {
+		workload.Spec.RequestRetryPolicy = buildWorkloadRequestRetryPolicy(d.Get("request_retry_policy").([]interface{}))
+	}
+
 	if e := workloadSpecValidate(workload.Spec); e != nil {
 		return e
 	}
@@ -1085,7 +1138,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 	// log.Printf("[INFO] Method: resourceWorkloadUpdate")
 
-	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer", "extras") {
+	if d.HasChanges("description", "tags", "type", "container", "options", "local_options", "firewall_spec", "job", "identity_link", "rollout_options", "security_options", "support_dynamic_tags", "sidecar", "load_balancer", "extras", "request_retry_policy") {
 
 		if checkLegacyPort(d.Get("container").([]interface{})) {
 			var diags diag.Diagnostics
@@ -1121,6 +1174,7 @@ func resourceWorkloadUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		workloadToUpdate.SpecReplace.SupportDynamicTags = GetBool(d.Get("support_dynamic_tags"))
 		workloadToUpdate.SpecReplace.Sidecar = buildWorkloadSidecar(d.Get("sidecar").([]interface{}))
 		workloadToUpdate.SpecReplace.LoadBalancer = buildWorkloadLoadBalancer(d.Get("load_balancer").([]interface{}))
+		workloadToUpdate.SpecReplace.RequestRetryPolicy = buildWorkloadRequestRetryPolicy(d.Get("request_retry_policy").([]interface{}))
 
 		// Build workload extras
 		extras, e := buildWorkloadExtras(GetString(d.Get("extras")))
@@ -1246,6 +1300,10 @@ func setWorkload(d *schema.ResourceData, workload *client.Workload, org string, 
 			return diag.FromErr(err)
 		}
 
+		if err := d.Set("request_retry_policy", flattenWorkloadRequestRetryPolicy(workload.Spec.RequestRetryPolicy)); err != nil {
+			return diag.FromErr(err)
+		}
+
 		extrasJsonString, err := flattenWorkloadExtras(workload.Spec.Extras)
 		if err != nil {
 			return err
@@ -1310,9 +1368,31 @@ func buildContainers(containers []interface{}, workloadSpec *client.WorkloadSpec
 			WorkingDirectory: GetString(c["working_directory"].(string)),
 		}
 
+		var gpu *client.GpuResource = nil
+
 		if c["gpu_nvidia"] != nil {
-			newContainer.GPU = buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
+			_gpu := buildGpuNvidia(c["gpu_nvidia"].([]interface{}))
+
+			if _gpu != nil {
+				gpu = &client.GpuResource{
+					Nvidia: _gpu.Nvidia,
+				}
+			}
 		}
+
+		if newContainer.GPU == nil && c["gpu_custom"] != nil {
+			_gpu := buildGpuCustom(c["gpu_custom"].([]interface{}))
+
+			if _gpu != nil {
+				if gpu == nil {
+					gpu = &client.GpuResource{}
+				}
+
+				gpu.Custom = _gpu.Custom
+			}
+		}
+
+		newContainer.GPU = gpu
 
 		if c["min_cpu"] != nil {
 			newContainer.MinCPU = GetString(c["min_cpu"].(string))
@@ -1437,6 +1517,24 @@ func buildGpuNvidia(specs []interface{}) *client.GpuResource {
 		Nvidia: &client.Nvidia{
 			Model:    GetString(spec["model"].(string)),
 			Quantity: GetInt(spec["quantity"].(int)),
+		},
+	}
+
+	return &gpuResource
+}
+
+func buildGpuCustom(specs []interface{}) *client.GpuResource {
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+
+	gpuResource := client.GpuResource{
+		Custom: &client.CustomGpu{
+			Resource:     GetString(spec["resource"].(string)),
+			RuntimeClass: GetString(spec["runtime_class"].(string)),
+			Quantity:     GetInt(spec["quantity"].(int)),
 		},
 	}
 
@@ -1778,6 +1876,10 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 
 				}
 
+				if e["inbound_blocked_cidr"] != nil {
+					we.InboundBlockedCIDR = BuildStringTypeSet(e["inbound_blocked_cidr"])
+				}
+
 				if e["outbound_allow_cidr"] != nil {
 					outboundAllowCIDR := []string{}
 
@@ -1803,6 +1905,10 @@ func buildFirewallSpec(specs []interface{}, workloadSpec *client.WorkloadSpec) {
 				if e["outbound_allow_port"] != nil {
 
 					we.OutboundAllowPort = buildFirewallOutboundAllowPort(e["outbound_allow_port"].([]interface{}))
+				}
+
+				if e["outbound_blocked_cidr"] != nil {
+					we.OutboundBlockedCIDR = BuildStringTypeSet(e["outbound_blocked_cidr"])
 				}
 			}
 
@@ -2129,6 +2235,26 @@ func buildWorkloadExtras(extrasJsonString *string) (*any, diag.Diagnostics) {
 	return &extras, nil
 }
 
+func buildWorkloadRequestRetryPolicy(specs []interface{}) *client.WorkloadRequestRetryPolicy {
+
+	if len(specs) == 0 || specs[0] == nil {
+		return nil
+	}
+
+	spec := specs[0].(map[string]interface{})
+	output := client.WorkloadRequestRetryPolicy{}
+
+	if spec["attempts"] != nil {
+		output.Attempts = GetInt(spec["attempts"])
+	}
+
+	if spec["retry_on"] != nil {
+		output.RetryOn = BuildStringTypeSet(spec["retry_on"])
+	}
+
+	return &output
+}
+
 /*** Flatten ***/
 
 func flattenWorkloadStatus(status *client.WorkloadStatus) []interface{} {
@@ -2355,8 +2481,14 @@ func flattenContainer(containers *[]client.ContainerSpec, legacyPort bool) []int
 			c["cpu"] = *container.CPU
 			c["memory"] = *container.Memory
 
-			if container.GPU != nil && container.GPU.Nvidia != nil {
-				c["gpu_nvidia"] = flattenGpuNvidia(container.GPU)
+			if container.GPU != nil {
+				if container.GPU.Nvidia != nil {
+					c["gpu_nvidia"] = flattenGpuNvidia(container.GPU)
+				}
+
+				if container.GPU.Custom != nil {
+					c["gpu_custom"] = flattenGpuCustom(container.GPU)
+				}
 			}
 
 			if container.MinCPU != nil {
@@ -2492,6 +2624,25 @@ func flattenGpuNvidia(spec *client.GpuResource) []interface{} {
 	gpu := map[string]interface{}{
 		"model":    *spec.Nvidia.Model,
 		"quantity": *spec.Nvidia.Quantity,
+	}
+
+	return []interface{}{
+		gpu,
+	}
+}
+
+func flattenGpuCustom(spec *client.GpuResource) []interface{} {
+	if spec == nil || spec.Custom == nil {
+		return nil
+	}
+
+	gpu := map[string]interface{}{
+		"resource": *spec.Custom.Resource,
+		"quantity": *spec.Custom.Quantity,
+	}
+
+	if spec.Custom.RuntimeClass != nil {
+		gpu["runtime_class"] = *spec.Custom.RuntimeClass
 	}
 
 	return []interface{}{
@@ -2741,6 +2892,10 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 				}
 			}
 
+			if spec.External.InboundBlockedCIDR != nil && len(*spec.External.InboundBlockedCIDR) > 0 {
+				external["inbound_blocked_cidr"] = FlattenStringTypeSet(spec.External.InboundBlockedCIDR)
+			}
+
 			if spec.External.OutboundAllowCIDR != nil && len(*spec.External.OutboundAllowCIDR) > 0 {
 				external["outbound_allow_cidr"] = []interface{}{}
 
@@ -2759,6 +2914,10 @@ func flattenFirewallSpec(spec *client.FirewallSpec) []interface{} {
 
 			if spec.External.OutboundAllowPort != nil && len(*spec.External.OutboundAllowPort) > 0 {
 				external["outbound_allow_port"] = flattenFirewallOutboundAllowPort(spec.External.OutboundAllowPort)
+			}
+
+			if spec.External.OutboundBlockedCIDR != nil && len(*spec.External.OutboundBlockedCIDR) > 0 {
+				external["outbound_blocked_cidr"] = FlattenStringTypeSet(spec.External.OutboundBlockedCIDR)
 			}
 
 			e := make([]interface{}, 1)
@@ -3114,6 +3273,26 @@ func flattenWorkloadExtras(extras *any) (*string, diag.Diagnostics) {
 	return &extrasJsonString, nil
 }
 
+func flattenWorkloadRequestRetryPolicy(spec *client.WorkloadRequestRetryPolicy) []interface{} {
+	if spec == nil {
+		return nil
+	}
+
+	retryPolicy := map[string]interface{}{}
+
+	if spec.Attempts != nil {
+		retryPolicy["attempts"] = *spec.Attempts
+	}
+
+	if spec.RetryOn != nil {
+		retryPolicy["retry_on"] = FlattenStringTypeSet(spec.RetryOn)
+	}
+
+	return []interface{}{
+		retryPolicy,
+	}
+}
+
 /*** Helpers ***/
 
 func AutoScalingResource() *schema.Resource {
@@ -3257,6 +3436,14 @@ func ExternalFirewallResource() *schema.Resource {
 					Type: schema.TypeString,
 				},
 			},
+			"inbound_blocked_cidr": {
+				Type:        schema.TypeSet,
+				Description: "The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.",
+				Optional:    true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"outbound_allow_cidr": {
 				Type:        schema.TypeSet,
 				Description: "The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.",
@@ -3290,6 +3477,14 @@ func ExternalFirewallResource() *schema.Resource {
 							Required:    true,
 						},
 					},
+				},
+			},
+			"outbound_blocked_cidr": {
+				Type:        schema.TypeSet,
+				Description: "The list of ipv4/ipv6 addresses or cidr blocks that this workload is NOT allowed to reach. Addresses in the allow list will only be allowed if they do not exist in this list.",
+				Optional:    true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
 				},
 			},
 		},
@@ -3537,6 +3732,10 @@ func workloadSpecValidate(workloadSpec *client.WorkloadSpec) diag.Diagnostics {
 				if c.ReadinessProbe != nil || c.LivenessProbe != nil {
 					return diag.FromErr(fmt.Errorf("probes are not allowed when workload type is 'cron'"))
 				}
+			}
+
+			if c.GPU != nil && c.GPU.Nvidia != nil && c.GPU.Custom != nil {
+				return diag.Errorf("either 'gpu_nvidia' or 'gpu_custom' may be specified, not both")
 			}
 
 			if c.GPU != nil && c.GPU.Nvidia != nil {
