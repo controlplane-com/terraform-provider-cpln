@@ -134,9 +134,10 @@ type AuthConfig struct {
 
 // Observability - Observability
 type Observability struct {
-	LogsRetentionDays    *int `json:"logsRetentionDays,omitempty"`
-	MetricsRetentionDays *int `json:"metricsRetentionDays,omitempty"`
-	TracesRetentionDays  *int `json:"tracesRetentionDays,omitempty"`
+	LogsRetentionDays    *int      `json:"logsRetentionDays,omitempty"`
+	MetricsRetentionDays *int      `json:"metricsRetentionDays,omitempty"`
+	TracesRetentionDays  *int      `json:"tracesRetentionDays,omitempty"`
+	DefaultAlertEmails   *[]string `json:"defaultAlertEmails,omitempty"`
 }
 
 type OrgThreatDetectionSyslog struct {

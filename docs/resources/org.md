@@ -46,6 +46,7 @@ Optional:
 - **logs_retention_days** (Int) Log retention days. Default: 30
 - **metrics_retention_days** (Int) Metrics retention days. Default: 30
 - **traces_retention_days** (Int) Traces retention days. Default: 30
+- **default_alert_emails** (List of String) These emails are configured as alert recipients in Grafana when the 'grafana-default-email' contact delivery type is 'Email'.
 
 ~> **Note** The `observability` block is required, but the sub-properties are optional and will use the default value if not provided.
 
@@ -136,6 +137,7 @@ resource "cpln_org" "example" {
         logs_retention_days    = 30
         metrics_retention_days = 40
         traces_retention_days  = 50
+        default_alert_emails   = ["bob@example.com", "rob@example.com", "abby@example.com"]
     }
 
     security {
