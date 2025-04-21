@@ -25,6 +25,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 
 	var testGvc client.Gvc
 
+	org := "terraform-test-org"
 	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	rName := "gvc-" + random
 
@@ -44,26 +45,36 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "55.55", gvcEnvoyJson, 1),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "55.55", gvcEnvoyJson, 1, "my-ipset"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(55.55, gvcEnvoyJson, 1, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(55.55, gvcEnvoyJson, 1, &testGvc, org, "name"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "name"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2),
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "name"),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
+				),
+			},
+
+			// GVC With Load Balancer - IP Set Complete Link
+			{
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, fmt.Sprintf("/org/%s/ipset/my-ipset", org)),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
+					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "complete-link"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
 				),
 			},
@@ -71,7 +82,7 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 	})
 }
 
-func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string, trustedProxies int) string {
+func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string, trustedProxies int, ipset string) string {
 
 	return fmt.Sprintf(`
 
@@ -142,10 +153,12 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 		load_balancer {
 			dedicated = true
 			trusted_proxies = %d
+			ipset = "%s"
 
 			redirect {
 				class {
 					status_5xx = "https://example.com/error/5xx"
+					status_401 = "https://your-oauth-server/oauth2/authorize?return_to=%%REQ(:path)%%&client_id=your-client-id"
 				}
 			}
 		}
@@ -154,7 +167,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 			envoy = jsonencode(%s)
 		}
 
-	  }`, random, random2, name, description, sampling, trustedProxies, envoy)
+	  }`, random, random2, name, description, sampling, trustedProxies, ipset, envoy)
 }
 
 func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client.Gvc) resource.TestCheckFunc {
@@ -179,7 +192,7 @@ func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client
 		}
 
 		if err != nil {
-			return fmt.Errorf(err.Error())
+			return err
 		}
 
 		if *newGvc.Name != gvcName {
@@ -192,7 +205,7 @@ func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client
 	}
 }
 
-func testAccCheckControlPlaneGvcAttributes(sampling float64, envoy string, trustedProxies int, gvc *client.Gvc) resource.TestCheckFunc {
+func testAccCheckControlPlaneGvcAttributes(sampling float64, envoy string, trustedProxies int, gvc *client.Gvc, org string, ipSetClass string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		tags := *gvc.Tags
 
@@ -209,9 +222,9 @@ func testAccCheckControlPlaneGvcAttributes(sampling float64, envoy string, trust
 			return fmt.Errorf("GVC Tracing mismatch. Diff: %s", diff)
 		}
 
-		expectedLoadBalancer, _, _ := generateTestLoadBalancer(trustedProxies)
+		expectedLoadBalancer, _, _ := generateTestLoadBalancer(trustedProxies, org, ipSetClass)
 		if diff := deep.Equal(expectedLoadBalancer, gvc.Spec.LoadBalancer); diff != nil {
-			return fmt.Errorf("LoadBalancer attributes do not match. Diff: %s", diff)
+			return fmt.Errorf("Load Balancer attributes do not match. Diff: %s", diff)
 		}
 
 		expectedSidecar, _, _ := generateTestGvcSidecar(envoy)
@@ -304,10 +317,24 @@ func TestControlPlane_BuildPullSecrets(t *testing.T) {
 	}
 }
 
-func TestControlPlane_BuildLoadBalancer(t *testing.T) {
-	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1)
+func TestControlPlane_BuildLoadBalancer_IpSetNameClass(t *testing.T) {
+	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1, "terraform-test-org", "name")
 	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
-		t.Errorf("LoadBalancer was not built correctly, Diff: %s", diff)
+		t.Errorf("Load Balancer - IP Set Name Only Class was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildLoadBalancer_IpSetCompleteLinkClass(t *testing.T) {
+	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1, "terraform-test-org", "complete-link")
+	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
+		t.Errorf("Load Balancer - IP Set Complete Link was not built correctly, Diff: %s", diff)
+	}
+}
+
+func TestControlPlane_BuildLoadBalancer_IpSetShortLinkClass(t *testing.T) {
+	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1, "terraform-test-org", "short-link")
+	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
+		t.Errorf("Load Balancer - IP Set Short Link was not built correctly, Diff: %s", diff)
 	}
 }
 
@@ -375,8 +402,8 @@ func TestControlPlane_FlattenPullSecrets(t *testing.T) {
 }
 
 func TestControlPlane_FlattenLoadBalancer(t *testing.T) {
-	_, expectedLoadBalancer, expectedFlatten := generateTestLoadBalancer(1)
-	flattenLoadBalancer := flattenLoadBalancer(expectedLoadBalancer)
+	_, expectedLoadBalancer, expectedFlatten := generateTestLoadBalancer(1, "terraform-test-org", "name")
+	flattenLoadBalancer := flattenLoadBalancer(expectedLoadBalancer, "name", "terraform-test-org")
 
 	if diff := deep.Equal(expectedFlatten, flattenLoadBalancer); diff != nil {
 		t.Errorf("LoadBalancer was not flattened correctly. Diff: %s", diff)
@@ -393,16 +420,33 @@ func TestControlPlane_FlattenGvcSidecar(t *testing.T) {
 }
 
 /*** Generate ***/
-func generateTestLoadBalancer(trustedProxies int) (*client.LoadBalancer, *client.LoadBalancer, []interface{}) {
+func generateTestLoadBalancer(trustedProxies int, org string, class string) (*client.LoadBalancer, *client.LoadBalancer, []interface{}) {
 	dedicated := true
+	ipsetName := "my-ipset"
 	_, expectedRedirect, redirectFlatten := generateTestRedirect()
 
-	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies, redirectFlatten)
-	loadBalancer := buildLoadBalancer(flatten)
+	var ipset string
+	var expectedIpSet string
+
+	switch class {
+	case "complete-link":
+		ipset = fmt.Sprintf("/org/%s/ipset/%s", org, ipsetName)
+		expectedIpSet = ipset
+	case "short-link":
+		ipset = fmt.Sprintf("//ipset/%s", ipsetName)
+		expectedIpSet = ipset
+	default:
+		ipset = ipsetName
+		expectedIpSet = fmt.Sprintf("/org/%s/ipset/%s", org, ipsetName)
+	}
+
+	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies, redirectFlatten, ipset)
+	loadBalancer := buildLoadBalancer(flatten, org)
 	expectedLoadBalancer := &client.LoadBalancer{
 		Dedicated:      &dedicated,
 		TrustedProxies: &trustedProxies,
 		Redirect:       expectedRedirect,
+		IpSet:          &expectedIpSet,
 	}
 
 	return loadBalancer, expectedLoadBalancer, flatten
@@ -422,11 +466,13 @@ func generateTestRedirect() (*client.Redirect, *client.Redirect, []interface{}) 
 
 func generateTestRedirectClass() (*client.RedirectClass, *client.RedirectClass, []interface{}) {
 	status5XX := "https://example.com/error/5xx"
+	status401 := "https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id"
 
-	flatten := generateFlatTestRedirectClass(status5XX)
+	flatten := generateFlatTestRedirectClass(status5XX, status401)
 	class := buildRedirectClass(flatten)
 	expectedClass := &client.RedirectClass{
 		Status5XX: &status5XX,
+		Status401: &status401,
 	}
 
 	return class, expectedClass, flatten
@@ -449,11 +495,12 @@ func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client
 }
 
 // Flatten //
-func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int, redirect []interface{}) []interface{} {
+func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int, redirect []interface{}, ipset string) []interface{} {
 	spec := map[string]interface{}{
 		"dedicated":       dedicated,
 		"trusted_proxies": trustedProxies,
 		"redirect":        redirect,
+		"ipset":           ipset,
 	}
 
 	return []interface{}{
@@ -472,9 +519,10 @@ func generateFlatTestRedirect(class []interface{}) []interface{} {
 	}
 }
 
-func generateFlatTestRedirectClass(status5XX string) []interface{} {
+func generateFlatTestRedirectClass(status5XX string, status401 string) []interface{} {
 	spec := map[string]interface{}{
 		"status_5xx":            status5XX,
+		"status_401":            status401,
 		"placeholder_attribute": true,
 	}
 

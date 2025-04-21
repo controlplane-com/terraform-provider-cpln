@@ -156,6 +156,11 @@ func GvcSchema() map[string]*schema.Schema {
 												Description: "Specify the redirect url for any 500 level status code.",
 												Optional:    true,
 											},
+											"status_401": {
+												Type:        schema.TypeString,
+												Description: "An optional url redirect for 401 responses. Supports envoy format strings to include request information. E.g. https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id",
+												Optional:    true,
+											},
 											"placeholder_attribute": {
 												Type:     schema.TypeBool,
 												Optional: true,
@@ -171,6 +176,11 @@ func GvcSchema() map[string]*schema.Schema {
 								},
 							},
 						},
+					},
+					"ipset": {
+						Type:        schema.TypeString,
+						Description: "The link or the name of the IP Set that will be used for this load balancer.",
+						Optional:    true,
 					},
 				},
 			},
@@ -215,7 +225,7 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 
 	buildLocations(c.Org, d.Get("locations"), gvc.Spec)
 	buildPullSecrets(c.Org, d.Get("pull_secrets"), gvc.Spec)
-	gvc.Spec.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}))
+	gvc.Spec.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}), c.Org)
 
 	gvc.Spec.Tracing = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
 
@@ -281,7 +291,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 		buildLocations(c.Org, d.Get("locations"), gvcToUpdate.SpecReplace)
 		buildPullSecrets(c.Org, d.Get("pull_secrets"), gvcToUpdate.SpecReplace)
 		gvcToUpdate.SpecReplace.Env = GetGVCEnvChanges(d)
-		gvcToUpdate.SpecReplace.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}))
+		gvcToUpdate.SpecReplace.LoadBalancer = buildLoadBalancer(d.Get("load_balancer").([]interface{}), c.Org)
 		gvcToUpdate.SpecReplace.Sidecar = buildGvcSidecar(d.Get("sidecar").([]interface{}))
 
 		gvcToUpdate.SpecReplace.Tracing = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
@@ -345,7 +355,10 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 		return diag.FromErr(err)
 	}
 
-	if err := d.Set("load_balancer", flattenLoadBalancer(gvc.Spec.LoadBalancer)); err != nil {
+	// Check the state and classify how the user specified the IP Set for the load balancer
+	ipSetClassification := classifyStateIpSetLoadBalancer(d)
+
+	if err := d.Set("load_balancer", flattenLoadBalancer(gvc.Spec.LoadBalancer, ipSetClassification, org)); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -457,7 +470,7 @@ func buildPullSecrets(org string, pullSecrets interface{}, gvcSpec *client.GvcSp
 	gvcSpec.PullSecretLinks = &l
 }
 
-func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {
+func buildLoadBalancer(specs []interface{}, org string) *client.LoadBalancer {
 	if len(specs) == 0 || specs[0] == nil {
 		return nil
 	}
@@ -475,6 +488,10 @@ func buildLoadBalancer(specs []interface{}) *client.LoadBalancer {
 
 	if spec["redirect"] != nil {
 		output.Redirect = buildRedirect(spec["redirect"].([]interface{}))
+	}
+
+	if spec["ipset"] != nil {
+		output.IpSet = formatIpSetPath(spec["ipset"].(string), org)
 	}
 
 	return &output
@@ -507,6 +524,10 @@ func buildRedirectClass(specs []interface{}) *client.RedirectClass {
 
 	if spec["status_5xx"] != nil {
 		output.Status5XX = GetString(spec["status_5xx"])
+	}
+
+	if spec["status_401"] != nil {
+		output.Status401 = GetString(spec["status_401"])
 	}
 
 	return &output
@@ -577,23 +598,34 @@ func flattenPullSecrets(gvcSpec *client.GvcSpec, org string) []interface{} {
 	return make([]interface{}, 0)
 }
 
-func flattenLoadBalancer(gvcSpec *client.LoadBalancer) []interface{} {
-	if gvcSpec == nil {
+func flattenLoadBalancer(spec *client.LoadBalancer, ipSetClassification string, org string) []interface{} {
+	if spec == nil {
 		return nil
 	}
 
 	loadBalancer := map[string]interface{}{}
 
-	if gvcSpec.Dedicated != nil {
-		loadBalancer["dedicated"] = *gvcSpec.Dedicated
+	if spec.Dedicated != nil {
+		loadBalancer["dedicated"] = *spec.Dedicated
 	}
 
-	if gvcSpec.TrustedProxies != nil {
-		loadBalancer["trusted_proxies"] = *gvcSpec.TrustedProxies
+	if spec.TrustedProxies != nil {
+		loadBalancer["trusted_proxies"] = *spec.TrustedProxies
 	}
 
-	if gvcSpec.Redirect != nil {
-		loadBalancer["redirect"] = flattenRedirect(gvcSpec.Redirect)
+	if spec.Redirect != nil {
+		loadBalancer["redirect"] = flattenRedirect(spec.Redirect)
+	}
+
+	if spec.IpSet != nil {
+		switch ipSetClassification {
+		case "complete-link":
+			loadBalancer["ipset"] = *spec.IpSet
+		case "short-link":
+			loadBalancer["ipset"] = fmt.Sprintf("//ipset/%s", strings.SplitN(*spec.IpSet, "/ipset/", 2)[1])
+		default:
+			loadBalancer["ipset"] = strings.TrimPrefix(*spec.IpSet, fmt.Sprintf("/org/%s/ipset/", org))
+		}
 	}
 
 	return []interface{}{
@@ -634,6 +666,10 @@ func flattenRedirectClass(spec *client.RedirectClass) []interface{} {
 		class["status_5xx"] = *spec.Status5XX
 	}
 
+	if spec.Status401 != nil {
+		class["status_401"] = *spec.Status401
+	}
+
 	return []interface{}{
 		class,
 	}
@@ -656,5 +692,58 @@ func flattenGvcSidecar(gvcSpec *client.GvcSidecar) []interface{} {
 
 	return []interface{}{
 		sidecar,
+	}
+}
+
+/*** Helpers ***/
+
+func formatIpSetPath(ipSetParam string, orgName string) *string {
+	// Assume this is a an IP Set name until proven otherwise
+	ipsetName := ipSetParam
+
+	// If the IP Set is a full path, return it as is
+	if strings.HasPrefix(ipSetParam, "/org/") || strings.HasPrefix(ipSetParam, "//ipset/") {
+		return &ipSetParam
+	}
+
+	// Construct the full path and return a pointer to it
+	result := fmt.Sprintf("/org/%s/ipset/%s", orgName, ipsetName)
+	return &result
+}
+
+func classifyStateIpSetLoadBalancer(d *schema.ResourceData) string {
+	const defaultClass = "name"
+
+	if d.Get("load_balancer") == nil {
+		return defaultClass
+	}
+
+	// Retrieve the load_balancer list
+	loadBalancers := d.Get("load_balancer").([]interface{})
+
+	// If the list is empty or the first element is nil, return the default class
+	if len(loadBalancers) == 0 || loadBalancers[0] == nil {
+		return defaultClass
+	}
+
+	// Pull the first load_balancer map
+	loadBalancer := loadBalancers[0].(map[string]interface{})
+
+	// Check if the ipset key exists
+	if loadBalancer["ipset"] == nil {
+		return defaultClass
+	}
+
+	// Get the ipset value
+	ipSet := loadBalancer["ipset"].(string)
+
+	// Classify based on ipset’s prefix
+	switch {
+	case strings.HasPrefix(ipSet, "/org/"):
+		return "complete-link"
+	case strings.HasPrefix(ipSet, "//ipset/"):
+		return "short-link"
+	default:
+		return defaultClass
 	}
 }

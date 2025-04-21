@@ -49,6 +49,7 @@ type LoadBalancer struct {
 	Dedicated      *bool     `json:"dedicated,omitempty"`
 	TrustedProxies *int      `json:"trustedProxies,omitempty"`
 	Redirect       *Redirect `json:"redirect,omitempty"`
+	IpSet          *string   `json:"ipSet,omitempty"`
 }
 
 type Redirect struct {
@@ -57,6 +58,7 @@ type Redirect struct {
 
 type RedirectClass struct {
 	Status5XX *string `json:"status5xx,omitempty"`
+	Status401 *string `json:"status401,omitempty"`
 }
 
 // GetGvcs - Get All Gvcs
