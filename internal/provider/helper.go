@@ -252,7 +252,7 @@ func NameValidator(val interface{}, key string) (warns []string, errs []error) {
 
 	v := val.(string)
 
-	re := regexp.MustCompile(`^[a-z][-a-z0-9]([-a-z0-9])*[a-z0-9]$`)
+	re := regexp.MustCompile(`^[a-z]([-a-z0-9])*[a-z0-9]$`)
 
 	if !re.MatchString(v) {
 		errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
@@ -957,4 +957,24 @@ func toFloat64(value interface{}) float64 {
 	default:
 		return 0.0
 	}
+}
+
+func toInterfaceSlice[T any](src []T) []interface{} {
+	dst := make([]interface{}, len(src))
+
+	for i, v := range src {
+		dst[i] = v
+	}
+
+	return dst
+}
+
+func contains(opts []string, opt string) bool {
+	for _, o := range opts {
+		if o == opt {
+			return true
+		}
+	}
+
+	return false
 }

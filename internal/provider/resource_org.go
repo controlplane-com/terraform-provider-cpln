@@ -147,6 +147,14 @@ func orgSchema() map[string]*schema.Schema {
 						Optional:     true,
 						ValidateFunc: ObservabilityValidator,
 					},
+					"default_alert_emails": {
+						Type:        schema.TypeSet,
+						Description: "These emails are configured as alert recipients in Grafana when the 'grafana-default-email' contact delivery type is 'Email'.",
+						Optional:    true,
+						Elem: &schema.Schema{
+							Type: schema.TypeString,
+						},
+					},
 				},
 			},
 		},
@@ -435,6 +443,7 @@ func buildObservability(specs []interface{}) *client.Observability {
 		LogsRetentionDays:    GetInt(spec["logs_retention_days"].(int)),
 		MetricsRetentionDays: GetInt(spec["metrics_retention_days"].(int)),
 		TracesRetentionDays:  GetInt(spec["traces_retention_days"].(int)),
+		DefaultAlertEmails:   BuildStringTypeSet(spec["default_alert_emails"]),
 	}
 }
 
@@ -553,6 +562,7 @@ func flattenObservability(spec *client.Observability) []interface{} {
 		"logs_retention_days":    *spec.LogsRetentionDays,
 		"metrics_retention_days": *spec.MetricsRetentionDays,
 		"traces_retention_days":  *spec.TracesRetentionDays,
+		"default_alert_emails":   FlattenStringTypeSet(spec.DefaultAlertEmails),
 	}
 
 	return []interface{}{

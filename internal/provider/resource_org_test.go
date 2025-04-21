@@ -43,6 +43,7 @@ func testAccControlPlaneOrg() string {
 		  logs_retention_days    = 55
 		  metrics_retention_days = 65
 		  traces_retention_days  = 75
+			default_alert_emails   = ["bob@example.com", "rob@example.com", "abby@example.com"]
 		}
 
 		security {
@@ -75,7 +76,7 @@ func TestControlPlane_BuildOrgAuthConfig(t *testing.T) {
 func TestControlPlane_BuildOrgObservability(t *testing.T) {
 
 	expectedObservability := generateTestOrgObservability()
-	observability := buildObservability(generateFlatTestOrgObservability(*expectedObservability.LogsRetentionDays, *expectedObservability.MetricsRetentionDays, *expectedObservability.TracesRetentionDays))
+	observability := buildObservability(generateFlatTestOrgObservability(true, *expectedObservability.LogsRetentionDays, *expectedObservability.MetricsRetentionDays, *expectedObservability.TracesRetentionDays, *expectedObservability.DefaultAlertEmails))
 
 	if diff := deep.Equal(observability, expectedObservability); diff != nil {
 		t.Errorf("Org Observability was not built correctly, Diff: %s", diff)
@@ -129,7 +130,7 @@ func TestControlPlane_FlattenOrgAuthConfig(t *testing.T) {
 func TestControlPlane_FlattenOrgObservability(t *testing.T) {
 
 	expectedObservability := generateTestOrgObservability()
-	expectedFlatten := generateFlatTestOrgObservability(*expectedObservability.LogsRetentionDays, *expectedObservability.MetricsRetentionDays, *expectedObservability.TracesRetentionDays)
+	expectedFlatten := generateFlatTestOrgObservability(false, *expectedObservability.LogsRetentionDays, *expectedObservability.MetricsRetentionDays, *expectedObservability.TracesRetentionDays, *expectedObservability.DefaultAlertEmails)
 	flattenedObservability := flattenObservability(expectedObservability)
 
 	if diff := deep.Equal(expectedFlatten, flattenedObservability); diff != nil {
@@ -157,11 +158,13 @@ func generateTestOrgObservability() *client.Observability {
 	logsRetentionDays := 60
 	metricsRetentionDays := 50
 	tracesRetentionDays := 40
+	defaultAlertEmails := []string{"bob@example.com", "rob@example.com", "abby@example.com"}
 
 	expectedObservability := client.Observability{
 		LogsRetentionDays:    &logsRetentionDays,
 		MetricsRetentionDays: &metricsRetentionDays,
 		TracesRetentionDays:  &tracesRetentionDays,
+		DefaultAlertEmails:   &defaultAlertEmails,
 	}
 
 	return &expectedObservability
@@ -233,12 +236,25 @@ func generateFlatTestOrgAuthConfig(useSet bool, domainAutoMembers []string, saml
 	}
 }
 
-func generateFlatTestOrgObservability(logsRetentionDays int, metricsRetentionDays int, tracesRetentionDays int) []interface{} {
+func generateFlatTestOrgObservability(useSet bool, logsRetentionDays int, metricsRetentionDays int, tracesRetentionDays int, defaultAlertEmails []string) []interface{} {
+
+	defaultAlertEmailsInterfaceSlice := make([]interface{}, len(defaultAlertEmails))
+
+	for i, v := range defaultAlertEmails {
+		defaultAlertEmailsInterfaceSlice[i] = v
+	}
 
 	spec := map[string]interface{}{
 		"logs_retention_days":    logsRetentionDays,
 		"metrics_retention_days": metricsRetentionDays,
 		"traces_retention_days":  tracesRetentionDays,
+	}
+
+	if useSet {
+		stringFunc := schema.HashSchema(StringSchema())
+		spec["default_alert_emails"] = schema.NewSet(stringFunc, defaultAlertEmailsInterfaceSlice)
+	} else {
+		spec["default_alert_emails"] = defaultAlertEmailsInterfaceSlice
 	}
 
 	return []interface{}{
