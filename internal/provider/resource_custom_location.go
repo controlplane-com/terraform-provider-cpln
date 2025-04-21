@@ -6,6 +6,8 @@ import (
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 
+	"slices"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -204,4 +206,10 @@ func setCustomLocationResource(d *schema.ResourceData, location *client.Location
 	}
 
 	return nil
+}
+
+// Helpers //
+
+func IsCustomLocation(provider string) bool {
+	return slices.Contains(allowedProviders, provider)
 }
