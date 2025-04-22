@@ -45,44 +45,48 @@ func TestAccControlPlaneGvc_basic(t *testing.T) {
 		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "55.55", gvcEnvoyJson, 1, "my-ipset"),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "55.55", gvcEnvoyJson, 1, "my-ipset", "default"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
 					testAccCheckControlPlaneGvcAttributes(55.55, gvcEnvoyJson, 1, &testGvc, org, "name"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "default"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset"),
+				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset", "default"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
 					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "name"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "default"),
 				),
 			},
 			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset"),
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset", "org"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
 					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "name"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "org"),
 				),
 			},
 
 			// GVC With Load Balancer - IP Set Complete Link
 			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, fmt.Sprintf("/org/%s/ipset/my-ipset", org)),
+				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, fmt.Sprintf("/org/%s/ipset/my-ipset", org), "org"),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
 					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "complete-link"),
 					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
+					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "org"),
 				),
 			},
 		},
 	})
 }
 
-func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string, trustedProxies int, ipset string) string {
+func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string, trustedProxies int, ipset string, endpointNamingFormat string) string {
 
 	return fmt.Sprintf(`
 
@@ -127,10 +131,10 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 		name        = "%s"	
 		description = "%s"
 
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
+		endpoint_naming_format = "%s"
+		locations              = ["aws-eu-central-1", "aws-us-west-2"]
+		pull_secrets           = [cpln_secret.docker.name]
 
-		pull_secrets = [cpln_secret.docker.name]
-	  
 		tags = {
 		  terraform_generated = "true"
 		  acceptance_test = "true"
@@ -148,7 +152,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 
 			// Opaque Secret Only
 			credentials = cpln_secret.opaque.self_link
-		}	
+		}
 
 		load_balancer {
 			dedicated = true
@@ -167,7 +171,7 @@ func testAccControlPlaneGvc(random, random2, name, description, sampling string,
 			envoy = jsonencode(%s)
 		}
 
-	  }`, random, random2, name, description, sampling, trustedProxies, ipset, envoy)
+	  }`, random, random2, name, description, endpointNamingFormat, sampling, trustedProxies, ipset, envoy)
 }
 
 func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client.Gvc) resource.TestCheckFunc {
