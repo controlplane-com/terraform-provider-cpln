@@ -64,9 +64,16 @@ func resourceDomainRoute() *schema.Resource {
 				Optional:    true,
 			},
 			"host_prefix": {
-				Type:        schema.TypeString,
-				Description: "This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.",
-				Optional:    true,
+				Type:          schema.TypeString,
+				Description:   "This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.",
+				Optional:      true,
+				ConflictsWith: []string{"host_regex"},
+			},
+			"host_regex": {
+				Type:          schema.TypeString,
+				Description:   "A regex to match the host header. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configure for wildcard support. Contact your account manager for details.",
+				Optional:      true,
+				ConflictsWith: []string{"host_prefix"},
 			},
 			"headers": {
 				Type:        schema.TypeList,
@@ -227,6 +234,7 @@ func resourceDomainRouteCreate(ctx context.Context, d *schema.ResourceData, m in
 		WorkloadLink:  GetString(d.Get("workload_link")),
 		Port:          GetInt(d.Get("port")),
 		HostPrefix:    GetString(d.Get("host_prefix")),
+		HostRegex:     GetString(d.Get("host_regex")),
 	}
 
 	if d.Get("prefix") != nil {
@@ -297,7 +305,7 @@ func resourceDomainRouteRead(ctx context.Context, d *schema.ResourceData, m inte
 
 func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	if d.HasChanges("prefix", "replace_prefix", "workload_link", "port", "host_prefix", "headers") {
+	if d.HasChanges("prefix", "replace_prefix", "workload_link", "port", "host_prefix", "host_regex", "headers") {
 
 		domainLink := d.Get("domain_link").(string)
 		domainPort := d.Get("domain_port").(int)
@@ -307,6 +315,7 @@ func resourceDomainRouteUpdate(ctx context.Context, d *schema.ResourceData, m in
 			WorkloadLink:  GetString(d.Get("workload_link")),
 			Port:          GetInt(d.Get("port")),
 			HostPrefix:    GetString(d.Get("host_prefix")),
+			HostRegex:     GetString(d.Get("host_regex")),
 		}
 
 		if d.Get("prefix") != nil {
@@ -416,6 +425,10 @@ func setDomainRoute(d *schema.ResourceData, domainLink string, domainPort int, r
 	}
 
 	if err := d.Set("host_prefix", route.HostPrefix); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("host_regex", route.HostRegex); err != nil {
 		return diag.FromErr(err)
 	}
 

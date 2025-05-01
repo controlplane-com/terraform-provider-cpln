@@ -49,6 +49,7 @@ type DomainRoute struct {
 	WorkloadLink  *string             `json:"workloadLink,omitempty"`
 	Port          *int                `json:"port,omitempty"`
 	HostPrefix    *string             `json:"hostPrefix,omitempty"`
+	HostRegex     *string             `json:"hostRegex,omitempty"`
 	Headers       *DomainRouteHeaders `json:"headers,omitempty"`
 }
 
@@ -234,6 +235,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 					}
 
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostRegex = route.HostRegex
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
 
 					// Update resource

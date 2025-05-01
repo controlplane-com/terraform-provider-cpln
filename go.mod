@@ -1,6 +1,7 @@
 module github.com/controlplane-com/terraform-provider-cpln
 
 go 1.23.0
+
 toolchain go1.24.1
 
 require (

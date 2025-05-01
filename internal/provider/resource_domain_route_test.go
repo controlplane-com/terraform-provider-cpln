@@ -40,6 +40,7 @@ func TestAccControlPlaneDomainRoute_basic(t *testing.T) {
 					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", subDomainName, &domain, &org),
 					testAccCheckControlPlaneDomainRouteExists("cpln_domain_route.first-route", fmt.Sprintf("%s_443_/first", subDomainLink)),
 					testAccCheckControlPlaneDomainRouteExists("cpln_domain_route.second-route", fmt.Sprintf("%s_80_/second", subDomainLink)),
+					testAccCheckControlPlaneDomainRouteExists("cpln_domain_route.third-route", fmt.Sprintf("%s_80_/third", subDomainLink)),
 					testAccCheckControlPlaneDomainRouteAttributes("domain-with-prefix", &domain, workloadLink),
 					resource.TestCheckResourceAttr("cpln_domain.subdomain", "name", subDomainName),
 					resource.TestCheckResourceAttr("cpln_domain.subdomain", "description", "NS - Path Based"),
@@ -218,11 +219,34 @@ func testAccControlPlaneDomainRoute_Prefix(random string, domainName string, sub
 		domain_link = cpln_domain.subdomain.self_link
 		domain_port = 80
 
-		prefix 		   = "/second"
+		prefix 		     = "/second"
 		replace_prefix = "/"
 		workload_link  = cpln_workload.new.self_link
-		port 		   = 443
+		port 		       = 443
 		host_prefix    = "my.thing."
+
+		headers {
+			request {
+				set = {
+					Host = "example.com"
+					"Content-Type" = "application/json"
+				}
+			}
+		}
+	}
+
+	resource "cpln_domain_route" "third-route" {
+
+		depends_on = [cpln_domain_route.second-route]
+
+		domain_link = cpln_domain.subdomain.self_link
+		domain_port = 80
+
+		prefix 		     = "/third"
+		replace_prefix = "/"
+		workload_link  = cpln_workload.new.self_link
+		port 		       = 443
+		host_regex     = "reg"
 
 		headers {
 			request {
@@ -484,6 +508,14 @@ func generateTestDomainRoutePorts_Prefix(workloadLink string) *[]client.DomainSp
 					WorkloadLink:  GetString(workloadLink),
 					Port:          GetInt(443),
 					HostPrefix:    GetString("my.thing."),
+					Headers:       headers,
+				},
+				{
+					Prefix:        GetString("/third"),
+					ReplacePrefix: GetString("/"),
+					WorkloadLink:  GetString(workloadLink),
+					Port:          GetInt(443),
+					HostRegex:     GetString("reg"),
 					Headers:       headers,
 				},
 			},
