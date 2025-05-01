@@ -340,4 +340,16 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Replace _sentinel with placeholder_attribute to fix an issue in pulumi-go.
 - v1.1.46 
     - Add MK8s Kubeconfig resource
-    - Add extras to workload resource    
+    - Add extras to workload resource
+- v1.1.47
+    - Notify users to use the custom location resource for BYOK locations.
+    - Allow resources to have 2 character names.
+    - Add Custom GPU to workload resource.
+    - Add inbound & outbound blocked cidr to workload firewall.
+    - Add Request Retry Policy to workload resource.
+    - Add Default Alert Emails to Org resource.
+    - Add ipset to load balancer in GVC resource.
+    - Specify that an IP Set resource can target a GVC link.
+    - Add status401 to load balancer in GVC resource.
+    - Add endpoint naming format to GVC resource.
+    - Add host regex to domain resource.
