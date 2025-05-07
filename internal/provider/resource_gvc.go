@@ -60,6 +60,11 @@ func GvcSchema() map[string]*schema.Schema {
 			Optional:    true,
 			Deprecated:  "Selecting a domain on a GVC will be deprecated in the future. Use the 'cpln_domain resource' instead.",
 		},
+		"endpoint_naming_format": {
+			Type:        schema.TypeString,
+			Description: "Customizes the subdomain format for the canonical workload endpoint. `default` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${org}.cpln.app'.",
+			Optional:    true,
+		},
 		"alias": {
 			Type:        schema.TypeString,
 			Description: "The alias name of the GVC.",
@@ -201,6 +206,7 @@ func resourceGvcCreate(_ context.Context, d *schema.ResourceData, m interface{})
 	gvc.Spec = &client.GvcSpec{}
 
 	gvc.Spec.Domain = GetString(d.Get("domain"))
+	gvc.Spec.EndpointNamingFormat = GetString(d.Get("endpoint_naming_format"))
 
 	gvcEnv := []client.NameValue{}
 	keys, envMap := MapSortHelper(d.Get("env"))
@@ -277,7 +283,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 	// log.Printf("[INFO] Method: resourceGvcUpdate")
 
-	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "controlplane_tracing", "load_balancer", "sidecar") {
+	if d.HasChanges("description", "locations", "env", "tags", "domain", "pull_secrets", "lightstep_tracing", "otel_tracing", "controlplane_tracing", "load_balancer", "sidecar", "endpoint_naming_format") {
 
 		c := m.(*client.Client)
 
@@ -288,6 +294,7 @@ func resourceGvcUpdate(_ context.Context, d *schema.ResourceData, m interface{})
 
 		gvcToUpdate.SpecReplace = &client.GvcSpec{}
 		gvcToUpdate.SpecReplace.Domain = GetString(d.Get("domain"))
+		gvcToUpdate.SpecReplace.EndpointNamingFormat = GetString(d.Get("endpoint_naming_format"))
 		buildLocations(c.Org, d.Get("locations"), gvcToUpdate.SpecReplace)
 		buildPullSecrets(c.Org, d.Get("pull_secrets"), gvcToUpdate.SpecReplace)
 		gvcToUpdate.SpecReplace.Env = GetGVCEnvChanges(d)
@@ -352,6 +359,10 @@ func setGvc(d *schema.ResourceData, gvc *client.Gvc, org string) diag.Diagnostic
 	}
 
 	if err := d.Set("pull_secrets", flattenPullSecrets(gvc.Spec, org)); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set("endpoint_naming_format", gvc.Spec.EndpointNamingFormat); err != nil {
 		return diag.FromErr(err)
 	}
 

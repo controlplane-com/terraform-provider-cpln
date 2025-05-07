@@ -24,13 +24,14 @@ type Gvc struct {
 
 // GvcSpec - GVC Spec
 type GvcSpec struct {
-	StaticPlacement *StaticPlacement `json:"staticPlacement,omitempty"`
-	PullSecretLinks *[]string        `json:"pullSecretLinks,omitempty"`
-	Domain          *string          `json:"domain,omitempty"`
-	Tracing         *Tracing         `json:"tracing,omitempty"`
-	Sidecar         *GvcSidecar      `json:"sidecar,omitempty"`
-	Env             *[]NameValue     `json:"env,omitempty"`
-	LoadBalancer    *LoadBalancer    `json:"loadBalancer,omitempty"`
+	StaticPlacement      *StaticPlacement `json:"staticPlacement,omitempty"`
+	PullSecretLinks      *[]string        `json:"pullSecretLinks,omitempty"`
+	Domain               *string          `json:"domain,omitempty"`
+	EndpointNamingFormat *string          `json:"endpointNamingFormat,omitempty"`
+	Tracing              *Tracing         `json:"tracing,omitempty"`
+	Sidecar              *GvcSidecar      `json:"sidecar,omitempty"`
+	Env                  *[]NameValue     `json:"env,omitempty"`
+	LoadBalancer         *LoadBalancer    `json:"loadBalancer,omitempty"`
 }
 
 // StaticPlacement - Static Placement
