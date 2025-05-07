@@ -3787,7 +3787,7 @@ func validateOptions(workloadType, errorMsg string, options *client.Options, has
 	if options != nil && options.AutoScaling != nil {
 		if workloadType == "cron" {
 			if options.CapacityAI != nil && *options.CapacityAI {
-				return diag.FromErr(fmt.Errorf(errorMsg + "capacity AI must be false when workload type is 'cron'"))
+				return diag.FromErr(fmt.Errorf("%s. Capacity AI must be false when workload type is 'cron'", errorMsg))
 			}
 
 			if hasMinCpu {
@@ -3799,27 +3799,27 @@ func validateOptions(workloadType, errorMsg string, options *client.Options, has
 			}
 
 			if options.AutoScaling.MinScale != nil && *options.AutoScaling.MinScale != 1 {
-				return diag.FromErr(fmt.Errorf(errorMsg + "min scale must be set to 1 when workload type is 'cron'"))
+				return diag.FromErr(fmt.Errorf("%s. min scale must be set to 1 when workload type is 'cron'", errorMsg))
 			}
 
 			if options.AutoScaling.MaxScale != nil && *options.AutoScaling.MaxScale != 1 {
-				return diag.FromErr(fmt.Errorf(errorMsg + "max scale must be set to 1 when workload type is 'cron'"))
+				return diag.FromErr(fmt.Errorf("%s. max scale must be set to 1 when workload type is 'cron'", errorMsg))
 			}
 		} else {
 			if options.AutoScaling.Multi != nil {
 				if options.AutoScaling.Metric != nil {
-					return diag.FromErr(fmt.Errorf(errorMsg + "'metric' must not exist simultaneously with 'multi'"))
+					return diag.FromErr(fmt.Errorf("%s. 'metric' must not exist simultaneously with 'multi'", errorMsg))
 				}
 
 				if options.AutoScaling.Target != nil && *options.AutoScaling.Target > 0 {
-					return diag.FromErr(fmt.Errorf(errorMsg + "'target' must not exist simultaneously with 'multi'"))
+					return diag.FromErr(fmt.Errorf("%s. 'target' must not exist simultaneously with 'multi'", errorMsg))
 				}
 
 				if options.AutoScaling.MetricPercentile == nil {
-					return diag.FromErr(fmt.Errorf(errorMsg + "'metric_percentile' is required when 'multi' is set"))
+					return diag.FromErr(fmt.Errorf("%s. 'metric_percentile' is required when 'multi' is set", errorMsg))
 				}
 			} else if options.AutoScaling.Metric == nil || strings.TrimSpace(*options.AutoScaling.Metric) == "" {
-				return diag.FromErr(fmt.Errorf(errorMsg + "scaling strategy metric is required"))
+				return diag.FromErr(fmt.Errorf("%s. scaling strategy metric is required", errorMsg))
 			}
 
 			if options.CapacityAI == nil || !*options.CapacityAI {

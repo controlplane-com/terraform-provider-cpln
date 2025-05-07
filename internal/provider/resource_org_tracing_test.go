@@ -155,7 +155,7 @@ func testAccCheckControlPlaneOrgTracingExists(resourceName string, sampling floa
 		}
 
 		if err != nil {
-			return fmt.Errorf(err.Error())
+			return fmt.Errorf("%s", err.Error())
 		}
 
 		switch tracingType {

@@ -353,3 +353,4 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add status401 to load balancer in GVC resource.
     - Add endpoint naming format to GVC resource.
     - Add host regex to domain resource.
+    - Update Go dependencies. 

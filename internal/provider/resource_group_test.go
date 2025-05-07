@@ -367,7 +367,7 @@ func TestControlPlane_FlattenMemberLinks(t *testing.T) {
 	userIDs, serviceAccounts, err := flattenMemberLinks("testorg", generateTestMemberLinks().MemberLinks)
 
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("%s", err.Error())
 		return
 	}
 
@@ -388,7 +388,7 @@ func TestControlPlane_FlattenQuery(t *testing.T) {
 	query, err := FlattenQueryHelper(generateTestGroupQuery().MemberQuery)
 
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("%s", err.Error())
 		return
 	}
 
