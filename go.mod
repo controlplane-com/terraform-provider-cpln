@@ -65,7 +65,7 @@ require (
 	github.com/posener/complete v1.2.3 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.49.0 // indirect
-	github.com/refraction-networking/utls v1.6.7 // indirect
+	github.com/refraction-networking/utls v1.7.0 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
