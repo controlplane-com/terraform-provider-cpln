@@ -354,3 +354,6 @@ tar -cvzf terraform-provider-cpln_1.0.0_windows_amd64.zip terraform-provider-cpl
     - Add endpoint naming format to GVC resource.
     - Add host regex to domain resource.
     - Update Go dependencies. 
+- v1.1.48
+    - Fix org import with empty `saml only`.
+    - Fix empty IP Set issue in GVC load balancer.
