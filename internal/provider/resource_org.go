@@ -537,8 +537,10 @@ func flattenAuthConfig(spec *client.AuthConfig) []interface{} {
 		return nil
 	}
 
-	output := map[string]interface{}{
-		"saml_only": *spec.SamlOnly,
+	output := map[string]interface{}{}
+
+	if spec.SamlOnly != nil {
+		output["saml_only"] = *spec.SamlOnly
 	}
 
 	if len(*spec.DomainAutoMembers) > 0 {
