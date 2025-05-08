@@ -501,7 +501,7 @@ func buildLoadBalancer(specs []interface{}, org string) *client.LoadBalancer {
 		output.Redirect = buildRedirect(spec["redirect"].([]interface{}))
 	}
 
-	if spec["ipset"] != nil {
+	if spec["ipset"] != nil && spec["ipset"] != "" {
 		output.IpSet = formatIpSetPath(spec["ipset"].(string), org)
 	}
 
