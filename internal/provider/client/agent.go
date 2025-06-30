@@ -4,13 +4,11 @@ import (
 	"fmt"
 )
 
-// Agent - Agent
 type Agent struct {
 	Base
 	Status *AgentStatus `json:"status,omitempty"`
 }
 
-// AgentStatus - AgentStatus
 type AgentStatus struct {
 	BootstrapConfig *AgentBootstrapConfig `json:"bootstrapConfig,omitempty"`
 }

@@ -1,0 +1,13 @@
+// flatten{NAME} transforms *client.{CLIENT_TYPE} into a []models.{MODEL}.
+func ({OPERATOR_INSTANCE_NAME} *{OPERATOR_NAME}) flatten{NAME}(input *client.{CLIENT_TYPE}) []models.{MODEL} {
+	// Check if the input is nil
+  if input == nil {
+    return nil
+  }
+
+  // Build a single block
+  block := models.{MODEL}{}
+
+	// Return a slice containing the single block
+  return []models.{MODEL}{block}
+}

@@ -18,15 +18,16 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 - **gvc** (String) Name of the associated GVC.
 - **initial_capacity** (Integer) The initial volume size in this set, specified in GB. The minimum size for the performance class `general-purpose-ssd` is `10 GB`, while `high-throughput-ssd` requires at least `200 GB`.
 - **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`
-- **storage_class_suffix** (String) For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}
-- **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`
 
 ### Optional
 
 - **description** (String) Description of the Volume Set.
 - **tags** (Map of String) Key-value map of resource tags.
+- **storage_class_suffix** (String) For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}
+- **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`. Default: `ext4`.
 - **snapshots** (Block List, Max: 1) ([see below](#nestedblock--snapshots)).
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--autoscaling)).
+- **mount_options** (Block List, Max: 1) ([see below](#nestedblock--mount_options))
 
 <a id="nestedblock--snapshots"></a>
 
@@ -50,6 +51,17 @@ Required:
 - **min_free_percentage** (Integer) The guaranteed free space on the volume as a percentage of the volume's total size. Control Plane will try to maintain at least that many percent free by scaling up the total size. Minimum percentage: `1`. Maximum Percentage: `100`.
 - **scaling_factor** (Float64) When scaling is necessary, then `new_capacity = current_capacity * storageScalingFactor`. Minimum value: `1.1`.
 
+<a id="nestedblock--mount_options"></a>
+
+### `mount_options`
+
+Optionals:
+
+- **max_cpu** (String) Default: 2000m
+- **min_cpu** (String) Default: 500m
+- **min_memory** (String) Default: 1Gi
+- **max_memory** (String) Default: 2Gi
+
 ## Outputs
 
 - **cpln_id** (String) ID, in GUID format, of the Volume Set.
@@ -70,44 +82,47 @@ Required:
 
 ```terraform
 resource "cpln_gvc" "new" {
-    name        = "gvc-for-volume-set"
-    description = "This is a GVC description"
+  name        = "gvc-for-volume-set"
+  description = "This is a GVC description"
 
-    locations = ["aws-eu-central-1", "aws-us-west-2"]
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
 
-    tags = {
-        terraform_generated = "true"
-        acceptance_test     = "true"
-    }
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
 }
 
 resource "cpln_volume_set" "new" {
+  name 		= "volume-set-example"
+  description = "This is a Volume Set description"
 
-    name 		= "volume-set-example"
-    description = "This is a Volume Set description"
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
 
-    tags = {
-        terraform_generated = "true"
-        acceptance_test     = "true"
-    }
+  gvc 			     = cpln_gvc.new.name
+  initial_capacity     = 1000
+  performance_class    = "high-throughput-ssd"
+  file_system_type     = "xfs"
+  storage_class_suffix = "demo-class"
 
-    gvc 			     = cpln_gvc.new.name
-    initial_capacity     = 1000
-    performance_class    = "high-throughput-ssd"
-    file_system_type     = "xfs"
-    storage_class_suffix = "demo-class"
+  snapshots {
+    create_final_snapshot = false
+    retention_duration    = "2d"
+    schedule              = "0 * * * *"
+  }
 
-    snapshots {
-        create_final_snapshot = false
-        retention_duration    = "2d"
-        schedule              = "0 * * * *"
-    }
+  autoscaling {
+    max_capacity        = 2048
+    min_free_percentage = 2
+    scaling_factor      = 2.2
+  }
 
-    autoscaling {
-        max_capacity        = 2048
-        min_free_percentage = 2
-        scaling_factor      = 2.2
-    }
+  mount_options {
+    resources {}
+  }
 }
 ```
 

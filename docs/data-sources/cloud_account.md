@@ -22,4 +22,3 @@ output "cloud_account" {
   value = data.cpln_cloud_account.this.aws_identifiers
 }
 ```
-

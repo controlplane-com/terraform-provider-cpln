@@ -76,6 +76,7 @@ Optional:
 - **allow_origins** (Block List) Determines which origins are allowed to access a particular resource on a server from a web browser. ([see below](#nestedblock--spec--ports--cors--allow_origins))
 - **allow_methods** (List of Strings) Specifies the HTTP methods (such as `GET`, `POST`, `PUT`, `DELETE`, etc.) that are allowed for a cross-origin request to a specific resource.
 - **allow_headers** (List of Strings) Specifies the custom HTTP headers that are allowed in a cross-origin request to a specific resource.
+- **expose_headers** (List of Strings) The HTTP headers that a server allows to be exposed to the client in response to a cross-origin request. These headers provide additional information about the server's capabilities or requirements, aiding in proper handling of the request by the client's browser or application.
 - **max_age** (String) Maximum amount of time that a preflight request result can be cached by the client browser. Input is expected as a duration string (i.e, 24h, 20m, etc.).
 - **allow_credentials** (Boolean) Determines whether the client-side code (typically running in a web browser) is allowed to include credentials (such as cookies, HTTP authentication, or client-side SSL certificates) in cross-origin requests.
 
@@ -86,6 +87,7 @@ Optional:
 Optional:
 
 - **exact** (String) Value of allowed origin.
+- **regex** (String)
 
 <a id="nestedblock--spec--ports--tls"></a>
 
@@ -122,9 +124,10 @@ Status of the domain.
 
 Read-Only:
 
-- **endpoints** (Block List) ([see below](#nestedblock--status--endpoints))
 - **status** (String) Status of Domain. Possible values: `initializing`, `ready`, `pendingDnsConfig`, `pendingCertificate`, `usedByGvc`.
 - **warning** (String) Warning message.
+- **fingerprint** (String)
+- **endpoints** (Block List) ([see below](#nestedblock--status--endpoints))
 - **locations** (Block List) ([see below](#nestedblock--status--locations))
 - **dns_config** (Block List) ([see below](#nestedblock--status--dns_config))
 

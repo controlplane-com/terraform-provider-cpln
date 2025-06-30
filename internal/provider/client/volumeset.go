@@ -10,12 +10,13 @@ type VolumeSet struct {
 }
 
 type VolumeSetSpec struct {
-	InitialCapacity    *int                `json:"initialCapacity,omitempty"`
-	PerformanceClass   *string             `json:"performanceClass,omitempty"`
-	StorageClassSuffix *string             `json:"storageClassSuffix,omitempty"`
-	FileSystemType     *string             `json:"fileSystemType,omitempty"`
-	Snapshots          *VolumeSetSnapshots `json:"snapshots,omitempty"`
-	AutoScaling        *VolumeSetScaling   `json:"autoscaling,omitempty"`
+	InitialCapacity    *int                   `json:"initialCapacity,omitempty"`
+	PerformanceClass   *string                `json:"performanceClass,omitempty"`
+	StorageClassSuffix *string                `json:"storageClassSuffix,omitempty"`
+	FileSystemType     *string                `json:"fileSystemType,omitempty"`
+	Snapshots          *VolumeSetSnapshots    `json:"snapshots,omitempty"`
+	AutoScaling        *VolumeSetScaling      `json:"autoscaling,omitempty"`
+	MountOptions       *VolumeSetMountOptions `json:"mountOptions,omitempty"`
 }
 
 type VolumeSetStatus struct {
@@ -37,6 +38,18 @@ type VolumeSetScaling struct {
 	ScalingFactor     *float64 `json:"scalingFactor,omitempty"`
 }
 
+type VolumeSetMountOptions struct {
+	Resources *VolumeSetMountOptionsResources `json:"resources,omitempty"`
+}
+
+type VolumeSetMountOptionsResources struct {
+	MaxCpu    *string `json:"maxCpu,omitempty"`
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+	MaxMemory *string `json:"maxMemory,omitempty"`
+}
+
+// GetVolumeSet - Get volume set by name
 func (c *Client) GetVolumeSet(name string, gvc string) (*VolumeSet, int, error) {
 
 	volumeSet, code, err := c.GetResource(fmt.Sprintf("gvc/%s/volumeset/%s", gvc, name), new(VolumeSet))
@@ -47,6 +60,7 @@ func (c *Client) GetVolumeSet(name string, gvc string) (*VolumeSet, int, error) 
 	return volumeSet.(*VolumeSet), code, err
 }
 
+// CreateVolumeSet - Create a new volume set by name
 func (c *Client) CreateVolumeSet(volumeSet VolumeSet, gvc string) (*VolumeSet, int, error) {
 
 	code, err := c.CreateResource(fmt.Sprintf("gvc/%s/volumeset", gvc), *volumeSet.Name, volumeSet)
@@ -57,6 +71,7 @@ func (c *Client) CreateVolumeSet(volumeSet VolumeSet, gvc string) (*VolumeSet, i
 	return c.GetVolumeSet(*volumeSet.Name, gvc)
 }
 
+// UpdateVolumeSet - Update an existing volume set
 func (c *Client) UpdateVolumeSet(volumeSet VolumeSet, gvc string) (*VolumeSet, int, error) {
 
 	code, err := c.UpdateResource(fmt.Sprintf("gvc/%s/volumeset/%s", gvc, *volumeSet.Name), volumeSet)
@@ -67,6 +82,7 @@ func (c *Client) UpdateVolumeSet(volumeSet VolumeSet, gvc string) (*VolumeSet, i
 	return c.GetVolumeSet(*volumeSet.Name, gvc)
 }
 
+// DeleteVolumeSet - Delete volume set by name
 func (c *Client) DeleteVolumeSet(name string, gvc string) error {
 	return c.DeleteResource(fmt.Sprintf("gvc/%s/volumeset/%s", gvc, name))
 }

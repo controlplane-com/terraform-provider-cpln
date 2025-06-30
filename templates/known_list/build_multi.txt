@@ -1,0 +1,22 @@
+// build{NAME} constructs a []client.{CLIENT_TYPE} from the given Terraform state.
+func ({OPERATOR_INSTANCE_NAME} *{OPERATOR_NAME}) build{NAME}(state []models.{MODEL}) *[]client.{CLIENT_TYPE} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+  // Prepare the output slice
+  output := []client.{CLIENT_TYPE}{}
+
+  // Iterate over each block and construct an output item
+  for _, block := range state {
+    // Construct the item
+    item := client.{CLIENT_TYPE}{}
+
+    // Add the item to the output slice
+    output = append(output, item)
+  }
+
+	// Return a pointer to the output
+  return &output
+}

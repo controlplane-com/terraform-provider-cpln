@@ -67,10 +67,10 @@ Optional:
 Optional:
 
 - **access_key** (String) Access Key provided by AWS.
-- **repos** (Set of String) List of ECR repositories.
-- **role_arn** (String) Role ARN provided by AWS.
 - **secret_key** (String, Sensitive) Secret Key provided by AWS.
+- **role_arn** (String) Role ARN provided by AWS.
 - **external_id** (String) AWS IAM Role External ID. Used when setting up cross-account access to your ECR repositories.
+- **repos** (Set of String) List of ECR repositories.
 
 <a id="nestedblock--keypair"></a>
 

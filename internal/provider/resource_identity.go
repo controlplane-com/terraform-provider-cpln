@@ -7,422 +7,438 @@ import (
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/identity"
+	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceIdentity() *schema.Resource {
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &IdentityResource{}
+	_ resource.ResourceWithImportState = &IdentityResource{}
+)
 
-	return &schema.Resource{
-		CreateContext: resourceIdentityCreate,
-		ReadContext:   resourceIdentityRead,
-		UpdateContext: resourceIdentityUpdate,
-		DeleteContext: resourceIdentityDelete,
-		Schema: map[string]*schema.Schema{
-			"gvc": {
-				Type:         schema.TypeString,
-				Description:  "Name of the GVC.",
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "ID, in GUID format, of the Identity.",
-				Computed:    true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Description:  "Name of the Identity.",
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of the Identity.",
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:        schema.TypeMap,
-				Description: "Key-value map of resource tags.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+/*** Resource Model ***/
+
+// IdentityResourceModel holds the Terraform state for the resource.
+type IdentityResourceModel struct {
+	EntityBaseModel
+	Gvc                   types.String `tfsdk:"gvc"`
+	Status                types.Map    `tfsdk:"status"`
+	AwsAccessPolicy       types.List   `tfsdk:"aws_access_policy"`
+	GcpAccessPolicy       types.List   `tfsdk:"gcp_access_policy"`
+	AzureAccessPolicy     types.List   `tfsdk:"azure_access_policy"`
+	NgsAccessPolicy       types.List   `tfsdk:"ngs_access_policy"`
+	NetworkResource       types.List   `tfsdk:"network_resource"`
+	NativeNetworkResource types.List   `tfsdk:"native_network_resource"`
+}
+
+/*** Resource Configuration ***/
+
+// IdentityResource is the resource implementation.
+type IdentityResource struct {
+	EntityBase
+	Operations EntityOperations[IdentityResourceModel, client.Identity]
+}
+
+// NewIdentityResource returns a new instance of the resource implementation.
+func NewIdentityResource() resource.Resource {
+	return &IdentityResource{}
+}
+
+// Configure configures the resource before use.
+func (ir *IdentityResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	ir.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	ir.Operations = NewEntityOperations(ir.client, &IdentityResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (ir *IdentityResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Split the import ID
+	parts := strings.SplitN(req.ID, ":", 2)
+
+	// Validate that ID has exactly three non-empty segments
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		// Report error when import identifier format is unexpected
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf(
+				"Expected import identifier with format: "+
+					"'gvc:identity_name'. Got: %q", req.ID,
+			),
+		)
+
+		// Abort import operation on error
+		return
+	}
+
+	// Extract gvc and identityName from parts
+	gvc, identityName := parts[0], parts[1]
+
+	// Set the generated ID attribute in the Terraform state
+	resp.Diagnostics.Append(
+		resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(identityName))...,
+	)
+
+	// Set the GVC attribute in the Terraform state
+	resp.Diagnostics.Append(
+		resp.State.SetAttribute(ctx, path.Root("gvc"), types.StringValue(gvc))...,
+	)
+}
+
+// Metadata provides the resource type name.
+func (ir *IdentityResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_identity"
+}
+
+// Schema defines the schema for the resource.
+func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(ir.EntityBaseAttributes("identity"), map[string]schema.Attribute{
+			"gvc": schema.StringAttribute{
+				Description: "The GVC to which this identity belongs.",
+				Required:    true,
+				Validators: []validator.String{
+					validators.NameValidator{},
 				},
-				ValidateFunc: TagValidator,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to this resource. Can be referenced by other resources.",
-				Computed:    true,
-			},
-			"status": {
-				Type:        schema.TypeMap,
+			"status": schema.MapAttribute{
 				Description: "Key-value map of identity status. Available fields: `objectName`.",
+				ElementType: types.StringType,
 				Computed:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
-			"network_resource": {
-				Type:        schema.TypeList,
-				Description: "A network resource can be configured with: - A fully qualified domain name (FQDN) and ports. - An FQDN, resolver IP, and ports. - IP's and ports.",
-				Optional:    true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:        schema.TypeString,
-							Description: "Name of the Network Resource.",
-							Required:    true,
-						},
-						"agent_link": {
-							Type:         schema.TypeString,
-							Description:  "Full link to referenced Agent.",
-							Optional:     true,
-							ValidateFunc: LinkValidator,
-						},
-						"fqdn": {
-							Type:        schema.TypeString,
-							Description: "Fully qualified domain name.",
-							Optional:    true,
-						},
-						"resolver_ip": {
-							Type:        schema.TypeString,
-							Description: "Resolver IP.",
-							Optional:    true,
-						},
-						"ips": {
-							Type:        schema.TypeSet,
-							Description: "List of IP addresses.",
-							Optional:    true,
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
-							},
-						},
-						"ports": {
-							Type:        schema.TypeSet,
-							Description: "Ports to expose.",
-							Required:    true,
-							Elem: &schema.Schema{
-								Type: schema.TypeInt,
-							},
-						},
-					},
-				},
-			},
-			"aws_access_policy": {
-				Type:        schema.TypeList,
+		}),
+		Blocks: map[string]schema.Block{
+			"aws_access_policy": schema.ListNestedBlock{
 				Description: "A set of access policy rules that defines the actions and resources that an identity can access within an AWS environment.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"cloud_account_link": {
-							Type:         schema.TypeString,
-							Description:  "Full link to referenced cloud account.",
-							Required:     true,
-							ValidateFunc: LinkValidator,
-						},
-						"policy_refs": {
-							Type:        schema.TypeSet,
-							Description: "List of policies.",
-							Optional:    true,
-							// ConflictsWith: []string{"aws_access_policy.role_name"},
-							Elem: &schema.Schema{
-								Type: schema.TypeString,
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"cloud_account_link": schema.StringAttribute{
+							Description: "Full link to referenced cloud account.",
+							Required:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
 							},
 						},
-						"role_name": {
-							Type:        schema.TypeString,
+						"policy_refs": schema.SetAttribute{
+							Description: "List of policies.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"role_name": schema.StringAttribute{
 							Description: "Role name.",
 							Optional:    true,
-							// ConflictsWith: []string{"aws_access_policy.policy_refs"},
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-								v := val.(string)
-
-								re := regexp.MustCompile(`^([a-zA-Z0-9/+=,.@_-])+$`)
-
-								if !re.MatchString(v) {
-									errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
-									return
-								}
-
-								if len(v) > 65 {
-									errs = append(errs, fmt.Errorf("%q length must at most 65 characters, got: %d", key, len(v)))
-								}
-
-								return
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^([a-zA-Z0-9/+=,.@_-])+$`),
+									"must contain only letters, numbers, and the symbols / += , . @ _ -",
+								),
+								stringvalidator.LengthAtMost(64),
 							},
 						},
-						// "trust_policy": {
-						// 	Type:     schema.TypeList,
-						// 	Optional: true,
-						// 	MaxItems: 1,
-						// 	Elem: &schema.Resource{
-						// 		Schema: map[string]*schema.Schema{
-						// 			"version": {
-						// 				Type:     schema.TypeString,
-						// 				Optional: true,
-						// 			},
-						// 			"statement": {
-						// 				Type:     schema.TypeString,
-						// 				Optional: true,
-						// 			},
-						// 		},
-						// 	},
-						// },
+					},
+					Blocks: map[string]schema.Block{
+						"trust_policy": schema.ListNestedBlock{
+							Description: "The trust policy for the role.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"version": schema.StringAttribute{
+										Description: "Version of the policy.",
+										Optional:    true,
+										Computed:    true,
+										Default:     stringdefault.StaticString("2012-10-17"),
+									},
+									"statement": schema.SetAttribute{
+										Description: "List of statements.",
+										Optional:    true,
+										ElementType: types.MapType{
+											ElemType: types.StringType,
+										},
+									},
+								},
+							},
+						},
 					},
 				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
-			"gcp_access_policy": {
-				Type:        schema.TypeList,
+			"gcp_access_policy": schema.ListNestedBlock{
 				Description: "The GCP access policy can either contain an existing service_account or multiple bindings.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"cloud_account_link": {
-							Type:         schema.TypeString,
-							Description:  "Full link to referenced cloud account.",
-							Required:     true,
-							ValidateFunc: LinkValidator,
-						},
-						"scopes": {
-							Type:        schema.TypeString,
-							Description: "Comma delimited list of GCP scope URLs.",
-							Optional:    true,
-							Default:     "https://www.googleapis.com/auth/cloud-platform",
-						},
-						"service_account": {
-							Type:        schema.TypeString,
-							Description: "Name of existing GCP service account.",
-							Optional:    true,
-							// ConflictsWith: []string{"gcp_access_policy.binding"},
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-								v := val.(string)
-
-								re := regexp.MustCompile(`^.*\.gserviceaccount\.com$`)
-
-								if !re.MatchString(v) {
-									errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
-									return
-								}
-
-								return
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"cloud_account_link": schema.StringAttribute{
+							Description: "Full link to referenced cloud account.",
+							Required:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
 							},
 						},
-						"binding": {
-							Type:        schema.TypeList,
-							Description: "The association or connection between a particular identity, such as a user or a group, and a set of permissions or roles within the system.",
+						"scopes": schema.SetAttribute{
+							Description: "Comma delimited list of GCP scope URLs.",
+							ElementType: types.StringType,
 							Optional:    true,
-							// ConflictsWith: []string{"gcp_access_policy.service_account"},
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"resource": {
-										Type:        schema.TypeString,
+							Computed:    true,
+							Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{types.StringValue("https://www.googleapis.com/auth/cloud-platform")})),
+						},
+						"service_account": schema.StringAttribute{
+							Description: "Name of existing GCP service account.",
+							Optional:    true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^.*\.gserviceaccount\.com$`),
+									"must be a valid GCP service account email (i.e. ending in .gserviceaccount.com)",
+								),
+							},
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"binding": schema.ListNestedBlock{
+							Description: "The association or connection between a particular identity, such as a user or a group, and a set of permissions or roles within the system.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"resource": schema.StringAttribute{
 										Description: "Name of resource for binding.",
 										Optional:    true,
 									},
-									"roles": {
-										Type:        schema.TypeSet,
+									"roles": schema.SetAttribute{
 										Description: "List of allowed roles.",
+										ElementType: types.StringType,
 										Optional:    true,
-										MinItems:    1,
-										Elem: &schema.Schema{
-											Type: schema.TypeString,
+										Validators: []validator.Set{
+											setvalidator.SizeAtLeast(1),
 										},
-									},
-									"placeholder_attribute": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Default:  true,
 									},
 								},
 							},
 						},
 					},
 				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
-			"azure_access_policy": {
-				Type:        schema.TypeList,
+			"azure_access_policy": schema.ListNestedBlock{
 				Description: "A set of access policy rules that defines the actions and resources that an identity can access within an Azure environment.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"cloud_account_link": {
-							Type:         schema.TypeString,
-							Description:  "Full link to referenced cloud account.",
-							Required:     true,
-							ValidateFunc: LinkValidator,
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"cloud_account_link": schema.StringAttribute{
+							Description: "Full link to referenced cloud account.",
+							Required:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
+							},
 						},
-						"role_assignment": {
-							Type:        schema.TypeList,
+					},
+					Blocks: map[string]schema.Block{
+						"role_assignment": schema.ListNestedBlock{
 							Description: "The process of assigning specific roles or permissions to an entity, such as a user or a service principal, within the system.",
-							Optional:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"scope": {
-										Type:        schema.TypeString,
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"scope": schema.StringAttribute{
 										Description: "Scope of roles.",
 										Optional:    true,
 									},
-									"roles": {
-										Type:        schema.TypeSet,
+									"roles": schema.SetAttribute{
 										Description: "List of assigned roles.",
+										ElementType: types.StringType,
 										Optional:    true,
-										MinItems:    1,
-										Elem: &schema.Schema{
-											Type: schema.TypeString,
+										Validators: []validator.Set{
+											setvalidator.SizeAtLeast(1),
 										},
-									},
-									"placeholder_attribute": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Default:  true,
 									},
 								},
 							},
 						},
 					},
 				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
-			"native_network_resource": {
-				Type:        schema.TypeSet,
-				Description: "~> **NOTE** The configuration of a native network resource requires the assistance of Control Plane support.",
-				Optional:    true,
-				Elem:        NativeNetworkResourceSchema(),
-			},
-			"ngs_access_policy": {
-				Type:        schema.TypeList,
+			"ngs_access_policy": schema.ListNestedBlock{
 				Description: "A set of access policy rules that defines the actions and resources that an identity can access within an NGA environment.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"cloud_account_link": {
-							Type:         schema.TypeString,
-							Description:  "Full link to referenced cloud account.",
-							Required:     true,
-							ValidateFunc: LinkValidator,
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"cloud_account_link": schema.StringAttribute{
+							Description: "Full link to referenced cloud account.",
+							Required:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
+							},
 						},
-						"pub": {
-							Type:        schema.TypeList,
-							Description: "Pub Permission.",
+						"subs": schema.Int32Attribute{
+							Description: "Max number of subscriptions per connection. Default: -1",
 							Optional:    true,
-							MaxItems:    1,
-							Elem:        permResource(),
+							Computed:    true,
+							Default:     int32default.StaticInt32(-1),
 						},
-						"sub": {
-							Type:        schema.TypeList,
-							Description: "Sub Permission.",
+						"data": schema.Int32Attribute{
+							Description: "Max number of bytes a connection can send. Default: -1",
 							Optional:    true,
-							MaxItems:    1,
-							Elem:        permResource(),
+							Computed:    true,
+							Default:     int32default.StaticInt32(-1),
 						},
-						"resp": {
-							Type:        schema.TypeList,
+						"payload": schema.Int32Attribute{
+							Description: "Max message payload. Default: -1",
+							Optional:    true,
+							Computed:    true,
+							Default:     int32default.StaticInt32(-1),
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"pub": ir.NgsPermissions("Pub Permission."),
+						"sub": ir.NgsPermissions("Sub Permission."),
+						"resp": schema.ListNestedBlock{
 							Description: "Reponses.",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"max": {
-										Type:        schema.TypeInt,
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"max": schema.Int32Attribute{
 										Description: "Number of responses allowed on the replyTo subject, -1 means no limit. Default: -1",
 										Optional:    true,
-										Default:     1,
+										Computed:    true,
+										Default:     int32default.StaticInt32(1),
 									},
-									"ttl": {
-										Type:        schema.TypeString,
+									"ttl": schema.StringAttribute{
 										Description: "Deadline to send replies on the replyTo subject [#ms(millis) | #s(econds) | m(inutes) | h(ours)]. -1 means no restriction.",
 										Optional:    true,
 									},
 								},
 							},
-						},
-						"subs": {
-							Type:        schema.TypeInt,
-							Description: "Max number of subscriptions per connection. Default: -1",
-							Optional:    true,
-							Default:     -1,
-						},
-						"data": {
-							Type:        schema.TypeInt,
-							Description: "Max number of bytes a connection can send. Default: -1",
-							Optional:    true,
-							Default:     -1,
-						},
-						"payload": {
-							Type:        schema.TypeInt,
-							Description: "Max message payload. Default: -1",
-							Optional:    true,
-							Default:     -1,
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
 						},
 					},
 				},
-			},
-		},
-		Importer: &schema.ResourceImporter{
-			StateContext: importStateIdentity,
-		},
-	}
-}
-
-func NativeNetworkResourceSchema() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"name": {
-				Type:        schema.TypeString,
-				Description: "Name of the Native Network Resource.",
-				Required:    true,
-			},
-			"fqdn": {
-				Type:        schema.TypeString,
-				Description: "Fully qualified domain name.",
-				Required:    true,
-			},
-			"ports": {
-				Type:        schema.TypeSet,
-				Description: "Ports to expose. At least one port is required.",
-				Required:    true,
-				MinItems:    1,
-				Elem: &schema.Schema{
-					Type: schema.TypeInt,
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
 			},
-			"aws_private_link": {
-				Type:        schema.TypeList,
-				Description: "A feature provided by AWS that enables private connectivity between private VPCs and compute running at Control Plane without traversing the public internet.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"endpoint_service_name": {
-							Type:        schema.TypeString,
-							Description: "Endpoint service name.",
+			"network_resource": schema.ListNestedBlock{
+				Description: "A network resource can be configured with: - A fully qualified domain name (FQDN) and ports. - An FQDN, resolver IP, and ports. - IP's and ports.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "Name of the Network Resource.",
+							Required:    true,
+						},
+						"agent_link": schema.StringAttribute{
+							Description: "Full link to referenced Agent.",
+							Optional:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
+							},
+						},
+						"ips": schema.SetAttribute{
+							Description: "List of IP addresses.",
+							ElementType: types.StringType,
+							Optional:    true,
+							Validators: []validator.Set{
+								setvalidator.ConflictsWith(
+									path.MatchRelative().AtParent().AtName("fqdn"),
+								),
+							},
+						},
+						"fqdn": schema.StringAttribute{
+							Description: "Fully qualified domain name.",
+							Optional:    true,
+							Validators: []validator.String{
+								stringvalidator.ConflictsWith(
+									path.MatchRelative().AtParent().AtName("ips"),
+								),
+							},
+						},
+						"resolver_ip": schema.StringAttribute{
+							Description: "Resolver IP.",
+							Optional:    true,
+						},
+						"ports": schema.SetAttribute{
+							Description: "Ports to expose.",
+							ElementType: types.Int32Type,
 							Required:    true,
 						},
 					},
 				},
 			},
-			"gcp_service_connect": {
-				Type:        schema.TypeList,
-				Description: "Capability provided by GCP that allows private communication between private VPC networks and compute running at Control Plane.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"target_service": {
-							Type:        schema.TypeString,
-							Description: "Target service name.",
+			"native_network_resource": schema.ListNestedBlock{
+				Description: "~> **NOTE** The configuration of a native network resource requires the assistance of Control Plane support.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "Name of the Native Network Resource.",
 							Required:    true,
+						},
+						"fqdn": schema.StringAttribute{
+							Description: "Fully qualified domain name.",
+							Required:    true,
+						},
+						"ports": schema.SetAttribute{
+							Description: "Ports to expose. At least one port is required.",
+							ElementType: types.Int32Type,
+							Required:    true,
+							Validators: []validator.Set{
+								setvalidator.SizeAtLeast(1),
+							},
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"aws_private_link": schema.ListNestedBlock{
+							Description: "A feature provided by AWS that enables private connectivity between private VPCs and compute running at Control Plane without traversing the public internet.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"endpoint_service_name": schema.StringAttribute{
+										Description: "Endpoint service name.",
+										Required:    true,
+									},
+								},
+								Validators: []validator.Object{
+									objectvalidator.ConflictsWith(
+										path.MatchRelative().AtParent().AtParent().AtName("gcp_service_connect"),
+									),
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"gcp_service_connect": schema.ListNestedBlock{
+							Description: "Capability provided by GCP that allows private communication between private VPC networks and compute running at Control Plane.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"target_service": schema.StringAttribute{
+										Description: "Target service name.",
+										Required:    true,
+									},
+								},
+								Validators: []validator.Object{
+									objectvalidator.ConflictsWith(
+										path.MatchRelative().AtParent().AtParent().AtName("aws_private_link"),
+									),
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
 						},
 					},
 				},
@@ -431,958 +447,853 @@ func NativeNetworkResourceSchema() *schema.Resource {
 	}
 }
 
-func permResource() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"allow": {
-				Type:        schema.TypeSet,
-				Description: "List of allow subjects.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+// Create creates the resource.
+func (ir *IdentityResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, ir.Operations)
+}
+
+// Read fetches the current state of the resource.
+func (ir *IdentityResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, ir.Operations)
+}
+
+// Update modifies the resource.
+func (ir *IdentityResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, ir.Operations)
+}
+
+// Delete removes the resource.
+func (ir *IdentityResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, ir.Operations)
+}
+
+/*** Schemas ***/
+
+// NgsPermissions creates a nested list block schema using the provided description.
+func (ir *IdentityResource) NgsPermissions(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"allow": schema.SetAttribute{
+					Description: "List of allow subjects.",
+					ElementType: types.StringType,
+					Optional:    true,
+				},
+				"deny": schema.SetAttribute{
+					Description: "List of deny subjects.",
+					ElementType: types.StringType,
+					Optional:    true,
 				},
 			},
-			"deny": {
-				Type:        schema.TypeSet,
-				Description: "List of deny subjects.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtMost(1),
 		},
 	}
 }
 
-func importStateIdentity(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+/*** Resource Operator ***/
 
-	parts := strings.SplitN(d.Id(), ":", 2)
-
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("unexpected format of ID (%s), expected ID syntax 'gvc:identity'. Example: 'terraform import cpln_identity.RESOURCE_NAME GVC_NAME:IDENTITY_NAME'", d.Id())
-	}
-
-	if err := d.Set("gvc", parts[0]); err != nil {
-		return nil, err
-	}
-
-	d.SetId(parts[1])
-
-	return []*schema.ResourceData{d}, nil
+// IdentityResourceOperator is the operator for managing the state.
+type IdentityResourceOperator struct {
+	EntityOperator[IdentityResourceModel]
 }
 
-func resourceIdentityCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// NewAPIRequest creates a request payload from a state model.
+func (iro *IdentityResourceOperator) NewAPIRequest(isUpdate bool) client.Identity {
+	// Initialize a new request payload
+	requestPayload := client.Identity{}
 
-	// log.Printf("[INFO] Method: resourceIdentityCreate")
+	// Populate Base fields from state
+	iro.Plan.Fill(&requestPayload.Base, isUpdate)
 
-	gvcName := d.Get("gvc").(string)
-
-	identity := client.Identity{}
-	identity.Name = GetString(d.Get("name"))
-	identity.Description = GetString(d.Get("description"))
-	identity.Tags = GetStringMap(d.Get("tags"))
-
-	buildNetworkResources(d.Get("network_resource").([]interface{}), &identity)
-	buildAwsIdentity(d.Get("aws_access_policy").([]interface{}), &identity, false)
-	buildAzureIdentity(d.Get("azure_access_policy").([]interface{}), &identity, false)
-	buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identity, false)
-	buildNgsIdentity(d.Get("ngs_access_policy").([]interface{}), &identity, false)
-
-	identity.NativeNetworkResources = buildNativeNetworkResources(d.Get("native_network_resource"))
-
-	c := m.(*client.Client)
-	newIdentity, code, err := c.CreateIdentity(identity, gvcName)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setIdentity(d, newIdentity)
-}
-
-func buildNetworkResources(networkResources []interface{}, identity *client.Identity) {
-
-	newNetworkResources := []client.NetworkResource{}
-
-	for _, networkresource := range networkResources {
-
-		n := networkresource.(map[string]interface{})
-
-		newNetworkResource := client.NetworkResource{
-			Name:      GetString(n["name"]),
-			AgentLink: GetString(n["agent_link"]),
-		}
-
-		newNetworkResource.FQDN = GetString(n["fqdn"])
-		newNetworkResource.ResolverIP = GetString(n["resolver_ip"])
-
-		if n["ips"] != nil {
-			ips := []string{}
-
-			for _, value := range n["ips"].(*schema.Set).List() {
-				ips = append(ips, value.(string))
-			}
-
-			if len(ips) > 0 {
-				newNetworkResource.IPs = &ips
-			}
-		}
-
-		if n["ports"] != nil {
-			ports := []int{}
-
-			for _, value := range n["ports"].(*schema.Set).List() {
-				ports = append(ports, value.(int))
-			}
-
-			if len(ports) > 0 {
-				newNetworkResource.Ports = &ports
-			}
-		}
-
-		newNetworkResources = append(newNetworkResources, newNetworkResource)
-	}
-
-	identity.NetworkResources = &newNetworkResources
-}
-
-func buildNativeNetworkResources(specs interface{}) *[]client.NativeNetworkResource {
-
-	collection := []client.NativeNetworkResource{}
-
-	if specs.(*schema.Set) != nil && len(specs.(*schema.Set).List()) > 0 {
-
-		for _, item := range specs.(*schema.Set).List() {
-			collection = append(collection, buildNativeNetworkResource(item))
-		}
-	}
-
-	return &collection
-}
-
-func buildNativeNetworkResource(spec interface{}) client.NativeNetworkResource {
-	resource := spec.(map[string]interface{})
-	newResource := client.NativeNetworkResource{
-		Name: GetString(resource["name"].(string)),
-		FQDN: GetString(resource["fqdn"].(string)),
-	}
-
-	newResource.Ports = &[]int{}
-	for _, value := range resource["ports"].(*schema.Set).List() {
-		*newResource.Ports = append(*newResource.Ports, value.(int))
-	}
-
-	if resource["aws_private_link"] != nil {
-		newResource.AWSPrivateLink = buildAWSPrivateLink(resource["aws_private_link"].([]interface{}))
-	}
-
-	if resource["gcp_service_connect"] != nil {
-		newResource.GCPServiceConnect = buildGCPServiceConnect(resource["gcp_service_connect"].([]interface{}))
-	}
-
-	return newResource
-}
-
-func buildAWSPrivateLink(specs []interface{}) *client.AWSPrivateLink {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	result := client.AWSPrivateLink{
-		EndpointServiceName: GetString(spec["endpoint_service_name"].(string)),
-	}
-
-	return &result
-}
-
-func buildGCPServiceConnect(specs []interface{}) *client.GCPServiceConnect {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	result := client.GCPServiceConnect{
-		TargetService: GetString(spec["target_service"].(string)),
-	}
-
-	return &result
-}
-
-func buildAwsIdentity(awsIdentities []interface{}, identity *client.Identity, update bool) {
-
-	if len(awsIdentities) == 1 {
-
-		a := awsIdentities[0].(map[string]interface{})
-
-		newAwsIdentity := &client.AwsIdentity{
-			CloudAccountLink: GetString(a["cloud_account_link"]),
-		}
-
-		if a["role_name"] != nil {
-			r := strings.TrimSpace(a["role_name"].(string))
-
-			if r != "" {
-				newAwsIdentity.RoleName = GetString(r)
-			}
-		}
-
-		if a["policy_refs"] != nil {
-
-			prs := a["policy_refs"].(*schema.Set).List()
-
-			if len(prs) > 0 {
-				pr := []string{}
-
-				for _, p := range prs {
-					pr = append(pr, p.(string))
-				}
-
-				newAwsIdentity.PolicyRefs = &pr
-			}
-		}
-
-		if update {
-			identity.AwsReplace = newAwsIdentity
-		} else {
-			identity.Aws = newAwsIdentity
-		}
+	// Set specific attributes
+	if isUpdate {
+		requestPayload.AwsReplace = iro.buildAws(iro.Plan.AwsAccessPolicy)
+		requestPayload.GcpReplace = iro.buildGcp(iro.Plan.GcpAccessPolicy)
+		requestPayload.AzureReplace = iro.buildAzure(iro.Plan.AzureAccessPolicy)
+		requestPayload.NgsReplace = iro.buildNgs(iro.Plan.NgsAccessPolicy)
 	} else {
-
-		if update {
-			if identity.Drop == nil {
-				identity.Drop = &[]string{}
-			}
-
-			list := *identity.Drop
-			newList := append(list, "aws")
-			identity.Drop = &newList
-		}
-	}
-}
-
-func buildAzureIdentity(azureIdentities []interface{}, identity *client.Identity, update bool) {
-
-	if len(azureIdentities) == 1 {
-
-		a := azureIdentities[0].(map[string]interface{})
-
-		newAzureIdentity := &client.AzureIdentity{
-			CloudAccountLink: GetString(a["cloud_account_link"]),
-		}
-
-		if a["role_assignment"] != nil {
-
-			ra := a["role_assignment"].([]interface{})
-
-			if len(ra) > 0 {
-
-				localRoleAssignments := []client.AzureRoleAssignment{}
-
-				for _, r := range ra {
-
-					if r != nil {
-
-						localRa := client.AzureRoleAssignment{}
-
-						rm := r.(map[string]interface{})
-
-						localRa.Scope = GetString(rm["scope"].(string))
-
-						if rm["roles"] != nil && len(rm["roles"].(*schema.Set).List()) > 0 {
-
-							localRoles := []string{}
-
-							for _, sr := range rm["roles"].(*schema.Set).List() {
-								localRoles = append(localRoles, sr.(string))
-							}
-
-							localRa.Roles = &localRoles
-						}
-
-						localRoleAssignments = append(localRoleAssignments, localRa)
-					}
-				}
-
-				newAzureIdentity.RoleAssignments = &localRoleAssignments
-			}
-		}
-
-		if update {
-			identity.AzureReplace = newAzureIdentity
-		} else {
-			identity.Azure = newAzureIdentity
-		}
-	} else {
-
-		if update {
-			if identity.Drop == nil {
-				identity.Drop = &[]string{}
-			}
-
-			list := *identity.Drop
-			newList := append(list, "azure")
-			identity.Drop = &newList
-		}
-	}
-}
-
-func buildGcpIdentity(gcpIdentities []interface{}, identity *client.Identity, update bool) {
-
-	if len(gcpIdentities) == 1 {
-
-		a := gcpIdentities[0].(map[string]interface{})
-
-		newGcpIdentity := &client.GcpIdentity{
-			CloudAccountLink: GetString(a["cloud_account_link"]),
-		}
-
-		if a["scopes"] != nil {
-
-			s := a["scopes"].(string)
-
-			splitScope := strings.Split(s, ",")
-
-			if len(splitScope) > 0 {
-				newGcpIdentity.Scopes = &splitScope
-			}
-		}
-
-		if a["service_account"] != nil {
-			r := strings.TrimSpace(a["service_account"].(string))
-
-			if r != "" {
-				newGcpIdentity.ServiceAccount = GetString(r)
-			}
-		}
-
-		if a["binding"] != nil {
-
-			bs := a["binding"].([]interface{})
-
-			if len(bs) > 0 {
-
-				localBindings := []client.GcpBinding{}
-
-				for _, b := range bs {
-
-					if b != nil {
-
-						localBs := client.GcpBinding{}
-
-						rm := b.(map[string]interface{})
-
-						localBs.Resource = GetString(rm["resource"].(string))
-
-						if rm["roles"] != nil && len(rm["roles"].(*schema.Set).List()) > 0 {
-
-							localRoles := []string{}
-
-							for _, sr := range rm["roles"].(*schema.Set).List() {
-								localRoles = append(localRoles, sr.(string))
-							}
-
-							localBs.Roles = &localRoles
-						}
-
-						localBindings = append(localBindings, localBs)
-					}
-				}
-
-				newGcpIdentity.Bindings = &localBindings
-			}
-		}
-
-		if update {
-			identity.GcpReplace = newGcpIdentity
-		} else {
-			identity.Gcp = newGcpIdentity
-		}
-	} else {
-
-		if update {
-			if identity.Drop == nil {
-				identity.Drop = &[]string{}
-			}
-
-			list := *identity.Drop
-			newList := append(list, "gcp")
-			identity.Drop = &newList
-		}
-	}
-}
-
-func buildPerm(perm []interface{}) *client.NgsPerm {
-
-	if len(perm) > 0 {
-
-		localPub := client.NgsPerm{}
-
-		for _, p := range perm {
-
-			if p != nil {
-
-				rm := p.(map[string]interface{})
-
-				if rm["allow"] != nil && len(rm["allow"].(*schema.Set).List()) > 0 {
-
-					localAllow := []string{}
-
-					for _, sr := range rm["allow"].(*schema.Set).List() {
-						localAllow = append(localAllow, sr.(string))
-					}
-
-					localPub.Allow = &localAllow
-				}
-
-				if rm["deny"] != nil && len(rm["deny"].(*schema.Set).List()) > 0 {
-
-					localDeny := []string{}
-
-					for _, sr := range rm["deny"].(*schema.Set).List() {
-						localDeny = append(localDeny, sr.(string))
-					}
-
-					localPub.Deny = &localDeny
-				}
-			}
-		}
-
-		return &localPub
+		requestPayload.Aws = iro.buildAws(iro.Plan.AwsAccessPolicy)
+		requestPayload.Gcp = iro.buildGcp(iro.Plan.GcpAccessPolicy)
+		requestPayload.Azure = iro.buildAzure(iro.Plan.AzureAccessPolicy)
+		requestPayload.Ngs = iro.buildNgs(iro.Plan.NgsAccessPolicy)
 	}
 
-	return nil
+	requestPayload.NetworkResources = iro.buildNetworkResources(iro.Plan.NetworkResource)
+	requestPayload.NativeNetworkResources = iro.buildNativeNetworkResources(iro.Plan.NativeNetworkResource)
 
+	// Return constructed request payload
+	return requestPayload
 }
 
-func buildResp(resp []interface{}) *client.NgsResp {
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func (iro *IdentityResourceOperator) MapResponseToState(apiResp *client.Identity, isCreate bool) IdentityResourceModel {
+	// Initialize empty state model
+	state := IdentityResourceModel{}
 
-	if len(resp) == 1 && resp[0] != nil {
+	// Populate common fields from base resource data
+	state.From(apiResp.Base)
 
-		spec := resp[0].(map[string]interface{})
-		result := client.NgsResp{
-			Max: GetInt(spec["max"]),
-			TTL: GetString(spec["ttl"]),
-		}
+	// Set specific attributes
+	state.Gvc = types.StringPointerValue(BuildString(iro.Plan.Gvc))
+	state.AwsAccessPolicy = iro.flattenAws(apiResp.Aws)
+	state.GcpAccessPolicy = iro.flattenGcp(apiResp.Gcp)
+	state.AzureAccessPolicy = iro.flattenAzure(apiResp.Azure)
+	state.NgsAccessPolicy = iro.flattenNgs(apiResp.Ngs)
+	state.NetworkResource = iro.flattenNetworkResources(apiResp.NetworkResources)
+	state.NativeNetworkResource = iro.flattenNativeNetworkResources(apiResp.NativeNetworkResources)
+	state.Status = iro.flattenStatus(apiResp.Status)
 
-		return &result
-	}
-
-	return nil
+	// Return completed state model
+	return state
 }
 
-func buildNgsIdentity(ngsIdentities []interface{}, identity *client.Identity, update bool) {
-
-	if len(ngsIdentities) == 1 {
-
-		a := ngsIdentities[0].(map[string]interface{})
-
-		newNgsIdentity := &client.NgsIdentity{
-			CloudAccountLink: GetString(a["cloud_account_link"]),
-		}
-
-		if a["pub"] != nil {
-			newNgsIdentity.Pub = buildPerm(a["pub"].([]interface{}))
-		}
-
-		if a["sub"] != nil {
-			newNgsIdentity.Sub = buildPerm(a["sub"].([]interface{}))
-		}
-
-		if a["resp"] != nil {
-			newNgsIdentity.Resp = buildResp(a["resp"].([]interface{}))
-		}
-
-		if a["subs"] != nil {
-			subs := a["subs"].(int)
-			newNgsIdentity.Subs = GetInt(subs)
-		}
-
-		if a["data"] != nil {
-			data := a["data"].(int)
-			newNgsIdentity.Data = GetInt(data)
-		}
-
-		if a["payload"] != nil {
-			payload := a["payload"].(int)
-			newNgsIdentity.Payload = GetInt(payload)
-		}
-
-		if update {
-			identity.NgsReplace = newNgsIdentity
-		} else {
-			identity.Ngs = newNgsIdentity
-		}
-	} else {
-
-		if update {
-			if identity.Drop == nil {
-				identity.Drop = &[]string{}
-			}
-
-			list := *identity.Drop
-			newList := append(list, "ngs")
-			identity.Drop = &newList
-		}
-	}
+// InvokeCreate invokes the Create API to create a new resource.
+func (iro *IdentityResourceOperator) InvokeCreate(req client.Identity) (*client.Identity, int, error) {
+	return iro.Client.CreateIdentity(req, iro.Plan.Gvc.ValueString())
 }
 
-func flattenNetworkResources(networkResources *[]client.NetworkResource) []interface{} {
-
-	if networkResources != nil && len(*networkResources) > 0 {
-
-		nrs := make([]interface{}, len(*networkResources))
-
-		for i, networkResource := range *networkResources {
-
-			nr := make(map[string]interface{})
-
-			nr["name"] = networkResource.Name
-			nr["agent_link"] = networkResource.AgentLink
-
-			if networkResource.FQDN != nil {
-				nr["fqdn"] = networkResource.FQDN
-			}
-
-			if networkResource.ResolverIP != nil {
-				nr["resolver_ip"] = networkResource.ResolverIP
-			}
-
-			if networkResource.IPs != nil && len(*networkResource.IPs) > 0 {
-				nr["ips"] = []interface{}{}
-
-				for _, ip := range *networkResource.IPs {
-					nr["ips"] = append(nr["ips"].([]interface{}), ip)
-				}
-			}
-
-			if networkResource.Ports != nil && len(*networkResource.Ports) > 0 {
-				nr["ports"] = []interface{}{}
-
-				for _, port := range *networkResource.Ports {
-					nr["ports"] = append(nr["ports"].([]interface{}), port)
-				}
-			}
-
-			nrs[i] = nr
-		}
-
-		return nrs
-	}
-
-	return make([]interface{}, 0)
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (iro *IdentityResourceOperator) InvokeRead(name string) (*client.Identity, int, error) {
+	return iro.Client.GetIdentity(name, iro.Plan.Gvc.ValueString())
 }
 
-func flattenNativeNetworkResources(nativeNetworkResources *[]client.NativeNetworkResource) []interface{} {
-	if nativeNetworkResources == nil || len(*nativeNetworkResources) == 0 {
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (iro *IdentityResourceOperator) InvokeUpdate(req client.Identity) (*client.Identity, int, error) {
+	return iro.Client.UpdateIdentity(req, iro.Plan.Gvc.ValueString())
+}
+
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (iro *IdentityResourceOperator) InvokeDelete(name string) error {
+	return iro.Client.DeleteIdentity(name, iro.Plan.Gvc.ValueString())
+}
+
+// Builders //
+
+// buildAws constructs a IdentityAws struct from the given Terraform state.
+func (iro *IdentityResourceOperator) buildAws(state types.List) *client.IdentityAws {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AwsAccessPolicyModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	collection := make([]interface{}, len(*nativeNetworkResources))
-	for i, item := range *nativeNetworkResources {
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-		resource := make(map[string]interface{})
-		resource["name"] = *item.Name
-		resource["fqdn"] = *item.FQDN
-		resource["ports"] = []interface{}{}
-
-		for _, port := range *item.Ports {
-			resource["ports"] = append(resource["ports"].([]interface{}), port)
-		}
-
-		resource["aws_private_link"] = flattenAWSPrivateLink(item.AWSPrivateLink)
-		resource["gcp_service_connect"] = flattenGCPServiceConnect(item.GCPServiceConnect)
-
-		collection[i] = resource
+	// Construct and return the output
+	return &client.IdentityAws{
+		CloudAccountLink: BuildString(block.CloudAccountLink),
+		PolicyRefs:       iro.BuildSetString(block.PolicyRefs),
+		RoleName:         BuildString(block.RoleName),
+		TrustPolicy:      iro.buildAwsTrustPolicy(block.TrustPolicy),
 	}
-
-	return collection
 }
 
-func flattenAWSPrivateLink(awsPrivateLink *client.AWSPrivateLink) []interface{} {
-	if awsPrivateLink == nil {
+// buildAwsTrustPolicy constructs a IdentityAwsTrustPolicy struct from the given Terraform state.
+func (iro *IdentityResourceOperator) buildAwsTrustPolicy(state types.List) *client.IdentityAwsTrustPolicy {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AwsAccessPolicyTrustPolicyModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	result := make(map[string]interface{})
-	result["endpoint_service_name"] = awsPrivateLink.EndpointServiceName
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	return []interface{}{
-		result,
+	// Construct and return the output
+	return &client.IdentityAwsTrustPolicy{
+		Version:   BuildString(block.Version),
+		Statement: iro.buildAwsTrustPolicyStatement(block.Statement),
 	}
 }
 
-func flattenGCPServiceConnect(gcpServiceConnect *client.GCPServiceConnect) []interface{} {
-	if gcpServiceConnect == nil {
+// buildAwsTrustPolicyStatement constructs a []map[string]interface{} struct from the given Terraform state.
+func (iro *IdentityResourceOperator) buildAwsTrustPolicyStatement(state types.Set) *[]map[string]interface{} {
+	// Exit early if set itself is null or unknown
+	if state.IsNull() || state.IsUnknown() {
 		return nil
 	}
 
-	result := make(map[string]interface{})
-	result["target_service"] = gcpServiceConnect.TargetService
+	// Prepare an intermediate slice to unmarshal Terraform values
+	var intermediate []types.Map
 
-	return []interface{}{
-		result,
-	}
-}
+	// Decode Terraform set elements into the intermediate slice
+	iro.Diags.Append(state.ElementsAs(iro.Ctx, &intermediate, false)...)
 
-func flattenAwsIdentity(awsIdentity *client.AwsIdentity) []interface{} {
-
-	if awsIdentity != nil {
-
-		output := map[string]interface{}{
-			"cloud_account_link": *awsIdentity.CloudAccountLink,
-		}
-
-		if awsIdentity.PolicyRefs != nil && len(*awsIdentity.PolicyRefs) > 0 {
-
-			pr := []interface{}{}
-
-			for _, p := range *awsIdentity.PolicyRefs {
-				pr = append(pr, p)
-			}
-			output["policy_refs"] = pr
-		}
-
-		if awsIdentity.RoleName != nil && strings.TrimSpace(*awsIdentity.RoleName) != "" {
-			output["role_name"] = *awsIdentity.RoleName
-		}
-
-		return []interface{}{
-			output,
-		}
-	}
-
-	return nil
-}
-
-func flattenAzureIdentity(azureIdentity *client.AzureIdentity) []interface{} {
-
-	if azureIdentity != nil {
-
-		output := make(map[string]interface{})
-
-		output["cloud_account_link"] = *azureIdentity.CloudAccountLink
-
-		if azureIdentity.RoleAssignments != nil && len(*azureIdentity.RoleAssignments) > 0 {
-
-			roleAssignment := []interface{}{}
-
-			for _, r := range *azureIdentity.RoleAssignments {
-
-				ra := map[string]interface{}{
-					"placeholder_attribute": true,
-				}
-
-				if r.Scope != nil {
-					ra["scope"] = *r.Scope
-				}
-
-				if r.Roles != nil && len(*r.Roles) > 0 {
-					roles := []interface{}{}
-
-					for _, rr := range *r.Roles {
-						roles = append(roles, rr)
-					}
-
-					ra["roles"] = roles
-				}
-
-				roleAssignment = append(roleAssignment, ra)
-			}
-
-			output["role_assignment"] = roleAssignment
-		}
-
-		return []interface{}{
-			output,
-		}
-	}
-
-	return nil
-}
-
-func flattenGcpIdentity(gcpIdentity *client.GcpIdentity) []interface{} {
-
-	if gcpIdentity != nil {
-
-		output := make(map[string]interface{})
-
-		output["cloud_account_link"] = *gcpIdentity.CloudAccountLink
-
-		if gcpIdentity.Scopes != nil && len(*gcpIdentity.Scopes) > 0 {
-			joinScopes := strings.Join(*gcpIdentity.Scopes, ",")
-			output["scopes"] = joinScopes
-		}
-
-		if gcpIdentity.ServiceAccount != nil && strings.TrimSpace(*gcpIdentity.ServiceAccount) != "" {
-			output["service_account"] = *gcpIdentity.ServiceAccount
-		}
-
-		if gcpIdentity.Bindings != nil && len(*gcpIdentity.Bindings) > 0 {
-
-			bindings := []interface{}{}
-
-			for _, b := range *gcpIdentity.Bindings {
-
-				bs := map[string]interface{}{
-					"placeholder_attribute": true,
-				}
-
-				if b.Resource != nil {
-					bs["resource"] = *b.Resource
-				}
-
-				if b.Roles != nil && len(*b.Roles) > 0 {
-					roles := []interface{}{}
-
-					for _, rr := range *b.Roles {
-						roles = append(roles, rr)
-					}
-
-					bs["roles"] = roles
-				}
-
-				bindings = append(bindings, bs)
-			}
-
-			output["binding"] = bindings
-		}
-
-		return []interface{}{
-			output,
-		}
-	}
-
-	return nil
-}
-
-func flattenPerm(perm *client.NgsPerm) []interface{} {
-
-	if perm != nil {
-
-		ps := []interface{}{}
-		bs := make(map[string]interface{})
-
-		if perm.Allow != nil && len(*perm.Allow) > 0 {
-			allowDeny := []interface{}{}
-
-			for _, ad := range *perm.Allow {
-				allowDeny = append(allowDeny, ad)
-			}
-
-			bs["allow"] = allowDeny
-		}
-
-		if perm.Deny != nil && len(*perm.Deny) > 0 {
-			allowDeny := []interface{}{}
-
-			for _, ad := range *perm.Deny {
-				allowDeny = append(allowDeny, ad)
-			}
-
-			bs["deny"] = allowDeny
-		}
-
-		ps = append(ps, bs)
-
-		return ps
-	}
-
-	return nil
-}
-
-func flattenNgsIdentity(ngsIdentity *client.NgsIdentity) []interface{} {
-
-	if ngsIdentity != nil {
-
-		output := make(map[string]interface{})
-
-		output["cloud_account_link"] = *ngsIdentity.CloudAccountLink
-		output["pub"] = flattenPerm(ngsIdentity.Pub)
-		output["sub"] = flattenPerm(ngsIdentity.Sub)
-
-		if ngsIdentity.Resp != nil {
-
-			rs := make(map[string]interface{})
-
-			if ngsIdentity.Resp.Max != nil {
-				rs["max"] = *ngsIdentity.Resp.Max
-			}
-
-			if ngsIdentity.Resp.TTL != nil {
-				rs["ttl"] = *ngsIdentity.Resp.TTL
-			}
-
-			resps := []interface{}{}
-			resps = append(resps, rs)
-
-			output["resp"] = resps
-		}
-
-		if ngsIdentity.Subs != nil {
-			output["subs"] = *ngsIdentity.Subs
-		}
-
-		if ngsIdentity.Data != nil {
-			output["data"] = *ngsIdentity.Data
-		}
-
-		if ngsIdentity.Payload != nil {
-			output["payload"] = *ngsIdentity.Payload
-		}
-
-		return []interface{}{
-			output,
-		}
-	}
-
-	return nil
-}
-
-func resourceIdentityRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceIdentityRead")
-
-	gvcName := d.Get("gvc").(string)
-
-	c := m.(*client.Client)
-	identity, code, err := c.GetIdentity(d.Id(), gvcName)
-
-	if code == 404 {
-		d.SetId("")
+	// Abort if any diagnostic errors occurred during decoding
+	if iro.Diags.HasError() {
 		return nil
 	}
 
-	if err != nil {
-		return diag.FromErr(err)
+	// Build the output slice, preallocating for efficiency
+	output := make([]map[string]interface{}, 0, len(intermediate))
+
+	// Iterate and extract each known string value
+	for _, elem := range intermediate {
+		// Skip null or unknown entries
+		if elem.IsNull() || elem.IsUnknown() {
+			continue
+		}
+
+		// Add the element to the output slice
+		output = append(output, *iro.BuildMapString(elem))
 	}
 
-	return setIdentity(d, identity)
+	// Return a pointer to the output
+	return &output
 }
 
-func setIdentity(d *schema.ResourceData, identity *client.Identity) diag.Diagnostics {
+// buildGcp constructs a IdentityAws struct from the given Terraform state.
+func (iro *IdentityResourceOperator) buildGcp(state types.List) *client.IdentityGcp {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.GcpAccessPolicyModel](iro.Ctx, iro.Diags, state)
 
-	if identity == nil {
-		d.SetId("")
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	d.SetId(*identity.Name)
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	if err := SetBase(d, identity.Base); err != nil {
-		return diag.FromErr(err)
+	// Construct and return the output
+	return &client.IdentityGcp{
+		CloudAccountLink: BuildString(block.CloudAccountLink),
+		Scopes:           iro.BuildSetString(block.Scopes),
+		ServiceAccount:   BuildString(block.ServiceAccount),
+		Bindings:         iro.buildGcpBinding(block.Binding),
 	}
-
-	if err := d.Set("status", flattenIdentityStatus(identity.Status)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("network_resource", flattenNetworkResources(identity.NetworkResources)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("native_network_resource", flattenNativeNetworkResources(identity.NativeNetworkResources)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("aws_access_policy", flattenAwsIdentity(identity.Aws)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("azure_access_policy", flattenAzureIdentity(identity.Azure)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("gcp_access_policy", flattenGcpIdentity(identity.Gcp)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("ngs_access_policy", flattenNgsIdentity(identity.Ngs)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := SetSelfLink(identity.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
 }
 
-func flattenIdentityStatus(status *client.IdentityStatus) interface{} {
+// buildGcpBinding constructs a []client.IdentityGcpBinding from the given Terraform state.
+func (iro *IdentityResourceOperator) buildGcpBinding(state types.List) *[]client.IdentityGcpBinding {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.GcpAccessPolicyBindingModel](iro.Ctx, iro.Diags, state)
 
-	if status != nil && status.ObjectName != nil && strings.TrimSpace(*status.ObjectName) != "" {
-		fs := make(map[string]interface{})
-		fs["objectName"] = status.ObjectName
-		return fs
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
 	}
 
-	return nil
+	// Prepare the output slice
+	output := []client.IdentityGcpBinding{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.IdentityGcpBinding{
+			Resource: BuildString(block.Resource),
+			Roles:    iro.BuildSetString(block.Roles),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
 }
 
-func resourceIdentityUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// buildAzure constructs a IdentityAzure from the given Terraform state.
+func (iro *IdentityResourceOperator) buildAzure(state types.List) *client.IdentityAzure {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AzureAccessPolicyModel](iro.Ctx, iro.Diags, state)
 
-	// log.Printf("[INFO] Method: resourceIdentityUpdate")
-
-	if d.HasChanges("description", "tags", "network_resource", "native_network_resource", "aws_access_policy", "azure_access_policy", "gcp_access_policy", "ngs_access_policy") {
-
-		gvcName := d.Get("gvc").(string)
-
-		identityToUpdate := client.Identity{}
-		identityToUpdate.Name = GetString(d.Get("name"))
-		identityToUpdate.Description = GetDescriptionString(d.Get("description"), *identityToUpdate.Name)
-		identityToUpdate.Tags = GetTagChanges(d)
-
-		if d.HasChange("network_resource") {
-			buildNetworkResources(d.Get("network_resource").([]interface{}), &identityToUpdate)
-		}
-
-		if d.HasChange("native_network_resource") {
-			identityToUpdate.NativeNetworkResources = buildNativeNetworkResources(d.Get("native_network_resource"))
-		}
-
-		if d.HasChange("aws_access_policy") {
-			buildAwsIdentity(d.Get("aws_access_policy").([]interface{}), &identityToUpdate, true)
-		}
-
-		if d.HasChange("azure_access_policy") {
-			buildAzureIdentity(d.Get("azure_access_policy").([]interface{}), &identityToUpdate, true)
-		}
-
-		if d.HasChange("gcp_access_policy") {
-			buildGcpIdentity(d.Get("gcp_access_policy").([]interface{}), &identityToUpdate, true)
-		}
-
-		if d.HasChange("ngs_access_policy") {
-			buildNgsIdentity(d.Get("ngs_access_policy").([]interface{}), &identityToUpdate, true)
-		}
-
-		c := m.(*client.Client)
-		updatedIdentity, _, err := c.UpdateIdentity(identityToUpdate, gvcName)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setIdentity(d, updatedIdentity)
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
 	}
 
-	return nil
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.IdentityAzure{
+		CloudAccountLink: BuildString(block.CloudAccountLink),
+		RoleAssignments:  iro.buildAzureRoleAssignments(block.RoleAssignment),
+	}
 }
 
-func resourceIdentityDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// buildAzureRoleAssignments constructs a []client.IdentityAzureRoleAssignment from the given Terraform state.
+func (iro *IdentityResourceOperator) buildAzureRoleAssignments(state types.List) *[]client.IdentityAzureRoleAssignment {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AzureAccessPolicyRoleAssignmentModel](iro.Ctx, iro.Diags, state)
 
-	// log.Printf("[INFO] Method: resourceIdentityDelete")
-
-	c := m.(*client.Client)
-	err := c.DeleteIdentity(d.Id(), d.Get("gvc").(string))
-	if err != nil {
-		return diag.FromErr(err)
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
 	}
 
-	d.SetId("")
+	// Prepare the output slice
+	output := []client.IdentityAzureRoleAssignment{}
 
-	return nil
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.IdentityAzureRoleAssignment{
+			Scope: BuildString(block.Scope),
+			Roles: iro.BuildSetString(block.Roles),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildNgs constructs a IdentityNgs from the given Terraform state.
+func (iro *IdentityResourceOperator) buildNgs(state types.List) *client.IdentityNgs {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NgsAccessPolicyModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.IdentityNgs{
+		CloudAccountLink: BuildString(block.CloudAccountLink),
+		Subs:             BuildInt(block.Subs),
+		Data:             BuildInt(block.Data),
+		Payload:          BuildInt(block.Payload),
+		Pub:              iro.buildNgsPerm(block.Pub),
+		Sub:              iro.buildNgsPerm(block.Sub),
+		Resp:             iro.buildNgsResp(block.Resp),
+	}
+}
+
+// buildNgsPerm constructs a IdentityNgs from the given Terraform state.
+func (iro *IdentityResourceOperator) buildNgsPerm(state types.List) *client.IdentityNgsPerm {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NgsAccessPolicyPermissionModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.IdentityNgsPerm{
+		Allow: iro.BuildSetString(block.Allow),
+		Deny:  iro.BuildSetString(block.Deny),
+	}
+}
+
+// buildNgsResp constructs a IdentityNgsResp from the given Terraform state.
+func (iro *IdentityResourceOperator) buildNgsResp(state types.List) *client.IdentityNgsResp {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NgsAccessPolicyResponsesModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.IdentityNgsResp{
+		Max: BuildInt(block.Max),
+		TTL: BuildString(block.TTL),
+	}
+}
+
+// buildNetworkResources constructs a []client.IdentityNetworkResource from the given Terraform state.
+func (iro *IdentityResourceOperator) buildNetworkResources(state types.List) *[]client.IdentityNetworkResource {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NetworkResourceModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.IdentityNetworkResource{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.IdentityNetworkResource{
+			Name:       BuildString(block.Name),
+			AgentLink:  BuildString(block.AgentLink),
+			IPs:        iro.BuildSetString(block.IPs),
+			FQDN:       BuildString(block.FQDN),
+			ResolverIP: BuildString(block.ResolverIP),
+			Ports:      iro.BuildSetInt(block.Ports),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildNativeNetworkResources constructs a []client.IdentityNativeNetworkResource from the given Terraform state.
+func (iro *IdentityResourceOperator) buildNativeNetworkResources(state types.List) *[]client.IdentityNativeNetworkResource {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NativeNetworkResourceModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.IdentityNativeNetworkResource{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.IdentityNativeNetworkResource{
+			Name:              BuildString(block.Name),
+			FQDN:              BuildString(block.FQDN),
+			Ports:             iro.BuildSetInt(block.Ports),
+			AWSPrivateLink:    iro.buildAwsPrivateLink(block.AwsPrivateLink),
+			GCPServiceConnect: iro.buildGcpServiceConnect(block.GcpServiceConnect),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildAwsPrivateLink constructs a IdentityAwsPrivateLink from the given Terraform state.
+func (iro *IdentityResourceOperator) buildAwsPrivateLink(state types.List) *client.IdentityAwsPrivateLink {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NativeNetworkResourceAwsPrivateLinkModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.IdentityAwsPrivateLink{
+		EndpointServiceName: BuildString(block.EndpointServiceName),
+	}
+}
+
+// buildGcpServiceConnect constructs a IdentityGcpServiceConnect from the given Terraform state.
+func (iro *IdentityResourceOperator) buildGcpServiceConnect(state types.List) *client.IdentityGcpServiceConnect {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.NativeNetworkResourceGcpServiceConnectModel](iro.Ctx, iro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.IdentityGcpServiceConnect{
+		TargetService: BuildString(block.TargetService),
+	}
+}
+
+// Flatteners //
+
+// flattenAws transforms *client.IdentityAws into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenAws(input *client.IdentityAws) types.List {
+	// Get attribute types
+	elementType := models.AwsAccessPolicyModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.AwsAccessPolicyModel{
+		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		PolicyRefs:       FlattenSetString(input.PolicyRefs),
+		RoleName:         types.StringPointerValue(input.RoleName),
+		TrustPolicy:      iro.flattenAwsTrustPolicy(input.TrustPolicy),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.AwsAccessPolicyModel{block})
+}
+
+// flattenAwsTrustPolicy transforms *client.IdentityAwsTrustPolicy into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenAwsTrustPolicy(input *client.IdentityAwsTrustPolicy) types.List {
+	// Get attribute types
+	elementType := models.AwsAccessPolicyTrustPolicyModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.AwsAccessPolicyTrustPolicyModel{
+		Version:   types.StringPointerValue(input.Version),
+		Statement: iro.flattenAwsTrustPolicyStatement(input.Statement),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.AwsAccessPolicyTrustPolicyModel{block})
+}
+
+// flattenAwsTrustPolicyStatement transforms *[]map[string]interface{} into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenAwsTrustPolicyStatement(input *[]map[string]interface{}) types.Set {
+	// Get attribute types
+	elementType := types.MapType{ElemType: types.StringType}
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.SetNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []types.Map
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := FlattenMapString(&item)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Convert the slice of blocks into a Terraform list while collecting diagnostics
+	l, d := types.SetValueFrom(iro.Ctx, elementType, blocks)
+
+	// Merge any diagnostics from the conversion into the main diagnostics
+	iro.Diags.Append(d...)
+
+	// If the conversion produced errors, return a null list
+	if d.HasError() {
+		return types.SetNull(elementType)
+	}
+
+	// Return the successfully created types.List
+	return l
+}
+
+// flattenGcp transforms *client.IdentityGcp into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenGcp(input *client.IdentityGcp) types.List {
+	// Get attribute types
+	elementType := models.GcpAccessPolicyModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.GcpAccessPolicyModel{
+		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		Scopes:           FlattenSetString(input.Scopes),
+		ServiceAccount:   types.StringPointerValue(input.ServiceAccount),
+		Binding:          iro.flattenGcpBinding(input.Bindings),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.GcpAccessPolicyModel{block})
+}
+
+// flattenGcpBinding transforms *[]client.IdentityGcpBinding into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenGcpBinding(input *[]client.IdentityGcpBinding) types.List {
+	// Get attribute types
+	elementType := models.GcpAccessPolicyBindingModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.GcpAccessPolicyBindingModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.GcpAccessPolicyBindingModel{
+			Resource: types.StringPointerValue(item.Resource),
+			Roles:    FlattenSetString(item.Roles),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, blocks)
+}
+
+// flattenAzure transforms *client.IdentityAzure into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenAzure(input *client.IdentityAzure) types.List {
+	// Get attribute types
+	elementType := models.AzureAccessPolicyModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.AzureAccessPolicyModel{
+		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		RoleAssignment:   iro.flattenAzureRoleAssignment(input.RoleAssignments),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.AzureAccessPolicyModel{block})
+}
+
+// flattenAzureRoleAssignment transforms *[]client.IdentityAzureRoleAssignment into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenAzureRoleAssignment(input *[]client.IdentityAzureRoleAssignment) types.List {
+	// Get attribute types
+	elementType := models.AzureAccessPolicyRoleAssignmentModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.AzureAccessPolicyRoleAssignmentModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.AzureAccessPolicyRoleAssignmentModel{
+			Scope: types.StringPointerValue(item.Scope),
+			Roles: FlattenSetString(item.Roles),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, blocks)
+}
+
+// flattenNgs transforms *client.IdentityNgs into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenNgs(input *client.IdentityNgs) types.List {
+	// Get attribute types
+	elementType := models.NgsAccessPolicyModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.NgsAccessPolicyModel{
+		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		Subs:             FlattenInt(input.Subs),
+		Data:             FlattenInt(input.Data),
+		Payload:          FlattenInt(input.Payload),
+		Pub:              iro.flattenNgsPerm(input.Pub),
+		Sub:              iro.flattenNgsPerm(input.Sub),
+		Resp:             iro.flattenNgsResp(input.Resp),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.NgsAccessPolicyModel{block})
+}
+
+// flattenNgsPerm transforms *client.IdentityNgsPerm into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenNgsPerm(input *client.IdentityNgsPerm) types.List {
+	// Get attribute types
+	elementType := models.NgsAccessPolicyPermissionModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.NgsAccessPolicyPermissionModel{
+		Allow: FlattenSetString(input.Allow),
+		Deny:  FlattenSetString(input.Deny),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.NgsAccessPolicyPermissionModel{block})
+}
+
+// flattenNgsResp transforms *client.IdentityNgsResp into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenNgsResp(input *client.IdentityNgsResp) types.List {
+	// Get attribute types
+	elementType := models.NgsAccessPolicyResponsesModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.NgsAccessPolicyResponsesModel{
+		Max: FlattenInt(input.Max),
+		TTL: types.StringPointerValue(input.TTL),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.NgsAccessPolicyResponsesModel{block})
+}
+
+// flattenNetworkResources transforms *[]client.IdentityNetworkResource into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenNetworkResources(input *[]client.IdentityNetworkResource) types.List {
+	// Get attribute types
+	elementType := models.NetworkResourceModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.NetworkResourceModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.NetworkResourceModel{
+			Name:       types.StringPointerValue(item.Name),
+			AgentLink:  types.StringPointerValue(item.AgentLink),
+			IPs:        FlattenSetString(item.IPs),
+			FQDN:       types.StringPointerValue(item.FQDN),
+			ResolverIP: types.StringPointerValue(item.ResolverIP),
+			Ports:      FlattenSetInt(item.Ports),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, blocks)
+}
+
+// flattenNativeNetworkResources transforms *[]client.IdentityNativeNetworkResource into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenNativeNetworkResources(input *[]client.IdentityNativeNetworkResource) types.List {
+	// Get attribute types
+	elementType := models.NativeNetworkResourceModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.NativeNetworkResourceModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.NativeNetworkResourceModel{
+			Name:              types.StringPointerValue(item.Name),
+			FQDN:              types.StringPointerValue(item.FQDN),
+			Ports:             FlattenSetInt(item.Ports),
+			AwsPrivateLink:    iro.flattenAwsPrivateLink(item.AWSPrivateLink),
+			GcpServiceConnect: iro.flattenGcpServiceConnect(item.GCPServiceConnect),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, blocks)
+}
+
+// flattenAwsPrivateLink transforms *client.IdentityAwsPrivateLink into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenAwsPrivateLink(input *client.IdentityAwsPrivateLink) types.List {
+	// Get attribute types
+	elementType := models.NativeNetworkResourceAwsPrivateLinkModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.NativeNetworkResourceAwsPrivateLinkModel{
+		EndpointServiceName: types.StringPointerValue(input.EndpointServiceName),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.NativeNetworkResourceAwsPrivateLinkModel{block})
+}
+
+// flattenGcpServiceConnect transforms *client.IdentityGcpServiceConnect into a Terraform types.List.
+func (iro *IdentityResourceOperator) flattenGcpServiceConnect(input *client.IdentityGcpServiceConnect) types.List {
+	// Get attribute types
+	elementType := models.NativeNetworkResourceGcpServiceConnectModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.NativeNetworkResourceGcpServiceConnectModel{
+		TargetService: types.StringPointerValue(input.TargetService),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(iro.Ctx, iro.Diags, []models.NativeNetworkResourceGcpServiceConnectModel{block})
+}
+
+// flattenStatus transforms *client.IdentityGcpServiceConnect into a Terraform types.Map.
+func (iro *IdentityResourceOperator) flattenStatus(input *client.IdentityStatus) types.Map {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.MapNull(types.StringType)
+	}
+
+	// Build a single block
+	statusMap := map[string]interface{}{
+		"objectName": input.ObjectName,
+	}
+
+	// Return the successfully created types.List
+	return FlattenMapString(&statusMap)
 }

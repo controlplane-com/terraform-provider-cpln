@@ -26,7 +26,6 @@ Manage an [organization](https://docs.controlplane.com/reference/org) (org).
 - **auth_config** (Block List, Max: 1) ([see below](#nestedblock--auth_config)).
 - **security** (Block List, Max: 1) ([see below](#nestedblock--security)).
 
-
 ~> **Note** To create an org, the provider **must** [authenticate](https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs#authentication) with the `CLI` or `refresh_token` using a user account that has the `org_creator` role for the associated account.
 
 ~> **Note** To update the `auth_config` property, the provider **must** [authenticate](https://registry.terraform.io/providers/controlplane-com/cpln/latest/docs#authentication) with the `CLI` or `refresh_token` using a user account that was authenticated using a SAML provider.

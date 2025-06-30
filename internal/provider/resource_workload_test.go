@@ -1,4184 +1,3778 @@
 package cpln
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
-	"github.com/go-test/deep"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-const workloadEnvoyJson = `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`
-const workloadEnvoyJsonUpdated = `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"15s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`
-const workloadExtrasJsonString = `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`
+/*** Acceptance Test ***/
 
-/*** Acc Tests ***/
-
+// TestAccControlPlaneWorkload_basic performs an acceptance test for the resource.
 func TestAccControlPlaneWorkload_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewWorkloadResourceTest()
 
-	var testWorkload client.Workload
-
-	gName := "gvc-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	wName := "workload-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	randomName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "WORKLOAD") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneWorkloadCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName, "Workload created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName, gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, []string{"with_load_balancer", "with_request_retry_policy"}),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Workload created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Renamed Workload created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJson, []string{"with_load_balancer"}),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Renamed Workload created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless", workloadEnvoyJsonUpdated, []string{"with_load_balancer"}),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneWorkloadMetricMemory(randomName, gName, "GVC created using terraform for acceptance tests", wName+"renamed", "Updated Workload description created using terraform for acceptance tests", workloadEnvoyJsonUpdated),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"renamed", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-metric-memory", workloadEnvoyJsonUpdated, []string{"with_load_balancer"}),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Updated Workload description created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard", workloadEnvoyJson, []string{}),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard-multi-metrics", "Standard Workload description created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"standard-multi-metrics", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-multi-metrics", workloadEnvoyJson, []string{}),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Standard Workload description created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneStandardWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"standard", "Standard Workload description created using terraform for acceptance tests Updated", workloadEnvoyJsonUpdated),
-			},
-			{
-				Config: testAccControlPlaneCronWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"cron", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "cron", workloadEnvoyJson, []string{}),
-					resource.TestCheckResourceAttr("cpln_workload.new", "description", "Cron Workload description created using terraform for acceptance tests"),
-				),
-			},
-			{
-				Config: testAccControlPlaneCronWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"cron", "Cron Workload description created using terraform for acceptance tests Updated", workloadEnvoyJsonUpdated),
-			},
-			{
-				Config: testAccControlPlaneGpuWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, []string{}),
-				),
-			},
-			{
-				Config: testAccControlPlaneGpuCustomWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"gpu", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-gpu", workloadEnvoyJson, []string{"custom"}),
-				),
-			},
-			{
-				Config: testAccControlPlaneGrpcWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"grpc", "Workload with a grpc protocol created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"grpc", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "standard-readiness-grpc", workloadEnvoyJson, []string{}),
-				),
-			},
-			{
-				Config: testAccControlPlaneMinCpuMemoryWorkload(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, []string{}),
-				),
-			},
-			{
-				Config: testAccControlPlaneWorkloadWithExtras(randomName, gName, "GVC created using terraform for acceptance tests", wName+"min-cpu-memory", "Workload with a min cpu and memory created using terraform for acceptance tests", workloadEnvoyJson),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneWorkloadExists("cpln_workload.new", wName+"min-cpu-memory", gName, &testWorkload),
-					testAccCheckControlPlaneWorkloadAttributes(&testWorkload, "serverless-min-cpu-memory", workloadEnvoyJson, []string{}),
-				),
-			},
-			{
-				Config: testAccControlPlaneGpuWorkloadUpdate(randomName, gName, "GVC created using terraform for acceptance tests", wName+"gpu", "Workload with a GPU description updated using terraform for acceptance tests", workloadEnvoyJsonUpdated),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "WORKLOAD") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccControlPlaneWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
+/*** Resource Test ***/
 
-	TestLogger.Printf("Inside testAccControlPlaneWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type    = string
-		default = "%s"
-	  }
-	  
-	  resource "cpln_gvc" "new" {
-		name        = "%s"
-		description = "%s"
-	  
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	  }
-	  
-	  resource "cpln_identity" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	  }
-	  
-	  resource "cpln_workload" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	  
-		identity_link = cpln_identity.new.self_link
-	  
-		type = "serverless"
-
-		support_dynamic_tags = true
-	  
-		container {
-		  name   = "container-01"
-		  image  = "gcr.io/knative-samples/helloworld-go"
-		  
-		  memory = "128Mi"
-		  cpu    = "50m"
-	  
-
-		// port   = 8080
-
-		ports {
-			protocol = "http"
-			number   = "8080"
-		} 
-
-		  command           = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-	  
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-	  
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-	  
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-	  
-		  readiness_probe {
-	  
-			tcp_socket {
-			  port = 8181
-			}
-	  
-			// exec {
-			// 	command = ["test1", "test2"]
-			// }
-	  
-			period_seconds        = 11
-			timeout_seconds       = 2
-			failure_threshold     = 4
-			success_threshold     = 2
-			initial_delay_seconds = 1
-		  }
-	  
-		  liveness_probe {
-	  
-			http_get {
-			  path   = "/path"
-			  port   = 8282
-			  scheme = "HTTPS"
-			  http_headers = {
-				header-name-01 = "header-value-01"
-				header-name-02 = "header-value-02"
-			  }
-			}
-	  
-			period_seconds        = 10
-			timeout_seconds       = 3
-			failure_threshold     = 5
-			success_threshold     = 1
-			initial_delay_seconds = 2
-		  }
-	  
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-		}
-	  
-		// container {
-		// 	name  = "container-02"
-		// 	image = "gcr.io/knative-samples/helloworld-go"
-		// 	memory = "128Mi"
-		// 	cpu = "50m"
-	  
-		// 	env = {
-		// 	  env-name-01 = "env-value-01",
-		// 	  env-name-02 = "env-value-02",
-		// 	}
-	  
-		// 	args = ["arg-01", "arg-02"]
-		// }
-	  
-		options {
-		  capacity_ai     = true
-		  timeout_seconds = 30
-		  suspend         = false
-	  
-		  autoscaling {
-			metric              = "concurrency"
-			target              = 100
-			max_scale           = 3
-			min_scale           = 2
-			max_concurrency     = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-	  
-		// locations = ["aws-eu-central-1", "aws-us-west-2", "azure-eastus2", "azure-eastus2"]
-	  
-		local_options {
-		  location        = "aws-eu-central-1"
-		  capacity_ai     = true
-		  timeout_seconds = 30
-		  suspend         = false
-	  
-		  autoscaling {
-			metric              = "concurrency"
-			target              = 100
-			max_scale           = 3
-			min_scale           = 2
-			max_concurrency     = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr      = ["0.0.0.0/0"]
-			inbound_blocked_cidr    = ["127.0.0.1"]
-			outbound_allow_cidr     = []
-			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-			
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		  internal {
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type     = "none"
-			inbound_allow_workload = []
-		  }
-		}
-
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-
-		load_balancer {
-
-			direct {
-				enabled = true
-				
-				port {
-					external_port  = 22
-					protocol       = "TCP"
-					scheme         = "http"
-					container_port = 80
-				}
-			}
-
-			geo_location {
-				enabled = true
-				headers {
-					asn = "198.51.100.0/24"
-					city = "Los Angeles"
-					country = "USA"
-					region = "North America"
-				}
-			}
-		}
-			
-		request_retry_policy {
-			attempts = 3
-			retry_on = ["connect-failure", "refused-stream", "unavailable"]
-		}
-	  }
-	  
-	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+// WorkloadResourceTest defines the necessary functionality to test the resource.
+type WorkloadResourceTest struct {
+	Steps      []resource.TestStep
+	RandomName string
+	GvcConfig  string
+	GvcCase    GvcResourceTestCase
 }
 
-func testAccControlPlaneWorkloadMetricMemory(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
+// NewWorkloadResourceTest creates a WorkloadResourceTest with initialized test cases.
+func NewWorkloadResourceTest() WorkloadResourceTest {
+	// Generate a unique random identifier
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
-	TestLogger.Printf("Inside testAccControlPlaneWorkloadMetricMemory")
+	// Generate the GVC name
+	gvcName := fmt.Sprintf("gvc-%s", random)
 
-	return fmt.Sprintf(`
+	// Create resource test instances
+	gvcResourceTest := GvcResourceTest{}
 
-		variable "random-name" {
-			type    = string
-			default = "%s"
-	  }
-	  
-	  resource "cpln_gvc" "new" {
-			name        = "%s"
-			description = "%s"
-			
-			locations = ["aws-eu-central-1", "aws-us-west-2"]
-			
-			tags = {
-				terraform_generated = "true"
-				acceptance_test     = "true"
-			}
-	  }
-	  
-	  resource "cpln_identity" "new" {
-	  
-			gvc = cpln_gvc.new.name
-			
-			name        = "terraform-identity-${var.random-name}"
-			description = "Identity created using terraform"
-			
-			tags = {
-				terraform_generated = "true"
-				acceptance_test     = "true"
-			}
-	  }
-	  
-	  resource "cpln_workload" "new" {
-	  
-			gvc = cpln_gvc.new.name
-			
-			name        = "%s"
-			description = "%s"
-			
-			tags = {
-				terraform_generated = "true"
-				acceptance_test     = "true"
-			}
-			
-			identity_link = cpln_identity.new.self_link
-			
-			type = "serverless"
+	// Create a GVC case
+	gvcCase := GvcResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "gvc",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_gvc.new",
+			Name:              gvcName,
+			Description:       gvcName,
+			DescriptionUpdate: "gvc default description updated",
+		},
+	}
 
-			support_dynamic_tags = true
-			
-			container {
-				name   = "container-01"
-				image  = "gcr.io/knative-samples/helloworld-go"
-				
-				memory = "128Mi"
-				cpu    = "50m"
+	// Initialize the gvc config
+	gvcConfig := gvcResourceTest.GvcRequiredOnly(gvcCase)
 
-				ports {
-					protocol = "http"
-					number   = "8080"
-				}
+	// Create a resource test instance
+	resourceTest := WorkloadResourceTest{
+		RandomName: random,
+		GvcConfig:  gvcConfig,
+		GvcCase:    gvcCase,
+	}
 
-				command           = "override-command"
-				working_directory = "/usr"
-			
-				env = {
-					env-name-01 = "env-value-01",
-					env-name-02 = "env-value-02",
-				}
-			
-				args = ["arg-01", "arg-02"]
-			
-				volume {
-					uri  = "s3://bucket"
-					recovery_policy = "retain"
-					path = "/testpath01"
-				}
-			
-				volume {
-					uri  = "azureblob://storageAccount/container"
-					recovery_policy = "recycle"
-					path = "/testpath02"
-				}
-			
-				metrics {
-					path = "/metrics"
-					port = 8181
-				}
-			
-				readiness_probe {
-			
-					tcp_socket {
-						port = 8181
-					}
-				
-					period_seconds        = 11
-					timeout_seconds       = 2
-					failure_threshold     = 4
-					success_threshold     = 2
-					initial_delay_seconds = 1
-				}
-			
-				liveness_probe {
-			
-					http_get {
-						path   = "/path"
-						port   = 8282
-						scheme = "HTTPS"
-						http_headers = {
-							header-name-01 = "header-value-01"
-							header-name-02 = "header-value-02"
-						}
-					}
-				
-					period_seconds        = 10
-					timeout_seconds       = 3
-					failure_threshold     = 5
-					success_threshold     = 1
-					initial_delay_seconds = 2
-				}
-			
-				lifecycle {
-			
-					post_start {
-						exec {
-							command = ["command_post", "arg_1", "arg_2"]
-						}
-					}
-				
-					pre_stop {
-						exec {
-							command = ["command_pre", "arg_1", "arg_2"]
-						}
-					}
-		  	}
-			}
-	  
-			options {
-				capacity_ai     = true
-				timeout_seconds = 30
-				suspend         = false
-			
-				autoscaling {
-					metric              = "memory"
-					target              = 100
-					min_scale           = 2
-					max_scale           = 3
-					max_concurrency     = 500
-					scale_to_zero_delay = 400
-				}
-			}
-				
-			local_options {
-				location        = "aws-eu-central-1"
-				capacity_ai     = true
-				timeout_seconds = 30
-				suspend         = false
-			
-				autoscaling {
-					metric              = "concurrency"
-					target              = 100
-					max_scale           = 3
-					min_scale           = 2
-					max_concurrency     = 500
-					scale_to_zero_delay = 400
-				}
-			}
-	  
-			firewall_spec {
-			
-				external {
-					inbound_allow_cidr      = ["0.0.0.0/0"]
-					inbound_blocked_cidr    = ["127.0.0.1"]
-					outbound_allow_cidr     = []
-					outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
-					outbound_blocked_cidr   = ["::1"]
-					
-					outbound_allow_port {
-						protocol = "http"
-						number   = 80
-					}
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-					outbound_allow_port {
-						protocol = "https"
-						number   = 443
-					}
-				}
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewServerlessScenario()...)
+	steps = append(steps, resourceTest.NewStandardScenario()...)
+	steps = append(steps, resourceTest.NewCronScenario()...)
+	steps = append(steps, resourceTest.NewStatefulScenario()...)
 
-				internal {
-					# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-					inbound_allow_type     = "none"
-					inbound_allow_workload = []
-				}
-			}
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-			security_options {
-				file_system_group_id = 1
-			}
-
-			sidecar {
-				envoy = jsonencode(%s)
-			}
-
-			load_balancer {
-
-				direct {
-					enabled = true
-					
-					port {
-						external_port  = 22
-						protocol       = "TCP"
-						scheme         = "http"
-						container_port = 80
-					}
-				}
-
-				geo_location {
-					enabled = true
-					headers {
-						asn = "198.51.100.0/24"
-						city = "Los Angeles"
-						country = "USA"
-						region = "North America"
-					}
-				}
-			}
-	  }
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccControlPlaneStandardWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneStandardWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
-		description = "%s"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	  
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		identity_link = cpln_identity.new.self_link
-
-		type = "standard"
-		
-		support_dynamic_tags = true
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-		  memory = "128Mi"
-		  cpu = "50m"	  
-
-		  ports {
-		    protocol = "http"
-			number   = "80" 
-		  }
-
-		  ports {
-			protocol = "http2"
-			number   = "8080" 
-	      }
-
-		  ports {
-			protocol = "grpc"
-			number   = "3000" 
-	      }
-
-		  ports {
-			protocol = "tcp"
-			number   = "3001" 
-	      }
-
-
-		  command = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
-		  readiness_probe {
-
-			tcp_socket {
-			  port = 8181
-			}
-
-			// exec {
-			// 	command = ["test1", "test2"]
-			// }
-	  
-			period_seconds       = 11
-			timeout_seconds      = 2
-			failure_threshold    = 4
-			success_threshold    = 2
-			initial_delay_seconds = 1
-		  }
-
-		  liveness_probe {
-
-			http_get {
-				path = "/path"
-				port = 8282
-				scheme = "HTTPS"
-				http_headers = {
-					header-name-01 = "header-value-01"
-					header-name-02 = "header-value-02"
-				}
-			}
-	  
-			period_seconds       = 10
-			timeout_seconds      = 3
-			failure_threshold    = 5
-			success_threshold    = 1
-			initial_delay_seconds = 2
-		  }
-		}
-	 	  	  
-		options {
-		  capacity_ai = false
-		  timeout_seconds = 30
-		  suspend = false
-	  
-		  autoscaling {
-			metric = "cpu"
-			target = 60
-			max_scale = 3
-			min_scale = 2
-			max_concurrency = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-
-		// locations = ["aws-eu-central-1", "aws-us-west-2", "azure-eastus2", "azure-eastus2"]
-
-		// local_options {
-		// 	location = "aws-eu-central-1"
-		// 	capacity_ai = true
-		// 	timeout_seconds = 30
-		
-		// 	autoscaling {
-		// 	  metric = "concurrency"
-		// 	  target = 100
-		// 	  max_scale = 3
-		// 	  min_scale = 2
-		// 	  max_concurrency = 500
-		// 	  scale_to_zero_delay = 400
-		// 	}
-		// }
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			inbound_blocked_cidr = ["127.0.0.1"]
-			outbound_allow_cidr =  []
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		  internal { 
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
-			inbound_allow_workload = []
-		  }
-		}
-		
-		rollout_options {
-			min_ready_seconds = 2
-			max_unavailable_replicas = "10"
-			max_surge_replicas = "20"
-			scaling_policy = "Parallel"
-		}
-		
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	  }
-	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneStandardWorkloadMultiMetrics(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneStandardWorkload_MultiMetrics")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
-		description = "%s"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	  
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		identity_link = cpln_identity.new.self_link
-
-		type = "standard"
-		
-		support_dynamic_tags = true
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-		  memory = "128Mi"
-		  cpu = "50m"	  
-
-		  ports {
-		    protocol = "http"
-			number   = "80" 
-		  }
-
-		  ports {
-			protocol = "http2"
-			number   = "8080" 
-	      }
-
-		  ports {
-			protocol = "grpc"
-			number   = "3000" 
-	      }
-
-		  ports {
-			protocol = "tcp"
-			number   = "3001" 
-	      }
-
-		  command = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
-		  readiness_probe {
-
-			tcp_socket {
-			  port = 8181
-			}
-
-			period_seconds       = 11
-			timeout_seconds      = 2
-			failure_threshold    = 4
-			success_threshold    = 2
-			initial_delay_seconds = 1
-		  }
-
-		  liveness_probe {
-
-			http_get {
-				path = "/path"
-				port = 8282
-				scheme = "HTTPS"
-				http_headers = {
-					header-name-01 = "header-value-01"
-					header-name-02 = "header-value-02"
-				}
-			}
-	  
-			period_seconds       = 10
-			timeout_seconds      = 3
-			failure_threshold    = 5
-			success_threshold    = 1
-			initial_delay_seconds = 2
-		  }
-		}
-	 	  	  
-		options {
-		  capacity_ai = false
-		  timeout_seconds = 30
-		  suspend = false
-	  
-		  autoscaling {
-			metric_percentile = "p50"
-			min_scale = 2
-			max_scale = 3
-			max_concurrency = 500
-			scale_to_zero_delay = 400
-
-			multi {
-				metric = "cpu"
-				target = 50
-			}
-		  }
-		}
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			inbound_blocked_cidr = ["127.0.0.1"]
-			outbound_allow_cidr =  []
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		  internal { 
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
-			inbound_allow_workload = []
-		  }
-		}
-		
-		rollout_options {
-			min_ready_seconds = 2
-			max_unavailable_replicas = "10"
-			max_surge_replicas = "20"
-			scaling_policy = "Parallel"
-		}
-		
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	  }
-	  `, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneCronWorkload(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneCronWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type    = string
-		default = "%s"
-	  }
-	  
-	  resource "cpln_gvc" "new" {
-		name        = "%s"
-		description = "%s"
-	  
-		locations = ["aws-us-west-2", "gcp-us-east1"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	  }
-	  
-	  resource "cpln_identity" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	  }
-	  
-	  resource "cpln_workload" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	  
-		identity_link = cpln_identity.new.self_link
-	  
-		type = "cron"
-
-		support_dynamic_tags = true
-	  
-		container {
-		  name   = "container-01"
-		  image  = "gcr.io/knative-samples/helloworld-go"
-		  memory = "128Mi"
-		  cpu    = "50m"
-	  
-		  command           = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-	  
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-	  
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-	  
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-	  
-		  # readiness_probe {
-	  
-		  #   tcp_socket {
-		  #     port = 8181
-		  #   }
-	  
-		  #   period_seconds        = 11
-		  #   timeout_seconds       = 2
-		  #   failure_threshold     = 4
-		  #   success_threshold     = 2
-		  #   initial_delay_seconds = 1
-		  # }
-	  
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-	  
-		}
-	  
-		options {
-		  suspend     = false
-		  capacity_ai = false
-	  
-		  autoscaling {
-				metric = "concurrency"
-				max_concurrency = 0
-				min_scale = 1
-				max_scale = 1
-				scale_to_zero_delay = 300
-				target = 95
-		  }
-		}
-	  
-		firewall_spec {
-		  external {
-			outbound_allow_cidr     = ["192.168.0.1/16"]
-			outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		}
-	  
-		job {
-		  schedule                = "* * * * *"
-		  concurrency_policy      = "Forbid"
-		  history_limit           = 5
-		  restart_policy          = "Never"
-		  active_deadline_seconds = 1200
-		}
-	  
-	  
-		security_options {
-		  file_system_group_id = 1
-		}
-	  
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	  }
-	  
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneGpuWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
-	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type    = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"
-		description = "%s"
-	  
-		locations = ["aws-us-west-2", "gcp-us-east1"]
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	}
-
-
-	resource "cpln_workload" "new" {
-		
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-		type = "serverless"
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	  
-		identity_link = cpln_identity.new.self_link
-		support_dynamic_tags = true
-	  
-		container {
-			name   = "container-01"
-			image  = "gcr.io/knative-samples/helloworld-go"
-			// port   = 8080
-		  	
-			ports {
-				protocol = "http"
-				number   = "8080"
-			} 
-			
-			memory = "7Gi"
-		  	cpu    = "2"
-
-			gpu_nvidia {
-				model 	 = "t1"
-				quantity = 1
-			}
-	  
-			command           = "override-command"
-			working_directory = "/usr"
-	  
-			env = {
-				env-name-01 = "env-value-01",
-				env-name-02 = "env-value-02",
-			}
-	  
-		  	args = ["arg-01", "arg-02"]
-	  
-			volume {
-				uri  = "s3://bucket"
-				recovery_policy = "retain"
-				path = "/testpath01"
-			}
-	  
-		  	volume {
-				uri  = "azureblob://storageAccount/container"
-				recovery_policy = "recycle"
-				path = "/testpath02"
-		  	}
-			
-			metrics {
-				path = "/metrics"
-				port = 8181
-		  	}
-	  
-			readiness_probe {
-		
-				tcp_socket {
-					port = 8181
-				}
-		
-				period_seconds        = 11
-				timeout_seconds       = 2
-				failure_threshold     = 4
-				success_threshold     = 2
-				initial_delay_seconds = 1
-			}
-		
-			liveness_probe {
-				
-				http_get {
-					path   = "/path"
-					port   = 8282
-					scheme = "HTTPS"
-					http_headers = {
-						header-name-01 = "header-value-01"
-						header-name-02 = "header-value-02"
-					}
-				}
-		
-				period_seconds        = 10
-				timeout_seconds       = 3
-				failure_threshold     = 5
-				success_threshold     = 1
-				initial_delay_seconds = 2
-			}
-	  
-			lifecycle {
-				
-				post_start {
-					exec {
-						command = ["command_post", "arg_1", "arg_2"]
-					}
-				}
-		
-				pre_stop {
-					exec {
-						command = ["command_pre", "arg_1", "arg_2"]
-					}
-				}
-			}
-		}
-
-		options {
-			capacity_ai     = false
-			timeout_seconds = 30
-			suspend         = false
-	
-			autoscaling {
-				metric              = "concurrency"
-				target              = 100
-				max_scale           = 3
-				min_scale           = 2
-				max_concurrency     = 500
-				scale_to_zero_delay = 400
-			}
-		}
-	  
-		firewall_spec {
-			external {
-				inbound_allow_cidr      = ["0.0.0.0/0"]
-				inbound_blocked_cidr    = ["127.0.0.1"]
-				outbound_allow_cidr     = []
-				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
-				outbound_blocked_cidr   = ["::1"]
-
-				outbound_allow_port {
-					protocol = "http"
-					number   = 80
-				}
-	
-				outbound_allow_port {
-					protocol = "https"
-					number   = 443
-				}
-			}
-
-			internal {
-				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-				inbound_allow_type     = "none"
-				inbound_allow_workload = []
-			}
-		}
-
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	}
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneGpuCustomWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
-	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type    = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"
-		description = "%s"
-	  
-		locations = ["aws-us-west-2", "gcp-us-east1"]
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	}
-
-
-	resource "cpln_workload" "new" {
-		
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-		type = "serverless"
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	  
-		identity_link = cpln_identity.new.self_link
-		support_dynamic_tags = true
-	  
-		container {
-			name   = "container-01"
-			image  = "gcr.io/knative-samples/helloworld-go"
-			// port   = 8080
-		  	
-			ports {
-				protocol = "http"
-				number   = "8080"
-			} 
-			
-			memory = "7Gi"
-		  	cpu    = "2"
-
-			gpu_custom {
-				resource      = "amd.com/gpu"
-				runtime_class = "amd"
-				quantity      = 1
-			}
-	  
-			command           = "override-command"
-			working_directory = "/usr"
-	  
-			env = {
-				env-name-01 = "env-value-01",
-				env-name-02 = "env-value-02",
-			}
-	  
-		  	args = ["arg-01", "arg-02"]
-	  
-			volume {
-				uri  = "s3://bucket"
-				recovery_policy = "retain"
-				path = "/testpath01"
-			}
-	  
-		  	volume {
-				uri  = "azureblob://storageAccount/container"
-				recovery_policy = "recycle"
-				path = "/testpath02"
-		  	}
-			
-			metrics {
-				path = "/metrics"
-				port = 8181
-		  	}
-	  
-			readiness_probe {
-		
-				tcp_socket {
-					port = 8181
-				}
-		
-				period_seconds        = 11
-				timeout_seconds       = 2
-				failure_threshold     = 4
-				success_threshold     = 2
-				initial_delay_seconds = 1
-			}
-		
-			liveness_probe {
-				
-				http_get {
-					path   = "/path"
-					port   = 8282
-					scheme = "HTTPS"
-					http_headers = {
-						header-name-01 = "header-value-01"
-						header-name-02 = "header-value-02"
-					}
-				}
-		
-				period_seconds        = 10
-				timeout_seconds       = 3
-				failure_threshold     = 5
-				success_threshold     = 1
-				initial_delay_seconds = 2
-			}
-	  
-			lifecycle {
-				
-				post_start {
-					exec {
-						command = ["command_post", "arg_1", "arg_2"]
-					}
-				}
-		
-				pre_stop {
-					exec {
-						command = ["command_pre", "arg_1", "arg_2"]
-					}
-				}
-			}
-		}
-
-		options {
-			capacity_ai     = false
-			timeout_seconds = 30
-			suspend         = false
-	
-			autoscaling {
-				metric              = "concurrency"
-				target              = 100
-				max_scale           = 3
-				min_scale           = 2
-				max_concurrency     = 500
-				scale_to_zero_delay = 400
-			}
-		}
-	  
-		firewall_spec {
-			external {
-				inbound_allow_cidr      = ["0.0.0.0/0"]
-				inbound_blocked_cidr    = ["127.0.0.1"]
-				outbound_allow_cidr     = []
-				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
-				outbound_blocked_cidr   = ["::1"]
-
-				outbound_allow_port {
-					protocol = "http"
-					number   = 80
-				}
-	
-				outbound_allow_port {
-					protocol = "https"
-					number   = 443
-				}
-			}
-
-			internal {
-				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-				inbound_allow_type     = "none"
-				inbound_allow_workload = []
-			}
-		}
-
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	}
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneGrpcWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
-	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
-		description = "%s"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	  
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		identity_link = cpln_identity.new.self_link
-
-		type = "standard"
-		
-		support_dynamic_tags = true
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-		  memory = "128Mi"
-		  cpu = "50m"	  
-
-		  ports {
-		    protocol = "http"
-			number   = "80" 
-		  }
-
-		  ports {
-			protocol = "http2"
-			number   = "8080" 
-	      }
-
-		  ports {
-			protocol = "grpc"
-			number   = "3000" 
-	      }
-
-		  ports {
-			protocol = "tcp"
-			number   = "3001" 
-	      }
-
-
-		  command = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
-		  readiness_probe {
-
-			grpc {
-			  port = 3000
-			}
-
-			// exec {
-			// 	command = ["test1", "test2"]
-			// }
-	  
-			period_seconds       = 11
-			timeout_seconds      = 2
-			failure_threshold    = 4
-			success_threshold    = 2
-			initial_delay_seconds = 1
-		  }
-
-		  liveness_probe {
-
-			http_get {
-				path = "/path"
-				port = 8282
-				scheme = "HTTPS"
-				http_headers = {
-					header-name-01 = "header-value-01"
-					header-name-02 = "header-value-02"
-				}
-			}
-	  
-			period_seconds       = 10
-			timeout_seconds      = 3
-			failure_threshold    = 5
-			success_threshold    = 1
-			initial_delay_seconds = 2
-		  }
-		}
-	 	  	  
-		options {
-		  capacity_ai = false
-		  timeout_seconds = 30
-		  suspend = false
-	  
-		  autoscaling {
-			metric = "cpu"
-			target = 60
-			max_scale = 3
-			min_scale = 2
-			max_concurrency = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-
-		// locations = ["aws-eu-central-1", "aws-us-west-2", "azure-eastus2", "azure-eastus2"]
-
-		// local_options {
-		// 	location = "aws-eu-central-1"
-		// 	capacity_ai = true
-		// 	timeout_seconds = 30
-		
-		// 	autoscaling {
-		// 	  metric = "concurrency"
-		// 	  target = 100
-		// 	  max_scale = 3
-		// 	  min_scale = 2
-		// 	  max_concurrency = 500
-		// 	  scale_to_zero_delay = 400
-		// 	}
-		// }
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			inbound_blocked_cidr = ["127.0.0.1"]
-			outbound_allow_cidr =  []
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		  internal { 
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
-			inbound_allow_workload = []
-		  }
-		}
-		
-		rollout_options {
-			min_ready_seconds = 2
-			max_unavailable_replicas = "10"
-			max_surge_replicas = "20"
-			scaling_policy = "Parallel"
-		}
-		
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneMinCpuMemoryWorkload(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
-	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
-		description = "%s"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	  
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		type = "serverless"
-		support_dynamic_tags = true
-
-		identity_link = cpln_identity.new.self_link
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-
-		  cpu = "50m"
-		  memory = "128Mi"
-
-		  min_cpu = "50m"
-		  min_memory = "128Mi"
-
-		  ports {
-		    protocol = "http"
-			number   = "8080" 
-		  }
-
-		  command = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
-		  readiness_probe {
-	  
-			tcp_socket {
-			  port = 8181
-			}
-	  
-			period_seconds        = 11
-			timeout_seconds       = 2
-			failure_threshold     = 4
-			success_threshold     = 2
-			initial_delay_seconds = 1
-		  }
-	  
-		  liveness_probe {
-	  
-			http_get {
-			  path   = "/path"
-			  port   = 8282
-			  scheme = "HTTPS"
-			  http_headers = {
-				header-name-01 = "header-value-01"
-				header-name-02 = "header-value-02"
-			  }
-			}
-	  
-			period_seconds        = 10
-			timeout_seconds       = 3
-			failure_threshold     = 5
-			success_threshold     = 1
-			initial_delay_seconds = 2
-		  }
-		}
-	 	  	  
-		options {
-		  capacity_ai     = true
-		  timeout_seconds = 30
-		  suspend         = false
-	  
-		  autoscaling {
-			metric              = "concurrency"
-			target              = 100
-			max_scale           = 3
-			min_scale           = 2
-			max_concurrency     = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			inbound_blocked_cidr = ["127.0.0.1"]
-			outbound_allow_cidr =  []
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		  internal { 
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
-			inbound_allow_workload = []
-		  }
-		}
-
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccControlPlaneWorkloadWithExtras(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
-	TestLogger.Printf("Inside testAccControlPlaneGpuWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
-		description = "%s"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	  
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		type = "serverless"
-		support_dynamic_tags = true
-
-		identity_link = cpln_identity.new.self_link
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-
-		  cpu = "50m"
-		  memory = "128Mi"
-
-		  min_cpu = "50m"
-		  min_memory = "128Mi"
-
-		  ports {
-		    protocol = "http"
-			number   = "8080" 
-		  }
-
-		  command = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  lifecycle {
-	  
-			post_start {
-			  exec {
-				command = ["command_post", "arg_1", "arg_2"]
-			  }
-			}
-	  
-			pre_stop {
-			  exec {
-				command = ["command_pre", "arg_1", "arg_2"]
-			  }
-			}
-		  }
-
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
-		  readiness_probe {
-	  
-			tcp_socket {
-			  port = 8181
-			}
-	  
-			period_seconds        = 11
-			timeout_seconds       = 2
-			failure_threshold     = 4
-			success_threshold     = 2
-			initial_delay_seconds = 1
-		  }
-	  
-		  liveness_probe {
-	  
-			http_get {
-			  path   = "/path"
-			  port   = 8282
-			  scheme = "HTTPS"
-			  http_headers = {
-				header-name-01 = "header-value-01"
-				header-name-02 = "header-value-02"
-			  }
-			}
-	  
-			period_seconds        = 10
-			timeout_seconds       = 3
-			failure_threshold     = 5
-			success_threshold     = 1
-			initial_delay_seconds = 2
-		  }
-		}
-	 	  	  
-		options {
-		  capacity_ai     = true
-		  timeout_seconds = 30
-		  suspend         = false
-	  
-		  autoscaling {
-			metric              = "concurrency"
-			target              = 100
-			max_scale           = 3
-			min_scale           = 2
-			max_concurrency     = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			inbound_blocked_cidr = ["127.0.0.1"]
-			outbound_allow_cidr =  []
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-		  internal { 
-			# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-			inbound_allow_type = "none"
-			inbound_allow_workload = []
-		  }
-		}
-
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-
-		extras = jsonencode(%s)
-	}`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy, workloadExtrasJsonString)
-}
-
-func testAccControlPlaneGpuWorkloadUpdate(randomName string, gvcName string, gvcDescription string, workloadName string, workloadDescription string, envoy string) string {
-	TestLogger.Printf("Inside testAccControlPlaneGpuWorkloadUpdate")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type    = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"
-		description = "%s"
-	  
-		locations = ["aws-us-west-2", "gcp-us-east1"]
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-	  
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	}
-
-
-	resource "cpln_workload" "new" {
-		
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-		type = "serverless"
-	  
-		tags = {
-			terraform_generated = "true"
-			acceptance_test     = "true"
-		}
-	  
-		identity_link = cpln_identity.new.self_link
-		support_dynamic_tags = true
-	  
-		container {
-			name   = "container-01"
-			image  = "gcr.io/knative-samples/helloworld-go"
-			
-			//port   = 8080
-
-			ports {
-				protocol = "http"
-				number   = "8080"
-			} 
-
-		  	memory = "7Gi"
-		  	cpu    = "2"
-
-			gpu_nvidia {
-				model 	 = "t1"
-				quantity = 1
-			}
-	  
-			command           = "override-command"
-			working_directory = "/usr"
-	  
-			env = {
-				env-name-01 = "env-value-01",
-				env-name-02 = "env-value-02",
-			}
-	  
-		  	args = ["arg-01", "arg-02"]
-	  
-			volume {
-				uri  = "s3://bucket"
-				recovery_policy = "retain"
-				path = "/testpath01"
-			}
-	  
-		  	volume {
-				uri  = "azureblob://storageAccount/container"
-				recovery_policy = "recycle"
-				path = "/testpath02"
-		  	}
-			
-			metrics {
-				path = "/metrics"
-				port = 8181
-		  	}
-	  
-			readiness_probe {
-		
-				tcp_socket {
-					port = 8181
-				}
-		
-				period_seconds        = 11
-				timeout_seconds       = 2
-				failure_threshold     = 4
-				success_threshold     = 2
-				initial_delay_seconds = 1
-			}
-		
-			liveness_probe {
-				
-				http_get {
-					path   = "/path"
-					port   = 8282
-					scheme = "HTTPS"
-					http_headers = {
-						header-name-01 = "header-value-01"
-						header-name-02 = "header-value-02"
-					}
-				}
-		
-				period_seconds        = 10
-				timeout_seconds       = 3
-				failure_threshold     = 5
-				success_threshold     = 1
-				initial_delay_seconds = 2
-			}
-	  
-			lifecycle {
-				
-				post_start {
-					exec {
-						command = ["command_post", "arg_1", "arg_2"]
-					}
-				}
-		
-				pre_stop {
-					exec {
-						command = ["command_pre", "arg_1", "arg_2"]
-					}
-				}
-			}
-		}
-
-		options {
-			capacity_ai     = false
-			timeout_seconds = 30
-			suspend         = false
-	
-			autoscaling {
-				metric              = "concurrency"
-				target              = 100
-				max_scale           = 3
-				min_scale           = 2
-				max_concurrency     = 500
-				scale_to_zero_delay = 400
-			}
-		}
-	  
-		firewall_spec {
-			external {
-				inbound_allow_cidr      = ["0.0.0.0/0"]
-				inbound_blocked_cidr    = ["127.0.0.1"]
-				outbound_allow_cidr     = []
-				outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
-				outbound_blocked_cidr   = ["::1"]
-			}
-
-			internal {
-				# Allowed Types: "none", "same-gvc", "same-org", "workload-list"
-				inbound_allow_type     = "none"
-				inbound_allow_workload = []
-			}
-		}
-
-		security_options {
-			file_system_group_id = 1
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	}
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccCheckControlPlaneWorkloadExists(resourceName, workloadName, gvcName string, workload *client.Workload) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadExists. Resources Length: %d", len(s.RootModule().Resources))
-
-		rs, ok := s.RootModule().Resources[resourceName]
-
-		if !ok {
-			return fmt.Errorf("Not found: %s", s)
-		}
-
-		if rs.Primary.ID != workloadName {
-			return fmt.Errorf("Workload name does not match")
-		}
-
-		client := testAccProvider.Meta().(*client.Client)
-
-		wl, _, err := client.GetWorkload(workloadName, gvcName)
-
-		if err != nil {
-			return err
-		}
-
-		if *wl.Name != workloadName {
-			return fmt.Errorf("Workload name does not match")
-		}
-
-		*workload = *wl
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneWorkloadAttributes(workload *client.Workload, workloadType string, envoy string, testOptions []string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		tags := *workload.Tags
-
-		if tags["terraform_generated"] != "true" {
-			return fmt.Errorf("Tags - workload terraform_generated attribute does not match")
-		}
-
-		if tags["acceptance_test"] != "true" {
-			return fmt.Errorf("Tags - workload acceptance_test attribute does not match")
-		}
-
-		containers := generateTestContainers(workloadType, testOptions)
-
-		if diff := deep.Equal(containers, workload.Spec.Containers); diff != nil {
-			return fmt.Errorf("Containers attributes does not match. Diff: %s", diff)
-		}
-
-		options := generateTestOptions(workloadType)
-
-		if diff := deep.Equal(options, workload.Spec.DefaultOptions); diff != nil {
-			return fmt.Errorf("Options attributes does not match. Diff: %s", diff)
-		}
-
-		firewallSpec := generateTestFirewallSpec(workloadType)
-
-		if diff := deep.Equal(firewallSpec, workload.Spec.FirewallConfig); diff != nil {
-			return fmt.Errorf("FirewallSpec attributes does not match. Diff: %s", diff)
-		}
-
-		if workload.Spec.Job != nil {
-			jobSpec, _, _ := generateTestJobSpec()
-			if diff := deep.Equal(jobSpec, workload.Spec.Job); diff != nil {
-				return fmt.Errorf("Job attributes does not match. Diff: %s", diff)
-			}
-		}
-
-		if workloadType == "standard" || workloadType == "standard-readiness-grpc" || workloadType == "standard-multi-metrics" {
-			expectedRolloutOptions, _, _ := generateTestRolloutOptions()
-			if diff := deep.Equal(expectedRolloutOptions, workload.Spec.RolloutOptions); diff != nil {
-				return fmt.Errorf("RolloutOptions mismatch, Diff: %s", diff)
-			}
-		}
-
-		expectedSecurityOptions, _, _ := generateTestSecurityOptions()
-		if diff := deep.Equal(expectedSecurityOptions, workload.Spec.SecurityOptions); diff != nil {
-			return fmt.Errorf("SecurityOptions mismatch, Diff: %s", diff)
-		}
-
-		expectedSidecar, _, _ := generateTestWorkloadSidecar(envoy)
-		if diff := deep.Equal(expectedSidecar, workload.Spec.Sidecar); diff != nil {
-			return fmt.Errorf("Sidecar mismatch, Diff: %s", diff)
-		}
-
-		for _, o := range testOptions {
-			switch o {
-			case "with_load_balancer":
-				expectedLoadBalancer, _, _ := generateTestWorkloadLoadBalancer()
-
-				if diff := deep.Equal(expectedLoadBalancer, workload.Spec.LoadBalancer); diff != nil {
-					return fmt.Errorf("Load Balancer mismatch, Diff: %s", diff)
-				}
-			case "with_extras":
-
-				extrasJsonStringCopy := workloadExtrasJsonString
-				expectedExtras, err := buildWorkloadExtras(&extrasJsonStringCopy)
-
-				if err != nil {
-					return fmt.Errorf("Expected extras JSON unmarshal error")
-				}
-
-				if diff := deep.Equal(expectedExtras, workload.Spec.Extras); diff != nil {
-					return fmt.Errorf("Extras mismatch, Diff: %s", diff)
-				}
-			case "with_request_retry_policy":
-				expectedRequestRetryPolicy, _, _ := generateTestWorkloadRequestRetryPolicy()
-
-				if diff := deep.Equal(expectedRequestRetryPolicy, workload.Spec.RequestRetryPolicy); diff != nil {
-					return fmt.Errorf("Request Retry Policy mismatch, Diff: %s", diff)
-				}
-			}
-		}
-
-		return nil
-	}
-}
-
-func testAccControlPlaneCronWorkloadUpdate(randomName, gvcName, gvcDescription, workloadName, workloadDescription string, envoy string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneCronWorkload")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "%s"	
-		description = "%s"
-
-		locations = ["aws-us-west-2", "gcp-us-east1"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "terraform-identity-${var.random-name}"
-		description = "Identity created using terraform"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	  
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-	  
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		identity_link = cpln_identity.new.self_link
-
-		type = "cron"
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-		  memory = "128Mi"
-		  cpu = "50m"
-
-		  command = "override-command"
-		  working_directory = "/usr"
-	  
-		  env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		  }
-	  
-		  args = ["arg-01", "arg-02"]
-
-		  volume {
-			uri  = "s3://bucket"
-			recovery_policy = "retain"
-			path = "/testpath01"
-		  }
-
-		  volume {
-			uri  = "azureblob://storageAccount/container"
-			recovery_policy = "recycle"
-			path = "/testpath02"
-		  }
-
-		  metrics {
-			path = "/metrics"
-			port = 8181
-		  }
-
-		//   readiness_probe {
-
-		// 	tcp_socket {
-		// 	  port = 8181
-		// 	}
-	  
-		// 	period_seconds        = 11
-		// 	timeout_seconds       = 2
-		// 	failure_threshold     = 4
-		// 	success_threshold     = 2
-		// 	initial_delay_seconds = 1
-		//   }
-
-			lifecycle {
-				post_start {
-					exec {
-						command = ["command_post", "arg_1", "arg_2"]
-					}
-				}
-		
-				pre_stop {
-					exec {
-						command = ["command_pre", "arg_1", "arg_2"]
-					}
-				}
-			}
-		}
-		 	  	  
-		options {
-		  #capacity_ai = false
-		  #timeout_seconds = 5
-		  suspend = false
-	  
-		  autoscaling {
-				metric = "concurrency"
-				max_concurrency = 0
-				min_scale = 1
-				max_scale = 1
-				scale_to_zero_delay = 300
-				target = 95
-		  }
-		}
-
-		local_options {
-			location = "gcp-us-east1"
-			capacity_ai = false
-			timeout_seconds = 5
-			suspend = false
-		
-			autoscaling {
-				metric = "concurrency"
-				max_concurrency = 0
-				min_scale = 1
-				max_scale = 1
-				scale_to_zero_delay = 300
-				target = 95
-		  }
-		}
-		
-	  
-		firewall_spec {
-		  external {
-			inbound_allow_cidr =  ["0.0.0.0/0"]
-			outbound_allow_hostname =  ["*.controlplane.com", "*.cpln.io"]
-			outbound_blocked_cidr   = ["::1"]
-
-			outbound_allow_port {
-				protocol = "http"
-				number   = 80
-			}
-
-			outbound_allow_port {
-				protocol = "https"
-				number   = 443
-			}
-		  }
-
-		}
-
-		job {
-            schedule = "* * * * *"
-            concurrency_policy = "Forbid"
-            history_limit = 5
-            restart_policy = "Never"
-            // active_deadline_seconds = 1200
-        }
-	
-	    security_options {
-			file_system_group_id = 1
-		}
-		
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-	  }
-	`, randomName, gvcName, gvcDescription, workloadName, workloadDescription, envoy)
-}
-
-func testAccCheckControlPlaneWorkloadCheckDestroy(s *terraform.State) error {
-
-	TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadCheckDestroy. Resources Length: %d", len(s.RootModule().Resources))
-
+// CheckDestroy verifies that all resources have been destroyed.
+func (wrt *WorkloadResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_workload resources. Total resources: %d", len(s.RootModule().Resources)))
+
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadDestroy: rs.Type: %s", rs.Type)
-
+		// Continue only if the resource is as expected
 		if rs.Type != "cpln_gvc" {
 			continue
 		}
 
+		// Retrieve the name for the current resource
 		gvcName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of GVC with name: %s", gvcName))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadDestroy: gvcName: %s", gvcName)
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		gvc, code, err := TestProvider.client.GetGvc(gvcName)
 
-		gvc, _, _ := c.GetGvc(gvcName)
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if GVC %s exists: %w", gvcName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
 		if gvc != nil {
-			return fmt.Errorf("GVC still exists. Name: %s. Associated Workloads might still exist", *gvc.Name)
+			return fmt.Errorf("CheckDestroy failed: GVC %s still exists in the system", *gvc.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_workload resources have been successfully destroyed")
 	return nil
 }
 
-/*** Unit Tests ***/
-// Build //
-
-func TestControlPlane_BuildContainersServerless(t *testing.T) {
-
-	unitTestWorkload := client.Workload{}
-	unitTestWorkload.Spec = &client.WorkloadSpec{}
-	buildContainers(generateFlatTestContainer("serverless"), unitTestWorkload.Spec)
-
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless", []string{})); diff != nil {
-		t.Errorf("Container was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildContainersStandard(t *testing.T) {
-
-	unitTestWorkload := client.Workload{}
-	unitTestWorkload.Spec = &client.WorkloadSpec{}
-	buildContainers(generateFlatTestContainer("standard"), unitTestWorkload.Spec)
-
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("standard", []string{})); diff != nil {
-		t.Errorf("Container was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildContainersWithMinCpuMemory(t *testing.T) {
-
-	unitTestWorkload := client.Workload{}
-	unitTestWorkload.Spec = &client.WorkloadSpec{}
-	buildContainers(generateFlatTestContainer("serverless-min-cpu-memory"), unitTestWorkload.Spec)
-
-	if diff := deep.Equal(unitTestWorkload.Spec.Containers, generateTestContainers("serverless-min-cpu-memory", []string{})); diff != nil {
-		t.Errorf("Container was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildGPU(t *testing.T) {
-	gpu, expectedGpu, _ := generateTestGpuNvidia()
-	if diff := deep.Equal(gpu, expectedGpu); diff != nil {
-		t.Errorf("Gpu was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildOptions(t *testing.T) {
-
-	unitTestWorkload := client.Workload{}
-	unitTestWorkload.Spec = &client.WorkloadSpec{}
-
-	buildOptions(generateFlatTestOptions(), unitTestWorkload.Spec, false, "")
-
-	if diff := deep.Equal(unitTestWorkload.Spec.DefaultOptions, generateTestOptions("serverless")); diff != nil {
-		t.Errorf("Options was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildMultiMetrics(t *testing.T) {
-
-	multi, expectedMulti, _ := generateTestMultiMetrics()
-
-	if diff := deep.Equal(multi, expectedMulti); diff != nil {
-		t.Errorf("Workload Autoscaling Multi was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildFirewallSpec(t *testing.T) {
-
-	unitTestWorkload := client.Workload{}
-	unitTestWorkload.Spec = &client.WorkloadSpec{}
-
-	buildFirewallSpec(generateFlatTestFirewallSpec(true), unitTestWorkload.Spec)
-
-	if diff := deep.Equal(unitTestWorkload.Spec.FirewallConfig, generateTestFirewallSpec("")); diff != nil {
-		t.Errorf("FirewallSpec was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildRolloutOptions(t *testing.T) {
-	rolloutOptions, expectedRolloutOptions, _ := generateTestRolloutOptions()
-	if diff := deep.Equal(rolloutOptions, expectedRolloutOptions); diff != nil {
-		t.Errorf("RolloutOptions was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildSecurityOptions(t *testing.T) {
-	securityOptions, expectedSecurityOptions, _ := generateTestSecurityOptions()
-	if diff := deep.Equal(securityOptions, expectedSecurityOptions); diff != nil {
-		t.Errorf("SecurityOptions was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildGeoLocation(t *testing.T) {
-	geoLocation, expectedGeoLocation, _ := generateTestGeoLocation()
-	if diff := deep.Equal(geoLocation, expectedGeoLocation); diff != nil {
-		t.Errorf("SecurityOptions Geo Location was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildGeoLocationHeaders(t *testing.T) {
-	headers, expectedHeaders, _ := generateTestGeoLocationHeaders()
-	if diff := deep.Equal(headers, expectedHeaders); diff != nil {
-		t.Errorf("SecurityOptions Geo Location Headers was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildJobSpec(t *testing.T) {
-	jobSpec, expectedJobSpec, _ := generateTestJobSpec()
-
-	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
-		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildJobSpec_Empty(t *testing.T) {
-	jobSpec := buildJobSpec([]interface{}{
-		map[string]interface{}{},
-	})
-	expectedJobSpec := client.JobSpec{}
-
-	if diff := deep.Equal(jobSpec, &expectedJobSpec); diff != nil {
-		t.Errorf("JobSpec was not build correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildWorkloadSidecar(t *testing.T) {
-	sidecar, expectedSidecar, _ := generateTestWorkloadSidecar(workloadEnvoyJson)
-	if diff := deep.Equal(sidecar, expectedSidecar); diff != nil {
-		t.Errorf("Workload Sidecar was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildWorkloadLoadBalancer(t *testing.T) {
-
-	loadBalancer, expectedLoadBalancer, _ := generateTestWorkloadLoadBalancer()
-
-	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
-		t.Errorf("Workload Load Balancer was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildWorkloadExtras(t *testing.T) {
-	// Create a copy of the generic extras JSON string
-	extrasJsonString := workloadExtrasJsonString
-
-	// Build the extras
-	extras, err := buildWorkloadExtras(&extrasJsonString)
-	if err != nil {
-		t.Errorf("Workload Extras was not built correctly, JSON unmarshal error.")
-		return
-	}
-
-	// Build the expected extras
-	var expectedExtras *any
-	if err := json.Unmarshal([]byte(extrasJsonString), &expectedExtras); err != nil {
-		t.Errorf("Workload Extras was not built correctly, JSON unmarshal error during building expected extras.")
-		return
-	}
-
-	// Check for difference
-	if diff := deep.Equal(*extras, *expectedExtras); diff != nil {
-		t.Errorf("Workload Extras was not built correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildWorkloadRequestRetryPolicy(t *testing.T) {
-
-	requestRetryPolicy, expectedRequestRetryPolicy, _ := generateTestWorkloadRequestRetryPolicy()
-
-	if diff := deep.Equal(requestRetryPolicy, expectedRequestRetryPolicy); diff != nil {
-		t.Errorf("Workload Request Retry Policy was not built correctly, Diff: %s", diff)
-	}
-}
-
-// Flatten //
-
-func TestControlPlane_FlattenWorkloadStatus(t *testing.T) {
-
-	endpoint := "endpoint"
-	parent_id := "parent_id"
-	canonical := "canonical"
-
-	status := &client.WorkloadStatus{
-		Endpoint:          GetString(endpoint),
-		ParentID:          GetString(parent_id),
-		CanonicalEndpoint: GetString(canonical),
-	}
-
-	flatStatus := map[string]interface{}{
-		"endpoint":           "endpoint",
-		"parent_id":          "parent_id",
-		"canonical_endpoint": "canonical",
-	}
-
-	flatStatusArray := []interface{}{
-		flatStatus,
-	}
-
-	flattenedStatus := flattenWorkloadStatus(status)
-
-	if diff := deep.Equal(flattenedStatus, flatStatusArray); diff != nil {
-		t.Errorf("Workload Status was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenContainerServerless(t *testing.T) {
-
-	containers := generateTestContainers("serverless", []string{})
-	flattenedContainer := flattenContainer(containers, false)
-
-	flatContainer := generateFlatTestContainer("serverless")
-
-	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
-		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenContainerStandard(t *testing.T) {
-
-	containers := generateTestContainers("standard", []string{})
-	flattenedContainer := flattenContainer(containers, false)
-
-	flatContainer := generateFlatTestContainer("standard")
-
-	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
-		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenContainerReadinessGrpc(t *testing.T) {
-
-	containers := generateTestContainers("standard-readiness-grpc", []string{})
-	flattenedContainer := flattenContainer(containers, false)
-
-	flatContainer := generateFlatTestContainer("standard-readiness-grpc")
-
-	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
-		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenContainerWithMinCpuMemory(t *testing.T) {
-
-	containers := generateTestContainers("serverless-min-cpu-memory", []string{})
-	flattenedContainer := flattenContainer(containers, false)
-
-	flatContainer := generateFlatTestContainer("serverless-min-cpu-memory")
-
-	if diff := deep.Equal(flatContainer, flattenedContainer); diff != nil {
-		t.Errorf("Container was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenGpuNvidia(t *testing.T) {
-	gpu, _, flattenedGpu := generateTestGpuNvidia()
-	expectedFlattenedGpu := flattenGpuNvidia(gpu)
-	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
-		t.Errorf("Gpu Nvidia was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenGpuCustom(t *testing.T) {
-	gpu, _, flattenedGpu := generateTestGpuCustom()
-	expectedFlattenedGpu := flattenGpuCustom(gpu)
-	if diff := deep.Equal(flattenedGpu, expectedFlattenedGpu); diff != nil {
-		t.Errorf("Gpu Custom was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenOptions(t *testing.T) {
-
-	options := generateTestOptions("serverless")
-	flatOptions := generateFlatTestOptions()
-	flattenedOptions := flattenOptions([]client.Options{*options}, false, "")
-
-	if diff := deep.Equal(flatOptions, flattenedOptions); diff != nil {
-		t.Errorf("Options not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenMultiMetrics(t *testing.T) {
-
-	_, expectedMulti, expectedFlatten := generateTestMultiMetrics()
-	flattenedMulti := flattenMultiMetrics(expectedMulti)
-
-	if diff := deep.Equal(expectedFlatten, flattenedMulti); diff != nil {
-		t.Errorf("Workload Autoscaling Multi was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenFirewallSpec(t *testing.T) {
-
-	spec := generateTestFirewallSpec("")
-	flattenedFirewallSpec := flattenFirewallSpec(spec)
-
-	flatSpec := generateFlatTestFirewallSpec(false)
-
-	if diff := deep.Equal(flatSpec, flattenedFirewallSpec); diff != nil {
-		t.Errorf("FirewallSpec not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenJobSpec(t *testing.T) {
-	_, jobSpec, expectedFlattenedJobSpec := generateTestJobSpec()
-
-	flattenedJobSpec := flattenJobSpec(&jobSpec)
-
-	if diff := deep.Equal(flattenedJobSpec, expectedFlattenedJobSpec); diff != nil {
-		t.Errorf("JobSpec not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenSecurityOptions(t *testing.T) {
-	_, expectedSecurityOptions, expectedFlatten := generateTestSecurityOptions()
-	flattenSecurityOptions := flattenSecurityOptions(expectedSecurityOptions)
-
-	if diff := deep.Equal(expectedFlatten, flattenSecurityOptions); diff != nil {
-		t.Errorf("SecurityOptions was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenWorkloadSidecar(t *testing.T) {
-	_, expectedSidecar, expectedFlatten := generateTestWorkloadSidecar(workloadEnvoyJson)
-	flattenSidecar := flattenWorkloadSidecar(expectedSidecar)
-
-	if diff := deep.Equal(expectedFlatten, flattenSidecar); diff != nil {
-		t.Errorf("Workload Sidecar was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenWorkloadLoadBalancer(t *testing.T) {
-	_, expectedLoadBalancer, expectedFlatten := generateTestWorkloadLoadBalancer()
-	flattenLoadBalancer := flattenWorkloadLoadBalancer(expectedLoadBalancer)
-
-	if diff := deep.Equal(expectedFlatten, flattenLoadBalancer); diff != nil {
-		t.Errorf("Workload Load Balancer was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenWorkloadExtras(t *testing.T) {
-	// Create a copy of the generic extras JSON string
-	extrasJsonString := workloadExtrasJsonString
-
-	// Build extras
-	var extras *any
-	if err := json.Unmarshal([]byte(extrasJsonString), &extras); err != nil {
-		t.Errorf("Workload Extras was not flattened correctly, JSON unmarshal error during extras build.")
-		return
-	}
-
-	// Flatten extras
-	flattenedExtrasJsonString, err := flattenWorkloadExtras(extras)
-	if err != nil {
-		t.Errorf("Workload Extras was not flattened correctly, JSON unmarshal error during flattening.")
-		return
-	}
-
-	// Check for difference
-	if diff := deep.Equal(*flattenedExtrasJsonString, extrasJsonString); diff != nil {
-		t.Errorf("Workload Extras was not flattened correctly, Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenWorkloadRequestRetryPolicy(t *testing.T) {
-	_, expectedRequestRetryPolicy, _ := generateTestWorkloadRequestRetryPolicy()
-	flattenRequestRetryPolicy := flattenWorkloadRequestRetryPolicy(expectedRequestRetryPolicy)
-	expectedFlatten := generateFlatTestWorkloadRequestRetryPolicy(false, *expectedRequestRetryPolicy.Attempts, *expectedRequestRetryPolicy.RetryOn)
-
-	if diff := deep.Equal(expectedFlatten, flattenRequestRetryPolicy); diff != nil {
-		t.Errorf("Workload Request Retry Policy was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-/*** Generate ***/
-
-func generateTestContainers(workloadType string, testOptions []string) *[]client.ContainerSpec {
-
-	newContainer := client.ContainerSpec{
-		Name:             GetString("container-01"),
-		Image:            GetString("gcr.io/knative-samples/helloworld-go"),
-		Memory:           GetString("128Mi"),
-		CPU:              GetString("50m"),
-		Command:          GetString("override-command"),
-		InheritEnv:       GetBool(false),
-		WorkingDirectory: GetString("/usr"),
-	}
-
-	if workloadType == "serverless" || workloadType == "serverless-metric-memory" {
-		// newContainer.Port = GetInt(8080)
-
-		newContainer.Ports = &[]client.PortSpec{
-			{
-				Protocol: GetString("http"),
-				Number:   GetInt(8080),
-			},
-		}
-	} else if workloadType == "serverless-gpu" {
-		newContainer.CPU = GetString("2")
-		newContainer.Memory = GetString("7Gi")
-
-		if contains(testOptions, "custom") {
-			gpuCustom, _, _ := generateTestGpuCustom()
-			newContainer.GPU = gpuCustom
-		} else {
-			gpuNvidia, _, _ := generateTestGpuNvidia()
-			newContainer.GPU = gpuNvidia
-		}
-		// newContainer.Port = GetInt(8080)
-
-		newContainer.Ports = &[]client.PortSpec{
-			{
-				Protocol: GetString("http"),
-				Number:   GetInt(8080),
-			},
-		}
-
-	} else if workloadType == "serverless-min-cpu-memory" {
-		newContainer.MinCPU = GetString("50m")
-		newContainer.MinMemory = GetString("128Mi")
-
-		newContainer.Ports = &[]client.PortSpec{
-			{
-				Protocol: GetString("http"),
-				Number:   GetInt(8080),
-			},
-		}
-	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" || workloadType == "standard-multi-metrics" {
-		newContainer.Ports = &[]client.PortSpec{
-			{
-				Protocol: GetString("http"),
-				Number:   GetInt(80),
-			},
-			{
-				Protocol: GetString("http2"),
-				Number:   GetInt(8080),
-			},
-			{
-				Protocol: GetString("grpc"),
-				Number:   GetInt(3000),
-			},
-			{
-				Protocol: GetString("tcp"),
-				Number:   GetInt(3001),
-			},
-		}
-	}
-
-	newContainer.Args = &[]string{
-		"arg-01",
-		"arg-02",
-	}
-
-	newContainer.Env = &[]client.NameValue{
+// Test Scenarios //
+
+// NewServerlessScenario defines a full serverless workload lifecycle test case including creation, updates, import, and state restoration.
+func (wrt *WorkloadResourceTest) NewServerlessScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-serverless-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := wrt.BuildServerlessTestStep(name)
+	caseUpdate1 := wrt.BuildServerlessUpdate1TestStep(initialConfig.ProviderTestCase)
+	caseUpdate2 := wrt.BuildServerlessUpdate2TestStep(initialConfig.ProviderTestCase)
+	caseUpdate3 := wrt.BuildServerlessUpdate3TestStep(initialConfig.ProviderTestCase)
+	caseUpdate4 := wrt.BuildServerlessUpdate4TestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			Name:  GetString("env-name-01"),
-			Value: GetString("env-value-01"),
+			ResourceName:  initialConfig.ResourceAddress,
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
 		},
+		// Update & Read
+		caseUpdate1,
+		caseUpdate2,
+		caseUpdate3,
+		caseUpdate4,
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// NewStandardScenario defines a standard workload test case with creation and import verification only.
+func (wrt *WorkloadResourceTest) NewStandardScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-standard-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := wrt.BuildStandardTestStep(name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			Name:  GetString("env-name-02"),
-			Value: GetString("env-value-02"),
+			ResourceName:  initialConfig.ResourceAddress,
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
 		},
 	}
+}
 
-	newContainer.Volumes = &[]client.VolumeSpec{
+// NewCronScenario defines a cron workload test case including creation, an update, import, and state restoration.
+func (wrt *WorkloadResourceTest) NewCronScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-cron-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := wrt.BuildCronTestStep(name)
+	caseUpdate1 := wrt.BuildCronUpdate1TestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			Uri:            GetString("s3://bucket"),
-			RecoveryPolicy: GetString("retain"),
-			Path:           GetString("/testpath01"),
+			ResourceName:  initialConfig.ResourceAddress,
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
 		},
+		// Update & Read
+		caseUpdate1,
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// NewStatefulScenario defines a stateful workload test case with creation and import validation.
+func (wrt *WorkloadResourceTest) NewStatefulScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-stateful-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := wrt.BuildStatefulTestStep(name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			Uri:            GetString("azureblob://storageAccount/container"),
-			RecoveryPolicy: GetString("recycle"),
-			Path:           GetString("/testpath02"),
-		},
-	}
-
-	newContainer.Metrics = &client.Metrics{
-		Path: GetString("/metrics"),
-		Port: GetInt(8181),
-	}
-
-	newContainer.LifeCycle = &client.LifeCycleSpec{
-
-		PostStart: &client.LifeCycleInner{
-			Exec: &client.Exec{
-				Command: &[]string{
-					"command_post", "arg_1", "arg_2",
-				},
-			},
-		},
-
-		PreStop: &client.LifeCycleInner{
-			Exec: &client.Exec{
-				Command: &[]string{
-					"command_pre", "arg_1", "arg_2",
-				},
-			},
-		},
-	}
-
-	if workloadType != "cron" {
-
-		if workloadType == "standard-readiness-grpc" {
-			newContainer.ReadinessProbe = &client.HealthCheckSpec{
-
-				InitialDelaySeconds: GetInt(1),
-				PeriodSeconds:       GetInt(11),
-				TimeoutSeconds:      GetInt(2),
-				SuccessThreshold:    GetInt(2),
-				FailureThreshold:    GetInt(4),
-
-				GRPC: &client.GRPC{
-					Port: GetInt(3000),
-				},
-			}
-		} else {
-			newContainer.ReadinessProbe = &client.HealthCheckSpec{
-
-				InitialDelaySeconds: GetInt(1),
-				PeriodSeconds:       GetInt(11),
-				TimeoutSeconds:      GetInt(2),
-				SuccessThreshold:    GetInt(2),
-				FailureThreshold:    GetInt(4),
-
-				TCPSocket: &client.TCPSocket{
-					Port: GetInt(8181),
-				},
-			}
-		}
-
-		newContainer.LivenessProbe = &client.HealthCheckSpec{
-
-			InitialDelaySeconds: GetInt(2),
-			PeriodSeconds:       GetInt(10),
-			TimeoutSeconds:      GetInt(3),
-			SuccessThreshold:    GetInt(1),
-			FailureThreshold:    GetInt(5),
-
-			HTTPGet: &client.HTTPGet{
-				Path:   GetString("/path"),
-				Port:   GetInt(8282),
-				Scheme: GetString("HTTPS"),
-				HTTPHeaders: &[]client.NameValue{
-					{
-						Name:  GetString("header-name-01"),
-						Value: GetString("header-value-01"),
-					},
-					{
-						Name:  GetString("header-name-02"),
-						Value: GetString("header-value-02"),
-					},
-				},
-			},
-		}
-	}
-
-	testContainers := make([]client.ContainerSpec, 1)
-	testContainers[0] = newContainer
-
-	return &testContainers
-}
-
-func generateTestGpuNvidia() (*client.GpuResource, *client.GpuResource, []interface{}) {
-	model := "t1"
-	quantity := 1
-
-	flatten := generateFlatTestGpuNvidia(model, quantity)
-	gpu := buildGpuNvidia(flatten)
-	expectedGpu := &client.GpuResource{
-		Nvidia: &client.Nvidia{
-			Model:    &model,
-			Quantity: &quantity,
-		},
-	}
-
-	return gpu, expectedGpu, flatten
-}
-
-func generateTestGpuCustom() (*client.GpuResource, *client.GpuResource, []interface{}) {
-	resource := "amd.com/gpu"
-	runtimeClass := "amd"
-	quantity := 1
-
-	flatten := generateFlatTestGpuCustom(resource, runtimeClass, quantity)
-	gpu := buildGpuCustom(flatten)
-	expectedGpu := &client.GpuResource{
-		Custom: &client.CustomGpu{
-			Resource:     &resource,
-			RuntimeClass: &runtimeClass,
-			Quantity:     &quantity,
-		},
-	}
-
-	return gpu, expectedGpu, flatten
-}
-
-func generateTestOptions(workloadType string) *client.Options {
-
-	if workloadType == "serverless-min-cpu-memory" {
-		return &client.Options{
-			CapacityAI:     GetBool(true),
-			TimeoutSeconds: GetInt(30),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
-
-			AutoScaling: &client.AutoScaling{
-				Metric:           GetString("concurrency"),
-				Target:           GetInt(100),
-				MaxScale:         GetInt(3),
-				MinScale:         GetInt(2),
-				MaxConcurrency:   GetInt(500),
-				ScaleToZeroDelay: GetInt(400),
-			},
-		}
-	}
-
-	if workloadType == "serverless-metric-memory" {
-		return &client.Options{
-			CapacityAI:     GetBool(true),
-			TimeoutSeconds: GetInt(30),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
-
-			AutoScaling: &client.AutoScaling{
-				Metric:           GetString("memory"),
-				Target:           GetInt(100),
-				MaxScale:         GetInt(3),
-				MinScale:         GetInt(2),
-				MaxConcurrency:   GetInt(500),
-				ScaleToZeroDelay: GetInt(400),
-			},
-		}
-	}
-
-	if workloadType == "serverless-gpu" {
-		return &client.Options{
-			CapacityAI:     GetBool(false),
-			TimeoutSeconds: GetInt(30),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
-
-			AutoScaling: &client.AutoScaling{
-				Metric:           GetString("concurrency"),
-				Target:           GetInt(100),
-				MaxScale:         GetInt(3),
-				MinScale:         GetInt(2),
-				MaxConcurrency:   GetInt(500),
-				ScaleToZeroDelay: GetInt(400),
-			},
-		}
-	}
-
-	if workloadType == "standard" || workloadType == "standard-readiness-grpc" {
-		return &client.Options{
-			CapacityAI:     GetBool(false),
-			TimeoutSeconds: GetInt(30),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
-
-			AutoScaling: &client.AutoScaling{
-				Metric:           GetString("cpu"),
-				Target:           GetInt(60),
-				MaxScale:         GetInt(3),
-				MinScale:         GetInt(2),
-				MaxConcurrency:   GetInt(500),
-				ScaleToZeroDelay: GetInt(400),
-			},
-		}
-	}
-
-	if workloadType == "standard-multi-metrics" {
-		multi, _, _ := generateTestMultiMetrics()
-
-		return &client.Options{
-			CapacityAI:     GetBool(false),
-			TimeoutSeconds: GetInt(30),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
-
-			AutoScaling: &client.AutoScaling{
-				MetricPercentile: GetString("p50"),
-				MinScale:         GetInt(2),
-				MaxScale:         GetInt(3),
-				MaxConcurrency:   GetInt(500),
-				ScaleToZeroDelay: GetInt(400),
-				Multi:            multi,
-			},
-		}
-	}
-
-	if workloadType == "cron" {
-		return &client.Options{
-			CapacityAI:     GetBool(false),
-			TimeoutSeconds: GetInt(5),
-			Debug:          GetBool(false),
-			Suspend:        GetBool(false),
-
-			AutoScaling: &client.AutoScaling{
-				Metric:           GetString("concurrency"),
-				MaxConcurrency:   GetInt(0),
-				MaxScale:         GetInt(1),
-				MinScale:         GetInt(1),
-				ScaleToZeroDelay: GetInt(300),
-				Target:           GetInt(95),
-			},
-		}
-	}
-
-	return &client.Options{
-		CapacityAI:     GetBool(true),
-		TimeoutSeconds: GetInt(30),
-		Debug:          GetBool(false),
-		Suspend:        GetBool(false),
-
-		AutoScaling: &client.AutoScaling{
-			Metric:           GetString("concurrency"),
-			Target:           GetInt(100),
-			MaxScale:         GetInt(3),
-			MinScale:         GetInt(2),
-			MaxConcurrency:   GetInt(500),
-			ScaleToZeroDelay: GetInt(400),
+			ResourceName:  initialConfig.ResourceAddress,
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
 		},
 	}
 }
 
-func generateTestMultiMetrics() (*[]client.MultiMetrics, *[]client.MultiMetrics, []interface{}) {
+// Test Cases //
 
-	metric := "cpu"
-	target := 50
-
-	flattened := generateFlatTestMultiMetrics(metric, target)
-	multi := buildMultiMetrics(flattened)
-	expectedMulti := &[]client.MultiMetrics{
-		{
-			Metric: &metric,
-			Target: &target,
+// BuildServerlessTestStep constructs the initial serverless workload test configuration and test step.
+func (wrt *WorkloadResourceTest) BuildServerlessTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "workload",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_workload.new",
+			Name:              name,
+			GvcName:           wrt.GvcCase.Name,
+			Description:       name,
+			DescriptionUpdate: "workload default description updated",
 		},
 	}
 
-	return multi, expectedMulti, flattened
-}
-
-func generateTestFirewallSpec(workloadType string) *client.FirewallSpec {
-
-	if workloadType == "cron" {
-		return &client.FirewallSpec{
-			External: &client.FirewallSpecExternal{
-				InboundAllowCIDR:      &[]string{},
-				InboundBlockedCIDR:    &[]string{},
-				OutboundAllowCIDR:     &[]string{"192.168.0.1/16"},
-				OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
-				OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
-					{
-						Protocol: GetString("http"),
-						Number:   GetInt(80),
-					},
-					{
-						Protocol: GetString("https"),
-						Number:   GetInt(443),
-					},
-				},
-				OutboundBlockedCIDR: &[]string{"::1"},
-			},
-		}
-	}
-
-	return &client.FirewallSpec{
-		External: &client.FirewallSpecExternal{
-			InboundAllowCIDR:      &[]string{"0.0.0.0/0"},
-			InboundBlockedCIDR:    &[]string{"127.0.0.1"},
-			OutboundAllowCIDR:     &[]string{},
-			OutboundAllowHostname: &[]string{"*.cpln.io", "*.controlplane.com"},
-			OutboundAllowPort: &[]client.FirewallOutboundAllowPort{
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: wrt.ServerlessRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "false"),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
 				{
-					Protocol: GetString("http"),
-					Number:   GetInt(80),
+					"name":        "container-01",
+					"image":       "gcr.io/knative-samples/helloworld-go",
+					"cpu":         "50m",
+					"memory":      "128Mi",
+					"inherit_env": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "8080",
+							"protocol": "http",
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildServerlessUpdate1TestStep returns the first update test step for a serverless workload based on the initial test case.
+func (wrt *WorkloadResourceTest) BuildServerlessUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+		Envoy:            `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras:           `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: wrt.ServerlessUpdate1Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"port":              "8080",
+					"memory":            "128Mi",
+					"min_cpu":           "25m",
+					"min_memory":        "32Mi",
+					"cpu":               "50m",
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"tcp_socket":            []map[string]interface{}{{}},
+							"initial_delay_seconds": "10",
+							"period_seconds":        "10",
+							"timeout_seconds":       "1",
+							"success_threshold":     "1",
+							"failure_threshold":     "3",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"http_get": []map[string]interface{}{
+								{
+									"path":   "/path",
+									"port":   "8080",
+									"scheme": "HTTPS",
+								},
+							},
+							"initial_delay_seconds": "10",
+							"period_seconds":        "10",
+							"timeout_seconds":       "1",
+							"success_threshold":     "1",
+							"failure_threshold":     "3",
+						},
+					},
+					"lifecycle": []map[string]interface{}{{}},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{{}}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "5",
+					"capacity_ai":     "true",
+					"debug":           "false",
+					"suspend":         "false",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "95",
+							"max_scale":           "5",
+							"min_scale":           "1",
+							"max_concurrency":     "0",
+							"scale_to_zero_delay": "300",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("local_options", []map[string]interface{}{
+				{
+					"location":        "aws-eu-central-1",
+					"timeout_seconds": "5",
+					"capacity_ai":     "true",
+					"debug":           "false",
+					"suspend":         "false",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "95",
+							"max_scale":           "5",
+							"min_scale":           "1",
+							"max_concurrency":     "0",
+							"scale_to_zero_delay": "300",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{{}}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "2",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable", "cancelled", "resource-exhausted", "retriable-status-codes"},
+				},
+			}),
+		),
+	}
+}
+
+// BuildServerlessUpdate2TestStep returns the second update test step for a serverless workload based on the initial test case.
+func (wrt *WorkloadResourceTest) BuildServerlessUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+		Envoy:            `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras:           `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: wrt.ServerlessUpdate2Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"port":              "8080",
+					"memory":            "7Gi",
+					"cpu":               "2",
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"grpc": []map[string]interface{}{
+								{
+									"port": "3000",
+								},
+							},
+							"initial_delay_seconds": "1",
+							"period_seconds":        "11",
+							"timeout_seconds":       "2",
+							"success_threshold":     "2",
+							"failure_threshold":     "4",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"http_get": []map[string]interface{}{
+								{
+									"path":   "/path",
+									"port":   "8282",
+									"scheme": "HTTPS",
+									"http_headers": map[string]interface{}{
+										"header-name-01": "header-value-01",
+										"header-name-02": "header-value-02",
+									},
+								},
+							},
+							"initial_delay_seconds": "2",
+							"period_seconds":        "10",
+							"timeout_seconds":       "3",
+							"success_threshold":     "1",
+							"failure_threshold":     "5",
+						},
+					},
+					"gpu_nvidia": []map[string]interface{}{
+						{
+							"model":    "t4",
+							"quantity": "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{{}},
+							"pre_stop":   []map[string]interface{}{{}},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{},
+							"inbound_blocked_cidr":    []string{},
+							"outbound_allow_hostname": []string{},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "none",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "100",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("local_options", []map[string]interface{}{
+				{
+					"location":        "aws-eu-central-1",
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "100",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "false",
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "false",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
+	}
+}
+
+// BuildServerlessUpdate3TestStep returns the third update test step for a serverless workload based on the initial test case.
+func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+		Envoy:            `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras:           `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: wrt.ServerlessUpdate3Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"port":              "8080",
+					"memory":            "128Mi",
+					"cpu":               "50m",
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"tcp_socket": []map[string]interface{}{
+								{
+									"port": "3200",
+								},
+							},
+							"initial_delay_seconds": "1",
+							"period_seconds":        "11",
+							"timeout_seconds":       "2",
+							"success_threshold":     "2",
+							"failure_threshold":     "4",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"exec": []map[string]interface{}{
+								{
+									"command": []string{"command-01", "command-02"},
+								},
+							},
+							"initial_delay_seconds": "2",
+							"period_seconds":        "10",
+							"timeout_seconds":       "3",
+							"success_threshold":     "1",
+							"failure_threshold":     "5",
+						},
+					},
+					"gpu_custom": []map[string]interface{}{
+						{
+							"resource": "amd.com/gpu",
+							"quantity": "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+							"pre_stop": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"127.0.0.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com", "*.cpln.io"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"::1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "http",
+									"number":   "80",
+								},
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{{}},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "none",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "100",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("local_options", []map[string]interface{}{
+				{
+					"location":        "aws-eu-central-1",
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "100",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
 				},
 				{
-					Protocol: GetString("https"),
-					Number:   GetInt(443),
+					"location":        "aws-us-west-2",
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "90",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
 				},
-			},
-			OutboundBlockedCIDR: &[]string{"::1"},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "false",
+							"ipset":   "my-ipset-01",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "22",
+									"protocol":       "TCP",
+									"scheme":         "http",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "198.51.100.0/24",
+									"city":    "Los Angeles",
+									"country": "USA",
+									"region":  "North America",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
+	}
+}
+
+// BuildServerlessUpdate4TestStep returns the fourth update test step for a serverless workload based on the initial test case.
+func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+		Envoy:            `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras:           `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: wrt.ServerlessUpdate4Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"port":              "8080",
+					"memory":            "128Mi",
+					"cpu":               "50m",
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"tcp_socket": []map[string]interface{}{
+								{
+									"port": "3200",
+								},
+							},
+							"initial_delay_seconds": "1",
+							"period_seconds":        "11",
+							"timeout_seconds":       "2",
+							"success_threshold":     "2",
+							"failure_threshold":     "4",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"exec": []map[string]interface{}{
+								{
+									"command": []string{"command-01", "command-02"},
+								},
+							},
+							"initial_delay_seconds": "2",
+							"period_seconds":        "10",
+							"timeout_seconds":       "3",
+							"success_threshold":     "1",
+							"failure_threshold":     "5",
+						},
+					},
+					"gpu_custom": []map[string]interface{}{
+						{
+							"resource":      "amd.com/gpu",
+							"runtime_class": "amd",
+							"quantity":      "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+							"pre_stop": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"127.0.0.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com", "*.cpln.io"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"::1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "http",
+									"number":   "80",
+								},
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{
+								{
+									"inbound_header_filter": []map[string]interface{}{
+										{
+											"key":            "Allow-Header",
+											"allowed_values": []string{"reg", "req2"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "workload-list",
+							"inbound_allow_workload": []string{"/org/terraform-test-org/gvc/new/workload/non-existing-workload-01", "/org/terraform-test-org/gvc/new/workload/non-existing-workload-02"},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "100",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("local_options", []map[string]interface{}{
+				{
+					"location":        "aws-eu-central-1",
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "100",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+				{
+					"location":        "aws-us-west-2",
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "90",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "false",
+							"ipset":   "my-ipset-01",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "22",
+									"protocol":       "TCP",
+									"scheme":         "http",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "198.51.100.0/24",
+									"city":    "Los Angeles",
+									"country": "USA",
+									"region":  "North America",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
+	}
+}
+
+// BuildStandardTestStep constructs the initial test configuration and test step for a standard workload.
+func (wrt *WorkloadResourceTest) BuildStandardTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "workload",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_workload.new",
+			Name:              name,
+			GvcName:           wrt.GvcCase.Name,
+			Description:       name,
+			DescriptionUpdate: "workload default description updated",
 		},
-		Internal: &client.FirewallSpecInternal{
-			InboundAllowType:     GetString("none"),
-			InboundAllowWorkload: &[]string{},
+		Envoy:  `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras: `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: wrt.StandardHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "standard"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"memory":            "128Mi",
+					"cpu":               "50m",
+					"ports": []map[string]interface{}{
+						{
+							"protocol": "http2",
+							"number":   "8080",
+						},
+						{
+							"protocol": "grpc",
+							"number":   "3000",
+						},
+						{
+							"protocol": "tcp",
+							"number":   "3001",
+						},
+					},
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"tcp_socket": []map[string]interface{}{
+								{
+									"port": "3200",
+								},
+							},
+							"initial_delay_seconds": "1",
+							"period_seconds":        "11",
+							"timeout_seconds":       "2",
+							"success_threshold":     "2",
+							"failure_threshold":     "4",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"exec": []map[string]interface{}{
+								{
+									"command": []string{"command-01", "command-02"},
+								},
+							},
+							"initial_delay_seconds": "2",
+							"period_seconds":        "10",
+							"timeout_seconds":       "3",
+							"success_threshold":     "1",
+							"failure_threshold":     "5",
+						},
+					},
+					"gpu_custom": []map[string]interface{}{
+						{
+							"resource":      "amd.com/gpu",
+							"runtime_class": "amd",
+							"quantity":      "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+							"pre_stop": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"127.0.0.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com", "*.cpln.io"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"::1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "http",
+									"number":   "80",
+								},
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{
+								{
+									"inbound_header_filter": []map[string]interface{}{
+										{
+											"key":            "Allow-Header",
+											"blocked_values": []string{"blocked", "blocked2"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "same-org",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric_percentile":   "p50",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+							"multi": []map[string]interface{}{
+								{
+									"metric": "cpu",
+									"target": 50,
+								},
+								{
+									"metric": "memory",
+									"target": 50,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "false",
+							"ipset":   "my-ipset-01",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "22",
+									"protocol":       "TCP",
+									"scheme":         "http",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "198.51.100.0/24",
+									"city":    "Los Angeles",
+									"country": "USA",
+									"region":  "North America",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
+	}
+}
+
+// BuildCronTestStep constructs the initial test configuration and test step for a cron workload.
+func (wrt *WorkloadResourceTest) BuildCronTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "workload",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_workload.new",
+			Name:              name,
+			GvcName:           wrt.GvcCase.Name,
+			Description:       name,
+			DescriptionUpdate: "workload default description updated",
 		},
+		Envoy:  `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras: `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: wrt.CronHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "cron"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"memory":            "128Mi",
+					"cpu":               "50m",
+					"ports": []map[string]interface{}{
+						{
+							"protocol": "http2",
+							"number":   "8080",
+						},
+						{
+							"protocol": "grpc",
+							"number":   "3000",
+						},
+						{
+							"protocol": "tcp",
+							"number":   "3001",
+						},
+					},
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"gpu_custom": []map[string]interface{}{
+						{
+							"resource":      "amd.com/gpu",
+							"runtime_class": "amd",
+							"quantity":      "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+							"pre_stop": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"127.0.0.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com", "*.cpln.io"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"::1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "http",
+									"number":   "80",
+								},
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{
+								{
+									"inbound_header_filter": []map[string]interface{}{
+										{
+											"key":            "Allow-Header",
+											"blocked_values": []string{"blocked", "blocked2"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "same-org",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "95",
+							"max_scale":           "1",
+							"min_scale":           "1",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("job", []map[string]interface{}{
+				{
+					"schedule":           "* * * * *",
+					"concurrency_policy": "Forbid",
+					"history_limit":      "5",
+					"restart_policy":     "Never",
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "false",
+							"ipset":   "my-ipset-01",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "22",
+									"protocol":       "TCP",
+									"scheme":         "http",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "198.51.100.0/24",
+									"city":    "Los Angeles",
+									"country": "USA",
+									"region":  "North America",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
 	}
 }
 
-func generateTestRolloutOptions() (*client.RolloutOptions, *client.RolloutOptions, []interface{}) {
-	minReadySeconds := 2
-	maxUnavailableReplicas := "10"
-	maxSurgeReplicas := "20"
-	scalingPolicy := "Parallel"
-
-	flatten := generateFlatTestRolloutOptions(minReadySeconds, maxUnavailableReplicas, maxSurgeReplicas, scalingPolicy)
-	rolloutOptions := buildRolloutOptions(flatten)
-	expectedRolloutOptions := &client.RolloutOptions{
-		MinReadySeconds:        &minReadySeconds,
-		MaxUnavailableReplicas: &maxUnavailableReplicas,
-		MaxSurgeReplicas:       &maxSurgeReplicas,
-		ScalingPolicy:          &scalingPolicy,
+// BuildCronUpdate1TestStep returns the first update test step for a cron workload based on the initial test case.
+func (wrt *WorkloadResourceTest) BuildCronUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+		Envoy:            `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras:           `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
 	}
 
-	return rolloutOptions, expectedRolloutOptions, flatten
-}
-
-func generateTestSecurityOptions() (*client.SecurityOptions, *client.SecurityOptions, []interface{}) {
-
-	fileSystemGroupId := 1
-
-	flatten := generateFlatTestSecurityOptions(fileSystemGroupId)
-	securityOptions := buildSecurityOptions(flatten)
-	expectedSecurityOptions := &client.SecurityOptions{
-		FileSystemGroupID: &fileSystemGroupId,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: wrt.CronUpdate1Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "cron"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"memory":            "128Mi",
+					"cpu":               "50m",
+					"ports": []map[string]interface{}{
+						{
+							"protocol": "http2",
+							"number":   "8080",
+						},
+						{
+							"protocol": "grpc",
+							"number":   "3000",
+						},
+						{
+							"protocol": "tcp",
+							"number":   "3001",
+						},
+					},
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"gpu_custom": []map[string]interface{}{
+						{
+							"resource":      "amd.com/gpu",
+							"runtime_class": "amd",
+							"quantity":      "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+							"pre_stop": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"127.0.0.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com", "*.cpln.io"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"::1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "http",
+									"number":   "80",
+								},
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{
+								{
+									"inbound_header_filter": []map[string]interface{}{
+										{
+											"key":            "Allow-Header",
+											"blocked_values": []string{"blocked", "blocked2"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "same-org",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":              "concurrency",
+							"target":              "95",
+							"max_scale":           "1",
+							"min_scale":           "1",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("job", []map[string]interface{}{
+				{
+					"schedule":                "* * * * *",
+					"concurrency_policy":      "Forbid",
+					"history_limit":           "5",
+					"restart_policy":          "Never",
+					"active_deadline_seconds": "1200",
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "false",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "false",
+							"ipset":   "my-ipset-01",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "22",
+									"protocol":       "TCP",
+									"scheme":         "http",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "198.51.100.0/24",
+									"city":    "Los Angeles",
+									"country": "USA",
+									"region":  "North America",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
 	}
-
-	return securityOptions, expectedSecurityOptions, flatten
 }
 
-func generateTestGeoLocation() (*client.GeoLocation, *client.GeoLocation, []interface{}) {
-
-	enabled := true
-	headers, _, flattenedHeaders := generateTestGeoLocationHeaders()
-
-	flatten := generateFlatTestGeoLocation(enabled, flattenedHeaders)
-	geoLocation := buildGeoLocation(flatten)
-	expectedGeoLocation := &client.GeoLocation{
-		Enabled: &enabled,
-		Headers: headers,
-	}
-
-	return geoLocation, expectedGeoLocation, flatten
-}
-
-func generateTestGeoLocationHeaders() (*client.GeoLocationHeaders, *client.GeoLocationHeaders, []interface{}) {
-
-	asn := "198.51.100.0/24"
-	city := "Los Angeles"
-	country := "USA"
-	region := "North America"
-
-	flatten := generateFlatTestGeoLocationHeaders(asn, city, country, region)
-	headers := buildGeoLocationHeaders(flatten)
-	expectedHeaders := &client.GeoLocationHeaders{
-		Asn:     &asn,
-		City:    &city,
-		Country: &country,
-		Region:  &region,
-	}
-
-	return headers, expectedHeaders, flatten
-}
-
-func generateTestWorkloadSidecar(stringifiedJson string) (*client.WorkloadSidecar, *client.WorkloadSidecar, []interface{}) {
-	// Attempt to unmarshal `envoy`
-	var envoy interface{}
-	json.Unmarshal([]byte(stringifiedJson), &envoy)
-	jsonOut, _ := json.Marshal(envoy)
-
-	flatten := generateFlatTestWorkloadSidecar(string(jsonOut))
-	sidecar := buildWorkloadSidecar(flatten)
-	expectedSidecar := &client.WorkloadSidecar{
-		Envoy: &envoy,
-	}
-
-	return sidecar, expectedSidecar, flatten
-}
-
-func generateTestWorkloadLoadBalancer() (*client.WorkloadLoadBalancer, *client.WorkloadLoadBalancer, []interface{}) {
-
-	direct, _, flattenedDirect := generateTestWorkloadLoadBalancerDirect()
-	geoLocation, _, flattenedGeoLocation := generateTestGeoLocation()
-
-	flattened := generateFlatTestWorkloadLoadBalancer(flattenedDirect, flattenedGeoLocation)
-	loadBalancer := buildWorkloadLoadBalancer(flattened)
-	expectedLoadBalancer := &client.WorkloadLoadBalancer{
-		Direct:      direct,
-		GeoLocation: geoLocation,
-	}
-
-	return loadBalancer, expectedLoadBalancer, flattened
-}
-
-func generateTestWorkloadLoadBalancerDirect() (*client.WorkloadLoadBalancerDirect, *client.WorkloadLoadBalancerDirect, []interface{}) {
-
-	enabled := true
-	ports, _, flattenedPorts := generateTestWorkloadLoadBalancerDirectPorts()
-
-	flattened := generateFlatTestWorkloadLoadBalancerDirect(enabled, flattenedPorts)
-	direct := buildWorkloadLoadBalancerDirect(flattened)
-	expectedDirect := &client.WorkloadLoadBalancerDirect{
-		Enabled: &enabled,
-		Ports:   ports,
-	}
-
-	return direct, expectedDirect, flattened
-}
-
-func generateTestWorkloadLoadBalancerDirectPorts() (*[]client.WorkloadLoadBalancerDirectPort, *[]client.WorkloadLoadBalancerDirectPort, []interface{}) {
-
-	externalPort := 22
-	protocol := "TCP"
-	scheme := "http"
-	containerPort := 80
-
-	flattened := generateFlatTestWorkloadLoadBalancerDirectPort(externalPort, protocol, scheme, containerPort)
-	ports := buildWorkloadLoadBalancerDirectPorts(flattened)
-	expectedPorts := &[]client.WorkloadLoadBalancerDirectPort{
-		{
-			ExternalPort:  &externalPort,
-			Protocol:      &protocol,
-			Scheme:        &scheme,
-			ContainerPort: &containerPort,
+// BuildStatefulTestStep constructs the initial test configuration and test step for a stateful workload.
+func (wrt *WorkloadResourceTest) BuildStatefulTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "workload",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_workload.new",
+			Name:              name,
+			GvcName:           wrt.GvcCase.Name,
+			Description:       name,
+			DescriptionUpdate: "workload default description updated",
 		},
+		Envoy:  `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+		Extras: `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
 	}
 
-	return ports, expectedPorts, flattened
-}
-
-func generateTestWorkloadRequestRetryPolicy() (*client.WorkloadRequestRetryPolicy, *client.WorkloadRequestRetryPolicy, []interface{}) {
-
-	attempts := 3
-	retryOn := []string{"connect-failure", "refused-stream", "unavailable"}
-
-	flattened := generateFlatTestWorkloadRequestRetryPolicy(true, attempts, retryOn)
-	requestRetryPolicy := buildWorkloadRequestRetryPolicy(flattened)
-	expectedRequestRetryPolicy := &client.WorkloadRequestRetryPolicy{
-		Attempts: &attempts,
-		RetryOn:  &retryOn,
-	}
-
-	return requestRetryPolicy, expectedRequestRetryPolicy, flattened
-}
-
-// Flatten //
-
-func generateFlatTestContainer(workloadType string) []interface{} {
-
-	c := map[string]interface{}{
-		"name":  "container-01",
-		"image": "gcr.io/knative-samples/helloworld-go",
-		// "port":              8080,
-		"memory":            "128Mi",
-		"cpu":               "50m",
-		"command":           "override-command",
-		"working_directory": "/usr",
-		"inherit_env":       false,
-	}
-
-	if workloadType == "serverless" || workloadType == "serverless-metric-memory" {
-
-		// c["port"] = 8080
-		port_01 := make(map[string]interface{})
-		port_01["protocol"] = "http"
-		port_01["number"] = 8080
-
-		c["ports"] = []interface{}{
-			port_01,
-		}
-
-	} else if workloadType == "serverless-min-cpu-memory" {
-		c["min_cpu"] = "50m"
-		c["min_memory"] = "128Mi"
-
-		port_01 := make(map[string]interface{})
-		port_01["protocol"] = "http"
-		port_01["number"] = 8080
-
-		c["ports"] = []interface{}{
-			port_01,
-		}
-	} else if workloadType == "standard" || workloadType == "standard-readiness-grpc" || workloadType == "standard-multi-metrics" {
-
-		port_01 := make(map[string]interface{})
-		port_01["protocol"] = "http"
-		port_01["number"] = 80
-
-		port_02 := make(map[string]interface{})
-		port_02["protocol"] = "http2"
-		port_02["number"] = 8080
-
-		port_03 := make(map[string]interface{})
-		port_03["protocol"] = "grpc"
-		port_03["number"] = 3000
-
-		port_04 := make(map[string]interface{})
-		port_04["protocol"] = "tcp"
-		port_04["number"] = 3001
-
-		c["ports"] = []interface{}{
-			port_01,
-			port_02,
-			port_03,
-			port_04,
-		}
-	}
-
-	c["args"] = []interface{}{
-		"arg-01",
-		"arg-02",
-	}
-
-	envs := map[string]interface{}{
-		"env-name-01": "env-value-01",
-		"env-name-02": "env-value-02",
-	}
-
-	c["env"] = envs
-
-	volume_01 := make(map[string]interface{})
-	volume_01["uri"] = "s3://bucket"
-	volume_01["recovery_policy"] = "retain"
-	volume_01["path"] = "/testpath01"
-
-	volume_02 := make(map[string]interface{})
-	volume_02["uri"] = "azureblob://storageAccount/container"
-	volume_02["recovery_policy"] = "recycle"
-	volume_02["path"] = "/testpath02"
-
-	c["volume"] = []interface{}{
-		volume_01,
-		volume_02,
-	}
-
-	metrics := make(map[string]interface{})
-	metrics["path"] = "/metrics"
-	metrics["port"] = 8181
-
-	c["metrics"] = []interface{}{
-		metrics,
-	}
-
-	postStartExec := make(map[string]interface{})
-	postStartExec["command"] = []interface{}{
-		"command_post", "arg_1", "arg_2",
-	}
-	postStart := make(map[string]interface{})
-	postStart["exec"] = []interface{}{
-		postStartExec,
-	}
-
-	preStopExec := make(map[string]interface{})
-	preStopExec["command"] = []interface{}{
-		"command_pre", "arg_1", "arg_2",
-	}
-	preStop := make(map[string]interface{})
-	preStop["exec"] = []interface{}{
-		preStopExec,
-	}
-
-	lifecycle := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	lifecycle["post_start"] = []interface{}{
-		postStart,
-	}
-
-	lifecycle["pre_stop"] = []interface{}{
-		preStop,
-	}
-
-	c["lifecycle"] = []interface{}{
-		lifecycle,
-	}
-
-	readiness := make(map[string]interface{})
-
-	readiness["initial_delay_seconds"] = 1
-	readiness["period_seconds"] = 11
-	readiness["timeout_seconds"] = 2
-	readiness["success_threshold"] = 2
-	readiness["failure_threshold"] = 4
-
-	if workloadType == "standard-readiness-grpc" {
-		gRPC := map[string]interface{}{
-			"port":                  3000,
-			"placeholder_attribute": true,
-		}
-
-		grpcAsInterface := []interface{}{gRPC}
-		readiness["grpc"] = grpcAsInterface
-	} else {
-		tcpSocket := map[string]interface{}{
-			"placeholder_attribute": true,
-		}
-		tcpSocket["port"] = 8181
-
-		tcpSocketAsInterface := []interface{}{tcpSocket}
-		readiness["tcp_socket"] = tcpSocketAsInterface
-	}
-
-	c["readiness_probe"] = []interface{}{readiness}
-
-	liveness := make(map[string]interface{})
-
-	liveness["initial_delay_seconds"] = 2
-	liveness["period_seconds"] = 10
-	liveness["timeout_seconds"] = 3
-	liveness["success_threshold"] = 1
-	liveness["failure_threshold"] = 5
-
-	h := make(map[string]interface{})
-	h["path"] = "/path"
-	h["port"] = 8282
-	h["scheme"] = "HTTPS"
-
-	headers := make(map[string]interface{})
-	headers["header-name-01"] = "header-value-01"
-	headers["header-name-02"] = "header-value-02"
-
-	h["http_headers"] = headers
-
-	hi := []interface{}{h}
-
-	liveness["http_get"] = hi
-
-	c["liveness_probe"] = []interface{}{liveness}
-
-	localContainers := []interface{}{
-		c,
-	}
-
-	return localContainers
-}
-
-func generateFlatTestGpuNvidia(model string, quantity int) []interface{} {
-	spec := map[string]interface{}{
-		"model":    model,
-		"quantity": quantity,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestGpuCustom(resource string, runtimeClass string, quantity int) []interface{} {
-	spec := map[string]interface{}{
-		"resource":      resource,
-		"runtime_class": runtimeClass,
-		"quantity":      quantity,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestOptions() []interface{} {
-
-	as := map[string]interface{}{
-		"metric":              "concurrency",
-		"target":              100,
-		"max_scale":           3,
-		"min_scale":           2,
-		"max_concurrency":     500,
-		"scale_to_zero_delay": 400,
-	}
-
-	asi := []interface{}{
-		as,
-	}
-
-	o := map[string]interface{}{
-		"capacity_ai":     true,
-		"timeout_seconds": 30,
-		"autoscaling":     asi,
-		"debug":           false,
-		"suspend":         false,
-	}
-
-	return []interface{}{
-		o,
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: wrt.StatefulHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "stateful"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":              "container-01",
+					"image":             "gcr.io/knative-samples/helloworld-go",
+					"working_directory": "/usr",
+					"memory":            "128Mi",
+					"cpu":               "50m",
+					"ports": []map[string]interface{}{
+						{
+							"protocol": "http2",
+							"number":   "8080",
+						},
+						{
+							"protocol": "grpc",
+							"number":   "3000",
+						},
+						{
+							"protocol": "tcp",
+							"number":   "3001",
+						},
+					},
+					"env": map[string]interface{}{
+						"env-name-01": "env-value-01",
+						"env-name-02": "env-value-02",
+						"env-name-03": "env-value-03",
+					},
+					"inherit_env": "true",
+					"command":     "override-command",
+					"args":        []string{"arg-01", "arg-02", "arg-03"},
+					"metrics": []map[string]interface{}{
+						{
+							"path": "/metrics",
+							"port": "8181",
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"tcp_socket": []map[string]interface{}{
+								{
+									"port": "3200",
+								},
+							},
+							"initial_delay_seconds": "1",
+							"period_seconds":        "11",
+							"timeout_seconds":       "2",
+							"success_threshold":     "2",
+							"failure_threshold":     "4",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"exec": []map[string]interface{}{
+								{
+									"command": []string{"command-01", "command-02"},
+								},
+							},
+							"initial_delay_seconds": "2",
+							"period_seconds":        "10",
+							"timeout_seconds":       "3",
+							"success_threshold":     "1",
+							"failure_threshold":     "5",
+						},
+					},
+					"gpu_custom": []map[string]interface{}{
+						{
+							"resource":      "amd.com/gpu",
+							"runtime_class": "amd",
+							"quantity":      "1",
+						},
+					},
+					"lifecycle": []map[string]interface{}{
+						{
+							"post_start": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+							"pre_stop": []map[string]interface{}{
+								{
+									"exec": []map[string]interface{}{
+										{
+											"command": []string{"command-01", "command-02", "command-03"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "s3://bucket",
+							"recovery_policy": "retain",
+							"path":            "/testpath01",
+						},
+						{
+							"uri":             "azureblob://storageAccount/container",
+							"recovery_policy": "retain",
+							"path":            "/testpath02",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"127.0.0.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com", "*.cpln.io"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"::1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "http",
+									"number":   "80",
+								},
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{
+								{
+									"inbound_header_filter": []map[string]interface{}{
+										{
+											"key":            "Allow-Header",
+											"blocked_values": []string{"blocked", "blocked2"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "same-org",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"timeout_seconds": "30",
+					"capacity_ai":     "false",
+					"debug":           "true",
+					"suspend":         "true",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric_percentile":   "p50",
+							"max_scale":           "3",
+							"min_scale":           "2",
+							"max_concurrency":     "500",
+							"scale_to_zero_delay": "400",
+							"multi": []map[string]interface{}{
+								{
+									"metric": "cpu",
+									"target": 50,
+								},
+								{
+									"metric": "memory",
+									"target": 50,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
+				{
+					"file_system_group_id": "1",
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"replica_direct": "true",
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"ipset":   "my-ipset-01",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "22",
+									"protocol":       "TCP",
+									"scheme":         "http",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "198.51.100.0/24",
+									"city":    "Los Angeles",
+									"country": "USA",
+									"region":  "North America",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestMultiMetrics(metric string, target int) []interface{} {
-	spec := map[string]interface{}{
-		"metric": metric,
-		"target": target,
-	}
+// Configs //
 
-	return []interface{}{
-		spec,
-	}
+// ServerlessRequiredOnlyHcl returns a minimal serverless workload configuration with only required fields set.
+func (wrt *WorkloadResourceTest) ServerlessRequiredOnlyHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
 }
 
-func generateFlatTestFirewallSpec(useSet bool) []interface{} {
+# GVC Resource
+%s
 
-	stringFunc := schema.HashSchema(StringSchema())
-	e := map[string]interface{}{}
-	i := make(map[string]interface{})
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
 
-	i["inbound_allow_type"] = "none"
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
 
-	if useSet {
-		// External
-		e["inbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{"0.0.0.0/0"})
-		e["inbound_blocked_cidr"] = schema.NewSet(stringFunc, []interface{}{"127.0.0.1"})
-		e["outbound_allow_cidr"] = schema.NewSet(stringFunc, []interface{}{})
-		e["outbound_allow_hostname"] = schema.NewSet(stringFunc, []interface{}{"*.cpln.io", "*.controlplane.com"})
-		e["outbound_blocked_cidr"] = schema.NewSet(stringFunc, []interface{}{"::1"})
+  name = "%s"
+  gvc  = %s
+  type = "serverless"
 
-		// Internal
-		i["inbound_allow_workload"] = schema.NewSet(stringFunc, []interface{}{})
-	} else {
-		// External
-		e["inbound_allow_cidr"] = []interface{}{"0.0.0.0/0"}
-		e["inbound_blocked_cidr"] = []interface{}{"127.0.0.1"}
-		e["outbound_allow_hostname"] = []interface{}{"*.cpln.io", "*.controlplane.com"}
-		e["outbound_blocked_cidr"] = []interface{}{"::1"}
-	}
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
 
-	e["outbound_allow_port"] = flattenFirewallOutboundAllowPort(
-		&[]client.FirewallOutboundAllowPort{
-			{
-				Protocol: GetString("http"),
-				Number:   GetInt(80),
-			},
-			{
-				Protocol: GetString("https"),
-				Number:   GetInt(443),
-			},
-		},
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name,
+		wrt.GvcCase.GetResourceNameAttr(),
 	)
-
-	fc := map[string]interface{}{
-		"external": []interface{}{
-			e,
-		},
-		"internal": []interface{}{
-			i,
-		},
-		"placeholder_attribute": true,
-	}
-
-	return []interface{}{
-		fc,
-	}
 }
 
-func generateTestJobSpec() (*client.JobSpec, client.JobSpec, []interface{}) {
-	schedule := "* * * * *"
-	concurrencyPolicy := "Forbid"
-	historyLimit := 5
-	restartPolicy := "Never"
-	activeDeadlineSeconds := 1200
-
-	flattened := generateFlatTestJobSpec(schedule, concurrencyPolicy, historyLimit, restartPolicy, activeDeadlineSeconds)
-	jobSpec := buildJobSpec(flattened)
-	expectedJobSpec := client.JobSpec{
-		Schedule:              &schedule,
-		ConcurrencyPolicy:     &concurrencyPolicy,
-		HistoryLimit:          &historyLimit,
-		RestartPolicy:         &restartPolicy,
-		ActiveDeadlineSeconds: &activeDeadlineSeconds,
-	}
-
-	return jobSpec, expectedJobSpec, flattened
+// ServerlessUpdate1Hcl returns an extended serverless workload configuration with additional fields like tags, probes, and autoscaling.
+func (wrt *WorkloadResourceTest) ServerlessUpdate1Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
 }
 
-func generateFlatTestJobSpec(schedule string, concurrencyPolicy string, historyLimit int, restartPolicy string, activeDeadlineSeconds int) []interface{} {
-	spec := map[string]interface{}{
-		"schedule":                schedule,
-		"concurrency_policy":      concurrencyPolicy,
-		"history_limit":           historyLimit,
-		"restart_policy":          restartPolicy,
-		"active_deadline_seconds": activeDeadlineSeconds,
-	}
+# GVC Resource
+%s
 
-	return []interface{}{
-		spec,
-	}
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
 }
 
-func generateFlatTestRolloutOptions(minReadySeconds int, maxUnavailableReplicas string, maxSurgeReplicas string, scalingPolicy string) []interface{} {
-	spec := map[string]interface{}{
-		"min_ready_seconds":        minReadySeconds,
-		"max_unavailable_replicas": maxUnavailableReplicas,
-		"max_surge_replicas":       maxSurgeReplicas,
-		"scaling_policy":           scalingPolicy,
-	}
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
 
-	return []interface{}{
-		spec,
-	}
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "serverless"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    port              = 8080
+    memory            = "128Mi"
+    min_cpu           = "25m"
+    min_memory        = "32Mi"
+    cpu               = "50m"
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    readiness_probe {
+
+      tcp_socket {}
+    }
+
+    liveness_probe {
+
+      http_get {
+        path   = "/path"
+        scheme = "HTTPS"
+      }
+    }
+
+    lifecycle {}
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri  = "azureblob://storageAccount/container"
+      path = "/testpath02"
+    }
+  }
+
+  firewall_spec {}
+
+  options {
+    autoscaling {}
+  }
+
+  local_options {
+    location = "aws-eu-central-1"
+    autoscaling {}
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {}
+  load_balancer {}
+  request_retry_policy {}
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
 }
 
-func generateFlatTestSecurityOptions(fileSystemGroupId int) []interface{} {
-	spec := map[string]interface{}{
-		"file_system_group_id":  fileSystemGroupId,
-		"placeholder_attribute": true,
-	}
-
-	return []interface{}{
-		spec,
-	}
+// ServerlessUpdate2Hcl returns a serverless workload configuration with detailed autoscaling, GPU, lifecycle, and firewall settings.
+func (wrt *WorkloadResourceTest) ServerlessUpdate2Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
 }
 
-func generateFlatTestGeoLocation(enabled bool, headers []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"enabled": enabled,
-		"headers": headers,
-	}
+# GVC Resource
+%s
 
-	return []interface{}{
-		spec,
-	}
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
 }
 
-func generateFlatTestGeoLocationHeaders(asn string, city string, country string, region string) []interface{} {
-	spec := map[string]interface{}{
-		"asn":     asn,
-		"city":    city,
-		"country": country,
-		"region":  region,
-	}
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
 
-	return []interface{}{
-		spec,
-	}
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "serverless"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    port              = 8080
+    memory            = "7Gi"
+    cpu               = "2"
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    readiness_probe {
+
+      grpc {
+        port = 3000
+      }
+
+      initial_delay_seconds = 1
+      period_seconds        = 11
+      timeout_seconds       = 2
+      success_threshold     = 2
+      failure_threshold     = 4
+    }
+
+    liveness_probe {
+
+      http_get {
+        path = "/path"
+        port = 8282
+        scheme = "HTTPS"
+        http_headers = {
+          header-name-01 = "header-value-01"
+          header-name-02 = "header-value-02"
+        }
+      }
+
+      initial_delay_seconds = 2
+      period_seconds        = 10
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 5
+    }
+
+    gpu_nvidia {
+      model    = "t4"
+      quantity = 1
+    }
+
+    lifecycle {
+      post_start {}
+      pre_stop {}
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {}
+    internal {}
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  local_options {
+    location = "aws-eu-central-1"
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = false
+
+    direct {
+      enabled = false
+    }
+
+    geo_location {}
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
 }
 
-func generateFlatTestWorkloadSidecar(envoy string) []interface{} {
-	spec := map[string]interface{}{
-		"envoy": envoy,
-	}
-
-	return []interface{}{
-		spec,
-	}
+// ServerlessUpdate3Hcl returns a serverless workload configuration with multi-location local_options and load balancer details.
+func (wrt *WorkloadResourceTest) ServerlessUpdate3Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
 }
 
-func generateFlatTestWorkloadLoadBalancer(direct []interface{}, geoLocation []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"direct":                direct,
-		"geo_location":          geoLocation,
-		"placeholder_attribute": true,
-	}
+# GVC Resource
+%s
 
-	return []interface{}{
-		spec,
-	}
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
 }
 
-func generateFlatTestWorkloadLoadBalancerDirect(enabled bool, ports []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"enabled": enabled,
-		"port":    ports,
-	}
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
 
-	return []interface{}{
-		spec,
-	}
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "serverless"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    port              = 8080
+    memory            = "128Mi"
+    cpu               = "50m"
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    readiness_probe {
+
+      tcp_socket {
+        port = 3200
+      }
+
+      initial_delay_seconds = 1
+      period_seconds        = 11
+      timeout_seconds       = 2
+      success_threshold     = 2
+      failure_threshold     = 4
+    }
+
+    liveness_probe {
+
+      exec {
+        command = ["command-01", "command-02"]
+      }
+
+      initial_delay_seconds = 2
+      period_seconds        = 10
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 5
+    }
+
+    gpu_custom {
+      resource = "amd.com/gpu"
+      quantity = 1
+    }
+
+    lifecycle {
+      post_start {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+      pre_stop {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["127.0.0.1"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["::1"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {}
+    }
+
+    internal {
+      inbound_allow_type     = "none"
+      inbound_allow_workload = []
+    }
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  local_options {
+    location        = "aws-eu-central-1"
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  local_options {
+    location        = "aws-us-west-2"
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 90
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = false
+
+    direct {
+      enabled = false
+      ipset   = "my-ipset-01"
+
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "198.51.100.0/24"
+        city    = "Los Angeles"
+        country = "USA"
+        region  = "North America"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
 }
 
-func generateFlatTestWorkloadLoadBalancerDirectPort(externalPort int, protocol string, scheme string, containerPort int) []interface{} {
-	spec := map[string]interface{}{
-		"external_port":  externalPort,
-		"protocol":       protocol,
-		"scheme":         scheme,
-		"container_port": containerPort,
-	}
-
-	return []interface{}{
-		spec,
-	}
+// ServerlessUpdate4Hcl returns a serverless workload configuration with extended firewall HTTP filter and workload allowlist.
+func (wrt *WorkloadResourceTest) ServerlessUpdate4Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
 }
 
-func generateFlatTestWorkloadRequestRetryPolicy(useSet bool, attempts int, retryOn []string) []interface{} {
-	stringFunc := schema.HashSchema(StringSchema())
-	spec := map[string]interface{}{
-		"attempts": attempts,
-	}
+# GVC Resource
+%s
 
-	retryOnInterfaceSlice := toInterfaceSlice(retryOn)
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
 
-	if useSet {
-		spec["retry_on"] = schema.NewSet(stringFunc, retryOnInterfaceSlice)
-	} else {
-		spec["retry_on"] = retryOnInterfaceSlice
-	}
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
 
-	return []interface{}{
-		spec,
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "serverless"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    port              = 8080
+    memory            = "128Mi"
+    cpu               = "50m"
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    readiness_probe {
+
+      tcp_socket {
+        port = 3200
+      }
+
+      initial_delay_seconds = 1
+      period_seconds        = 11
+      timeout_seconds       = 2
+      success_threshold     = 2
+      failure_threshold     = 4
+    }
+
+    liveness_probe {
+
+      exec {
+        command = ["command-01", "command-02"]
+      }
+
+      initial_delay_seconds = 2
+      period_seconds        = 10
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 5
+    }
+
+    gpu_custom {
+      resource      = "amd.com/gpu"
+      runtime_class = "amd"
+      quantity      = 1
+    }
+
+    lifecycle {
+      post_start {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+      pre_stop {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["127.0.0.1"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["::1"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "Allow-Header"
+          allowed_values = ["reg", "req2"]
+        }
+      }
+    }
+
+    internal {
+      inbound_allow_type     = "workload-list"
+      inbound_allow_workload = ["/org/terraform-test-org/gvc/new/workload/non-existing-workload-01", "/org/terraform-test-org/gvc/new/workload/non-existing-workload-02"]
+    }
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  local_options {
+    location        = "aws-eu-central-1"
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 100
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  local_options {
+    location        = "aws-us-west-2"
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 90
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = false
+
+    direct {
+      enabled = false
+      ipset   = "my-ipset-01"
+
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "198.51.100.0/24"
+        city    = "Los Angeles"
+        country = "USA"
+        region  = "North America"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
+}
+
+// StandardHcl returns a standard workload configuration with all supported features including multi autoscaling and GPU.
+func (wrt *WorkloadResourceTest) StandardHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "standard"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    memory            = "128Mi"
+    cpu               = "50m"
+
+    ports {
+      protocol = "http2"
+      number   = "8080" 
+    }
+
+    ports {
+      protocol = "grpc"
+      number   = "3000" 
+    }
+
+    ports {
+      protocol = "tcp"
+      number   = "3001" 
+    }
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    readiness_probe {
+
+      tcp_socket {
+        port = 3200
+      }
+
+      initial_delay_seconds = 1
+      period_seconds        = 11
+      timeout_seconds       = 2
+      success_threshold     = 2
+      failure_threshold     = 4
+    }
+
+    liveness_probe {
+
+      exec {
+        command = ["command-01", "command-02"]
+      }
+
+      initial_delay_seconds = 2
+      period_seconds        = 10
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 5
+    }
+
+    gpu_custom {
+      resource      = "amd.com/gpu"
+      runtime_class = "amd"
+      quantity      = 1
+    }
+
+    lifecycle {
+      post_start {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+      pre_stop {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["127.0.0.1"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["::1"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "Allow-Header"
+          blocked_values = ["blocked", "blocked2"]
+        }
+      }
+    }
+
+    internal {
+      inbound_allow_type     = "same-org"
+      inbound_allow_workload = []
+    }
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric_percentile   = "p50"
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+
+      multi {
+        metric = "cpu"
+        target = 50
+      }
+
+      multi {
+        metric = "memory"
+        target = 50
+      }
+    }
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = false
+
+    direct {
+      enabled = false
+      ipset   = "my-ipset-01"
+
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "198.51.100.0/24"
+        city    = "Los Angeles"
+        country = "USA"
+        region  = "North America"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
+}
+
+// CronHcl returns a cron workload configuration with job scheduling and standard runtime configuration.
+func (wrt *WorkloadResourceTest) CronHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "cron"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    memory            = "128Mi"
+    cpu               = "50m"
+
+    ports {
+      protocol = "http2"
+      number   = "8080" 
+    }
+
+    ports {
+      protocol = "grpc"
+      number   = "3000" 
+    }
+
+    ports {
+      protocol = "tcp"
+      number   = "3001" 
+    }
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    gpu_custom {
+      resource      = "amd.com/gpu"
+      runtime_class = "amd"
+      quantity      = 1
+    }
+
+    lifecycle {
+      post_start {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+      pre_stop {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["127.0.0.1"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["::1"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "Allow-Header"
+          blocked_values = ["blocked", "blocked2"]
+        }
+      }
+    }
+
+    internal {
+      inbound_allow_type     = "same-org"
+      inbound_allow_workload = []
+    }
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 95
+      max_scale           = 1
+      min_scale           = 1
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  job {
+    schedule = "* * * * *"
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = false
+
+    direct {
+      enabled = false
+      ipset   = "my-ipset-01"
+
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "198.51.100.0/24"
+        city    = "Los Angeles"
+        country = "USA"
+        region  = "North America"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
+}
+
+// CronUpdate1Hcl returns an updated cron workload configuration with advanced job options like concurrency and deadline.
+func (wrt *WorkloadResourceTest) CronUpdate1Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "cron"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    memory            = "128Mi"
+    cpu               = "50m"
+
+    ports {
+      protocol = "http2"
+      number   = "8080" 
+    }
+
+    ports {
+      protocol = "grpc"
+      number   = "3000" 
+    }
+
+    ports {
+      protocol = "tcp"
+      number   = "3001" 
+    }
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    gpu_custom {
+      resource      = "amd.com/gpu"
+      runtime_class = "amd"
+      quantity      = 1
+    }
+
+    lifecycle {
+      post_start {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+      pre_stop {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["127.0.0.1"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["::1"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "Allow-Header"
+          blocked_values = ["blocked", "blocked2"]
+        }
+      }
+    }
+
+    internal {
+      inbound_allow_type     = "same-org"
+      inbound_allow_workload = []
+    }
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric              = "concurrency"
+      target              = 95
+      max_scale           = 1
+      min_scale           = 1
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+    }
+  }
+
+  job {
+    schedule                = "* * * * *"
+    concurrency_policy      = "Forbid"
+    history_limit           = 5
+    restart_policy          = "Never"
+    active_deadline_seconds = 1200
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = false
+
+    direct {
+      enabled = false
+      ipset   = "my-ipset-01"
+
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "198.51.100.0/24"
+        city    = "Los Angeles"
+        country = "USA"
+        region  = "North America"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
+}
+
+// StatefulHcl returns a stateful workload configuration with persistent networking, GPU, lifecycle, and autoscaling features.
+func (wrt *WorkloadResourceTest) StatefulHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "stateful"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode(%s)
+
+  container {
+    name              = "container-01"
+    image             = "gcr.io/knative-samples/helloworld-go"
+    working_directory = "/usr"
+    memory            = "128Mi"
+    cpu               = "50m"
+
+    ports {
+      protocol = "http2"
+      number   = "8080" 
+    }
+
+    ports {
+      protocol = "grpc"
+      number   = "3000" 
+    }
+
+    ports {
+      protocol = "tcp"
+      number   = "3001" 
+    }
+
+    env = {
+      env-name-01 = "env-value-01"
+      env-name-02 = "env-value-02"
+      env-name-03 = "env-value-03"
+    }
+
+    inherit_env = true
+    command     = "override-command"
+    args        = ["arg-01", "arg-02", "arg-03"]
+
+    metrics {
+      path = "/metrics"
+      port = 8181
+    }
+
+    readiness_probe {
+
+      tcp_socket {
+        port = 3200
+      }
+
+      initial_delay_seconds = 1
+      period_seconds        = 11
+      timeout_seconds       = 2
+      success_threshold     = 2
+      failure_threshold     = 4
+    }
+
+    liveness_probe {
+
+      exec {
+        command = ["command-01", "command-02"]
+      }
+
+      initial_delay_seconds = 2
+      period_seconds        = 10
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 5
+    }
+
+    gpu_custom {
+      resource      = "amd.com/gpu"
+      runtime_class = "amd"
+      quantity      = 1
+    }
+
+    lifecycle {
+      post_start {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+      pre_stop {
+        exec {
+          command = ["command-01", "command-02", "command-03"]
+        }
+      }
+    }
+
+    volume {
+      uri             = "s3://bucket"
+      recovery_policy = "retain"
+      path            = "/testpath01"
+    }
+
+    volume {
+      uri             = "azureblob://storageAccount/container"
+      path            = "/testpath02"
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["127.0.0.1"]
+      outbound_allow_hostname = ["*.controlplane.com", "*.cpln.io"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["::1"]
+
+      outbound_allow_port {
+        protocol = "http"
+        number   = 80
+      }
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "Allow-Header"
+          blocked_values = ["blocked", "blocked2"]
+        }
+      }
+    }
+
+    internal {
+      inbound_allow_type     = "same-org"
+      inbound_allow_workload = []
+    }
+  }
+
+  options {
+    timeout_seconds = 30
+    capacity_ai     = false
+    debug           = true
+    suspend         = true
+
+    autoscaling {
+      metric_percentile   = "p50"
+      max_scale           = 3
+      min_scale           = 2
+      max_concurrency     = 500
+      scale_to_zero_delay = 400
+
+      multi {
+        metric = "cpu"
+        target = 50
+      }
+
+      multi {
+        metric = "memory"
+        target = 50
+      }
+    }
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+
+  security_options {
+    file_system_group_id = 1
+  }
+
+  load_balancer {
+    replica_direct = true
+
+    direct {
+      enabled = true
+      ipset   = "my-ipset-01"
+
+      port {
+        external_port  = 22
+        protocol       = "TCP"
+        scheme         = "http"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "198.51.100.0/24"
+        city    = "Los Angeles"
+        country = "USA"
+        region  = "North America"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
+		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
+}
+
+/*** Resource Test Case ***/
+
+// WorkloadResourceTestCase defines a specific resource test case.
+type WorkloadResourceTestCase struct {
+	ProviderTestCase
+	Envoy  string
+	Extras string
+}
+
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (wrtc *WorkloadResourceTestCase) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of workload: %s. Total resources: %d", wrtc.Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[wrtc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", wrtc.ResourceAddress)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != wrtc.Name {
+			return fmt.Errorf("resource ID %s does not match expected workload name %s", rs.Primary.ID, wrtc.Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remoteWorkload, _, err := TestProvider.client.GetWorkload(wrtc.Name, wrtc.GvcName)
+		if err != nil {
+			return fmt.Errorf("error retrieving workload from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remoteWorkload.Name != wrtc.Name {
+			return fmt.Errorf("mismatch in workload name: expected %s, got %s", wrtc.Name, *remoteWorkload.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("workload %s verified successfully in both state and external system.", wrtc.Name))
+		return nil
 	}
 }

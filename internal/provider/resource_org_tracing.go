@@ -2,328 +2,319 @@ package cpln
 
 import (
 	"context"
+	"fmt"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	commonmodels "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/common"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceOrgTracing() *schema.Resource {
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &OrgTracingResource{}
+	_ resource.ResourceWithImportState = &OrgTracingResource{}
+)
 
-	return &schema.Resource{
-		CreateContext: resourceOrgTracingCreate,
-		ReadContext:   resourceOrgTracingRead,
-		UpdateContext: resourceOrgTracingUpdate,
-		DeleteContext: resourceOrgTracingDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the org.",
+/*** Resource Model ***/
+
+// OrgTracingResourceModel holds the Terraform state for the resource.
+type OrgTracingResourceModel struct {
+	ID                  types.String `tfsdk:"id"`
+	CplnID              types.String `tfsdk:"cpln_id"`
+	Name                types.String `tfsdk:"name"`
+	Description         types.String `tfsdk:"description"`
+	Tags                types.Map    `tfsdk:"tags"`
+	SelfLink            types.String `tfsdk:"self_link"`
+	LightstepTracing    types.List   `tfsdk:"lightstep_tracing"`
+	OtelTracing         types.List   `tfsdk:"otel_tracing"`
+	ControlPlaneTracing types.List   `tfsdk:"controlplane_tracing"`
+}
+
+/*** Resource Configuration ***/
+
+// OrgTracingResource is the resource implementation.
+type OrgTracingResource struct {
+	EntityBase
+}
+
+// NewOrgTracingResource returns a new instance of the resource implementation.
+func NewOrgTracingResource() resource.Resource {
+	return &OrgTracingResource{}
+}
+
+// Configure configures the resource before use.
+func (otr *OrgTracingResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	otr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (otr *OrgTracingResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (otr *OrgTracingResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_org_tracing"
+}
+
+// Schema defines the schema for the resource.
+func (otr *OrgTracingResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "The unique identifier for this Org Tracing.",
 				Computed:    true,
-			},
-			"name": {
-				Type:        schema.TypeString,
-				Description: "The name of the org.",
-				Computed:    true,
-			},
-			"description": {
-				Type:        schema.TypeString,
-				Description: "The description of org.",
-				Computed:    true,
-			},
-			"tags": {
-				Type:        schema.TypeMap,
-				Description: "Key-value map of the org's tags.",
-				Computed:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"lightstep_tracing":    client.LightstepSchema(true),
-			"otel_tracing":         client.OtelSchema(true),
-			"controlplane_tracing": client.ControlPlaneTracingSchema(true),
+			"cpln_id": schema.StringAttribute{
+				Description: "The ID, in GUID format, of the Org.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"name": schema.StringAttribute{
+				Description: "Name of the Org.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"description": schema.StringAttribute{
+				Description: "Description of the Org.",
+				Computed:    true,
+			},
+			"tags": schema.MapAttribute{
+				Description: "Key-value map of resource tags.",
+				ElementType: types.StringType,
+				Computed:    true,
+			},
+			"self_link": schema.StringAttribute{
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
-		Importer: &schema.ResourceImporter{},
-	}
-}
-
-func resourceOrgTracingCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceOrgTracingCreate")
-
-	c := m.(*client.Client)
-
-	var traceCreate *client.Tracing
-
-	traceCreate = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
-
-	if traceCreate == nil {
-		traceCreate = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
-	}
-
-	if traceCreate == nil {
-		traceCreate = buildControlPlaneTracing(d.Get("controlplane_tracing").([]interface{}))
-	}
-
-	org, _, err := c.UpdateOrgTracing(traceCreate)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setOrgTracing(d, org)
-}
-
-func resourceOrgTracingRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceOrgTracingRead")
-
-	c := m.(*client.Client)
-	org, _, err := c.GetOrg()
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setOrgTracing(d, org)
-}
-
-func setOrgTracing(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
-
-	if org == nil {
-		d.SetId("")
-		return nil
-	}
-
-	d.SetId(*org.Name)
-
-	if err := SetBase(d, org.Base); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if org.Spec != nil && org.Spec.Tracing != nil && org.Spec.Tracing.Provider != nil && org.Spec.Tracing.Provider.Lightstep != nil {
-		if err := d.Set("lightstep_tracing", flattenLightstepTracing(org.Spec.Tracing)); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	if org.Spec != nil && org.Spec.Tracing != nil && org.Spec.Tracing.Provider != nil && org.Spec.Tracing.Provider.Otel != nil {
-		if err := d.Set("otel_tracing", flattenOtelTracing(org.Spec.Tracing)); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	if org.Spec != nil && org.Spec.Tracing != nil && org.Spec.Tracing.Provider != nil && org.Spec.Tracing.Provider.ControlPlane != nil {
-		if err := d.Set("controlplane_tracing", flattenControlPlaneTracing(org.Spec.Tracing)); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	return nil
-}
-
-func flattenCustomTags(customTags *map[string]client.CustomTag) map[string]interface{} {
-	if customTags == nil {
-		return nil
-	}
-
-	stringMap := map[string]interface{}{}
-
-	for key, value := range *customTags {
-		stringMap[key] = value.Literal.Value
-	}
-
-	return stringMap
-}
-
-func buildCustomTags(stringMap *map[string]interface{}) *map[string]client.CustomTag {
-	if stringMap == nil || len(*stringMap) == 0 {
-		return nil
-	}
-
-	customTags := map[string]client.CustomTag{}
-
-	for key, value := range *stringMap {
-		customTags[key] = client.CustomTag{
-			Literal: &client.CustomTagValue{
-				Value: GetString(value),
-			},
-		}
-	}
-
-	return &customTags
-}
-
-func flattenLightstepTracing(trace *client.Tracing) []interface{} {
-
-	if trace != nil {
-
-		outputMap := make(map[string]interface{})
-
-		outputMap["sampling"] = *trace.Sampling
-		outputMap["endpoint"] = *trace.Provider.Lightstep.Endpoint
-
-		if trace.Provider.Lightstep.Credentials != nil {
-			outputMap["credentials"] = *trace.Provider.Lightstep.Credentials
-		}
-
-		if trace.CustomTags != nil {
-			outputMap["custom_tags"] = flattenCustomTags(trace.CustomTags)
-		}
-
-		output := make([]interface{}, 1)
-		output[0] = outputMap
-
-		return output
-	}
-
-	return nil
-}
-
-func buildLightStepTracing(tracing []interface{}) *client.Tracing {
-
-	if len(tracing) == 1 {
-
-		trace := tracing[0].(map[string]interface{})
-
-		iTrace := &client.LightstepTracing{}
-		iTrace.Endpoint = GetString(trace["endpoint"])
-		iTrace.Credentials = GetString(trace["credentials"])
-
-		return &client.Tracing{
-			Sampling:   GetFloat64(trace["sampling"]),
-			CustomTags: buildCustomTags(GetStringMap(trace["custom_tags"])),
-			Provider: &client.Provider{
-				Lightstep: iTrace,
-			},
-		}
-	}
-
-	return nil
-}
-
-func flattenOtelTracing(trace *client.Tracing) []interface{} {
-
-	if trace != nil {
-
-		outputMap := make(map[string]interface{})
-
-		outputMap["sampling"] = *trace.Sampling
-		outputMap["endpoint"] = *trace.Provider.Otel.Endpoint
-
-		if trace.CustomTags != nil {
-			outputMap["custom_tags"] = flattenCustomTags(trace.CustomTags)
-		}
-
-		output := make([]interface{}, 1)
-		output[0] = outputMap
-
-		return output
-	}
-
-	return nil
-}
-
-func buildOtelTracing(tracing []interface{}) *client.Tracing {
-
-	if len(tracing) == 1 {
-
-		trace := tracing[0].(map[string]interface{})
-
-		iTrace := &client.OtelTelemetry{}
-		iTrace.Endpoint = GetString(trace["endpoint"])
-
-		return &client.Tracing{
-			Sampling:   GetFloat64(trace["sampling"]),
-			CustomTags: buildCustomTags(GetStringMap(trace["custom_tags"])),
-			Provider: &client.Provider{
-				Otel: iTrace,
-			},
-		}
-	}
-
-	return nil
-}
-
-func flattenControlPlaneTracing(trace *client.Tracing) []interface{} {
-	if trace == nil {
-		return nil
-	}
-
-	outputMap := make(map[string]interface{})
-
-	outputMap["sampling"] = *trace.Sampling
-
-	if trace.CustomTags != nil {
-		outputMap["custom_tags"] = flattenCustomTags(trace.CustomTags)
-	}
-
-	return []interface{}{
-		outputMap,
-	}
-}
-
-func buildControlPlaneTracing(tracing []interface{}) *client.Tracing {
-	if len(tracing) == 0 {
-		return nil
-	}
-
-	trace := tracing[0].(map[string]interface{})
-	iTrace := &client.ControlPlaneTracing{}
-
-	return &client.Tracing{
-		Sampling:   GetFloat64(trace["sampling"]),
-		CustomTags: buildCustomTags(GetStringMap(trace["custom_tags"])),
-		Provider: &client.Provider{
-			ControlPlane: iTrace,
+		Blocks: map[string]schema.Block{
+			"lightstep_tracing":    otr.LightstepTracingSchema(),
+			"otel_tracing":         otr.OtelTracingSchema(),
+			"controlplane_tracing": otr.ControlPlaneTracingSchema(),
 		},
 	}
 }
 
-func resourceOrgTracingUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceOrgTracingUpdate")
-
-	if d.HasChanges("lightstep_tracing", "otel_tracing", "controlplane_tracing") {
-
-		c := m.(*client.Client)
-
-		var traceUpdate *client.Tracing
-
-		traceUpdate = buildLightStepTracing(d.Get("lightstep_tracing").([]interface{}))
-
-		if traceUpdate == nil {
-			traceUpdate = buildOtelTracing(d.Get("otel_tracing").([]interface{}))
-		}
-
-		if traceUpdate == nil {
-			traceUpdate = buildControlPlaneTracing(d.Get("controlplane_tracing").([]interface{}))
-		}
-
-		org, _, err := c.UpdateOrgTracing(traceUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setOrgTracing(d, org)
+// ConfigValidators enforces mutual exclusivity between attributes.
+func (otr *OrgTracingResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	expressions := []path.Expression{
+		path.MatchRoot("lightstep_tracing"),
+		path.MatchRoot("otel_tracing"),
+		path.MatchRoot("controlplane_tracing"),
 	}
 
-	return nil
+	return []resource.ConfigValidator{
+		resourcevalidator.ExactlyOneOf(expressions...),
+	}
 }
 
-func resourceOrgTracingDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Create creates the resource.
+func (otr *OrgTracingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	// Acquire lock to ensure only one operation modifies the resource at a time
+	resourceLock.Lock()
+	defer resourceLock.Unlock()
 
-	// log.Printf("[INFO] Method: resourceOrgTracingDelete")
+	// Declare variable to hold the planned state from Terraform configuration
+	var plannedState OrgTracingResourceModel
 
-	c := m.(*client.Client)
+	// Retrieve the planned state from the Terraform configuration
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plannedState)...)
 
-	_, _, err := c.UpdateOrgTracing(nil)
-
-	if err != nil {
-		return diag.FromErr(err)
+	// Abort on errors to avoid partial or inconsistent state
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	d.SetId("")
+	// Initialize a new request payload structure and populate it with the planned state
+	tracing := otr.buildRequest(ctx, &resp.Diagnostics, plannedState)
 
-	return nil
+	// Return if an error has occurred during the request payload creation
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Send the create request to the API client
+	responsePayload, _, err := otr.client.UpdateOrgTracing(tracing)
+
+	// Handle any other errors that occurred during the API request
+	if err != nil {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Error creating org tracing: %s", err))
+		return
+	}
+
+	// Map the API response to the Terraform state
+	finalState := otr.buildState(ctx, &resp.Diagnostics, responsePayload)
+
+	// Return if an error has occurred during the state creation
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set the resource state in Terraform
+	resp.Diagnostics.Append(resp.State.Set(ctx, &finalState)...)
+}
+
+// Read fetches the current state of the resource.
+func (otr *OrgTracingResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var plannedState OrgTracingResourceModel
+
+	// Retrieve the planned state from the Terraform configuration
+	resp.Diagnostics.Append(req.State.Get(ctx, &plannedState)...)
+
+	// Abort on errors to avoid partial or inconsistent state
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Fetch the org
+	responsePayload, code, err := otr.client.GetOrg()
+
+	// Handle the case where the org is not found (HTTP 404),
+	// indicating it has been deleted outside of Terraform. Remove it from state
+	if code == 404 {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	// Handle any other errors that occur during the API call
+	if err != nil {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Error reading org tracing: %s", err))
+		return
+	}
+
+	// Map the API response to the Terraform state
+	finalState := otr.buildState(ctx, &resp.Diagnostics, responsePayload)
+
+	// Return if an error has occurred during the state creation
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set the updated state in Terraform
+	resp.Diagnostics.Append(resp.State.Set(ctx, &finalState)...)
+}
+
+// Update modifies the resource.
+func (otr *OrgTracingResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plannedState OrgTracingResourceModel
+
+	// Retrieve the planned state from the Terraform configuration
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plannedState)...)
+
+	// Abort on errors to avoid partial or inconsistent state
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Initialize a new request payload structure and populate it with the planned state
+	tracing := otr.buildRequest(ctx, &resp.Diagnostics, plannedState)
+
+	// Return if an error has occurred during the request payload creation
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Send the update request to the API with the modified data
+	responsePayload, _, err := otr.client.UpdateOrgTracing(tracing)
+
+	// Handle errors from the API update request
+	if err != nil {
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Error updating org tracing: %s", err))
+		return
+	}
+
+	// Map the API response to the Terraform finalState
+	finalState := otr.buildState(ctx, &resp.Diagnostics, responsePayload)
+
+	// Return if an error has occurred during the state creation
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Set the updated state in Terraform
+	resp.Diagnostics.Append(resp.State.Set(ctx, &finalState)...)
+}
+
+// Delete removes the resource.
+func (otr *OrgTracingResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state OrgTracingResourceModel
+
+	// Retrieve the state from the Terraform configuration
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
+	// Abort on errors to avoid partial or inconsistent state
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Send a delete request to the API using the name from the state
+	_, _, err := otr.client.UpdateOrgTracing(nil)
+
+	// Handle errors from the API delete request
+	if err != nil {
+		// If an error occurs during the delete request, add an error to diagnostics
+		resp.Diagnostics.AddError("API Error", fmt.Sprintf("Error deleting org tracing: %s", err))
+		return
+	}
+
+	// Remove the resource from Terraform's state, indicating successful deletion
+	resp.State.RemoveResource(ctx)
+}
+
+/*** Operations ***/
+
+// buildRequest creates a request payload from a state model.
+func (otr *OrgTracingResource) buildRequest(ctx context.Context, diags *diag.Diagnostics, state OrgTracingResourceModel) *client.Tracing {
+	return BuildTracing(ctx, diags, state.LightstepTracing, state.OtelTracing, state.ControlPlaneTracing)
+}
+
+// buildState creates a state model from response payload.
+func (otr *OrgTracingResource) buildState(ctx context.Context, diags *diag.Diagnostics, apiResp *client.Org) OrgTracingResourceModel {
+	// Initialize empty state model
+	state := OrgTracingResourceModel{}
+
+	// Set specific attributes
+	state.ID = types.StringPointerValue(apiResp.Name)
+	state.CplnID = types.StringPointerValue(apiResp.ID)
+	state.Name = types.StringPointerValue(apiResp.Name)
+	state.Description = types.StringPointerValue(apiResp.Description)
+	state.Tags = FlattenTags(apiResp.Tags)
+	state.SelfLink = FlattenSelfLink(apiResp.Links)
+
+	// Only process tracing if Spec is non-nil
+	if apiResp.Spec != nil {
+		// Extract tracing configurations from spec
+		lightstepTracing, otelTracing, cplnTracing := FlattenTracing(ctx, diags, apiResp.Spec.Tracing)
+
+		// Set specific attributes
+		state.LightstepTracing = lightstepTracing
+		state.OtelTracing = otelTracing
+		state.ControlPlaneTracing = cplnTracing
+	} else {
+		state.LightstepTracing = types.ListNull(commonmodels.LightstepTracingModel{}.AttributeTypes())
+		state.OtelTracing = types.ListNull(commonmodels.OtelTracingModel{}.AttributeTypes())
+		state.ControlPlaneTracing = types.ListNull(commonmodels.ControlPlaneTracingModel{}.AttributeTypes())
+	}
+
+	// Return completed state model
+	return state
 }

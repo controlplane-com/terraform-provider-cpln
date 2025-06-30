@@ -63,6 +63,7 @@ type Mk8sProvider struct {
 	Paperspace   *Mk8sPaperspaceProvider   `json:"paperspace,omitempty"`
 	Ephemeral    *Mk8sEphemeralProvider    `json:"ephemeral,omitempty"`
 	Triton       *Mk8sTritonProvider       `json:"triton,omitempty"`
+	Azure        *Mk8sAzureProvider        `json:"azure,omitempty"`
 	DigitalOcean *Mk8sDigitalOceanProvider `json:"digitalocean,omitempty"`
 }
 
@@ -154,6 +155,7 @@ type Mk8sLambdalabsProvider struct {
 	SshKey             *string               `json:"sshKey,omitempty"`
 	UnmanagedNodePools *[]Mk8sGenericPool    `json:"unmanagedNodePools,omitempty"`
 	Autoscaler         *Mk8sAutoscalerConfig `json:"autoscaler,omitempty"`
+	FileSystems        *[]string             `json:"fileSystems,omitempty"`
 	PreInstallScript   *string               `json:"preInstallScript,omitempty"`
 }
 
@@ -185,6 +187,21 @@ type Mk8sTritonProvider struct {
 	NodePools        *[]Mk8sTritonPool       `json:"nodePools,omitempty"`
 	ImageId          *string                 `json:"imageId,omitempty"`
 	SshKeys          *[]string               `json:"sshKeys,omitempty"`
+	Autoscaler       *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
+}
+
+type Mk8sAzureProvider struct {
+	Location         *string                 `json:"location,omitempty"`
+	SubscriptionId   *string                 `tfsdjsonk:"subscriptionId,omitempty"`
+	SdkSecretLink    *string                 `json:"sdkSecretLink,omitempty"`
+	ResourceGroup    *string                 `json:"resourceGroup,omitempty"`
+	Networking       *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript *string                 `json:"preInstallScript,omitempty"`
+	Image            *Mk8sAzureImage         `json:"image,omitempty"`
+	SshKeys          *[]string               `json:"sshKeys,omitempty"`
+	NetworkId        *string                 `json:"networkId,omitempty"`
+	Tags             *map[string]interface{} `json:"tags,omitempty"`
+	NodePools        *[]Mk8sAzurePool        `json:"nodePools,omitempty"`
 	Autoscaler       *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
 }
 
@@ -287,6 +304,17 @@ type Mk8sTritonPool struct {
 	MaxSize           *int                    `json:"maxSize,omitempty"`
 }
 
+type Mk8sAzurePool struct {
+	Mk8sGenericPool
+	Size          *string         `json:"size,omitempty"`
+	SubnetId      *string         `json:"subnetId,omitempty"`
+	Zones         *[]int          `json:"zone,omitempty"`
+	OverrideImage *Mk8sAzureImage `json:"overrideImage,omitempty"`
+	BootDiskSize  *int            `json:"bootDiskSize,omitempty"`
+	MinSize       *int            `json:"minSize,omitempty"`
+	MaxSize       *int            `json:"maxSize,omitempty"`
+}
+
 type Mk8sDigitalOceanPool struct {
 	Mk8sGenericPool
 	DropletSize   *string `json:"dropletSize,omitempty"`
@@ -300,6 +328,7 @@ type Mk8sDigitalOceanPool struct {
 type Mk8sNetworkingConfig struct {
 	ServiceNetwork *string `json:"serviceNetwork,omitempty"`
 	PodNetwork     *string `json:"podNetwork,omitempty"`
+	DnsForwarder   *string `json:"dnsForwarder,omitempty"`
 }
 
 type Mk8sTaint struct {
@@ -356,6 +385,20 @@ type Mk8sTritonManual struct {
 
 type Mk8sTritonGateway struct{}
 
+// Azure Provider //
+
+type Mk8sAzureImage struct {
+	Recommended *string                  `json:"recommended,omitempty"`
+	Reference   *Mk8sAzureImageReference `json:"reference,omitempty"`
+}
+
+type Mk8sAzureImageReference struct {
+	Publisher *string `json:"publisher,omitempty"`
+	Offer     *string `json:"offer,omitempty"`
+	Sku       *string `json:"sku,omitempty"`
+	Version   *string `json:"version,omitempty"`
+}
+
 // Add Ons //
 
 type Mk8sAzureWorkloadIdentityAddOnConfig struct {
@@ -383,6 +426,10 @@ type Mk8sLogsAddOnConfig struct {
 	AuditEnabled      *bool   `json:"auditEnabled,omitempty"`
 	IncludeNamespaces *string `json:"includeNamespaces,omitempty"`
 	ExcludeNamespaces *string `json:"excludeNamespaces,omitempty"`
+	Docker            *bool   `json:"docker,omitempty"`
+	Kubelet           *bool   `json:"kubelet,omitempty"`
+	Kernel            *bool   `json:"kernel,omitempty"`
+	Events            *bool   `json:"events,omitempty"`
 }
 
 type Mk8sNvidiaAddOnConfig struct {

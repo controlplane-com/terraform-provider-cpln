@@ -1,546 +1,848 @@
 package cpln
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/go-test/deep"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
-// TODO: Add to TestAcc: Add test for locations and tags
+/*** Acceptance Test ***/
 
-const gvcEnvoyJson = `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`
-const gvcEnvoyJsonUpdated = `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"15s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`
-
-/*** Acc Tests ***/
+// TestAccControlPlaneGvc_basic performs an acceptance test for the resource.
 func TestAccControlPlaneGvc_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewGvcResourceTest()
 
-	var testGvc client.Gvc
-
-	org := "terraform-test-org"
-	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	rName := "gvc-" + random
-
-	ep := resource.ExternalProvider{
-		Source:            "time",
-		VersionConstraint: "0.9.2",
-	}
-
-	eps := map[string]resource.ExternalProvider{
-		"time": ep,
-	}
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:          func() { testAccPreCheck(t, "GVC") },
-		Providers:         testAccProviders,
-		ExternalProviders: eps,
-		CheckDestroy:      testAccCheckControlPlaneGvcDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "55.55", gvcEnvoyJson, 1, "my-ipset", "default"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(55.55, gvcEnvoyJson, 1, &testGvc, org, "name"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "default"),
-				),
-			},
-			{
-				Config: testAccControlPlaneGvc(random, random, rName, "GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset", "default"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName, &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "name"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "GVC created using terraform for acceptance tests"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "default"),
-				),
-			},
-			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, "my-ipset", "org"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "name"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "org"),
-				),
-			},
-
-			// GVC With Load Balancer - IP Set Complete Link
-			{
-				Config: testAccControlPlaneGvc(random, random, rName+"renamed", "Renamed GVC created using terraform for acceptance tests", "75", gvcEnvoyJsonUpdated, 2, fmt.Sprintf("/org/%s/ipset/my-ipset", org), "org"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGvcExists("cpln_gvc.new", rName+"renamed", &testGvc),
-					testAccCheckControlPlaneGvcAttributes(75, gvcEnvoyJsonUpdated, 2, &testGvc, org, "complete-link"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "description", "Renamed GVC created using terraform for acceptance tests"),
-					resource.TestCheckResourceAttr("cpln_gvc.new", "endpoint_naming_format", "org"),
-				),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "GVC") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccControlPlaneGvc(random, random2, name, description, sampling string, envoy string, trustedProxies int, ipset string, endpointNamingFormat string) string {
+/*** Resource Test ***/
 
-	return fmt.Sprintf(`
-
-	resource "cpln_secret" "docker" {
-		name = "docker-secret-%s"
-		description = "docker secret" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "docker"
-		} 
-			
-		docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}}}"
-	}
-
-	resource "cpln_secret" "opaque" {
-		name = "opaque-random-tbd-%s"
-		description = "description opaque-random-tbd" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		} 
-		
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
-
-	resource "time_sleep" "wait_30_seconds" {
-		depends_on = [cpln_secret.docker]
-	  	destroy_duration = "30s"
-	}
-
-	resource "cpln_gvc" "new" {
-
-		depends_on = [time_sleep.wait_30_seconds]
-		
-		name        = "%s"	
-		description = "%s"
-
-		endpoint_naming_format = "%s"
-		locations              = ["aws-eu-central-1", "aws-us-west-2"]
-		pull_secrets           = [cpln_secret.docker.name]
-
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		env = {
-			env-name-01 = "env-value-01",
-			env-name-02 = "env-value-02",
-		}
-
-		lightstep_tracing {
-
-			sampling = %s
-			endpoint = "test.cpln.local:8080"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque.self_link
-		}
-
-		load_balancer {
-			dedicated = true
-			trusted_proxies = %d
-			ipset = "%s"
-
-			redirect {
-				class {
-					status_5xx = "https://example.com/error/5xx"
-					status_401 = "https://your-oauth-server/oauth2/authorize?return_to=%%REQ(:path)%%&client_id=your-client-id"
-				}
-			}
-		}
-
-		sidecar {
-			envoy = jsonencode(%s)
-		}
-
-	  }`, random, random2, name, description, endpointNamingFormat, sampling, trustedProxies, ipset, envoy)
+// GvcResourceTest defines the necessary functionality to test the resource.
+type GvcResourceTest struct {
+	Steps []resource.TestStep
 }
 
-func testAccCheckControlPlaneGvcExists(resourceName, gvcName string, gvc *client.Gvc) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
+// NewGvcResourceTest creates a GvcResourceTest with initialized test cases.
+func NewGvcResourceTest() GvcResourceTest {
+	// Create a resource test instance
+	resourceTest := GvcResourceTest{}
 
-		rs, ok := s.RootModule().Resources[resourceName]
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-		if !ok {
-			return fmt.Errorf("Not found: %s", s)
-		}
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewOrgNamingScenario()...)
+	steps = append(steps, resourceTest.NewDefaultNamingScenario()...)
 
-		if rs.Primary.ID != gvcName {
-			return fmt.Errorf("GVC name does not match")
-		}
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-		// Validate the data
-		client := testAccProvider.Meta().(*client.Client)
-		newGvc, code, err := client.GetGvc(gvcName)
-
-		if code == 404 {
-			return fmt.Errorf("GVC not found")
-		}
-
-		if err != nil {
-			return err
-		}
-
-		if *newGvc.Name != gvcName {
-			return fmt.Errorf("Gvc name does not match")
-		}
-
-		*gvc = *newGvc
-
-		return nil
-	}
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccCheckControlPlaneGvcAttributes(sampling float64, envoy string, trustedProxies int, gvc *client.Gvc, org string, ipSetClass string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		tags := *gvc.Tags
+// CheckDestroy verifies that all resources have been destroyed.
+func (grt *GvcResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_gvc resources. Total resources: %d", len(s.RootModule().Resources)))
 
-		if tags["terraform_generated"] != "true" {
-			return fmt.Errorf("Tags - GVC terraform_generated attribute does not match")
-		}
-
-		if tags["acceptance_test"] != "true" {
-			return fmt.Errorf("Tags - GVC acceptance_test attribute does not match")
-		}
-
-		lightstepTracing, _ := generateLightstepTracing(sampling, *gvc.Spec.Tracing.Provider.Lightstep.Credentials)
-		if diff := deep.Equal(lightstepTracing, gvc.Spec.Tracing); diff != nil {
-			return fmt.Errorf("GVC Tracing mismatch. Diff: %s", diff)
-		}
-
-		expectedLoadBalancer, _, _ := generateTestLoadBalancer(trustedProxies, org, ipSetClass)
-		if diff := deep.Equal(expectedLoadBalancer, gvc.Spec.LoadBalancer); diff != nil {
-			return fmt.Errorf("Load Balancer attributes do not match. Diff: %s", diff)
-		}
-
-		expectedSidecar, _, _ := generateTestGvcSidecar(envoy)
-		if diff := deep.Equal(expectedSidecar, gvc.Spec.Sidecar); diff != nil {
-			return fmt.Errorf("Sidecar attributes do not match. Diff: %s", diff)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneGvcDestroy(s *terraform.State) error {
-
-	TestLogger.Printf("Inside testAccCheckControlPlaneGvcDestroy. Resources Length: %d", len(s.RootModule().Resources))
-
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
+		// Continue only if the resource is as expected
 		if rs.Type != "cpln_gvc" {
 			continue
 		}
 
+		// Retrieve the name for the current resource
 		gvcName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of GVC with name: %s", gvcName))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneGvcDestroy: gvcName: %s", gvcName)
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		gvc, code, err := TestProvider.client.GetGvc(gvcName)
 
-		gvc, _, _ := c.GetGvc(gvcName)
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if GVC %s exists: %w", gvcName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
 		if gvc != nil {
-			return fmt.Errorf("GVC still exists. Name: %s", *gvc.Name)
+			return fmt.Errorf("CheckDestroy failed: GVC %s still exists in the system", *gvc.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_gvc resources have been successfully destroyed")
 	return nil
 }
 
-/*** Unit Tests ***/
-// Build //
-func TestControlPlane_BuildLocations(t *testing.T) {
+// Test Scenarios //
 
-	org := "unit-test-org"
+// NewOrgNamingScenario creates a test case for a GVC with endpoint naming format set to "org" with initial and updated configurations.
+func (grt *GvcResourceTest) NewOrgNamingScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	name := fmt.Sprintf("gvc-default-%s", random)
+	opaqueName := fmt.Sprintf("opaque-%s", random)
+	dockerName := "test-gvc-docker-pull-secret"
+	resourceName := "with-org-endpoint-naming-format"
 
-	locations := []interface{}{
-		"us-east-2",
-		"us-west-1",
+	// Create the opaque secret case
+	opaqueSecretCase := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.opaque",
+			Name:              opaqueName,
+			Description:       opaqueName,
+			DescriptionUpdate: "secret description updated",
+		},
 	}
 
-	stringFunc := schema.HashSchema(StringSchema())
-	unitTestGvc := client.Gvc{}
-	unitTestGvc.Spec = &client.GvcSpec{}
-	buildLocations(org, schema.NewSet(stringFunc, locations), unitTestGvc.Spec)
+	// Get secret config
+	opaqueSecretConfig := opaqueSecretCase.OpaqueRequiredOnly("opaque_secret_payload")
 
-	testLocation := []string{}
+	// Declare the endpoint naming format for this test case
+	endpointNamingFormat := "org"
 
-	for _, location := range locations {
-		testLocation = append(testLocation, fmt.Sprintf("/org/%s/location/%s", org, location))
-	}
+	// Build test steps
+	initialConfig, initialStep := grt.BuildInitialTestStep(resourceName, name)
+	caseUpdate1 := grt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretConfig)
+	caseUpdate2 := grt.BuildUpdate2TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
+	caseUpdate3 := grt.BuildUpdate3TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
+	caseUpdate4 := grt.BuildUpdate4TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
 
-	if diff := deep.Equal(unitTestGvc.Spec.StaticPlacement.LocationLinks, &testLocation); diff != nil {
-		t.Errorf("LocationLinks did not built the location links correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildPullSecrets(t *testing.T) {
-
-	org := "unit-test-org"
-
-	pullSecrets := []interface{}{
-		"gcr-secret",
-		"docker-secret",
-	}
-
-	stringFunc := schema.HashSchema(StringSchema())
-	unitTestGvc := client.Gvc{}
-	unitTestGvc.Spec = &client.GvcSpec{}
-	buildPullSecrets(org, schema.NewSet(stringFunc, pullSecrets), unitTestGvc.Spec)
-
-	testPullSecrets := []string{}
-
-	for _, pullSecret := range pullSecrets {
-		testPullSecrets = append(testPullSecrets, fmt.Sprintf("/org/%s/secret/%s", org, pullSecret))
-	}
-
-	if diff := deep.Equal(unitTestGvc.Spec.PullSecretLinks, &testPullSecrets); diff != nil {
-		t.Errorf("PullSecretLinks did not built the pull secret links correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildLoadBalancer_IpSetNameClass(t *testing.T) {
-	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1, "terraform-test-org", "name")
-	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
-		t.Errorf("Load Balancer - IP Set Name Only Class was not built correctly, Diff: %s", diff)
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		caseUpdate2,
+		caseUpdate3,
+		caseUpdate4,
+		// Revert the resource to its initial state
+		initialStep,
 	}
 }
 
-func TestControlPlane_BuildLoadBalancer_IpSetCompleteLinkClass(t *testing.T) {
-	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1, "terraform-test-org", "complete-link")
-	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
-		t.Errorf("Load Balancer - IP Set Complete Link was not built correctly, Diff: %s", diff)
+// NewDefaultNamingScenario creates a test case for a GVC with endpoint naming format set to "default" with initial and updated configurations.
+func (grt *GvcResourceTest) NewDefaultNamingScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	name := fmt.Sprintf("gvc-default-%s", random)
+	opaqueName := fmt.Sprintf("opaque-%s", random)
+	dockerName := "test-gvc-docker-pull-secret"
+	resourceName := "with-default-endpoint-naming-format"
+
+	// Create the opaque secret case
+	opaqueSecretCase := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.opaque",
+			Name:              opaqueName,
+			Description:       opaqueName,
+			DescriptionUpdate: "secret description updated",
+		},
+	}
+
+	// Get secret config
+	opaqueSecretConfig := opaqueSecretCase.OpaqueRequiredOnly("opaque_secret_payload")
+
+	// Declare the endpoint naming format for this test case
+	endpointNamingFormat := "default"
+
+	// Build test steps
+	initialConfig, initialStep := grt.BuildInitialTestStepWithEndpointNamingFormat(resourceName, name, endpointNamingFormat)
+	caseUpdate1 := grt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretConfig)
+	caseUpdate2 := grt.BuildUpdate2TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
+	caseUpdate3 := grt.BuildUpdate3TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
+	caseUpdate4 := grt.BuildUpdate4TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		caseUpdate2,
+		caseUpdate3,
+		caseUpdate4,
+		// Revert the resource to its initial state
+		initialStep,
 	}
 }
 
-func TestControlPlane_BuildLoadBalancer_IpSetShortLinkClass(t *testing.T) {
-	loadBalancer, expectedLoadBalancer, _ := generateTestLoadBalancer(1, "terraform-test-org", "short-link")
-	if diff := deep.Equal(loadBalancer, expectedLoadBalancer); diff != nil {
-		t.Errorf("Load Balancer - IP Set Short Link was not built correctly, Diff: %s", diff)
+// Test Cases //
+
+// BuildInitialTestStep returns a default initial test step and its associated test case for the GVC resource.
+func (grt *GvcResourceTest) BuildInitialTestStep(resourceName string, name string) (GvcResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := GvcResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "gvc",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_gvc.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "gvc default description updated",
+		},
+		EndpointNamingFormat: "org",
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: grt.GvcRequiredOnly(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+		),
 	}
 }
 
-func TestControlPlane_BuildGvcSidecar(t *testing.T) {
-	sidecar, expectedSidecar, _ := generateTestGvcSidecar(gvcEnvoyJson)
-	if diff := deep.Equal(sidecar, expectedSidecar); diff != nil {
-		t.Errorf("GVC Sidecar was not built correctly, Diff: %s", diff)
+// BuildInitialTestStepWithEndpointNamingFormat returns a default initial test step and its associated test case for the GVC resource.
+func (grt *GvcResourceTest) BuildInitialTestStepWithEndpointNamingFormat(resourceName string, name string, endpointNamingFormat string) (GvcResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := GvcResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "gvc",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_gvc.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "gvc default description updated",
+		},
+		EndpointNamingFormat: endpointNamingFormat,
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: grt.GvcRequiredOnlyWithEndpointNamingFormat(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+		),
 	}
 }
 
-// Flatten //
-func TestControlPlane_FlattenLocations(t *testing.T) {
-
-	org := "unit-test-org"
-
-	locations := []string{
-		"/org/unit-test-org/location/us-east-2",
-		"/org/unit-test-org/location/us-west-1",
+// BuildUpdate1TestStep constructs the first update test step with optional tracing, load balancer, and Envoy settings for the GVC resource.
+func (grt *GvcResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase, endpointNamingFormat string, dockerName string, opaqueSecretConfig string) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := GvcResourceTestCase{
+		ProviderTestCase:     initialCase,
+		EndpointNamingFormat: endpointNamingFormat,
+		Locations:            []string{"aws-eu-central-1"},
+		PullSecrets:          []string{dockerName},
+		Env: map[string]interface{}{
+			"env-name-01": "env-value-01",
+			"env-name-02": "env-value-02",
+		},
+		Tracing: client.Tracing{
+			Sampling: Float64Pointer(55.55),
+			Provider: &client.TracingProvider{
+				Lightstep: &client.TracingProviderLightstep{
+					Endpoint: StringPointer("test.cpln.local:8080"),
+				},
+			},
+		},
+		LoadBalancer: client.GvcLoadBalancer{
+			TrustedProxies: IntPointer(0),
+		},
+		Envoy: `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
 	}
 
-	flatLocations := []string{
-		"us-east-2",
-		"us-west-1",
+	// Initialize the tracing block
+	lightstepTracingRequiredOnlyBlock := grt.LightstepTracingRequiredOnly(c)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.UpdateWithMinimalOptionals(c, opaqueSecretConfig, lightstepTracingRequiredOnlyBlock),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			c.TestCheckSetAttr("locations", c.Locations),
+			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
+			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
+			c.TestCheckNestedBlocks("lightstep_tracing", []map[string]interface{}{
+				{
+					"sampling": strconv.FormatFloat(*c.Tracing.Sampling, 'f', 2, 64),
+					"endpoint": *c.Tracing.Provider.Lightstep.Endpoint,
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"trusted_proxies": strconv.Itoa(*c.LoadBalancer.TrustedProxies),
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate2TestStep builds the second update test step including advanced load balancer, custom tracing tags, and nested redirect settings.
+func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, endpointNamingFormat string, dockerName string, opaqueSecretCase SecretResourceTestScenario, opaqueSecretConfig string) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := GvcResourceTestCase{
+		ProviderTestCase:     initialCase,
+		EndpointNamingFormat: endpointNamingFormat,
+		Locations:            []string{"aws-eu-central-1", "aws-us-west-2"},
+		PullSecrets:          []string{dockerName},
+		Env: map[string]interface{}{
+			"env-name-01": "env-value-01",
+			"env-name-02": "env-value-02",
+			"env-name-03": "env-value-03",
+		},
+		Tracing: client.Tracing{
+			Sampling: Float64Pointer(50),
+			Provider: &client.TracingProvider{
+				Lightstep: &client.TracingProviderLightstep{
+					Endpoint:    StringPointer("test.cpln.local:80"),
+					Credentials: StringPointer(opaqueSecretCase.GetSelfLink()),
+				},
+			},
+			CustomTags: &map[string]client.TracingCustomTag{
+				"key": {
+					Literal: &client.TracingCustomTagValue{
+						Value: StringPointer("value"),
+					},
+				},
+			},
+		},
+		LoadBalancer: client.GvcLoadBalancer{
+			Dedicated:      BoolPointer(false),
+			TrustedProxies: IntPointer(2),
+			IpSet:          StringPointer("my-ipset-01"),
+			MultiZone: &client.GvcLoadBalancerMultiZone{
+				Enabled: BoolPointer(true),
+			},
+			Redirect: &client.GvcLoadBalancerRedirect{
+				Class: &client.GvcLoadBalancerRedirectClass{
+					Status5XX: StringPointer("https://example.org/error/5xx"),
+					Status401: StringPointer("https://your-oauth-server/oauth2/authorize?return_to=%%REQ(:path)%%&client_id=your-client-id-01"),
+				},
+			},
+		},
+		Envoy: `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"15s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
 	}
 
-	gvcSpec := client.GvcSpec{}
-	gvcSpec.StaticPlacement = &client.StaticPlacement{
-		LocationLinks: &locations,
+	// Convert tracing custom tags to map[string]interface{}
+	customTags := grt.ConvertCustomTagsToMap(*c.Tracing.CustomTags)
+
+	// Initialize the tracing block
+	lightstepTracingWithOptionalsBlock := grt.LightstepTracingWithOptionals(c, opaqueSecretCase.GetSelfLinkAttr(), customTags)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.UpdateWithAllOptionals(c, opaqueSecretConfig, lightstepTracingWithOptionalsBlock),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			c.TestCheckSetAttr("locations", c.Locations),
+			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
+			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
+			c.TestCheckNestedBlocks("lightstep_tracing", []map[string]interface{}{
+				{
+					"sampling":    fmt.Sprintf("%.0f", *c.Tracing.Sampling),
+					"endpoint":    *c.Tracing.Provider.Lightstep.Endpoint,
+					"credentials": opaqueSecretCase.GetSelfLink(),
+					"custom_tags": customTags,
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"dedicated":       strconv.FormatBool(*c.LoadBalancer.Dedicated),
+					"trusted_proxies": strconv.Itoa(*c.LoadBalancer.TrustedProxies),
+					"ipset":           *c.LoadBalancer.IpSet,
+					"multi_zone": []map[string]interface{}{
+						{
+							"enabled": strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled),
+						},
+					},
+					"redirect": []map[string]interface{}{
+						{
+							"class": []map[string]interface{}{
+								{
+									"status_5xx": *c.LoadBalancer.Redirect.Class.Status5XX,
+									"status_401": *c.LoadBalancer.Redirect.Class.Status401,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate3TestStep builds the third update test step including advanced load balancer, custom tracing tags, and nested redirect settings.
+func (grt *GvcResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase, endpointNamingFormat string, dockerName string, opaqueSecretCase SecretResourceTestScenario, opaqueSecretConfig string) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := GvcResourceTestCase{
+		ProviderTestCase:     initialCase,
+		EndpointNamingFormat: endpointNamingFormat,
+		Locations:            []string{"aws-eu-central-1", "aws-us-west-2"},
+		PullSecrets:          []string{dockerName},
+		Env: map[string]interface{}{
+			"env-name-01": "env-value-01",
+			"env-name-02": "env-value-02",
+			"env-name-03": "env-value-03",
+		},
+		Tracing: client.Tracing{
+			Sampling: Float64Pointer(50),
+			Provider: &client.TracingProvider{
+				Otel: &client.TracingProviderOtel{
+					Endpoint: StringPointer("test.cpln.local:80"),
+				},
+			},
+			CustomTags: &map[string]client.TracingCustomTag{
+				"key": {
+					Literal: &client.TracingCustomTagValue{
+						Value: StringPointer("value"),
+					},
+				},
+			},
+		},
+		LoadBalancer: client.GvcLoadBalancer{
+			Dedicated:      BoolPointer(false),
+			TrustedProxies: IntPointer(2),
+			IpSet:          StringPointer("my-ipset-01"),
+			MultiZone: &client.GvcLoadBalancerMultiZone{
+				Enabled: BoolPointer(true),
+			},
+			Redirect: &client.GvcLoadBalancerRedirect{
+				Class: &client.GvcLoadBalancerRedirectClass{
+					Status5XX: StringPointer("https://example.org/error/5xx"),
+					Status401: StringPointer("https://your-oauth-server/oauth2/authorize?return_to=%%REQ(:path)%%&client_id=your-client-id-01"),
+				},
+			},
+		},
+		Envoy: `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"15s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
 	}
 
-	flattenedLocations := flattenLocations(&gvcSpec, org)
+	// Convert tracing custom tags to map[string]interface{}
+	customTags := grt.ConvertCustomTagsToMap(*c.Tracing.CustomTags)
 
-	for i, location := range flatLocations {
-		if flattenedLocations[i].(string) != location {
-			t.Errorf("FlattenLocations did not flatten the locations correctly. Result: %s. Wanted: %s", flattenedLocations[i].(string), location)
+	// Initialize the tracing block
+	otelTracingWithOptionalsBlock := grt.OtelTracingHcl(c, customTags)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.UpdateWithAllOptionals(c, opaqueSecretConfig, otelTracingWithOptionalsBlock),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			c.TestCheckSetAttr("locations", c.Locations),
+			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
+			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
+			c.TestCheckNestedBlocks("otel_tracing", []map[string]interface{}{
+				{
+					"sampling":    fmt.Sprintf("%.0f", *c.Tracing.Sampling),
+					"endpoint":    *c.Tracing.Provider.Otel.Endpoint,
+					"custom_tags": customTags,
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"dedicated":       strconv.FormatBool(*c.LoadBalancer.Dedicated),
+					"trusted_proxies": strconv.Itoa(*c.LoadBalancer.TrustedProxies),
+					"ipset":           *c.LoadBalancer.IpSet,
+					"multi_zone": []map[string]interface{}{
+						{
+							"enabled": strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled),
+						},
+					},
+					"redirect": []map[string]interface{}{
+						{
+							"class": []map[string]interface{}{
+								{
+									"status_5xx": *c.LoadBalancer.Redirect.Class.Status5XX,
+									"status_401": *c.LoadBalancer.Redirect.Class.Status401,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate4TestStep builds the fourth update test step including advanced load balancer, custom tracing tags, and nested redirect settings.
+func (grt *GvcResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase, endpointNamingFormat string, dockerName string, opaqueSecretCase SecretResourceTestScenario, opaqueSecretConfig string) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := GvcResourceTestCase{
+		ProviderTestCase:     initialCase,
+		EndpointNamingFormat: endpointNamingFormat,
+		Locations:            []string{"aws-eu-central-1", "aws-us-west-2"},
+		PullSecrets:          []string{dockerName},
+		Env: map[string]interface{}{
+			"env-name-01": "env-value-01",
+			"env-name-02": "env-value-02",
+			"env-name-03": "env-value-03",
+		},
+		Tracing: client.Tracing{
+			Sampling: Float64Pointer(50),
+			Provider: &client.TracingProvider{
+				ControlPlane: &client.TracingProviderControlPlane{},
+			},
+			CustomTags: &map[string]client.TracingCustomTag{
+				"key": {
+					Literal: &client.TracingCustomTagValue{
+						Value: StringPointer("value"),
+					},
+				},
+			},
+		},
+		LoadBalancer: client.GvcLoadBalancer{
+			Dedicated:      BoolPointer(false),
+			TrustedProxies: IntPointer(2),
+			IpSet:          StringPointer("my-ipset-01"),
+			MultiZone: &client.GvcLoadBalancerMultiZone{
+				Enabled: BoolPointer(true),
+			},
+			Redirect: &client.GvcLoadBalancerRedirect{
+				Class: &client.GvcLoadBalancerRedirectClass{
+					Status5XX: StringPointer("https://example.org/error/5xx"),
+					Status401: StringPointer("https://your-oauth-server/oauth2/authorize?return_to=%%REQ(:path)%%&client_id=your-client-id-01"),
+				},
+			},
+		},
+		Envoy: `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"15s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
+	}
+
+	// Convert tracing custom tags to map[string]interface{}
+	customTags := grt.ConvertCustomTagsToMap(*c.Tracing.CustomTags)
+
+	// Initialize the tracing block
+	cplnTracingWithOptionalsBlock := grt.ControlPlaneTracingHcl(c, customTags)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.UpdateWithAllOptionals(c, opaqueSecretConfig, cplnTracingWithOptionalsBlock),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			c.TestCheckSetAttr("locations", c.Locations),
+			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
+			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
+			c.TestCheckNestedBlocks("controlplane_tracing", []map[string]interface{}{
+				{
+					"sampling":    fmt.Sprintf("%.0f", *c.Tracing.Sampling),
+					"custom_tags": customTags,
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"dedicated":       strconv.FormatBool(*c.LoadBalancer.Dedicated),
+					"trusted_proxies": strconv.Itoa(*c.LoadBalancer.TrustedProxies),
+					"ipset":           *c.LoadBalancer.IpSet,
+					"multi_zone": []map[string]interface{}{
+						{
+							"enabled": strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled),
+						},
+					},
+					"redirect": []map[string]interface{}{
+						{
+							"class": []map[string]interface{}{
+								{
+									"status_5xx": *c.LoadBalancer.Redirect.Class.Status5XX,
+									"status_401": *c.LoadBalancer.Redirect.Class.Status401,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
+				{
+					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+		),
+	}
+}
+
+// Configs //
+
+// GvcRequiredOnly returns a minimal HCL block for a GVC using only required fields.
+func (grt *GvcResourceTest) GvcRequiredOnly(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name = "%s"
+}
+`, c.ResourceName, c.Name)
+}
+
+// GvcRequiredOnlyWithEndpointNamingFormat returns a minimal HCL block for a GVC using only required fields.
+func (grt *GvcResourceTest) GvcRequiredOnlyWithEndpointNamingFormat(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name                   = "%s"
+  endpoint_naming_format = "%s"
+}
+`, c.ResourceName, c.Name, c.EndpointNamingFormat)
+}
+
+// UpdateWithMinimalOptionals returns a HCL block for a GVC using minimal optional attributes.
+func (grt *GvcResourceTest) UpdateWithMinimalOptionals(c GvcResourceTestCase, opaqueSecretResource string, tracingBlock string) string {
+	return fmt.Sprintf(`
+# Opaque Secret Resource
+%s
+
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+	endpoint_naming_format = "%s"
+  locations              = %s
+  pull_secrets           = %s
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  # Env Block
+  env = %s
+
+  # Tracing Block
+  %s
+
+  load_balancer {}
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+}
+`, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),
+		MapToHCL(c.Env, 2), tracingBlock, c.Envoy,
+	)
+}
+
+// UpdateWithAllOptionals returns a HCL block for a GVC using all attributes.
+func (grt *GvcResourceTest) UpdateWithAllOptionals(c GvcResourceTestCase, opaqueSecretResource string, tracingBlock string) string {
+	return fmt.Sprintf(`
+# Opaque Secret Resource
+%s
+
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+	endpoint_naming_format = "%s"
+  locations              = %s
+  pull_secrets           = %s
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  # Env Block
+  env = %s
+
+  # Tracing Block
+  %s
+
+  load_balancer {
+    dedicated       = %s
+    trusted_proxies = %d
+    ipset           = "%s"
+
+    multi_zone {
+      enabled = %s
+    }
+
+    redirect {
+      class {
+        status_5xx = "%s"
+        status_401 = "%s"
+      }
+    }
+  }
+
+  sidecar {
+    envoy = jsonencode(%s)
+  }
+}
+`, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),
+		MapToHCL(c.Env, 2), tracingBlock, strconv.FormatBool(*c.LoadBalancer.Dedicated), *c.LoadBalancer.TrustedProxies, *c.LoadBalancer.IpSet,
+		strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled), *c.LoadBalancer.Redirect.Class.Status5XX, *c.LoadBalancer.Redirect.Class.Status401, c.Envoy,
+	)
+}
+
+// Tracing Config //
+
+// LightstepTracingRequiredOnly defines the HCL for the lightstep tracing with minimal attributes.
+func (grt *GvcResourceTest) LightstepTracingRequiredOnly(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+  lightstep_tracing {
+    sampling = "%f"
+    endpoint = "%s"
+  }
+`, *c.Tracing.Sampling, *c.Tracing.Provider.Lightstep.Endpoint)
+}
+
+// LightstepTracingWithOptionals defines the HCL for the lightstep tracing with all attributes.
+func (grt *GvcResourceTest) LightstepTracingWithOptionals(c GvcResourceTestCase, credentials string, customTags map[string]interface{}) string {
+	return fmt.Sprintf(`
+  lightstep_tracing {
+    sampling = "%f"
+    endpoint = "%s"
+
+    # Opaque Secret Only
+    credentials = %s
+
+    # Custom Tags
+    custom_tags = %s
+  }
+`, *c.Tracing.Sampling, *c.Tracing.Provider.Lightstep.Endpoint, credentials, MapToHCL(customTags, 2))
+}
+
+// OtelTracingHcl defines the HCL for the lightstep tracing.
+func (grt *GvcResourceTest) OtelTracingHcl(c GvcResourceTestCase, customTags map[string]interface{}) string {
+	return fmt.Sprintf(`
+  otel_tracing {
+    sampling = "%f"
+    endpoint = "%s"
+
+    # Custom Tags
+    custom_tags = %s
+  }
+`, *c.Tracing.Sampling, *c.Tracing.Provider.Otel.Endpoint, MapToHCL(customTags, 2))
+}
+
+// ControlPlaneTracingHcl defines the HCL for the lightstep tracing.
+func (grt *GvcResourceTest) ControlPlaneTracingHcl(c GvcResourceTestCase, customTags map[string]interface{}) string {
+	return fmt.Sprintf(`
+  controlplane_tracing {
+    sampling = "%f"
+
+    # Custom Tags
+    custom_tags = %s
+  }
+`, *c.Tracing.Sampling, MapToHCL(customTags, 2))
+}
+
+// Helpers //
+
+// ConvertCustomTagsToMap converts map[string]client.TracingCustomTag instances to a plain map for HCL generation and test comparisons.
+func (grt *GvcResourceTest) ConvertCustomTagsToMap(tags map[string]client.TracingCustomTag) map[string]interface{} {
+	// Initialize output map with capacity matching the number of tags
+	out := make(map[string]interface{}, len(tags))
+
+	// Populate the map with literal values from tags
+	for key, tag := range tags {
+		// If the tag has a literal value, use it
+		if tag.Literal != nil {
+			out[key] = *tag.Literal.Value
 		}
 	}
+
+	// Return the resulting map
+	return out
 }
 
-func TestControlPlane_FlattenPullSecrets(t *testing.T) {
+/*** Resource Test Case ***/
 
-	org := "unit-test-org"
+// GvcResourceTestCase defines a specific resource test case.
+type GvcResourceTestCase struct {
+	ProviderTestCase
+	EndpointNamingFormat string
+	Locations            []string
+	PullSecrets          []string
+	Env                  map[string]interface{}
+	Tracing              client.Tracing
+	LoadBalancer         client.GvcLoadBalancer
+	Envoy                string
+}
 
-	pullSecrets := []string{
-		"/org/unit-test-org/secret/gcp-secret",
-		"/org/unit-test-org/secret/docker-secret",
-	}
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (grtc *GvcResourceTestCase) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of GVC: %s. Total resources: %d", grtc.Name, len(s.RootModule().Resources)))
 
-	flatPullSecrets := []string{
-		"gcp-secret",
-		"docker-secret",
-	}
-
-	gvcSpec := client.GvcSpec{
-		PullSecretLinks: &pullSecrets,
-	}
-
-	flattenedPullSecrets := flattenPullSecrets(&gvcSpec, org)
-
-	for i, pullSecret := range flatPullSecrets {
-		if flattenedPullSecrets[i].(string) != pullSecret {
-			t.Errorf("FlattenPullSecrets did not flatten the pull secrets correctly. Result: %s. Wanted: %s", flattenedPullSecrets[i].(string), pullSecret)
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[grtc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", grtc.ResourceAddress)
 		}
-	}
-}
 
-func TestControlPlane_FlattenLoadBalancer(t *testing.T) {
-	_, expectedLoadBalancer, expectedFlatten := generateTestLoadBalancer(1, "terraform-test-org", "name")
-	flattenLoadBalancer := flattenLoadBalancer(expectedLoadBalancer, "name", "terraform-test-org")
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != grtc.Name {
+			return fmt.Errorf("resource ID %s does not match expected GVC name %s", rs.Primary.ID, grtc.Name)
+		}
 
-	if diff := deep.Equal(expectedFlatten, flattenLoadBalancer); diff != nil {
-		t.Errorf("LoadBalancer was not flattened correctly. Diff: %s", diff)
-	}
-}
+		// Retrieve the API resource from the external system using the provider client
+		remoteGvc, _, err := TestProvider.client.GetGvc(grtc.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving GVC from external system: %w", err)
+		}
 
-func TestControlPlane_FlattenGvcSidecar(t *testing.T) {
-	_, expectedSidecar, expectedFlatten := generateTestGvcSidecar(gvcEnvoyJson)
-	flattenSidecar := flattenGvcSidecar(expectedSidecar)
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remoteGvc.Name != grtc.Name {
+			return fmt.Errorf("mismatch in GVC name: expected %s, got %s", grtc.Name, *remoteGvc.Name)
+		}
 
-	if diff := deep.Equal(expectedFlatten, flattenSidecar); diff != nil {
-		t.Errorf("Sidecar was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-/*** Generate ***/
-func generateTestLoadBalancer(trustedProxies int, org string, class string) (*client.LoadBalancer, *client.LoadBalancer, []interface{}) {
-	dedicated := true
-	ipsetName := "my-ipset"
-	_, expectedRedirect, redirectFlatten := generateTestRedirect()
-
-	var ipset string
-	var expectedIpSet string
-
-	switch class {
-	case "complete-link":
-		ipset = fmt.Sprintf("/org/%s/ipset/%s", org, ipsetName)
-		expectedIpSet = ipset
-	case "short-link":
-		ipset = fmt.Sprintf("//ipset/%s", ipsetName)
-		expectedIpSet = ipset
-	default:
-		ipset = ipsetName
-		expectedIpSet = fmt.Sprintf("/org/%s/ipset/%s", org, ipsetName)
-	}
-
-	flatten := generateFlatTestLoadBalancer(dedicated, trustedProxies, redirectFlatten, ipset)
-	loadBalancer := buildLoadBalancer(flatten, org)
-	expectedLoadBalancer := &client.LoadBalancer{
-		Dedicated:      &dedicated,
-		TrustedProxies: &trustedProxies,
-		Redirect:       expectedRedirect,
-		IpSet:          &expectedIpSet,
-	}
-
-	return loadBalancer, expectedLoadBalancer, flatten
-}
-
-func generateTestRedirect() (*client.Redirect, *client.Redirect, []interface{}) {
-	_, expectedClass, classFlatten := generateTestRedirectClass()
-
-	flatten := generateFlatTestRedirect(classFlatten)
-	redirect := buildRedirect(flatten)
-	expectedRedirect := &client.Redirect{
-		Class: expectedClass,
-	}
-
-	return redirect, expectedRedirect, flatten
-}
-
-func generateTestRedirectClass() (*client.RedirectClass, *client.RedirectClass, []interface{}) {
-	status5XX := "https://example.com/error/5xx"
-	status401 := "https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id"
-
-	flatten := generateFlatTestRedirectClass(status5XX, status401)
-	class := buildRedirectClass(flatten)
-	expectedClass := &client.RedirectClass{
-		Status5XX: &status5XX,
-		Status401: &status401,
-	}
-
-	return class, expectedClass, flatten
-}
-
-func generateTestGvcSidecar(stringifiedJson string) (*client.GvcSidecar, *client.GvcSidecar, []interface{}) {
-	// Attempt to unmarshal `envoy`
-	var envoy interface{}
-
-	json.Unmarshal([]byte(stringifiedJson), &envoy)
-	jsonOut, _ := json.Marshal(envoy)
-
-	flatten := generateFlatTestGvcSidecar(string(jsonOut))
-	sidecar := buildGvcSidecar(flatten)
-	expectedSidecar := &client.GvcSidecar{
-		Envoy: &envoy,
-	}
-
-	return sidecar, expectedSidecar, flatten
-}
-
-// Flatten //
-func generateFlatTestLoadBalancer(dedicated bool, trustedProxies int, redirect []interface{}, ipset string) []interface{} {
-	spec := map[string]interface{}{
-		"dedicated":       dedicated,
-		"trusted_proxies": trustedProxies,
-		"redirect":        redirect,
-		"ipset":           ipset,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestRedirect(class []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"class":                 class,
-		"placeholder_attribute": true,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestRedirectClass(status5XX string, status401 string) []interface{} {
-	spec := map[string]interface{}{
-		"status_5xx":            status5XX,
-		"status_401":            status401,
-		"placeholder_attribute": true,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestGvcSidecar(envoy string) []interface{} {
-	spec := map[string]interface{}{
-		"envoy": envoy,
-	}
-
-	return []interface{}{
-		spec,
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("GVC %s verified successfully in both state and external system.", grtc.Name))
+		return nil
 	}
 }

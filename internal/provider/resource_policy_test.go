@@ -1,648 +1,414 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
-	"sort"
-
-	"github.com/go-test/deep"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func generateFlatTestTargetLinks() []interface{} {
+/*** Acceptance Test ***/
 
-	targetLinksFlat := []interface{}{
-		"secret-test-02",
-		"secret-test-01",
-	}
-
-	return targetLinksFlat
-}
-
-func generateTestTargetLinks() *client.Policy {
-
-	testPolicy := client.Policy{}
-	testPolicy.TargetLinks = &[]string{
-		"/org/testorg/secret/secret-test-02",
-		"/org/testorg/secret/secret-test-01",
-	}
-
-	return &testPolicy
-}
-
-func TestControlPlane_BuildPolicyTargetLinks(t *testing.T) {
-
-	tlf := generateFlatTestTargetLinks()
-	stringFunc := schema.HashSchema(StringSchema())
-	tlfSet := schema.NewSet(stringFunc, tlf)
-
-	unitTestPolicy := &client.Policy{}
-	buildTargetLinks("testorg", "", "secret", tlfSet, unitTestPolicy)
-
-	if diff := deep.Equal(unitTestPolicy, generateTestTargetLinks()); diff != nil {
-		t.Errorf("Policy Target Links was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_FlattenPolicyTargetLinks(t *testing.T) {
-
-	ftl := flattenTargetLinks(generateTestTargetLinks().TargetLinks)
-	tlf := generateFlatTestTargetLinks()
-
-	if diff := deep.Equal(ftl, tlf); diff != nil {
-		t.Errorf("Target links were not flattened correctly. Diff: %s", diff)
-		return
-	}
-}
-
-func generateFlatTestBindings() *schema.Set {
-
-	stringFunc := schema.HashSchema(StringSchema())
-
-	b1 := make(map[string]interface{})
-
-	permSet1 := schema.NewSet(stringFunc, []interface{}{
-		"manage",
-		"edit",
-	})
-
-	b1["permissions"] = permSet1
-
-	pLinkSet1 := schema.NewSet(stringFunc, []interface{}{
-		"user/support@controlplane.com",
-		"/org/testorg/serviceaccount/support",
-	})
-
-	b1["principal_links"] = pLinkSet1
-
-	b2 := make(map[string]interface{})
-
-	permSet2 := schema.NewSet(stringFunc, []interface{}{
-		"viewer",
-	})
-
-	b2["permissions"] = permSet2
-
-	pLinkSet2 := schema.NewSet(stringFunc, []interface{}{
-		"group/admins",
-		"serviceaccount/tester",
-	})
-
-	b2["principal_links"] = pLinkSet2
-
-	sFunc := schema.HashResource(BindingResource())
-
-	return schema.NewSet(sFunc, []interface{}{b1, b2})
-}
-
-func generateTestBindings() *client.Policy {
-
-	testPolicy := client.Policy{}
-
-	binding_01 := client.Binding{
-		Permissions: &[]string{
-			"manage",
-			"edit",
-		},
-		PrincipalLinks: &[]string{
-			"/org/testorg/user/support@controlplane.com",
-			"/org/testorg/serviceaccount/support",
-		},
-	}
-
-	binding_02 := client.Binding{
-		Permissions: &[]string{
-			"viewer",
-		},
-		PrincipalLinks: &[]string{
-			"/org/testorg/group/admins",
-			"/org/testorg/serviceaccount/tester",
-		},
-	}
-
-	testPolicy.Bindings = &[]client.Binding{
-		binding_01,
-		binding_02,
-	}
-
-	return &testPolicy
-}
-
-func TestControlPlane_BuildPolicyBindings(t *testing.T) {
-
-	unitTestPolicy := &client.Policy{}
-	buildBindings("testorg", generateFlatTestBindings(), unitTestPolicy)
-
-	generatedBindings := generateTestBindings()
-
-	if len(*unitTestPolicy.Bindings) != len(*generatedBindings.Bindings) {
-		t.Error("Policy Bindings was not built correctly. Different binding lengths")
-	}
-
-	sortInternalBindings(unitTestPolicy.Bindings)
-	sortInternalBindings(generatedBindings.Bindings)
-
-	match := false
-
-	for _, b1 := range *unitTestPolicy.Bindings {
-
-		match = false
-
-		for _, b2 := range *generatedBindings.Bindings {
-
-			if diff := deep.Equal(b1, b2); diff == nil {
-				match = true
-				break
-			}
-		}
-
-		if !match {
-			break
-		}
-	}
-
-	if !match {
-		t.Error("Policy Bindings was not built correctly.")
-	}
-}
-
-func sortInternalBindings(binding *[]client.Binding) {
-	for _, b := range *binding {
-		sort.Strings(*b.Permissions)
-		sort.Strings(*b.PrincipalLinks)
-	}
-}
-
-func TestControlPlane_FlattenPolicyBindings(t *testing.T) {
-
-	fb := flattenBindings("testorg", generateTestBindings().Bindings, map[string]interface{}{
-		"/org/testorg/serviceaccount/support": nil,
-	})
-	tb := generateFlatTestBindings().List()
-
-	if len(fb) != len(tb) {
-		t.Error("Policy Bindings was not built correctly. Different binding lengths")
-	}
-
-	sortInternalBindingsInterface(fb)
-	sortInternalBindingsSet(tb)
-
-	match := false
-
-	for _, b1 := range fb {
-
-		match = false
-
-		for _, b2 := range tb {
-
-			if diff := deep.Equal(b1, b2); diff == nil {
-				match = true
-				break
-			}
-		}
-
-		if !match {
-			break
-		}
-	}
-
-	if !match {
-		t.Error("Policy Bindings was not flattened correctly.")
-	}
-}
-
-func sortInternalBindingsInterface(binding []interface{}) {
-	for _, b := range binding {
-		b1 := b.(map[string]interface{})
-		b1["permissions"] = sortInterfaceStrings(b1["permissions"].([]interface{}))
-		b1["principal_links"] = sortInterfaceStrings(b1["principal_links"].([]interface{}))
-	}
-}
-
-func sortInternalBindingsSet(binding []interface{}) {
-	for _, b := range binding {
-		b1 := b.(map[string]interface{})
-		b1["permissions"] = sortInterfaceStrings(b1["permissions"].(*schema.Set).List())
-		b1["principal_links"] = sortInterfaceStrings(b1["principal_links"].(*schema.Set).List())
-	}
-}
-
-func sortInterfaceStrings(input []interface{}) []interface{} {
-
-	s := make([]string, len(input))
-	for i, v := range input {
-		s[i] = v.(string)
-	}
-
-	sort.Strings(s)
-
-	o := []interface{}{}
-
-	for _, p := range s {
-		o = append(o, p)
-	}
-
-	return o
-}
-
+// TestAccControlPlanePolicy_basic performs an acceptance test for the resource.
 func TestAccControlPlanePolicy_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewPolicyResourceTest()
 
-	randomName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "POLICY") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlanePolicyCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlanePolicy(randomName),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_policy.terraform_policy", "name", "policy-"+randomName),
-					resource.TestCheckResourceAttr("cpln_policy.terraform_policy", "description", "Policy description for policy-"+randomName),
-				),
-			},
-			{
-				Config: testAccControlPlanePolicyUpdate(randomName),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "POLICY") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccControlPlanePolicy(name string) string {
+/*** Resource Test ***/
 
-	return fmt.Sprintf(`
-	
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "terraform_gvc" {
-	
-		name        = "gvc-${var.random-name}"	
-		description = "GVC description for gvc-${var.random-name}"
-
-		locations = ["aws-eu-central-1"]
-
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_identity" "terraform_identity" {
-
-  		gvc = cpln_gvc.terraform_gvc.name
-
-		name        = "identity-${var.random-name}"	
-		description = "Identity description for identity-${var.random-name}"
- 
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-
-	resource "cpln_policy" "terraform_policy" {
-
-		name = "policy-${var.random-name}"
-		description = "Policy description for policy-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-
-		target_kind = "secret"
-		target = "all"
-
-	}
-
-	resource "cpln_service_account" "tf_sa" {
-
-		name = "service-account-${var.random-name}"
-		description = "service account description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_policy" "terraform_policy_01" {
-
-		name = "policy-01-${var.random-name}"
-		description = "Policy description for policy-01-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "serviceaccount"
-		target_links = [cpln_service_account.tf_sa.name]
-		// target = "all"
-
-		target_query {
-		
-			spec {
-				# match is either "all", "any", or "none"
-				match = "all"
-
-				terms {
-					op = "="
-					tag = "firebase/sign_in_provider"
-					value = "microsoft.com"
-				}
-			}
-		}
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
-		}
-	}
-
-	resource "cpln_policy" "terraform_policy_02" {
-
-		name = "policy-02-${var.random-name}"
-		description = "Policy description for policy-02-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "identity"
-		
-		gvc = cpln_gvc.terraform_gvc.name
-		target_links = [cpln_identity.terraform_identity.name]
-		// target = "all"
-
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
-		}
-	}
-
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.terraform_gvc.name
-	  
-		name        = "workload-01-${var.random-name}"
-		description = "workload-01-${var.random-name}"
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-
-		type = "standard" 
-	  
-		container {
-		  name  = "container-01"
-		  image = "gcr.io/knative-samples/helloworld-go"
-		  memory = "128Mi"
-		  cpu = "50m"	  
-
-		  ports {
-		    protocol = "http"
-			number   = "80" 
-		  }
-		}
-		
-	 	  	  
-		options {
-		  capacity_ai = false
-		  timeout_seconds = 30
-		  suspend = true
-
-		  autoscaling {
-			metric = "cpu"
-			target = 60
-			max_scale = 3
-			min_scale = 2
-			max_concurrency = 500
-			scale_to_zero_delay = 400
-		  }
-		}
-	}
-	
-
-	resource "cpln_policy" "terraform_policy_03" {
-
-		name = "policy-03-${var.random-name}"
-		description = "Policy description for policy-03-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "workload"
-		
-		gvc = cpln_gvc.terraform_gvc.name
-		target_links = [cpln_workload.new.name]
-		// target = "all"
-
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
-		}
-	}
-
-	resource "cpln_policy" "terraform_policy_04" {
-
-		name = "policy-04-${var.random-name}"
-		description = "Policy description for policy-04-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "workload"
-		
-		gvc = cpln_gvc.terraform_gvc.name
-		target_links = [cpln_workload.new.name]
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", cpln_service_account.tf_sa.self_link, cpln_identity.terraform_identity.self_link]
-		}
-	}
-
-	`, name)
+// PolicyResourceTest defines the necessary functionality to test the resource.
+type PolicyResourceTest struct {
+	Steps      []resource.TestStep
+	RandomName string
 }
 
-func testAccControlPlanePolicyUpdate(name string) string {
-
-	return fmt.Sprintf(`
-	
-	variable "random-name" {
-		type = string
-		default = "%s"
+// NewPolicyResourceTest creates a PolicyResourceTest with initialized test cases.
+func NewPolicyResourceTest() PolicyResourceTest {
+	// Create a resource test instance
+	resourceTest := PolicyResourceTest{
+		RandomName: acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum),
 	}
 
-	resource "cpln_gvc" "terraform_gvc" {
-	
-		name        = "gvc-${var.random-name}"	
-		description = "GVC description for gvc-${var.random-name}"
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-		locations = ["aws-eu-central-1"]
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewTargetSecretScenario()...)
+	steps = append(steps, resourceTest.NewTargetWorkloadScenario()...)
 
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-	resource "cpln_identity" "terraform_identity" {
-
-  		gvc = cpln_gvc.terraform_gvc.name
-
-		name        = "identity-${var.random-name}"	
-		description = "Identity description for identity-${var.random-name}"
- 
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-
-	resource "cpln_policy" "terraform_policy" {
-
-		name = "policy-${var.random-name}"
-		description = "Policy description for policy-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-
-		target_kind = "secret"
-		target = "all"
-
-	}
-
-	resource "cpln_service_account" "tf_sa" {
-
-		name = "service-account-${var.random-name}"
-		description = "service account description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_policy" "terraform_policy_01" {
-
-		name = "policy-01-${var.random-name}"
-		description = "Policy description for policy-01-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "serviceaccount"
-		target_links = [cpln_service_account.tf_sa.name]
-		// target = "all"
-
-		target_query {
-		
-			spec {
-				# match is either "all", "any", or "none"
-				match = "all"
-
-				terms {
-					op = "="
-					tag = "firebase/sign_in_provider"
-					value = "microsoft.com"
-				}
-			}
-		}
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
-		}
-	}
-
-	resource "cpln_policy" "terraform_policy_02" {
-
-		name = "policy-02-${var.random-name}"
-		description = "Policy description for policy-02-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "identity"
-		
-		gvc = cpln_gvc.terraform_gvc.name
-		target_links = [cpln_identity.terraform_identity.name]
-		// target = "all"
-
-
-		binding {
-			permissions = ["manage"]
-			principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-${var.random-name}","gvc/${cpln_gvc.terraform_gvc.name}/identity/${cpln_identity.terraform_identity.name}"]
-		}
-	}
-
-	resource "cpln_policy" "terraform_policy_04" {
-
-		name = "policy-04-${var.random-name}"
-		description = "Policy description for policy-04-${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	
-		target_kind = "identity"
-		
-		gvc = cpln_gvc.terraform_gvc.name
-		target_links = [cpln_identity.terraform_identity.name]
-
-		binding {
-			permissions = ["manage", "edit"]
-			principal_links = ["/org/terraform-test-org/user/support@controlplane.com", cpln_service_account.tf_sa.self_link, cpln_identity.terraform_identity.self_link]
-		}
-	}
-	`, name)
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccCheckControlPlanePolicyCheckDestroy(s *terraform.State) error {
+// CheckDestroy verifies that all resources have been destroyed.
+func (prt *PolicyResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_policy resources. Total resources: %d", len(s.RootModule().Resources)))
 
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy For Policy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
-		if rs.Type == "cpln_policy" {
-			policy, _, _ := c.GetPolicy(rs.Primary.ID)
-			if policy != nil {
-				return fmt.Errorf("Policy still exists. Name: %s", *policy.Name)
-			}
+		// Continue only if the resource is as expected
+		if rs.Type != "cpln_policy" {
+			continue
+		}
+
+		// Retrieve the name for the current resource
+		policyName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of policy with name: %s", policyName))
+
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		policy, code, err := TestProvider.client.GetPolicy(policyName)
+
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if policy %s exists: %w", policyName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
+		if policy != nil {
+			return fmt.Errorf("CheckDestroy failed: policy %s still exists in the system", *policy.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_policy resources have been successfully destroyed")
 	return nil
+}
+
+// Test Scenarios //
+
+// NewTargetSecretScenario defines a policy test scenario targeting secrets with create, import, and update steps.
+func (prt *PolicyResourceTest) NewTargetSecretScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "new"
+	name := fmt.Sprintf("tf-policy-secret-%s", prt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := prt.BuildTargetSecretTestStep(resourceName, name)
+	caseUpdate1 := prt.BuildTargetSecretUpdate1TestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// NewTargetWorkloadScenario defines a policy test scenario targeting workloads with create, import, and update steps.
+func (prt *PolicyResourceTest) NewTargetWorkloadScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "new"
+	name := fmt.Sprintf("tf-policy-workload-%s", prt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := prt.BuildTargetWorkloadTestStep(resourceName, name)
+	caseUpdate1 := prt.BuildTargetWorkloadUpdate1TestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// Test Cases //
+
+// BuildTargetSecretTestStep constructs the initial test step and case for a secret-targeting policy.
+func (prt *PolicyResourceTest) BuildTargetSecretTestStep(resourceName string, name string) (PolicyResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := PolicyResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "policy",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_policy.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "policy secret new description",
+		},
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: prt.TargetSecretRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckResourceAttr("target_kind", "secret"),
+			c.TestCheckResourceAttr("target", "all"),
+		),
+	}
+}
+
+// BuildTargetSecretUpdate1TestStep constructs the update test step for a secret-targeting policy including tags and bindings.
+func (prt *PolicyResourceTest) BuildTargetSecretUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := PolicyResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: prt.TargetSecretUpdate1Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckResourceAttr("target_kind", "secret"),
+			c.TestCheckSetAttr("target_links", []string{"/org/terraform-test-org/secret/secret-01", "/org/terraform-test-org/secret/secret-02"}),
+			c.TestCheckNestedBlocks("target_query", []map[string]interface{}{
+				{
+					"fetch": "items",
+					"spec": []map[string]interface{}{
+						{
+							"match": "all",
+							"terms": []map[string]interface{}{
+								{
+									"op":    "=",
+									"tag":   "terraform_generated",
+									"value": "true",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("binding", []map[string]interface{}{
+				{
+					"permissions":     []string{"manage", "edit"},
+					"principal_links": []string{"user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-01", "gvc/gvc-01/identity/identity-01"},
+				},
+			}),
+		),
+	}
+}
+
+// BuildTargetWorkloadTestStep constructs the initial test step and case for a workload-targeting policy.
+func (prt *PolicyResourceTest) BuildTargetWorkloadTestStep(resourceName string, name string) (PolicyResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := PolicyResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "policy",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_policy.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "policy workload new description",
+		},
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: prt.TargetWorkloadRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckResourceAttr("gvc", "gvc-01"),
+			c.TestCheckResourceAttr("target_kind", "workload"),
+			c.TestCheckResourceAttr("target", "all"),
+		),
+	}
+}
+
+// BuildTargetWorkloadUpdate1TestStep constructs the update test step for a workload-targeting policy including bindings.
+func (prt *PolicyResourceTest) BuildTargetWorkloadUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := PolicyResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: prt.TargetWorkloadUpdate1Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckResourceAttr("gvc", "gvc-01"),
+			c.TestCheckResourceAttr("target_kind", "workload"),
+			c.TestCheckSetAttr("target_links", []string{"workload-01"}),
+			c.TestCheckNestedBlocks("binding", []map[string]interface{}{
+				{
+					"permissions":     []string{"manage", "edit"},
+					"principal_links": []string{"user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-01", "gvc/gvc-01/identity/identity-01"},
+				},
+				{
+					"permissions":     []string{"manage", "edit", "delete"},
+					"principal_links": []string{"/org/terraform-test-org/group/superusers", "serviceaccount/service-account-01"},
+				},
+			}),
+		),
+	}
+}
+
+// Configs //
+
+// TargetSecretRequiredOnlyHcl returns a minimal HCL configuration for a policy targeting all secrets.
+func (prt *PolicyResourceTest) TargetSecretRequiredOnlyHcl(c PolicyResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_policy" "%s" {
+  name        = "%s"
+  target_kind = "secret"
+  target      = "all"
+}
+`, c.ResourceName, c.Name)
+}
+
+// TargetSecretUpdate1Hcl returns an HCL configuration for updating a secret-targeting policy with description, tags, queries, and bindings.
+func (prt *PolicyResourceTest) TargetSecretUpdate1Hcl(c PolicyResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_policy" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  target_kind  = "secret"
+  target_links = ["/org/terraform-test-org/secret/secret-01", "/org/terraform-test-org/secret/secret-02"]
+
+  target_query {
+    spec {
+      # match is either "all", "any", or "none"
+      match = "all"
+
+      terms {
+        op    = "="
+        tag   = "terraform_generated"
+        value = "true"
+      }
+    }
+  }
+
+  binding {
+    permissions     = ["manage", "edit"]
+    principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-01","gvc/gvc-01/identity/identity-01"]
+  }
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+// TargetWorkloadRequiredOnlyHcl returns a minimal HCL configuration for a policy targeting all workloads.
+func (prt *PolicyResourceTest) TargetWorkloadRequiredOnlyHcl(c PolicyResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_policy" "%s" {
+  name        = "%s"
+	gvc         = "gvc-01"
+  target_kind = "workload"
+  target      = "all"
+}
+`, c.ResourceName, c.Name)
+}
+
+// TargetWorkloadUpdate1Hcl constructs an HCL block to update a workload-targeting policy with metadata, tags, and binding rules.
+func (prt *PolicyResourceTest) TargetWorkloadUpdate1Hcl(c PolicyResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_policy" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  gvc          = "gvc-01"
+  target_kind  = "workload"
+  target_links = ["workload-01"]
+
+  binding {
+    permissions     = ["manage", "edit"]
+    principal_links = ["user/support@controlplane.com", "group/viewers", "serviceaccount/service-account-01","gvc/gvc-01/identity/identity-01"]
+  }
+
+  binding {
+    permissions     = ["manage", "edit", "delete"]
+    principal_links = ["/org/terraform-test-org/group/superusers", "serviceaccount/service-account-01"]
+  }
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+/*** Resource Test Case ***/
+
+// PolicyResourceTestCase defines a specific resource test case.
+type PolicyResourceTestCase struct {
+	ProviderTestCase
+}
+
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (prtc *PolicyResourceTestCase) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of policy: %s. Total resources: %d", prtc.Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[prtc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", prtc.ResourceAddress)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != prtc.Name {
+			return fmt.Errorf("resource ID %s does not match expected policy name %s", rs.Primary.ID, prtc.Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remotePolicy, _, err := TestProvider.client.GetPolicy(prtc.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving policy from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remotePolicy.Name != prtc.Name {
+			return fmt.Errorf("mismatch in policy name: expected %s, got %s", prtc.Name, *remotePolicy.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("policy %s verified successfully in both state and external system.", prtc.Name))
+		return nil
+	}
 }

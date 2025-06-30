@@ -1,0 +1,182 @@
+package cpln
+
+import (
+	"errors"
+	"fmt"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
+type {RESOURCE_NAME}ResourceTest struct {
+	resourceName string
+	name         string
+}
+
+var {RESOURCE_VAR_NAME}Test = {RESOURCE_NAME}ResourceTest{
+	resourceName: "cpln_{RESOURCE_TYPE_NAME}.new",
+	name:         "{RESOURCE_VAR_NAME}-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum),
+}
+
+/*** Main ***/
+
+// TestAccControlPlane{RESOURCE_NAME}_basic performs an acceptance test for the resource.
+func TestAccControlPlane{RESOURCE_NAME}_basic(t *testing.T) {
+	// Define unique values for the API resource to be used during the test lifecycle
+	description := "{RESOURCE_CAPITAL_NAME} created using terraform for acceptance tests"
+	updateDescription := "{RESOURCE_CAPITAL_NAME} updated using terraform for acceptance tests"
+
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t, "{RESOURCE_CAPITAL_NAME}") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             testAccCheckControlPlane{RESOURCE_NAME}CheckDestroy,
+		Steps: []resource.TestStep{
+			// Create and Read testing
+			{
+				Config: testAccControlPlane{RESOURCE_NAME}CreateRequiredOnly(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "name", {RESOURCE_VAR_NAME}Test.name),
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "description", {RESOURCE_VAR_NAME}Test.name),
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "tags.%", "0"),
+					testAccCheckControlPlane{RESOURCE_NAME}Exists({RESOURCE_VAR_NAME}Test.resourceName, {RESOURCE_VAR_NAME}Test.name),
+				),
+			},
+			// ImportState testing
+			{
+				ResourceName: {RESOURCE_VAR_NAME}Test.resourceName,
+				ImportState:  true,
+			},
+			// Update and Read testing
+			{
+				Config: testAccControlPlane{RESOURCE_NAME}UpdateWithOptionals(description),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "name", {RESOURCE_VAR_NAME}Test.name),
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "description", description),
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "tags.%", "2"),
+					testAccCheckControlPlane{RESOURCE_NAME}Exists({RESOURCE_VAR_NAME}Test.resourceName, {RESOURCE_VAR_NAME}Test.name),
+				),
+			},
+			{
+				Config: testAccControlPlane{RESOURCE_NAME}UpdateWithOptionals(updateDescription),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "name", {RESOURCE_VAR_NAME}Test.name),
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "description", updateDescription),
+					resource.TestCheckResourceAttr({RESOURCE_VAR_NAME}Test.resourceName, "tags.%", "2"),
+					testAccCheckControlPlane{RESOURCE_NAME}Exists({RESOURCE_VAR_NAME}Test.resourceName, {RESOURCE_VAR_NAME}Test.name),
+				),
+			},
+			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// testAccCheckControlPlane{RESOURCE_NAME}CheckDestroy verifies that all resources have been destroyed.
+func testAccCheckControlPlane{RESOURCE_NAME}CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_{RESOURCE_TYPE_NAME} resources. Total resources: %d", len(s.RootModule().Resources)))
+
+	// If no resources are present in the Terraform state, log and return early
+	if len(s.RootModule().Resources) == 0 {
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
+	}
+
+	// Iterate through each resource in the state
+	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
+
+		// Continue only if the resource is as expected
+		if rs.Type != "cpln_{RESOURCE_TYPE_NAME}" {
+			continue
+		}
+
+		// Retrieve the name for the current resource
+		{RESOURCE_VAR_NAME}Name := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of {RESOURCE_VAR_NAME} with name: %s", {RESOURCE_VAR_NAME}Name))
+
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		{RESOURCE_VAR_NAME}, code, err := TestProvider.client.Get{API_OBJECT_NAME}({RESOURCE_VAR_NAME}Name)
+
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if {RESOURCE_VAR_NAME} %s exists: %w", {RESOURCE_VAR_NAME}Name, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
+		if {RESOURCE_VAR_NAME} != nil {
+			return fmt.Errorf("CheckDestroy failed: {RESOURCE_VAR_NAME} %s still exists in the system", *{RESOURCE_VAR_NAME}.Name)
+		}
+	}
+
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_{RESOURCE_TYPE_NAME} resources have been successfully destroyed")
+	return nil
+}
+
+// testAccCheckControlPlane{RESOURCE_NAME}Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func testAccCheckControlPlane{RESOURCE_NAME}Exists(resourceName string, {RESOURCE_VAR_NAME}Name string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of {RESOURCE_VAR_NAME}: %s. Total resources: %d", {RESOURCE_VAR_NAME}Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", resourceName)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != {RESOURCE_VAR_NAME}Name {
+			return fmt.Errorf("resource ID %s does not match expected {RESOURCE_VAR_NAME} name %s", rs.Primary.ID, {RESOURCE_VAR_NAME}Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remote{RESOURCE_NAME}, _, err := TestProvider.client.Get{API_OBJECT_NAME}({RESOURCE_VAR_NAME}Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving {RESOURCE_VAR_NAME} from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remote{RESOURCE_NAME}.Name != {RESOURCE_VAR_NAME}Name {
+			return fmt.Errorf("mismatch in {RESOURCE_VAR_NAME} name: expected %s, got %s", {RESOURCE_VAR_NAME}Name, *remote{RESOURCE_NAME}.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("{RESOURCE_VAR_NAME} %s verified successfully in both state and external system.", {RESOURCE_VAR_NAME}Name))
+		return nil
+	}
+}
+
+/*** Configs ***/
+
+func testAccControlPlane{RESOURCE_NAME}CreateRequiredOnly() string {
+	return fmt.Sprintf(`
+resource "cpln_{RESOURCE_TYPE_NAME}" "new" {
+  name = "%s"
+}
+`, {RESOURCE_VAR_NAME}Test.name)
+}
+
+func testAccControlPlane{RESOURCE_NAME}UpdateWithOptionals(description string) string {
+	return fmt.Sprintf(`
+resource "cpln_{RESOURCE_TYPE_NAME}" "new" {
+  name        = "%s"
+	description = "%s"
+
+	tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+}
+`, {RESOURCE_VAR_NAME}Test.name, description)
+}

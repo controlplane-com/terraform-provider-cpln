@@ -5,636 +5,670 @@ import (
 	"fmt"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/org"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-/*** Main ***/
-func resourceOrg() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceOrgCreate,
-		ReadContext:   resourceOrgRead,
-		UpdateContext: resourceOrgUpdate,
-		DeleteContext: resourceOrgDelete,
-		Schema:        orgSchema(),
-		Importer: &schema.ResourceImporter{
-			StateContext: importStateOrg,
-		},
-	}
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &OrgResource{}
+	_ resource.ResourceWithImportState = &OrgResource{}
+)
+
+/*** Resource Model ***/
+
+// OrgResourceModel holds the Terraform state for the resource.
+type OrgResourceModel struct {
+	EntityBaseModel
+	AccountId             types.String                `tfsdk:"account_id"`
+	Invitees              types.Set                   `tfsdk:"invitees"`
+	SessionTimeoutSeconds types.Int32                 `tfsdk:"session_timeout_seconds"`
+	AuthConfig            []models.AuthConfigModel    `tfsdk:"auth_config"`
+	Observability         []models.ObservabilityModel `tfsdk:"observability"`
+	Security              []models.SecurityModel      `tfsdk:"security"`
+	Status                types.List                  `tfsdk:"status"`
 }
 
-func orgSchema() map[string]*schema.Schema {
-	return map[string]*schema.Schema{
-		"cpln_id": {
-			Type:        schema.TypeString,
-			Description: "The ID, in GUID format, of the org.",
-			Computed:    true,
-		},
-		"name": {
-			Type:        schema.TypeString,
-			Description: "The name of the org.",
-			Computed:    true,
-		},
-		"description": {
-			Type:             schema.TypeString,
-			Description:      "The description of org.",
-			Optional:         true,
-			ValidateFunc:     DescriptionValidator,
-			DiffSuppressFunc: DiffSuppressDescription,
-		},
-		"tags": {
-			Type:        schema.TypeMap,
-			Description: "Key-value map of the org's tags.",
-			Optional:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-			ValidateFunc: TagValidator,
-		},
-		"self_link": {
-			Type:        schema.TypeString,
-			Description: "Full link to this resource. Can be referenced by other resources.",
-			Computed:    true,
-		},
-		"status": {
-			Type:        schema.TypeList,
-			Description: "Status of the org.",
-			Computed:    true,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"account_link": {
-						Type:        schema.TypeString,
-						Description: "The link of the account the org belongs to.",
-						Optional:    true,
-					},
-					"active": {
-						Type:        schema.TypeBool,
-						Description: "Indicates whether the org is active or not.",
-						Optional:    true,
-					},
+/*** Resource Configuration ***/
+
+// OrgResource is the resource implementation.
+type OrgResource struct {
+	EntityBase
+	Operations EntityOperations[OrgResourceModel, client.Org]
+}
+
+// NewOrgResource returns a new instance of the resource implementation.
+func NewOrgResource() resource.Resource {
+	// Initialize a new OrgResource struct
+	resource := OrgResource{}
+
+	// Mark the Name field as computed
+	resource.IsNameComputed = true
+
+	// Return a pointer to the new resource instance
+	return &resource
+}
+
+// Configure configures the resource before use.
+func (or *OrgResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	or.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	or.Operations = NewEntityOperations(or.client, &OrgResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (or *OrgResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (or *OrgResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_org"
+}
+
+// Schema defines the schema for the resource.
+func (or *OrgResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(or.EntityBaseAttributes("Organization"), map[string]schema.Attribute{
+			"account_id": schema.StringAttribute{
+				Description: "The associated account ID that will be used when creating the org. Only used on org creation. The account ID can be obtained from the `Org Management & Billing` page.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-		},
-		"account_id": {
-			Type:        schema.TypeString,
-			Description: "The associated account ID that will be used when creating the org. Only used on org creation. The account ID can be obtained from the `Org Management & Billing` page.",
-			Optional:    true,
-		},
-		"invitees": {
-			Type:        schema.TypeSet,
-			Description: "When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.",
-			Optional:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
+			"invitees": schema.SetAttribute{
+				Description: "When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.",
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
-		},
-		"session_timeout_seconds": {
-			Type:        schema.TypeInt,
-			Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)",
-			Optional:    true,
-			Default:     900,
-		},
-		"auth_config": {
-			Type:        schema.TypeList,
-			Description: "The configuration settings and parameters related to authentication within the org.",
-			Optional:    true,
-			MaxItems:    1,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"domain_auto_members": {
-						Type:        schema.TypeSet,
-						Description: "List of domains which will auto-provision users when authenticating using SAML.",
-						Required:    true,
-						Elem: &schema.Schema{
-							Type: schema.TypeString,
+			"session_timeout_seconds": schema.Int32Attribute{
+				Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)",
+				Optional:    true,
+				Computed:    true,
+				Default:     int32default.StaticInt32(900),
+			},
+			"status": schema.ListNestedAttribute{
+				Description: "Status of the org.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"account_link": schema.StringAttribute{
+							Description: "The link of the account the org belongs to.",
+							Computed:    true,
 						},
-					},
-					"saml_only": {
-						Type:        schema.TypeBool,
-						Description: "Enforce SAML only authentication.",
-						Optional:    true,
-						Default:     false,
-					},
-				},
-			},
-		},
-		"observability": {
-			Type:        schema.TypeList,
-			Description: "The retention period (in days) for logs, metrics, and traces. Charges apply for storage beyond the 30 day default.",
-			Required:    true,
-			MaxItems:    1,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"logs_retention_days": {
-						Type:         schema.TypeInt,
-						Description:  "Log retention days. Default: 30",
-						Default:      30,
-						Optional:     true,
-						ValidateFunc: ObservabilityValidator,
-					},
-					"metrics_retention_days": {
-						Type:         schema.TypeInt,
-						Description:  "Metrics retention days. Default: 30",
-						Default:      30,
-						Optional:     true,
-						ValidateFunc: ObservabilityValidator,
-					},
-					"traces_retention_days": {
-						Type:         schema.TypeInt,
-						Description:  "Traces retention days. Default: 30",
-						Default:      30,
-						Optional:     true,
-						ValidateFunc: ObservabilityValidator,
-					},
-					"default_alert_emails": {
-						Type:        schema.TypeSet,
-						Description: "These emails are configured as alert recipients in Grafana when the 'grafana-default-email' contact delivery type is 'Email'.",
-						Optional:    true,
-						Elem: &schema.Schema{
-							Type: schema.TypeString,
+						"active": schema.BoolAttribute{
+							Description: "Indicates whether the org is active or not.",
+							Computed:    true,
 						},
 					},
 				},
 			},
-		},
-		"security": {
-			Type:        schema.TypeList,
-			Description: "",
-			Optional:    true,
-			MaxItems:    1,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"threat_detection": {
-						Type:        schema.TypeList,
-						Description: "",
-						Optional:    true,
-						MaxItems:    1,
-						Elem: &schema.Resource{
-							Schema: map[string]*schema.Schema{
-								"enabled": {
-									Type:        schema.TypeBool,
-									Description: "Indicates whether threat detection should be forwarded or not.",
-									Required:    true,
+		}),
+		Blocks: map[string]schema.Block{
+			"auth_config": schema.ListNestedBlock{
+				Description: "The configuration settings and parameters related to authentication within the org.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"domain_auto_members": schema.SetAttribute{
+							Description: "List of domains which will auto-provision users when authenticating using SAML.",
+							ElementType: types.StringType,
+							Required:    true,
+						},
+						"saml_only": schema.BoolAttribute{
+							Description: "Enforce SAML only authentication.",
+							Optional:    true,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"observability": schema.ListNestedBlock{
+				Description: "The retention period (in days) for logs, metrics, and traces. Charges apply for storage beyond the 30 day default.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"logs_retention_days": schema.Int32Attribute{
+							Description: "Log retention days. Default: 30",
+							Optional:    true,
+							Computed:    true,
+							Default:     int32default.StaticInt32(30),
+							Validators: []validator.Int32{
+								int32validator.AtLeast(0),
+							},
+						},
+						"metrics_retention_days": schema.Int32Attribute{
+							Description: "Metrics retention days. Default: 30",
+							Optional:    true,
+							Computed:    true,
+							Default:     int32default.StaticInt32(30),
+							Validators: []validator.Int32{
+								int32validator.AtLeast(0),
+							},
+						},
+						"traces_retention_days": schema.Int32Attribute{
+							Description: "Traces retention days. Default: 30",
+							Optional:    true,
+							Computed:    true,
+							Default:     int32default.StaticInt32(30),
+							Validators: []validator.Int32{
+								int32validator.AtLeast(0),
+							},
+						},
+						"default_alert_emails": schema.SetAttribute{
+							Description: "These emails are configured as alert recipients in Grafana when the 'grafana-default-email' contact delivery type is 'Email'.",
+							ElementType: types.StringType,
+							Optional:    true,
+							Computed:    true,
+							Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"security": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Blocks: map[string]schema.Block{
+						"threat_detection": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"enabled": schema.BoolAttribute{
+										Description: "Indicates whether threat detection should be forwarded or not.",
+										Required:    true,
+									},
+									"minimum_severity": schema.StringAttribute{
+										Description: "Any threats with this severity and more severe will be sent. Others will be ignored. Valid values: `warning`, `error`, or `critical`.",
+										Optional:    true,
+									},
 								},
-								"minimum_severity": {
-									Type:        schema.TypeString,
-									Description: "Any threats with this severity and more severe will be sent. Others will be ignored. Valid values: `warning`, `error`, or `critical`.",
-									Optional:    true,
-								},
-								"syslog": {
-									Type:        schema.TypeList,
-									Description: "Configuration for syslog forwarding.",
-									Optional:    true,
-									MaxItems:    1,
-									Elem: &schema.Resource{
-										Schema: map[string]*schema.Schema{
-											"transport": {
-												Type:        schema.TypeString,
-												Description: "The transport-layer protocol to send the syslog messages over. If TCP is chosen, messages will be sent with TLS. Default: `tcp`.",
-												Optional:    true,
-												Default:     "tcp",
+								Blocks: map[string]schema.Block{
+									"syslog": schema.ListNestedBlock{
+										Description: "Configuration for syslog forwarding.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"transport": schema.StringAttribute{
+													Description: "The transport-layer protocol to send the syslog messages over. If TCP is chosen, messages will be sent with TLS. Default: `tcp`.",
+													Optional:    true,
+													Computed:    true,
+													Default:     stringdefault.StaticString("tcp"),
+												},
+												"host": schema.StringAttribute{
+													Description: "The hostname to send syslog messages to.",
+													Required:    true,
+												},
+												"port": schema.Int32Attribute{
+													Description: "The port to send syslog messages to.",
+													Required:    true,
+												},
 											},
-											"host": {
-												Type:        schema.TypeString,
-												Description: "The hostname to send syslog messages to.",
-												Required:    true,
-											},
-											"port": {
-												Type:        schema.TypeInt,
-												Description: "The port to send syslog messages to.",
-												Required:    true,
-											},
+										},
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
 										},
 									},
 								},
 							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
 						},
 					},
-					"placeholder_attribute": {
-						Type:     schema.TypeBool,
-						Optional: true,
-						Default:  true,
-					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
 			},
 		},
 	}
 }
 
-func importStateOrg(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
-	return []*schema.ResourceData{d}, nil
+// ModifyPlan modifies the plan for the resource.
+func (or *OrgResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// If this is a destroy plan, leave everything null and return immediately
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	// Declare variable to store desired resource plan
+	var plan OrgResourceModel
+
+	// Populate plan variable from request and capture diagnostics
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+	// Abort if any diagnostics errors occurred
+	if resp.Diagnostics.HasError() {
+		// Exit early on error
+		return
+	}
+
+	// Modify autoscaling in options if specified
+	if plan.Description.IsNull() || plan.Description.IsUnknown() {
+		plan.Description = types.StringValue(or.client.Org)
+	}
+
+	// Persist new plan into Terraform
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 }
 
-func resourceOrgCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Create creates the resource.
+func (or *OrgResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, or.Operations)
+}
 
-	c := m.(*client.Client)
+// Read fetches the current state of the resource.
+func (or *OrgResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, or.Operations)
+}
 
-	currentOrg, _, err := c.GetOrg()
+// Update modifies the resource.
+func (or *OrgResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, or.Operations)
+}
 
+// Delete removes the resource.
+func (or *OrgResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, or.Operations)
+}
+
+/*** Resource Operator ***/
+
+// OrgResourceOperator is the operator for managing the state.
+type OrgResourceOperator struct {
+	EntityOperator[OrgResourceModel]
+}
+
+// NewAPIRequest creates a request payload from a state model.
+func (oro *OrgResourceOperator) NewAPIRequest(isUpdate bool) client.Org {
+	// Initialize a new request payload
+	requestPayload := client.Org{}
+
+	// Populate Base fields from state
+	oro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Initialize the Org spec struct
+	var spec *client.OrgSpec = &client.OrgSpec{}
+
+	// Map planned state attributes to the API struct
+	if isUpdate {
+		requestPayload.SpecReplace = spec
+	} else {
+		requestPayload.Spec = spec
+	}
+
+	// Set specific attributes
+	spec.SessionTimeoutSeconds = BuildInt(oro.Plan.SessionTimeoutSeconds)
+	spec.AuthConfig = oro.buildAuthConfig(oro.Plan.AuthConfig)
+	spec.Observability = oro.buildObservability(oro.Plan.Observability)
+	spec.Security = oro.buildSecurity(oro.Plan.Security)
+
+	// Return constructed request payload
+	return requestPayload
+}
+
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func (oro *OrgResourceOperator) MapResponseToState(apiResp *client.Org, isCreate bool) OrgResourceModel {
+	// Initialize empty state model
+	state := OrgResourceModel{}
+
+	// Populate common fields from base resource data
+	state.From(apiResp.Base)
+
+	// On create operation, include the account id and invitees in teh state
+	if isCreate {
+		state.AccountId = types.StringPointerValue(BuildString(oro.Plan.AccountId))
+		state.Invitees = FlattenSetString(oro.BuildSetString(oro.Plan.Invitees))
+	}
+
+	// Set specific attributes
+	state.SessionTimeoutSeconds = FlattenInt(apiResp.Spec.SessionTimeoutSeconds)
+	state.AuthConfig = oro.flattenAuthConfig(apiResp.Spec.AuthConfig)
+	state.Observability = oro.flattenObservability(apiResp.Spec.Observability)
+	state.Security = oro.flattenSecurity(apiResp.Spec.Security)
+	state.Status = oro.flattenStatus(apiResp.Status)
+
+	// Return completed state model
+	return state
+}
+
+// InvokeCreate invokes the Create API to create a new resource.
+func (oro *OrgResourceOperator) InvokeCreate(req client.Org) (*client.Org, int, error) {
+	// Attempt to fetch the org
+	currentOrg, code, err := oro.Client.GetOrg()
+
+	// In case there is any error, attempt to create the org
 	if err != nil {
+		// Convert the planned state AccountId to a string pointer
+		accountId := BuildString(oro.Plan.AccountId)
 
-		accountId := d.Get("account_id").(string)
-		invitees := []string{}
+		// Build a set of invitee strings from the planned state
+		invitees := oro.BuildSetString(oro.Plan.Invitees)
 
-		for _, value := range d.Get("invitees").(*schema.Set).List() {
-			invitees = append(invitees, value.(string))
-		}
-
-		if accountId != "" && len(invitees) > 0 {
-
+		// Ensure accountId and invitees are present before proceeding into the creation
+		if accountId != nil && *accountId != "" && invitees != nil && len(*invitees) > 0 {
+			// Initialize a new Org struct for creation
 			org := client.Org{}
 
-			org.Name = &c.Org
-			org.Description = GetString(d.Get("description"))
-			org.Tags = GetStringMap(d.Get("tags"))
+			// Set the org name to the client’s configured Org name
+			org.Name = req.Name
 
+			// Set the org description from the planned state
+			org.Description = req.Description
+
+			// Build and set tags from the planned state
+			org.Tags = req.Tags
+
+			// Prepare the CreateOrgRequest payload with org and invitees
 			createOrgRequest := client.CreateOrgRequest{
 				Org:      &org,
-				Invitees: &invitees,
+				Invitees: invitees,
 			}
 
+			// Initialize a variable to capture the response code
 			responseCode := 0
 
 			// Make the request to create the org
-			currentOrg, responseCode, err = c.CreateOrg(accountId, createOrgRequest)
+			currentOrg, responseCode, err = oro.Client.CreateOrg(*accountId, createOrgRequest)
 
+			// Handle any errors from the create request
 			if err != nil {
+				// If a 409 Conflict occurs, the org already exists; set currentOrg accordingly
 				if responseCode == 409 {
 					currentOrg = &client.Org{}
-					currentOrg.Name = &c.Org
+					currentOrg.Name = req.Name
 				} else {
-					return diag.FromErr(fmt.Errorf("org %s cannot be created. Error: %s", *org.Name, err))
+					// Return on other errors preventing org creation
+					return nil, responseCode, fmt.Errorf("org %s cannot be created. Error: %s", *org.Name, err)
 				}
 			}
-
 		} else {
-			return diag.FromErr(err)
+			// Return early if required accountId or invitees are missing
+			return nil, code, err
 		}
 	}
 
-	currentOrg.Description = GetString(d.Get("description"))
-	currentOrg.Tags = GetStringMap(d.Get("tags"))
+	// Copy spec from the request object to the currentOrg object
+	currentOrg.Description = req.Description
+	currentOrg.Tags = req.Tags
 	currentOrg.Spec = nil
-	currentOrg.SpecReplace = &client.OrgSpec{
-		AuthConfig:            buildAuthConfig(d.Get("auth_config").([]interface{})),
-		Observability:         buildObservability(d.Get("observability").([]interface{})),
-		SessionTimeoutSeconds: GetInt(d.Get("session_timeout_seconds").(int)),
-	}
+	currentOrg.SpecReplace = req.Spec
 
-	if d.Get("security") != nil {
-		currentOrg.SpecReplace.Security = buildOrgSecurity(d.Get("security").([]interface{}))
-	}
+	// Update the org
+	updateOrg, code, err := oro.Client.UpdateOrg(*currentOrg)
 
-	// Make the request to update the org
-	updatedOrg, _, err := c.UpdateOrg(*currentOrg)
+	// Handle any errors from the update operation
 	if err != nil {
-		return diag.FromErr(err)
+		return nil, code, err
 	}
 
-	return setOrg(d, updatedOrg)
+	// Return the fetched or newly created org, along with code and error
+	return updateOrg, code, err
 }
 
-func resourceOrgRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-	org, _, err := c.GetSpecificOrg(d.Id())
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setOrg(d, org)
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (oro *OrgResourceOperator) InvokeRead(name string) (*client.Org, int, error) {
+	return oro.Client.GetOrg()
 }
 
-func resourceOrgUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	if d.HasChanges("description", "tags", "session_timeout_seconds", "auth_config", "observability", "security") {
-
-		c := m.(*client.Client)
-
-		orgToUpdate := client.Org{
-			SpecReplace: &client.OrgSpec{},
-		}
-
-		orgToUpdate.Name = GetString(d.Get("name"))
-		orgToUpdate.Description = GetDescriptionString(d.Get("description"), *orgToUpdate.Name)
-		orgToUpdate.Tags = GetTagChanges(d)
-		orgToUpdate.SpecReplace.SessionTimeoutSeconds = GetInt(d.Get("session_timeout_seconds").(int))
-		orgToUpdate.SpecReplace.AuthConfig = buildAuthConfig(d.Get("auth_config").([]interface{}))
-		orgToUpdate.SpecReplace.Observability = buildObservability(d.Get("observability").([]interface{}))
-
-		if d.Get("security") != nil {
-			orgToUpdate.SpecReplace.Security = buildOrgSecurity(d.Get("security").([]interface{}))
-		}
-
-		// Make the request to update the org
-		updatedOrg, _, err := c.UpdateOrg(orgToUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setOrg(d, updatedOrg)
-	}
-
-	return nil
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (oro *OrgResourceOperator) InvokeUpdate(req client.Org) (*client.Org, int, error) {
+	return oro.Client.UpdateOrg(req)
 }
 
-func resourceOrgDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (oro *OrgResourceOperator) InvokeDelete(name string) error {
+	// Initialize an Org struct with base and spec replacement fields
 	org := client.Org{
 		Base: client.Base{
-			Name:        GetString(d.Get("name")),
-			Description: GetString(d.Get("name")),
-			TagsReplace: GetStringMap(nil),
+			Name:        BuildString(oro.Plan.Name),
+			Description: BuildString(oro.Plan.Name),
+			TagsReplace: &map[string]any{},
 		},
 		SpecReplace: &client.OrgSpec{
-			SessionTimeoutSeconds: GetInt(900),
+			SessionTimeoutSeconds: IntPointer(900),
 			Observability: &client.Observability{
-				LogsRetentionDays:    GetInt(30),
-				MetricsRetentionDays: GetInt(30),
-				TracesRetentionDays:  GetInt(30),
+				LogsRetentionDays:    IntPointer(30),
+				MetricsRetentionDays: IntPointer(30),
+				TracesRetentionDays:  IntPointer(30),
 			},
 			AuthConfig: nil,
 			Security:   nil,
 		},
 	}
 
-	_, _, err := c.UpdateOrg(org)
+	// Call UpdateOrg API to apply changes (deletion is represented by updating to default state)
+	_, _, err := oro.Client.UpdateOrg(org)
+
+	// If an error occurred during the API call, return it
 	if err != nil {
-		return diag.FromErr(err)
+		return err
 	}
 
-	d.SetId("")
-
+	// Return nil when deletion (update) is successful
 	return nil
 }
 
-func setOrg(d *schema.ResourceData, org *client.Org) diag.Diagnostics {
+// Builders //
 
-	if org == nil {
-		d.SetId("")
+// buildAuthConfig constructs a AuthConfig from the given Terraform state.
+func (oro *OrgResourceOperator) buildAuthConfig(state []models.AuthConfigModel) *client.AuthConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
 		return nil
 	}
 
-	d.SetId(*org.Name)
+	// Take the first (and only) block
+	block := state[0]
 
-	if err := SetBase(d, org.Base); err != nil {
-		return diag.FromErr(err)
+	// Construct and return the output
+	return &client.AuthConfig{
+		DomainAutoMembers: oro.BuildSetString(block.DomainAutoMembers),
+		SamlOnly:          BuildBool(block.SamlOnly),
 	}
-
-	if err := SetSelfLink(org.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("status", flattenOrgStatus(org.Status)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if org.Spec != nil {
-		if err := d.Set("session_timeout_seconds", org.Spec.SessionTimeoutSeconds); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("auth_config", flattenAuthConfig(org.Spec.AuthConfig)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("observability", flattenObservability(org.Spec.Observability)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("security", flattenOrgSecurity(org.Spec.Security)); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	return nil
 }
 
-/*** Build ***/
-func buildAuthConfig(specs []interface{}) *client.AuthConfig {
-	if len(specs) == 0 || specs[0] == nil {
+// buildObservability constructs a Observability from the given Terraform state.
+func (oro *OrgResourceOperator) buildObservability(state []models.ObservabilityModel) *client.Observability {
+	// Return nil if state is not specified
+	if len(state) == 0 {
 		return nil
 	}
 
-	spec := specs[0].(map[string]interface{})
-	output := client.AuthConfig{
-		SamlOnly: GetBool(spec["saml_only"].(bool)),
-	}
+	// Take the first (and only) block
+	block := state[0]
 
-	domainAutoMembers := []string{}
-	for _, value := range spec["domain_auto_members"].(*schema.Set).List() {
-		domainAutoMembers = append(domainAutoMembers, value.(string))
-	}
-
-	output.DomainAutoMembers = &domainAutoMembers
-
-	return &output
-}
-
-func buildObservability(specs []interface{}) *client.Observability {
-
-	spec := specs[0].(map[string]interface{})
-
+	// Construct and return the output
 	return &client.Observability{
-		LogsRetentionDays:    GetInt(spec["logs_retention_days"].(int)),
-		MetricsRetentionDays: GetInt(spec["metrics_retention_days"].(int)),
-		TracesRetentionDays:  GetInt(spec["traces_retention_days"].(int)),
-		DefaultAlertEmails:   BuildStringTypeSet(spec["default_alert_emails"]),
+		LogsRetentionDays:    BuildInt(block.LogsRetentionDays),
+		MetricsRetentionDays: BuildInt(block.MetricsRetentionDays),
+		TracesRetentionDays:  BuildInt(block.TracesRetentionDays),
+		DefaultAlertEmails:   oro.BuildSetString(block.DefaultAlertEmails),
 	}
 }
 
-func buildOrgSecurity(specs []interface{}) *client.OrgSecurity {
-
-	if len(specs) == 0 || specs[0] == nil {
+// buildSecurity constructs a OrgSecurity from the given Terraform state.
+func (oro *OrgResourceOperator) buildSecurity(state []models.SecurityModel) *client.OrgSecurity {
+	// Return nil if state is not specified
+	if len(state) == 0 {
 		return nil
 	}
 
-	spec := specs[0].(map[string]interface{})
-	output := client.OrgSecurity{}
+	// Take the first (and only) block
+	block := state[0]
 
-	if spec["threat_detection"] != nil {
-		output.ThreatDetection = buildOrgThreatDetection(spec["threat_detection"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildOrgThreatDetection(specs []interface{}) *client.OrgThreatDetection {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.OrgThreatDetection{}
-
-	if spec["enabled"] != nil {
-		output.Enabled = GetBool(spec["enabled"])
-	}
-
-	if spec["minimum_severity"] != nil {
-		output.MinimumSeverity = GetString(spec["minimum_severity"])
-	}
-
-	if spec["syslog"] != nil {
-		output.Syslog = buildOrgThreatDetectionSyslog(spec["syslog"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildOrgThreatDetectionSyslog(specs []interface{}) *client.OrgThreatDetectionSyslog {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.OrgThreatDetectionSyslog{}
-
-	if spec["transport"] != nil {
-		output.Transport = GetString(spec["transport"])
-	}
-
-	if spec["host"] != nil {
-		output.Host = GetString(spec["host"])
-	}
-
-	if spec["port"] != nil {
-		output.Port = GetInt(spec["port"])
-	}
-
-	return &output
-}
-
-/*** Flatten ***/
-func flattenOrgStatus(status *client.OrgStatus) []interface{} {
-	if status == nil {
-		return nil
-	}
-
-	output := map[string]interface{}{}
-
-	if status.AccountLink != nil {
-		output["account_link"] = *status.AccountLink
-	}
-
-	if status.Active != nil {
-		output["active"] = *status.Active
-	}
-
-	return []interface{}{
-		output,
+	// Construct and return the output
+	return &client.OrgSecurity{
+		ThreatDetection: oro.buildSecurityThreatDetection(block.ThreatDetection),
 	}
 }
 
-func flattenAuthConfig(spec *client.AuthConfig) []interface{} {
-	if spec == nil {
+// buildSecurityThreatDetection constructs a OrgThreatDetection from the given Terraform state.
+func (oro *OrgResourceOperator) buildSecurityThreatDetection(state []models.SecurityThreatDetectionModel) *client.OrgThreatDetection {
+	// Return nil if state is not specified
+	if len(state) == 0 {
 		return nil
 	}
 
-	output := map[string]interface{}{}
+	// Take the first (and only) block
+	block := state[0]
 
-	if spec.SamlOnly != nil {
-		output["saml_only"] = *spec.SamlOnly
-	}
-
-	if len(*spec.DomainAutoMembers) > 0 {
-		output["domain_auto_members"] = []interface{}{}
-		for _, value := range *spec.DomainAutoMembers {
-			output["domain_auto_members"] = append(output["domain_auto_members"].([]interface{}), value)
-		}
-	}
-
-	return []interface{}{
-		output,
+	// Construct and return the output
+	return &client.OrgThreatDetection{
+		Enabled:         BuildBool(block.Enabled),
+		MinimumSeverity: BuildString(block.MinimumSeverity),
+		Syslog:          oro.buildSecurityThreatDetectionSyslog(block.Syslog),
 	}
 }
 
-func flattenObservability(spec *client.Observability) []interface{} {
-	if spec == nil {
+// buildSecurityThreatDetectionSyslog constructs a OrgThreatDetectionSyslog from the given Terraform state.
+func (oro *OrgResourceOperator) buildSecurityThreatDetectionSyslog(state []models.SecurityThreatDetectionSyslogModel) *client.OrgThreatDetectionSyslog {
+	// Return nil if state is not specified
+	if len(state) == 0 {
 		return nil
 	}
 
-	output := map[string]interface{}{
-		"logs_retention_days":    *spec.LogsRetentionDays,
-		"metrics_retention_days": *spec.MetricsRetentionDays,
-		"traces_retention_days":  *spec.TracesRetentionDays,
-		"default_alert_emails":   FlattenStringTypeSet(spec.DefaultAlertEmails),
-	}
+	// Take the first (and only) block
+	block := state[0]
 
-	return []interface{}{
-		output,
+	// Construct and return the output
+	return &client.OrgThreatDetectionSyslog{
+		Transport: BuildString(block.Transport),
+		Host:      BuildString(block.Host),
+		Port:      BuildInt(block.Port),
 	}
 }
 
-func flattenOrgSecurity(spec *client.OrgSecurity) []interface{} {
+// Flatteners //
 
-	if spec == nil {
+// flattenAuthConfig transforms *client.AuthConfig into a []models.AuthConfigModel.
+func (oro *OrgResourceOperator) flattenAuthConfig(input *client.AuthConfig) []models.AuthConfigModel {
+	// Check if the input is nil
+	if input == nil {
 		return nil
 	}
 
-	output := map[string]interface{}{
-		"placeholder_attribute": true,
+	// Build a single block
+	block := models.AuthConfigModel{
+		DomainAutoMembers: FlattenSetString(input.DomainAutoMembers),
+		SamlOnly:          types.BoolPointerValue(input.SamlOnly),
 	}
 
-	if spec.ThreatDetection != nil {
-		output["threat_detection"] = flattenOrgThreatDetection(spec.ThreatDetection)
-	}
-
-	return []interface{}{
-		output,
-	}
+	// Return a slice containing the single block
+	return []models.AuthConfigModel{block}
 }
 
-func flattenOrgThreatDetection(spec *client.OrgThreatDetection) []interface{} {
-
-	if spec == nil {
+// flattenObservability transforms *client.Observability into a []models.ObservabilityModel.
+func (oro *OrgResourceOperator) flattenObservability(input *client.Observability) []models.ObservabilityModel {
+	// Check if the input is nil
+	if input == nil {
 		return nil
 	}
 
-	output := map[string]interface{}{}
-
-	if spec.Enabled != nil {
-		output["enabled"] = *spec.Enabled
+	// Build a single block
+	block := models.ObservabilityModel{
+		LogsRetentionDays:    FlattenInt(input.LogsRetentionDays),
+		MetricsRetentionDays: FlattenInt(input.MetricsRetentionDays),
+		TracesRetentionDays:  FlattenInt(input.TracesRetentionDays),
+		DefaultAlertEmails:   FlattenSetString(input.DefaultAlertEmails),
 	}
 
-	if spec.MinimumSeverity != nil {
-		output["minimum_severity"] = *spec.MinimumSeverity
-	}
-
-	if spec.Syslog != nil {
-		output["syslog"] = flattenOrgThreatDetectionSyslog(spec.Syslog)
-	}
-
-	return []interface{}{
-		output,
-	}
+	// Return a slice containing the single block
+	return []models.ObservabilityModel{block}
 }
 
-func flattenOrgThreatDetectionSyslog(spec *client.OrgThreatDetectionSyslog) []interface{} {
-
-	if spec == nil {
+// flattenSecurity transforms *client.OrgSecurity into a []models.SecurityModel.
+func (oro *OrgResourceOperator) flattenSecurity(input *client.OrgSecurity) []models.SecurityModel {
+	// Check if the input is nil
+	if input == nil {
 		return nil
 	}
 
-	output := map[string]interface{}{
-		"port": *spec.Port,
+	// Build a single block
+	block := models.SecurityModel{
+		ThreatDetection: oro.flattenSecurityThreatDetection(input.ThreatDetection),
 	}
 
-	if spec.Transport != nil {
-		output["transport"] = *spec.Transport
+	// Return a slice containing the single block
+	return []models.SecurityModel{block}
+}
+
+// flattenSecurityThreatDetection transforms *client.OrgThreatDetection into a []models.SecurityThreatDetectionModel.
+func (oro *OrgResourceOperator) flattenSecurityThreatDetection(input *client.OrgThreatDetection) []models.SecurityThreatDetectionModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
 	}
 
-	if spec.Host != nil {
-		output["host"] = *spec.Host
+	// Build a single block
+	block := models.SecurityThreatDetectionModel{
+		Enabled:         types.BoolPointerValue(input.Enabled),
+		MinimumSeverity: types.StringPointerValue(input.MinimumSeverity),
+		Syslog:          oro.flattenSecurityThreatDetectionSyslog(input.Syslog),
 	}
 
-	return []interface{}{
-		output,
+	// Return a slice containing the single block
+	return []models.SecurityThreatDetectionModel{block}
+}
+
+// flattenSecurityThreatDetectionSyslog transforms *client.OrgThreatDetectionSyslog into a []models.SecurityThreatDetectionSyslogModel.
+func (oro *OrgResourceOperator) flattenSecurityThreatDetectionSyslog(input *client.OrgThreatDetectionSyslog) []models.SecurityThreatDetectionSyslogModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
 	}
+
+	// Build a single block
+	block := models.SecurityThreatDetectionSyslogModel{
+		Transport: types.StringPointerValue(input.Transport),
+		Host:      types.StringPointerValue(input.Host),
+		Port:      FlattenInt(input.Port),
+	}
+
+	// Return a slice containing the single block
+	return []models.SecurityThreatDetectionSyslogModel{block}
+}
+
+// flattenStatus transforms *client.OrgStatus into a Terraform types.List.
+func (oro *OrgResourceOperator) flattenStatus(input *client.OrgStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusModel{
+		AccountLink: types.StringPointerValue(input.AccountLink),
+		Active:      types.BoolPointerValue(input.Active),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(oro.Ctx, oro.Diags, []models.StatusModel{block})
 }

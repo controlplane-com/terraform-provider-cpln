@@ -7,26 +7,75 @@ import (
 // Identity - Identity
 type Identity struct {
 	Base
-	Aws                    *AwsIdentity             `json:"aws,omitempty"`
-	AwsReplace             *AwsIdentity             `json:"$replace/aws,omitempty"`
-	Gcp                    *GcpIdentity             `json:"gcp,omitempty"`
-	GcpReplace             *GcpIdentity             `json:"$replace/gcp,omitempty"`
-	Azure                  *AzureIdentity           `json:"azure,omitempty"`
-	AzureReplace           *AzureIdentity           `json:"$replace/azure,omitempty"`
-	Ngs                    *NgsIdentity             `json:"ngs,omitempty"`
-	NgsReplace             *NgsIdentity             `json:"$replace/ngs,omitempty"`
-	NetworkResources       *[]NetworkResource       `json:"networkResources,omitempty"`
-	NativeNetworkResources *[]NativeNetworkResource `json:"nativeNetworkResources,omitempty"`
-	Status                 *IdentityStatus          `json:"status,omitempty"`
-	Drop                   *[]string                `json:"$drop,omitempty"`
+	Aws                    *IdentityAws                     `json:"aws,omitempty"`
+	AwsReplace             *IdentityAws                     `json:"$replace/aws,omitempty"`
+	Gcp                    *IdentityGcp                     `json:"gcp,omitempty"`
+	GcpReplace             *IdentityGcp                     `json:"$replace/gcp,omitempty"`
+	Azure                  *IdentityAzure                   `json:"azure,omitempty"`
+	AzureReplace           *IdentityAzure                   `json:"$replace/azure,omitempty"`
+	Ngs                    *IdentityNgs                     `json:"ngs,omitempty"`
+	NgsReplace             *IdentityNgs                     `json:"$replace/ngs,omitempty"`
+	NetworkResources       *[]IdentityNetworkResource       `json:"networkResources,omitempty"`
+	NativeNetworkResources *[]IdentityNativeNetworkResource `json:"nativeNetworkResources,omitempty"`
+	Status                 *IdentityStatus                  `json:"status,omitempty"`
+	Drop                   *[]string                        `json:"$drop,omitempty"`
 }
 
-type IdentityStatus struct {
-	ObjectName *string `json:"objectName,omitempty"`
+type IdentityAws struct {
+	CloudAccountLink *string                 `json:"cloudAccountLink,omitempty"`
+	PolicyRefs       *[]string               `json:"policyRefs,omitempty"`
+	RoleName         *string                 `json:"roleName,omitempty"`
+	TrustPolicy      *IdentityAwsTrustPolicy `json:"trustPolicy,omitempty"`
 }
 
-// NetworkResource - NetworkResource
-type NetworkResource struct {
+type IdentityAwsTrustPolicy struct {
+	Version   *string                   `json:"Version,omitempty"`
+	Statement *[]map[string]interface{} `json:"Statement,omitempty"`
+}
+
+type IdentityGcp struct {
+	CloudAccountLink *string               `json:"cloudAccountLink,omitempty"`
+	Scopes           *[]string             `json:"scopes,omitempty"`
+	ServiceAccount   *string               `json:"serviceAccount,omitempty"`
+	Bindings         *[]IdentityGcpBinding `json:"bindings,omitempty"`
+}
+
+type IdentityGcpBinding struct {
+	Resource *string   `json:"resource,omitempty"`
+	Roles    *[]string `json:"roles,omitempty"`
+}
+
+type IdentityAzure struct {
+	CloudAccountLink *string                        `json:"cloudAccountLink,omitempty"`
+	RoleAssignments  *[]IdentityAzureRoleAssignment `json:"roleAssignments,omitempty"`
+}
+
+type IdentityAzureRoleAssignment struct {
+	Scope *string   `json:"scope,omitempty"`
+	Roles *[]string `json:"roles,omitempty"`
+}
+
+type IdentityNgs struct {
+	CloudAccountLink *string          `json:"cloudAccountLink,omitempty"`
+	Pub              *IdentityNgsPerm `json:"pub,omitempty"`
+	Sub              *IdentityNgsPerm `json:"sub,omitempty"`
+	Resp             *IdentityNgsResp `json:"resp,omitempty"`
+	Subs             *int             `json:"subs,omitempty"`
+	Data             *int             `json:"data,omitempty"`
+	Payload          *int             `json:"payload,omitempty"`
+}
+
+type IdentityNgsPerm struct {
+	Allow *[]string `json:"allow,omitempty"`
+	Deny  *[]string `json:"deny,omitempty"`
+}
+
+type IdentityNgsResp struct {
+	Max *int    `json:"max,omitempty"`
+	TTL *string `json:"ttl,omitempty"`
+}
+
+type IdentityNetworkResource struct {
 	Name       *string   `json:"name,omitempty"`
 	AgentLink  *string   `json:"agentLink,omitempty"`
 	IPs        *[]string `json:"IPs,omitempty"`
@@ -35,78 +84,24 @@ type NetworkResource struct {
 	Ports      *[]int    `json:"ports,omitempty"`
 }
 
-// NativeNetowrkResource - NativeNetowrkResource
-type NativeNetworkResource struct {
-	Name              *string            `json:"name,omitempty"`
-	FQDN              *string            `json:"FQDN,omitempty"`
-	Ports             *[]int             `json:"ports,omitempty"`
-	AWSPrivateLink    *AWSPrivateLink    `json:"awsPrivateLink,omitempty"`
-	GCPServiceConnect *GCPServiceConnect `json:"gcpServiceConnect,omitempty"`
+type IdentityNativeNetworkResource struct {
+	Name              *string                    `json:"name,omitempty"`
+	FQDN              *string                    `json:"FQDN,omitempty"`
+	Ports             *[]int                     `json:"ports,omitempty"`
+	AWSPrivateLink    *IdentityAwsPrivateLink    `json:"awsPrivateLink,omitempty"`
+	GCPServiceConnect *IdentityGcpServiceConnect `json:"gcpServiceConnect,omitempty"`
 }
 
-// AWSPrivateLink - AWSPrivateLink
-type AWSPrivateLink struct {
+type IdentityAwsPrivateLink struct {
 	EndpointServiceName *string `json:"endpointServiceName,omitempty"`
 }
 
-// GCPServiceConnect - GCPServiceConnect
-type GCPServiceConnect struct {
+type IdentityGcpServiceConnect struct {
 	TargetService *string `json:"targetService,omitempty"`
 }
 
-// AwsIdentity - AwsIdentity
-type AwsIdentity struct {
-	CloudAccountLink *string   `json:"cloudAccountLink,omitempty"`
-	PolicyRefs       *[]string `json:"policyRefs,omitempty"`
-	// TrustPolicy      *AwsPolicyDocument `json:"trustPolicy,omitempty"`
-	RoleName *string `json:"roleName,omitempty"`
-}
-
-// // AwsPolicyDocument - AwsPolicyDocument
-// type AwsPolicyDocument struct {
-// 	Version   *string   `json:"version,omitempty"`
-// 	Statement *[]string `json:"statement,omitempty"`
-// }
-
-type GcpBinding struct {
-	Resource *string   `json:"resource,omitempty"`
-	Roles    *[]string `json:"roles,omitempty"`
-}
-
-type GcpIdentity struct {
-	CloudAccountLink *string       `json:"cloudAccountLink,omitempty"`
-	Scopes           *[]string     `json:"scopes,omitempty"`
-	ServiceAccount   *string       `json:"serviceAccount,omitempty"`
-	Bindings         *[]GcpBinding `json:"bindings,omitempty"`
-}
-
-type AzureRoleAssignment struct {
-	Scope *string   `json:"scope,omitempty"`
-	Roles *[]string `json:"roles,omitempty"`
-}
-
-type AzureIdentity struct {
-	CloudAccountLink *string                `json:"cloudAccountLink,omitempty"`
-	RoleAssignments  *[]AzureRoleAssignment `json:"roleAssignments,omitempty"`
-}
-
-type NgsPerm struct {
-	Allow *[]string `json:"allow,omitempty"`
-	Deny  *[]string `json:"deny,omitempty"`
-}
-
-type NgsResp struct {
-	Max *int    `json:"max,omitempty"`
-	TTL *string `json:"ttl,omitempty"`
-}
-type NgsIdentity struct {
-	CloudAccountLink *string  `json:"cloudAccountLink,omitempty"`
-	Pub              *NgsPerm `json:"pub,omitempty"`
-	Sub              *NgsPerm `json:"sub,omitempty"`
-	Resp             *NgsResp `json:"resp,omitempty"`
-	Subs             *int     `json:"subs,omitempty"`
-	Data             *int     `json:"data,omitempty"`
-	Payload          *int     `json:"payload,omitempty"`
+type IdentityStatus struct {
+	ObjectName *string `json:"objectName,omitempty"`
 }
 
 // GetIdentity - Get Identity by name

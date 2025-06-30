@@ -58,6 +58,7 @@ Optional:
 
 - **service_network** (String) The CIDR of the service network.
 - **pod_network** (String) The CIDR of the pod network.
+- **dns_forwarder** (String) DNS forwarder used by the cluster. Can be a space-delimited list of dns servers. Default is /etc/resolv.conf when not specified.
 
 <a id="nestedblock--generic_provider--node_pool"></a>
 
@@ -238,6 +239,7 @@ Optional:
 - **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
 - **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
 - **node_pool** (Block List) ([see below](#nestedblock--linode_provider--node_pool))
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
 
 <a id="nestedblock--linode_provider--node_pool"></a>
 
@@ -322,6 +324,7 @@ Optional:
 - **node_pool** (Block List) ([see below](#nestedblock--lambdalabs_provider--node_pool))
 - **unmanaged_node_pool** (Block List) ([see below](#nestedblock--lambdalabs_provider--unmanaged_node_pool))
 - **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+- **file_systems** (List of String)
 - **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
 
 <a id="nestedblock--lambdalabs_provider--node_pool"></a>
@@ -468,6 +471,7 @@ Required:
 
 - **url** (String)
 - **account** (String)
+- **user** (String)
 - **private_key_secret_link** (String) Link to a SSH or opaque secret.
 
 Optional:
@@ -522,6 +526,72 @@ Optional:
 - **triton_tags** (Map of String) Extra tags to attach to instances from a node pool.
 - **min_size** (Number)
 - **max_size** (Number)
+
+<a id="nestedblock--azure_provider"></a>
+
+### `azure_provider`
+
+Required:
+
+- **location** (String) Region where the cluster nodes will live.
+- **subscription_id** (String)
+- **sdk_secret_link** (String)
+- **resource_group** (String)
+- **ssh_keys** (List of String) SSH keys to install for "azureuser" linux user.
+- **network_id** (String) The vpc where nodes will be deployed.
+
+Optional:
+
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
+- **pre_install_script** (String) Optional shell script that will be run before K8s is installed. Supports SSM.
+- **image** (Block List, Max: 1) ([see below](#nestedblock--azure_provider--image))
+- **tags** (Map of String) Extra tags to attach to all created objects.
+- **node_pool** (Block List) ([see below](#nestedblock--azure_provider--node_pool))
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+
+<a id="nestedblock--azure_provider--image"></a>
+
+### `azure_provider.image`
+
+Default image for all nodes.
+
+Optional:
+
+- **recommended** (String)
+- **reference** (Block List, Max: 1) ([see below](#nestedblock--azure_provider--image--reference))
+
+<a id="nestedblock--azure_provider--image--reference"></a>
+
+### `azure_provider.image.reference`
+
+Required:
+
+- **publisher** (String)
+- **offer** (String)
+- **sku** (String)
+- **version** (String)
+
+<a id="nestedblock--azure_provider--node_pool"></a>
+
+### `azure_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **size** (String)
+- **subnet_id** (String)
+- **zones** (List of String)
+- **boot_disk_size** (number)
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **override_image** (Block List, Max: 1) ([see below](#nestedblock--azure_provider--image))
+- **min_size** (Number) Default: 0
+- **max_size** (Number) Default: 0
 
 <a id="nestedblock--digital_ocean_provider"></a>
 
@@ -628,11 +698,11 @@ Optional:
 - **api_server** (Boolean) Enable scraping apiserver stats.
 - **node_exporter** (Boolean) Enable collecting node-level stats (disk, network, filesystem, etc).
 - **cadvisor** (Boolean) Enable CNI-level container stats.
-- **scrape_annotated** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics--scrape-annotated))
+- **scrape_annotated** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics--scrape_annotated))
 
-<a id="nestedblock--add_ons--metrics--scrape-annotated"></a>
+<a id="nestedblock--add_ons--metrics--scrape_annotated"></a>
 
-### `add_ons.metrics.scrape-annotated`
+### `add_ons.metrics.scrape_annotated`
 
 Scrape pods annotated with prometheus.io/scrape=true.
 
@@ -652,6 +722,10 @@ Optional:
 - **audit_enabled** (Boolean) Collect K8s audit log as log events.
 - **include_namespaces** (String)
 - **exclude_namespaces** (String)
+- **docker** (Boolean)
+- **kubelet** (Boolean)
+- **kernel** (Boolean)
+- **events** (Boolean)
 
 <a id="nestedblock--add_ons--nvidia"></a>
 

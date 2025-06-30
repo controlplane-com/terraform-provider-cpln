@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"strings"
 )
 
 // Locations
@@ -44,163 +43,6 @@ type LocationGeo struct {
 	State     *string  `json:"state,omitempty"`
 	City      *string  `json:"city,omitempty"`
 	Continent *string  `json:"continent,omitempty"`
-}
-
-func LocationSchema() map[string]*schema.Schema {
-
-	return map[string]*schema.Schema{
-		"cpln_id": {
-			Type:        schema.TypeString,
-			Description: "The ID, in GUID format, of the location.",
-			Computed:    true,
-		},
-		"name": {
-			Type:        schema.TypeString,
-			Description: "Name of the location.",
-			Required:    true,
-		},
-		"description": {
-			Type:        schema.TypeString,
-			Description: "Description of the location.",
-			Computed:    true,
-		},
-		"tags": {
-			Type:        schema.TypeMap,
-			Description: "Key-value map of resource tags.",
-			Computed:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-		},
-		"cloud_provider": {
-			Type:        schema.TypeString,
-			Description: "Cloud Provider of the location.",
-			Computed:    true,
-		},
-		"region": {
-			Type:        schema.TypeString,
-			Description: "Region of the location.",
-			Computed:    true,
-		},
-		"enabled": {
-			Type:        schema.TypeBool,
-			Description: "Indication if location is enabled.",
-			Computed:    true,
-		},
-		"geo": GeoSchema(),
-		"ip_ranges": {
-			Type:        schema.TypeSet,
-			Description: "A list of IP ranges of the location.",
-			Computed:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-		},
-		"self_link": {
-			Type:        schema.TypeString,
-			Description: "Full link to this resource. Can be referenced by other resources.",
-			Computed:    true,
-		},
-	}
-}
-
-func LocationsSchema() map[string]*schema.Schema {
-
-	return map[string]*schema.Schema{
-		"cpln_id": {
-			Type:        schema.TypeString,
-			Description: "The ID, in GUID format, of the location.",
-			Computed:    true,
-		},
-		"name": {
-			Type:        schema.TypeString,
-			Description: "Name of the location.",
-			Computed:    true,
-		},
-		"description": {
-			Type:        schema.TypeString,
-			Description: "Description of the location.",
-			Computed:    true,
-		},
-		"tags": {
-			Type:        schema.TypeMap,
-			Description: "Key-value map of resource tags.",
-			Computed:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-		},
-		"cloud_provider": {
-			Type:        schema.TypeString,
-			Description: "Cloud Provider of the location.",
-			Computed:    true,
-		},
-		"region": {
-			Type:        schema.TypeString,
-			Description: "Region of the location.",
-			Computed:    true,
-		},
-		"enabled": {
-			Type:        schema.TypeBool,
-			Description: "Indication if location is enabled.",
-			Computed:    true,
-		},
-		"geo": GeoSchema(),
-		"ip_ranges": {
-			Type:        schema.TypeSet,
-			Description: "A list of IP ranges of the location.",
-			Computed:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-		},
-		"self_link": {
-			Type:        schema.TypeString,
-			Description: "Full link to this resource. Can be referenced by other resources.",
-			Computed:    true,
-		},
-	}
-}
-
-func GeoSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:     schema.TypeList,
-		Computed: true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"lat": {
-					Type:        schema.TypeFloat,
-					Description: "Latitude.",
-					Optional:    true,
-				},
-				"lon": {
-					Type:        schema.TypeFloat,
-					Description: "Longitude.",
-					Optional:    true,
-				},
-				"country": {
-					Type:        schema.TypeString,
-					Description: "Country.",
-					Optional:    true,
-				},
-				"state": {
-					Type:        schema.TypeString,
-					Description: "State.",
-					Optional:    true,
-				},
-				"city": {
-					Type:        schema.TypeString,
-					Description: "City.",
-					Optional:    true,
-				},
-				"continent": {
-					Type:        schema.TypeString,
-					Description: "Continent.",
-					Optional:    true,
-				},
-			},
-		},
-	}
 }
 
 // GetLocation
@@ -257,6 +99,42 @@ func (c *Client) UpdateLocation(location Location) (*Location, int, error) {
 		return nil, code, err
 	}
 
+	return c.GetLocation(*location.Name)
+}
+
+// UpdateLocationToDefault patches the specified location to its default state.
+func (c *Client) UpdateLocationToDefault(location Location) (*Location, int, error) {
+	// Remove the Terraform-managed tag before sending the update
+	c.RemoveManagedByTerraformTag(&location.Base)
+
+	// Marshal the location struct into JSON for the HTTP request body
+	payload, err := json.Marshal(location)
+
+	// Return immediately if marshaling fails
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Build the PATCH request targeting the location endpoint
+	req, err := http.NewRequest(
+		http.MethodPatch,
+		fmt.Sprintf("%s/org/%s/location/%s", c.HostURL, c.Org, *location.Name),
+		strings.NewReader(string(payload)),
+	)
+
+	// Return if request creation fails
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Execute the HTTP request and capture its status code
+	_, code, err := c.doRequest(req, "application/json")
+
+	// Propagate any errors from the request
+	if err != nil {
+		return nil, code, err
+	}
+	// Retrieve and return the updated location from the API
 	return c.GetLocation(*location.Name)
 }
 

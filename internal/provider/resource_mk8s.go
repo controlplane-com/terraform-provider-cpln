@@ -5,4428 +5,3924 @@ import (
 	"encoding/json"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/mk8s"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceMk8s() *schema.Resource {
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &Mk8sResource{}
+	_ resource.ResourceWithImportState = &Mk8sResource{}
+)
 
-	var mk8sProviders = []string{
-		"generic_provider", "hetzner_provider", "aws_provider",
-		"linode_provider", "oblivus_provider", "lambdalabs_provider",
-		"paperspace_provider", "ephemeral_provider", "triton_provider",
-		"digital_ocean_provider",
-	}
+/*** Resource Model ***/
 
-	return &schema.Resource{
-		CreateContext: resourceMk8sCreate,
-		ReadContext:   resourceMk8sRead,
-		UpdateContext: resourceMk8sUpdate,
-		DeleteContext: resourceMk8sDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the Mk8s.",
-				Computed:    true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Description:  "Name of the Mk8s.",
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"alias": {
-				Type:        schema.TypeString,
+// Mk8sResourceModel holds the Terraform state for the resource.
+type Mk8sResourceModel struct {
+	EntityBaseModel
+	Alias                types.String                       `tfsdk:"alias"`
+	Version              types.String                       `tfsdk:"version"`
+	Firewall             []models.FirewallModel             `tfsdk:"firewall"`
+	GenericProvider      []models.GenericProviderModel      `tfsdk:"generic_provider"`
+	HetznerProvider      []models.HetznerProviderModel      `tfsdk:"hetzner_provider"`
+	AwsProvider          []models.AwsProviderModel          `tfsdk:"aws_provider"`
+	LinodeProvider       []models.LinodeProviderModel       `tfsdk:"linode_provider"`
+	OblivusProvider      []models.OblivusProviderModel      `tfsdk:"oblivus_provider"`
+	LambdalabsProvider   []models.LambdalabsProviderModel   `tfsdk:"lambdalabs_provider"`
+	PaperspaceProvider   []models.PaperspaceProviderModel   `tfsdk:"paperspace_provider"`
+	EphemeralProvider    []models.EphemeralProviderModel    `tfsdk:"ephemeral_provider"`
+	TritonProvider       []models.TritonProviderModel       `tfsdk:"triton_provider"`
+	AzureProvider        []models.AzureProviderModel        `tfsdk:"azure_provider"`
+	DigitalOceanProvider []models.DigitalOceanProviderModel `tfsdk:"digital_ocean_provider"`
+	AddOns               []models.AddOnsModel               `tfsdk:"add_ons"`
+	Status               types.List                         `tfsdk:"status"`
+}
+
+/*** Resource Configuration ***/
+
+// Mk8sResource is the resource implementation.
+type Mk8sResource struct {
+	EntityBase
+	Operations EntityOperations[Mk8sResourceModel, client.Mk8s]
+}
+
+// NewMk8sResource returns a new instance of the resource implementation.
+func NewMk8sResource() resource.Resource {
+	return &Mk8sResource{}
+}
+
+// Configure configures the resource before use.
+func (mr *Mk8sResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	mr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	mr.Operations = NewEntityOperations(mr.client, &Mk8sResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (mr *Mk8sResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (mr *Mk8sResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_mk8s"
+}
+
+// Schema defines the schema for the resource.
+func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(mr.EntityBaseAttributes("mk8s"), map[string]schema.Attribute{
+			"alias": schema.StringAttribute{
 				Description: "The alias name of the Mk8s.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of the Mk8s.",
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:         schema.TypeMap,
-				Description:  "Key-value map of resource tags.",
-				Optional:     true,
-				Elem:         StringSchema(),
-				ValidateFunc: TagValidator,
-			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to this resource. Can be referenced by other resources.",
-				Computed:    true,
-			},
-			"version": {
-				Type:        schema.TypeString,
+			"version": schema.StringAttribute{
 				Description: "",
 				Required:    true,
 			},
-			"firewall": {
-				Type:        schema.TypeList,
-				Description: "Allow-list.",
-				Optional:    true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"source_cidr": {
-							Type:        schema.TypeString,
-							Description: "",
-							Required:    true,
-						},
-						"description": {
-							Type:        schema.TypeString,
-							Description: "",
-							Optional:    true,
-						},
-					},
-				},
-			},
-			"generic_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"location": {
-							Type:        schema.TypeString,
-							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.",
-							Required:    true,
-						},
-						"networking": Mk8sNetworkingSchema(),
-						"node_pool":  Mk8sGenericNodePoolSchema("List of node pools."),
-					},
-				},
-			},
-			"hetzner_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"region": {
-							Type:        schema.TypeString,
-							Description: "Hetzner region to deploy nodes to.",
-							Required:    true,
-						},
-						"hetzner_labels": {
-							Type:        schema.TypeMap,
-							Description: "Extra labels to attach to servers.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"networking":         Mk8sNetworkingSchema(),
-						"pre_install_script": Mk8sPreInstallScriptSchema(),
-						"token_secret_link": {
-							Type:        schema.TypeString,
-							Description: "Link to a secret holding Hetzner access key.",
-							Required:    true,
-						},
-						"network_id": {
-							Type:        schema.TypeString,
-							Description: "ID of the Hetzner network to deploy nodes to.",
-							Required:    true,
-						},
-						"firewall_id": {
-							Type:        schema.TypeString,
-							Description: "Optional firewall rule to attach to all nodes.",
-							Optional:    true,
-						},
-						"node_pool":                  Mk8sHetznerNodePoolSchema(),
-						"dedicated_server_node_pool": Mk8sGenericNodePoolSchema("Node pools that can configure dedicated Hetzner servers."),
-						"image": {
-							Type:        schema.TypeString,
-							Description: "Default image for all nodes.",
-							Optional:    true,
-							Default:     "ubuntu-20.04",
-						},
-						"ssh_key": {
-							Type:        schema.TypeString,
-							Description: "SSH key name for accessing deployed nodes.",
-							Optional:    true,
-						},
-						"autoscaler": Mk8sAutoscalerSchema(),
-						"floating_ip_selector": {
-							Type:        schema.TypeMap,
-							Description: "If supplied, nodes will get assigned a random floating ip matching the selector.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-					},
-				},
-			},
-			"aws_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"region": {
-							Type:        schema.TypeString,
-							Description: "Region where the cluster nodes will live.",
-							Required:    true,
-						},
-						"aws_tags": {
-							Type:        schema.TypeMap,
-							Description: "Extra tags to attach to all created objects.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"skip_create_roles": {
-							Type:        schema.TypeBool,
-							Description: "If true, Control Plane will not create any roles.",
-							Optional:    true,
-							Default:     false,
-						},
-						"networking":         Mk8sNetworkingSchema(),
-						"pre_install_script": Mk8sPreInstallScriptSchema(),
-						"image":              Mk8sAwsAmiSchema(),
-						"deploy_role_arn": {
-							Type:        schema.TypeString,
-							Description: "Control Plane will set up the cluster by assuming this role.",
-							Required:    true,
-						},
-						"deploy_role_chain": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"role_arn": {
-										Type:        schema.TypeString,
-										Description: "",
-										Required:    true,
-									},
-									"external_id": {
-										Type:        schema.TypeString,
-										Description: "",
-										Optional:    true,
-									},
-									"session_name_prefix": {
-										Type:        schema.TypeString,
-										Description: "Control Plane will append random.",
-										Optional:    true,
-									},
-								},
-							},
-						},
-						"vpc_id": {
-							Type:        schema.TypeString,
-							Description: "The vpc where nodes will be deployed. Supports SSM.",
-							Required:    true,
-						},
-						"key_pair": {
-							Type:        schema.TypeString,
-							Description: "Name of keyPair. Supports SSM",
-							Optional:    true,
-						},
-						"disk_encryption_key_arn": {
-							Type:        schema.TypeString,
-							Description: "KMS key used to encrypt volumes. Supports SSM.",
-							Optional:    true,
-						},
-						"security_group_ids": {
-							Type:        schema.TypeSet,
-							Description: "Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"extra_node_policies": {
-							Type:        schema.TypeSet,
-							Description: "",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"node_pool":  Mk8sAwsNodePoolSchema(),
-						"autoscaler": Mk8sAutoscalerSchema(),
-					},
-				},
-			},
-			"linode_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"region": {
-							Type:        schema.TypeString,
-							Description: "Region where the cluster nodes will live.",
-							Required:    true,
-						},
-						"token_secret_link": {
-							Type:        schema.TypeString,
-							Description: "Link to a secret holding Linode access key.",
-							Required:    true,
-						},
-						"firewall_id": {
-							Type:        schema.TypeString,
-							Description: "Optional firewall rule to attach to all nodes.",
-							Optional:    true,
-						},
-						"node_pool": Mk8sLinodeNodePoolSchema(),
-						"image": {
-							Type:        schema.TypeString,
-							Description: "Default image for all nodes.",
-							Required:    true,
-						},
-						"authorized_users": {
-							Type:        schema.TypeSet,
-							Description: "",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"authorized_keys": {
-							Type:        schema.TypeSet,
-							Description: "",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"vpc_id": {
-							Type:        schema.TypeString,
-							Description: "The vpc where nodes will be deployed. Supports SSM.",
-							Required:    true,
-						},
-						"pre_install_script": Mk8sPreInstallScriptSchema(),
-						"networking":         Mk8sNetworkingSchema(),
-						"autoscaler":         Mk8sAutoscalerSchema(),
-					},
-				},
-			},
-			"oblivus_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"datacenter": {
-							Type:        schema.TypeString,
-							Description: "",
-							Required:    true,
-						},
-						"token_secret_link": {
-							Type:        schema.TypeString,
-							Description: "Link to a secret holding Oblivus access key.",
-							Required:    true,
-						},
-						"node_pool": Mk8sOblivusNodePoolSchema(),
-						"ssh_keys": {
-							Type:        schema.TypeSet,
-							Description: "",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
-						"autoscaler":          Mk8sAutoscalerSchema(),
-						"pre_install_script":  Mk8sPreInstallScriptSchema(),
-					},
-				},
-			},
-			"lambdalabs_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"region": {
-							Type:        schema.TypeString,
-							Description: "Region where the cluster nodes will live.",
-							Required:    true,
-						},
-						"token_secret_link": {
-							Type:        schema.TypeString,
-							Description: "Link to a secret holding Lambdalabs access key.",
-							Required:    true,
-						},
-						"node_pool": Mk8sLambdalabsNodePoolSchema(),
-						"ssh_key": {
-							Type:        schema.TypeString,
-							Description: "SSH key name for accessing deployed nodes.",
-							Required:    true,
-						},
-						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
-						"autoscaler":          Mk8sAutoscalerSchema(),
-						"pre_install_script":  Mk8sPreInstallScriptSchema(),
-					},
-				},
-			},
-			"paperspace_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"region": {
-							Type:        schema.TypeString,
-							Description: "Region where the cluster nodes will live.",
-							Required:    true,
-						},
-						"token_secret_link": {
-							Type:        schema.TypeString,
-							Description: "Link to a secret holding Paperspace access key.",
-							Required:    true,
-						},
-						"shared_drives": {
-							Type:        schema.TypeSet,
-							Description: "",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"node_pool":           Mk8sPaperspaceNodePoolSchema(),
-						"autoscaler":          Mk8sAutoscalerSchema(),
-						"unmanaged_node_pool": Mk8sGenericNodePoolSchema(""),
-						"pre_install_script":  Mk8sPreInstallScriptSchema(),
-						"user_ids": {
-							Type:        schema.TypeSet,
-							Description: "",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"network_id": {
-							Type:        schema.TypeString,
-							Description: "",
-							Required:    true,
-						},
-					},
-				},
-			},
-			"ephemeral_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"location": {
-							Type:        schema.TypeString,
-							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.",
-							Required:    true,
-						},
-						"node_pool": Mk8sEphemeralNodePoolSchema(),
-					},
-				},
-			},
-			"triton_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"connection": {
-							Type:        schema.TypeList,
-							Description: "",
-							Required:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"url": {
-										Type:        schema.TypeString,
-										Description: "",
-										Required:    true,
-									},
-									"account": {
-										Type:        schema.TypeString,
-										Description: "",
-										Required:    true,
-									},
-									"user": {
-										Type:        schema.TypeString,
-										Description: "",
-										Optional:    true,
-									},
-									"private_key_secret_link": {
-										Type:        schema.TypeString,
-										Description: "Link to a SSH or opaque secret.",
-										Required:    true,
-									},
-								},
-							},
-						},
-						"networking":         Mk8sNetworkingSchema(),
-						"pre_install_script": Mk8sPreInstallScriptSchema(),
-						"location": {
-							Type:        schema.TypeString,
-							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to the Triton datacenter.",
-							Required:    true,
-						},
-						"load_balancer": {
-							Type:        schema.TypeList,
-							Description: "",
-							Required:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"manual": {
-										Type:        schema.TypeList,
-										Description: "",
-										Optional:    true,
-										MaxItems:    1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"package_id": {
-													Type:        schema.TypeString,
-													Description: "",
-													Required:    true,
-												},
-												"image_id": {
-													Type:        schema.TypeString,
-													Description: "",
-													Required:    true,
-												},
-												"public_network_id": {
-													Type:        schema.TypeString,
-													Description: "If set, machine will also get a public IP.",
-													Required:    true,
-												},
-												"private_network_ids": {
-													Type:        schema.TypeSet,
-													Description: "More private networks to join.",
-													Optional:    true,
-													Elem:        StringSchema(),
-												},
-												"metadata": {
-													Type:        schema.TypeMap,
-													Description: "Extra tags to attach to instances from a node pool.",
-													Optional:    true,
-													Elem:        StringSchema(),
-												},
-												"tags": {
-													Type:        schema.TypeMap,
-													Description: "Extra tags to attach to instances from a node pool.",
-													Optional:    true,
-													Elem:        StringSchema(),
-												},
-												"count": {
-													Type:         schema.TypeInt,
-													Description:  "",
-													Required:     true,
-													ValidateFunc: RangeValidator(1, 3),
-												},
-												"cns_internal_domain": {
-													Type:        schema.TypeString,
-													Description: "",
-													Required:    true,
-												},
-												"cns_public_domain": {
-													Type:        schema.TypeString,
-													Description: "",
-													Required:    true,
-												},
-											},
-										},
-										ExactlyOneOf: []string{"triton_provider.0.load_balancer.0.gateway", "triton_provider.0.load_balancer.0.manual"},
-									},
-									"gateway": {
-										Type:        schema.TypeList,
-										Description: "",
-										Optional:    true,
-										MaxItems:    1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"placeholder_attribute": {
-													Type:        schema.TypeBool,
-													Description: "",
-													Optional:    true,
-													Default:     true,
-												},
-											},
-										},
-										ExactlyOneOf: []string{"triton_provider.0.load_balancer.0.gateway", "triton_provider.0.load_balancer.0.manual"},
-									},
-								},
-							},
-						},
-						"private_network_id": {
-							Type:        schema.TypeString,
-							Description: "ID of the private Fabric/Network.",
-							Required:    true,
-						},
-						"firewall_enabled": {
-							Type:        schema.TypeBool,
-							Description: "Enable firewall for the instances deployed.",
-							Optional:    true,
-						},
-						"node_pool": Mk8sTritonNodePoolSchema(),
-						"image_id": {
-							Type:        schema.TypeString,
-							Description: "Default image for all nodes.",
-							Required:    true,
-						},
-						"ssh_keys": {
-							Type:        schema.TypeSet,
-							Description: "Extra SSH keys to provision for user root.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"autoscaler": Mk8sAutoscalerSchema(),
-					},
-				},
-			},
-			"digital_ocean_provider": {
-				Type:         schema.TypeList,
-				Description:  "",
-				Optional:     true,
-				MaxItems:     1,
-				ExactlyOneOf: mk8sProviders,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"region": {
-							Type:        schema.TypeString,
-							Description: "Region to deploy nodes to.",
-							Required:    true,
-						},
-						"digital_ocean_tags": {
-							Type:        schema.TypeSet,
-							Description: "Extra tags to attach to droplets.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"networking":         Mk8sNetworkingSchema(),
-						"pre_install_script": Mk8sPreInstallScriptSchema(),
-						"token_secret_link": {
-							Type:        schema.TypeString,
-							Description: "Link to a secret holding personal access token.",
-							Required:    true,
-						},
-						"vpc_id": {
-							Type:        schema.TypeString,
-							Description: "ID of the Hetzner network to deploy nodes to.",
-							Required:    true,
-						},
-						"node_pool": Mk8sDigitalOceanNodePoolSchema(),
-						"image": {
-							Type:        schema.TypeString,
-							Description: "Default image for all nodes.",
-							Required:    true,
-						},
-						"ssh_keys": {
-							Type:        schema.TypeSet,
-							Description: "SSH key name for accessing deployed nodes.",
-							Required:    true,
-							Elem:        StringSchema(),
-						},
-						"extra_ssh_keys": {
-							Type:        schema.TypeSet,
-							Description: "Extra SSH keys to provision for user root that are not registered in the DigitalOcean.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-						"autoscaler": Mk8sAutoscalerSchema(),
-						"reserved_ips": {
-							Type:        schema.TypeSet,
-							Description: "Optional set of IPs to assign as extra IPs for nodes of the cluster.",
-							Optional:    true,
-							Elem:        StringSchema(),
-						},
-					},
-				},
-			},
-			"add_ons": {
-				Type:        schema.TypeList,
-				Description: "",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"dashboard": {
-							Type:        schema.TypeBool,
-							Description: "",
-							Optional:    true,
-						},
-						"azure_workload_identity": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"tenant_id": {
-										Type:        schema.TypeString,
-										Description: "Tenant ID to use for workload identity.",
-										Optional:    true,
-									},
-									"placeholder_attribute": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Default:  true,
-									},
-								},
-							},
-						},
-						"aws_workload_identity": {
-							Type:        schema.TypeBool,
-							Description: "",
-							Optional:    true,
-						},
-						"local_path_storage": {
-							Type:        schema.TypeBool,
-							Description: "",
-							Optional:    true,
-						},
-						"metrics": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"kube_state": {
-										Type:        schema.TypeBool,
-										Description: "Enable kube-state metrics.",
-										Optional:    true,
-									},
-									"core_dns": {
-										Type:        schema.TypeBool,
-										Description: "Enable scraping of core-dns service.",
-										Optional:    true,
-									},
-									"kubelet": {
-										Type:        schema.TypeBool,
-										Description: "Enable scraping kubelet stats.",
-										Optional:    true,
-									},
-									"api_server": {
-										Type:        schema.TypeBool,
-										Description: "Enable scraping apiserver stats.",
-										Optional:    true,
-									},
-									"node_exporter": {
-										Type:        schema.TypeBool,
-										Description: "Enable collecting node-level stats (disk, network, filesystem, etc).",
-										Optional:    true,
-									},
-									"cadvisor": {
-										Type:        schema.TypeBool,
-										Description: "Enable CNI-level container stats.",
-										Optional:    true,
-									},
-									"scrape_annotated": {
-										Type:        schema.TypeList,
-										Description: "Scrape pods annotated with prometheus.io/scrape=true.",
-										Optional:    true,
-										MaxItems:    1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"interval_seconds": {
-													Type:        schema.TypeInt,
-													Description: "",
-													Optional:    true,
-												},
-												"include_namespaces": {
-													Type:        schema.TypeString,
-													Description: "",
-													Optional:    true,
-												},
-												"exclude_namespaces": {
-													Type:        schema.TypeString,
-													Description: "",
-													Optional:    true,
-												},
-												"retain_labels": {
-													Type:        schema.TypeString,
-													Description: "",
-													Optional:    true,
-												},
-												"placeholder_attribute": {
-													Type:     schema.TypeBool,
-													Optional: true,
-													Default:  true,
-												},
-											},
-										},
-									},
-									"placeholder_attribute": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Default:  true,
-									},
-								},
-							},
-						},
-						"logs": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"audit_enabled": {
-										Type:        schema.TypeBool,
-										Description: "Collect k8s audit log as log events.",
-										Optional:    true,
-									},
-									"include_namespaces": {
-										Type:        schema.TypeString,
-										Description: "",
-										Optional:    true,
-									},
-									"exclude_namespaces": {
-										Type:        schema.TypeString,
-										Description: "",
-										Optional:    true,
-									},
-									"placeholder_attribute": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Default:  true,
-									},
-								},
-							},
-						},
-						"nvidia": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"taint_gpu_nodes": {
-										Type:        schema.TypeBool,
-										Description: "",
-										Optional:    true,
-									},
-									"placeholder_attribute": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Default:  true,
-									},
-								},
-							},
-						},
-						"aws_efs": Mk8sHasRoleArnSchema("Use this role for EFS interaction."),
-						"aws_ecr": Mk8sHasRoleArnSchema("Role to use when authorizing ECR pulls. Optional on AWS, in which case it will use the instance role to pull."),
-						"aws_elb": Mk8sHasRoleArnSchema("Role to use when authorizing calls to EC2 ELB. Optional on AWS, when not provided it will create the recommended role."),
-						"azure_acr": {
-							Type:        schema.TypeList,
-							Description: "",
-							Optional:    true,
-							MaxItems:    1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"client_id": {
-										Type:        schema.TypeString,
-										Description: "",
-										Required:    true,
-									},
-								},
-							},
-						},
-						"sysbox": {
-							Type:        schema.TypeBool,
-							Description: "",
-							Optional:    true,
-						},
-					},
-				},
-			},
-			"status": {
-				Type:        schema.TypeList,
+			"status": schema.ListNestedAttribute{
 				Description: "Status of the mk8s.",
 				Computed:    true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"oidc_provider_url": {
-							Type:        schema.TypeString,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"oidc_provider_url": schema.StringAttribute{
 							Description: "",
 							Computed:    true,
 						},
-						"server_url": {
-							Type:        schema.TypeString,
+						"server_url": schema.StringAttribute{
 							Description: "",
 							Computed:    true,
 						},
-						"home_location": {
-							Type:        schema.TypeString,
+						"home_location": schema.StringAttribute{
 							Description: "",
 							Computed:    true,
 						},
-						"add_ons": {
-							Type:        schema.TypeList,
+						"add_ons": schema.ListNestedAttribute{
 							Description: "",
 							Computed:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"dashboard": {
-										Type:        schema.TypeList,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"dashboard": schema.ListNestedAttribute{
 										Description: "",
 										Computed:    true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"url": {
-													Type:        schema.TypeString,
+										NestedObject: schema.NestedAttributeObject{
+											Attributes: map[string]schema.Attribute{
+												"url": schema.StringAttribute{
 													Description: "Access to dashboard.",
 													Computed:    true,
 												},
 											},
 										},
 									},
-									"aws_workload_identity": {
-										Type:        schema.TypeList,
+									"aws_workload_identity": schema.ListNestedAttribute{
 										Description: "",
 										Computed:    true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"oidc_provider_config": {
-													Type:        schema.TypeList,
+										NestedObject: schema.NestedAttributeObject{
+											Attributes: map[string]schema.Attribute{
+												"oidc_provider_config": schema.ListNestedAttribute{
 													Description: "",
 													Computed:    true,
-													Elem: &schema.Resource{
-														Schema: map[string]*schema.Schema{
-															"provider_url": {
-																Type:        schema.TypeString,
+													NestedObject: schema.NestedAttributeObject{
+														Attributes: map[string]schema.Attribute{
+															"provider_url": schema.StringAttribute{
 																Description: "",
 																Computed:    true,
 															},
-															"audience": {
-																Type:        schema.TypeString,
+															"audience": schema.StringAttribute{
 																Description: "",
 																Computed:    true,
 															},
 														},
 													},
 												},
-												"trust_policy": Mk8sObjectUnknownStatusSchema(),
+												"trust_policy": mr.ObjectUnknownStatusSchema(),
 											},
 										},
 									},
-									"metrics": {
-										Type:        schema.TypeList,
+									"metrics": schema.ListNestedAttribute{
 										Description: "",
 										Computed:    true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"prometheus_endpoint": {
-													Type:        schema.TypeString,
+										NestedObject: schema.NestedAttributeObject{
+											Attributes: map[string]schema.Attribute{
+												"prometheus_endpoint": schema.StringAttribute{
 													Description: "",
 													Computed:    true,
 												},
-												"remote_write_config": Mk8sObjectUnknownStatusSchema(),
+												"remote_write_config": mr.ObjectUnknownStatusSchema(),
 											},
 										},
 									},
-									"logs": {
-										Type:        schema.TypeList,
+									"logs": schema.ListNestedAttribute{
 										Description: "",
 										Computed:    true,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"loki_address": {
-													Type:        schema.TypeString,
+										NestedObject: schema.NestedAttributeObject{
+											Attributes: map[string]schema.Attribute{
+												"loki_address": schema.StringAttribute{
 													Description: "Loki endpoint to query logs from.",
 													Computed:    true,
 												},
 											},
 										},
 									},
-									"aws_ecr": Mk8sAwsAddOnStatusSchema(),
-									"aws_efs": Mk8sAwsAddOnStatusSchema(),
-									"aws_elb": Mk8sAwsAddOnStatusSchema(),
+									"aws_ecr": mr.AwsAddOnStatusSchema(),
+									"aws_efs": mr.AwsAddOnStatusSchema(),
+									"aws_elb": mr.AwsAddOnStatusSchema(),
 								},
 							},
 						},
 					},
 				},
 			},
-		},
-		Importer: &schema.ResourceImporter{},
-	}
-}
-
-func resourceMk8sCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-
-	// Define & Build
-	mk8s := client.Mk8s{
-		Spec: &client.Mk8sSpec{},
-	}
-
-	mk8s.Name = GetString(d.Get("name"))
-	mk8s.Description = GetString(d.Get("description"))
-	mk8s.Tags = GetStringMap(d.Get("tags"))
-
-	mk8s.Spec.Version = GetString(d.Get("version"))
-
-	if d.Get("firewall") != nil {
-		mk8s.Spec.Firewall = buildMk8sFirewall(d.Get("firewall").([]interface{}))
-	}
-
-	mk8s.Spec.Provider = buildMk8sProvider(d)
-
-	if d.Get("add_ons") != nil {
-		mk8s.Spec.AddOns = buildMk8sAddOns(d.Get("add_ons").([]interface{}))
-	}
-
-	// Create
-	newMk8s, code, err := c.CreateMk8s(mk8s)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setMk8s(d, newMk8s)
-}
-
-func resourceMk8sRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-
-	mk8s, code, err := c.GetMk8s(d.Id())
-
-	if code == 404 {
-		d.SetId("")
-		return nil
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setMk8s(d, mk8s)
-}
-
-func resourceMk8sUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	if d.HasChanges("description", "tags", "version", "firewall", "generic_provider", "hetzner_provider", "aws_provider", "oblivus_provider", "linode_provider", "lambdalabs_provider", "paperspace_provider", "ephemeral_provider", "triton_provider", "digital_ocean_provider", "add_ons") {
-		c := m.(*client.Client)
-
-		// Define & Build
-		mk8sToUpdate := client.Mk8s{
-			SpecReplace: &client.Mk8sSpec{
-				Version:  GetString(d.Get("version")),
-				Firewall: buildMk8sFirewall(d.Get("firewall").([]interface{})),
-				Provider: buildMk8sProvider(d),
+		}),
+		Blocks: map[string]schema.Block{
+			"firewall": schema.ListNestedBlock{
+				Description: "Allow-list.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"source_cidr": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+						"description": schema.StringAttribute{
+							Description: "",
+							Optional:    true,
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.IsRequired(),
+				},
 			},
-		}
-
-		mk8sToUpdate.Name = GetString(d.Get("name"))
-		mk8sToUpdate.Description = GetDescriptionString(d.Get("description"), *mk8sToUpdate.Name)
-		mk8sToUpdate.Tags = GetTagChanges(d)
-
-		if d.Get("add_ons") != nil {
-			mk8sToUpdate.SpecReplace.AddOns = buildMk8sAddOns(d.Get("add_ons").([]interface{}))
-		}
-
-		// Update
-		updatedMk8s, _, err := c.UpdateMk8s(mk8sToUpdate)
-
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setMk8s(d, updatedMk8s)
-	}
-
-	return nil
-}
-
-func resourceMk8sDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-
-	err := c.DeleteMk8s(d.Id())
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	d.SetId("")
-	return nil
-}
-
-func setMk8s(d *schema.ResourceData, mk8s *client.Mk8s) diag.Diagnostics {
-
-	if mk8s == nil {
-		d.SetId("")
-		return nil
-	}
-
-	d.SetId(*mk8s.Name)
-
-	if err := SetBase(d, mk8s.Base); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if mk8s.Spec != nil {
-		if err := d.Set("version", mk8s.Spec.Version); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("firewall", flattenMk8sFirewall(mk8s.Spec.Firewall)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("generic_provider", flattenMk8sGenericProvider(mk8s.Spec.Provider.Generic)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("hetzner_provider", flattenMk8sHetznerProvider(mk8s.Spec.Provider.Hetzner)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("aws_provider", flattenMk8sAwsProvider(mk8s.Spec.Provider.Aws)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("linode_provider", flattenMk8sLinodeProvider(mk8s.Spec.Provider.Linode)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("oblivus_provider", flattenMk8sOblivusProvider(mk8s.Spec.Provider.Oblivus)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("lambdalabs_provider", flattenMk8sLambdalabsProvider(mk8s.Spec.Provider.Lambdalabs)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("paperspace_provider", flattenMk8sPaperspaceProvider(mk8s.Spec.Provider.Paperspace)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("ephemeral_provider", flattenMk8sEphemeralProvider(mk8s.Spec.Provider.Ephemeral)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("triton_provider", flattenMk8sTritonProvider(mk8s.Spec.Provider.Triton)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("digital_ocean_provider", flattenMk8sDigitalOceanProvider(mk8s.Spec.Provider.DigitalOcean)); err != nil {
-			return diag.FromErr(err)
-		}
-
-		if err := d.Set("add_ons", flattenMk8sAddOns(mk8s.Spec.AddOns)); err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	if err := d.Set("status", flattenMk8sStatus(mk8s.Status)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
-}
-
-/*** Build ***/
-
-func buildMk8sFirewall(specs []interface{}) *[]client.Mk8sFirewallRule {
-
-	if len(specs) == 0 {
-		return nil
-	}
-
-	output := []client.Mk8sFirewallRule{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		firewallRule := client.Mk8sFirewallRule{
-			SourceCIDR: GetString(spec["source_cidr"]),
-		}
-
-		if spec["description"] != nil {
-			firewallRule.Description = GetString(spec["description"])
-		}
-
-		output = append(output, firewallRule)
-	}
-
-	return &output
-}
-
-func buildMk8sProvider(d *schema.ResourceData) *client.Mk8sProvider {
-
-	output := client.Mk8sProvider{}
-
-	if d.Get("generic_provider") != nil {
-		output.Generic = buildMk8sGenericProvider(d.Get("generic_provider").([]interface{}))
-	}
-
-	if d.Get("hetzner_provider") != nil {
-		output.Hetzner = buildMk8sHetznerProvider(d.Get("hetzner_provider").([]interface{}))
-	}
-
-	if d.Get("aws_provider") != nil {
-		output.Aws = buildMk8sAwsProvider(d.Get("aws_provider").([]interface{}))
-	}
-
-	if d.Get("linode_provider") != nil {
-		output.Linode = buildMk8sLinodeProvider(d.Get("linode_provider").([]interface{}))
-	}
-
-	if d.Get("oblivus_provider") != nil {
-		output.Oblivus = buildMk8sOblivusProvider(d.Get("oblivus_provider").([]interface{}))
-	}
-
-	if d.Get("lambdalabs_provider") != nil {
-		output.Lambdalabs = buildMk8sLambdalabsProvider(d.Get("lambdalabs_provider").([]interface{}))
-	}
-
-	if d.Get("paperspace_provider") != nil {
-		output.Paperspace = buildMk8sPaperspaceProvider(d.Get("paperspace_provider").([]interface{}))
-	}
-
-	if d.Get("ephemeral_provider") != nil {
-		output.Ephemeral = buildMk8sEphemeralProvider(d.Get("ephemeral_provider").([]interface{}))
-	}
-
-	if d.Get("triton_provider") != nil {
-		output.Triton = buildMk8sTritonProvider(d.Get("triton_provider").([]interface{}))
-	}
-
-	if d.Get("digital_ocean_provider") != nil {
-		output.DigitalOcean = buildMk8sDigitalOceanProvider(d.Get("digital_ocean_provider").([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sAddOns(specs []interface{}) *client.Mk8sSpecAddOns {
-
-	if len(specs) == 0 && specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sSpecAddOns{}
-
-	if spec["dashboard"] != nil && spec["dashboard"].(bool) {
-		output.Dashboard = &client.Mk8sNonCustomizableAddonConfig{}
-	}
-
-	if spec["azure_workload_identity"] != nil {
-		output.AzureWorkloadIdentity = buildMk8sAzureWorkloadIdentityAddOn(spec["azure_workload_identity"].([]interface{}))
-	}
-
-	if spec["aws_workload_identity"] != nil && spec["aws_workload_identity"].(bool) {
-		output.AwsWorkloadIdentity = &client.Mk8sNonCustomizableAddonConfig{}
-	}
-
-	if spec["local_path_storage"] != nil && spec["local_path_storage"].(bool) {
-		output.LocalPathStorage = &client.Mk8sNonCustomizableAddonConfig{}
-	}
-
-	if spec["metrics"] != nil {
-		output.Metrics = buildMk8sMetricsAddOn(spec["metrics"].([]interface{}))
-	}
-
-	if spec["logs"] != nil {
-		output.Logs = buildMk8sLogsAddOn(spec["logs"].([]interface{}))
-	}
-
-	if spec["nvidia"] != nil {
-		output.Nvidia = buildMk8sNvidiaAddOn(spec["nvidia"].([]interface{}))
-	}
-
-	if spec["aws_efs"] != nil {
-		output.AwsEFS = buildMk8sAwsAddOn(spec["aws_efs"].([]interface{}))
-	}
-
-	if spec["aws_ecr"] != nil {
-		output.AwsECR = buildMk8sAwsAddOn(spec["aws_ecr"].([]interface{}))
-	}
-
-	if spec["aws_elb"] != nil {
-		output.AwsELB = buildMk8sAwsAddOn(spec["aws_elb"].([]interface{}))
-	}
-
-	if spec["azure_acr"] != nil {
-		output.AzureACR = buildMk8sAzureAcrAddOn(spec["azure_acr"].([]interface{}))
-	}
-
-	if spec["sysbox"] != nil && spec["sysbox"].(bool) {
-		output.Sysbox = &client.Mk8sNonCustomizableAddonConfig{}
-	}
-
-	return &output
-}
-
-// Providers //
-
-func buildMk8sGenericProvider(specs []interface{}) *client.Mk8sGenericProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sGenericProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Location = GetString(spec["location"])
-
-	if spec["networking"] != nil {
-		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sGenericNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sHetznerProvider(specs []interface{}) *client.Mk8sHetznerProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sHetznerProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Region = GetString(spec["region"])
-
-	if spec["hetzner_labels"] != nil {
-		output.HetznerLabels = GetStringMap(spec["hetzner_labels"])
-	}
-
-	if spec["networking"] != nil {
-		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	output.TokenSecretLink = GetString(spec["token_secret_link"])
-	output.NetworkId = GetString(spec["network_id"])
-
-	if spec["firewall_id"] != nil {
-		output.FirewallId = GetString(spec["firewall_id"])
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sHetznerNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["dedicated_server_node_pool"] != nil {
-		output.DedicatedServerNodePools = buildMk8sGenericNodePools(spec["dedicated_server_node_pool"].([]interface{}))
-	}
-
-	if spec["image"] != nil {
-		output.Image = GetString(spec["image"])
-	}
-
-	if spec["ssh_key"] != nil {
-		output.SshKey = GetString(spec["ssh_key"])
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	if spec["floating_ip_selector"] != nil {
-		output.FloatingIpSelector = GetStringMap(spec["floating_ip_selector"])
-	}
-
-	return &output
-}
-
-func buildMk8sAwsProvider(specs []interface{}) *client.Mk8sAwsProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sAwsProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Region = GetString(spec["region"])
-
-	if spec["aws_tags"] != nil {
-		output.AwsTags = GetStringMap(spec["aws_tags"])
-	}
-
-	if spec["skip_create_roles"] != nil {
-		output.SkipCreateRoles = GetBool(spec["skip_create_roles"])
-	}
-
-	if spec["networking"] != nil {
-		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	if spec["image"] != nil {
-		output.Image = buildMk8sAwsAmi(spec["image"].([]interface{}))
-	}
-
-	output.DeployRoleArn = GetString(spec["deploy_role_arn"])
-	output.VpcId = GetString(spec["vpc_id"])
-
-	if spec["deploy_role_chain"] != nil {
-		output.DeployRoleChain = buildMk8sAwsDeployRoleChain(spec["deploy_role_chain"].([]interface{}))
-	}
-
-	if spec["key_pair"] != nil {
-		output.KeyPair = GetString(spec["key_pair"])
-	}
-
-	if spec["disk_encryption_key_arn"] != nil {
-		output.DiskEncryptionKeyArn = GetString(spec["disk_encryption_key_arn"])
-	}
-
-	if spec["security_group_ids"] != nil {
-		output.SecurityGroupIds = BuildStringTypeSet(spec["security_group_ids"])
-	}
-
-	if spec["extra_node_policies"] != nil {
-		output.ExtraNodePolicies = BuildStringTypeSet(spec["extra_node_policies"])
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sAwsNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sLinodeProvider(specs []interface{}) *client.Mk8sLinodeProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sLinodeProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Region = GetString(spec["region"])
-	output.TokenSecretLink = GetString(spec["token_secret_link"])
-	output.Image = GetString(spec["image"])
-	output.VpcId = GetString(spec["vpc_id"])
-
-	if spec["firewall_id"] != nil {
-		output.FirewallId = GetString(spec["firewall_id"])
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sLinodeNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["authorized_users"] != nil {
-		output.AuthorizedUsers = BuildStringTypeSet(spec["authorized_users"])
-	}
-
-	if spec["authorized_keys"] != nil {
-		output.AuthorizedKeys = BuildStringTypeSet(spec["authorized_keys"])
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	if spec["networking"] != nil {
-		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sOblivusProvider(specs []interface{}) *client.Mk8sOblivusProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sOblivusProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Datacenter = GetString(spec["datacenter"])
-	output.TokenSecretLink = GetString(spec["token_secret_link"])
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sOblivusNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["ssh_keys"] != nil {
-		output.SshKeys = BuildStringTypeSet(spec["ssh_keys"])
-	}
-
-	if spec["unmanaged_node_pool"] != nil {
-		output.UnmanagedNodePools = buildMk8sGenericNodePools(spec["unmanaged_node_pool"].([]interface{}))
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	return &output
-}
-
-func buildMk8sLambdalabsProvider(specs []interface{}) *client.Mk8sLambdalabsProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sLambdalabsProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Region = GetString(spec["region"])
-	output.TokenSecretLink = GetString(spec["token_secret_link"])
-	output.SshKey = GetString(spec["ssh_key"])
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sLambdalabsNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["unmanaged_node_pool"] != nil {
-		output.UnmanagedNodePools = buildMk8sGenericNodePools(spec["unmanaged_node_pool"].([]interface{}))
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	return &output
-}
-
-func buildMk8sPaperspaceProvider(specs []interface{}) *client.Mk8sPaperspaceProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sPaperspaceProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Region = GetString(spec["region"])
-	output.TokenSecretLink = GetString(spec["token_secret_link"])
-	output.NetworkId = GetString(spec["network_id"])
-
-	if spec["shared_drives"] != nil {
-		output.SharedDrives = BuildStringTypeSet(spec["shared_drives"])
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sPaperspaceNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	if spec["unmanaged_node_pool"] != nil {
-		output.UnmanagedNodePools = buildMk8sGenericNodePools(spec["unmanaged_node_pool"].([]interface{}))
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	if spec["user_ids"] != nil {
-		output.UserIds = BuildStringTypeSet(spec["user_ids"])
-	}
-
-	return &output
-}
-
-func buildMk8sEphemeralProvider(specs []interface{}) *client.Mk8sEphemeralProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sEphemeralProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Location = GetString(spec["location"])
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sEphemeralNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sTritonProvider(specs []interface{}) *client.Mk8sTritonProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sTritonProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Connection = buildMk8sTritonConnection(spec["connection"].([]interface{}))
-	output.Location = GetString(spec["location"])
-	output.PrivateNetworkId = GetString(spec["private_network_id"])
-	output.ImageId = GetString(spec["image_id"])
-
-	if spec["networking"] != nil {
-		output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	if spec["load_balancer"] != nil {
-		output.LoadBalancer = buildMk8sTritonLoadBalancer(spec["load_balancer"].([]interface{}))
-	}
-
-	if spec["firewall_enabled"] != nil {
-		output.FirewallEnabled = GetBool(spec["firewall_enabled"])
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sTritonNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["ssh_keys"] != nil {
-		output.SshKeys = BuildStringTypeSet(spec["ssh_keys"])
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sDigitalOceanProvider(specs []interface{}) *client.Mk8sDigitalOceanProvider {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sDigitalOceanProvider{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Region = GetString(spec["region"])
-	output.Networking = buildMk8sNetworking(spec["networking"].([]interface{}))
-	output.TokenSecretLink = GetString(spec["token_secret_link"])
-	output.VpcId = GetString(spec["vpc_id"])
-	output.Image = GetString(spec["image"])
-	output.SshKeys = BuildStringTypeSet(spec["ssh_keys"])
-
-	if spec["digital_ocean_tags"] != nil {
-		output.DigitalOceanTags = BuildStringTypeSet(spec["digital_ocean_tags"])
-	}
-
-	if spec["pre_install_script"] != nil {
-		output.PreInstallScript = GetString(spec["pre_install_script"])
-	}
-
-	if spec["node_pool"] != nil {
-		output.NodePools = buildMk8sDigitalOceanNodePools(spec["node_pool"].([]interface{}))
-	}
-
-	if spec["extra_ssh_keys"] != nil {
-		output.ExtraSshKeys = BuildStringTypeSet(spec["extra_ssh_keys"])
-	}
-
-	if spec["autoscaler"] != nil {
-		output.Autoscaler = buildMk8sAutoscaler(spec["autoscaler"].([]interface{}))
-	}
-
-	if spec["reserved_ips"] != nil {
-		output.ReservedIps = BuildStringTypeSet(spec["reserved_ips"])
-	}
-
-	return &output
-}
-
-// Provider Helpers //
-
-// Node Pools
-
-func buildMk8sGenericNodePools(specs []interface{}) *[]client.Mk8sGenericPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sGenericPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sGenericPool{
-			Name: GetString(spec["name"]),
-		}
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sHetznerNodePools(specs []interface{}) *[]client.Mk8sHetznerPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sHetznerPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sHetznerPool{}
-		nodePool.Name = GetString(spec["name"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		nodePool.ServerType = GetString(spec["server_type"])
-
-		if spec["override_image"] != nil {
-			nodePool.OverrideImage = GetString(spec["override_image"])
-		}
-
-		if spec["min_size"] != nil {
-			nodePool.MinSize = GetInt(spec["min_size"])
-		}
-
-		if spec["max_size"] != nil {
-			nodePool.MaxSize = GetInt(spec["max_size"])
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sAwsNodePools(specs []interface{}) *[]client.Mk8sAwsPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sAwsPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sAwsPool{}
-		nodePool.Name = GetString(spec["name"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		nodePool.InstanceTypes = BuildStringTypeSet(spec["instance_types"])
-
-		if spec["override_image"] != nil {
-			nodePool.OverrideImage = buildMk8sAwsAmi(spec["override_image"].([]interface{}))
-		}
-
-		nodePool.BootDiskSize = GetInt(spec["boot_disk_size"])
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-		nodePool.OnDemandBaseCapacity = GetInt(spec["on_demand_base_capacity"])
-		nodePool.OnDemandPercentageAboveBaseCapacity = GetInt(spec["on_demand_percentage_above_base_capacity"])
-
-		if spec["spot_allocation_strategy"] != nil {
-			nodePool.SpotAllocationStrategy = GetString(spec["spot_allocation_strategy"])
-		}
-
-		nodePool.SubnetIds = BuildStringTypeSet(spec["subnet_ids"])
-
-		if spec["extra_security_group_ids"] != nil {
-			nodePool.ExtraSecurityGroupIds = BuildStringTypeSet(spec["extra_security_group_ids"])
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sLinodeNodePools(specs []interface{}) *[]client.Mk8sLinodePool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sLinodePool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sLinodePool{}
-		nodePool.Name = GetString(spec["name"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		if spec["override_image"] != nil {
-			nodePool.OverrideImage = GetString(spec["override_image"])
-		}
-
-		nodePool.ServerType = GetString(spec["server_type"])
-		nodePool.SubnetId = GetString(spec["subnet_id"])
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sOblivusNodePools(specs []interface{}) *[]client.Mk8sOblivusPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sOblivusPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sOblivusPool{}
-		nodePool.Name = GetString(spec["name"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-		nodePool.Flavor = GetString(spec["flavor"])
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sLambdalabsNodePools(specs []interface{}) *[]client.Mk8sLambdalabsPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sLambdalabsPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sLambdalabsPool{}
-		nodePool.Name = GetString(spec["name"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-		nodePool.InstanceType = GetString(spec["instance_type"])
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sPaperspaceNodePools(specs []interface{}) *[]client.Mk8sPaperspacePool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sPaperspacePool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sPaperspacePool{}
-		nodePool.Name = GetString(spec["name"])
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-		nodePool.PublicIpType = GetString(spec["public_ip_type"])
-		nodePool.MachineType = GetString(spec["machine_type"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		if spec["boot_disk_size"] != nil {
-			nodePool.BootDiskSize = GetInt(spec["boot_disk_size"])
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sEphemeralNodePools(specs []interface{}) *[]client.Mk8sEphemeralPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sEphemeralPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sEphemeralPool{
-			Name:   GetString(spec["name"]),
-			Count:  GetInt(spec["count"]),
-			Arch:   GetString(spec["arch"]),
-			Flavor: GetString(spec["flavor"]),
-			Cpu:    GetString(spec["cpu"]),
-			Memory: GetString(spec["memory"]),
-		}
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sTritonNodePools(specs []interface{}) *[]client.Mk8sTritonPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sTritonPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sTritonPool{}
-		nodePool.Name = GetString(spec["name"])
-		nodePool.PackageId = GetString(spec["package_id"])
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		if spec["override_image_id"] != nil {
-			nodePool.OverrideImageId = GetString(spec["override_image_id"])
-		}
-
-		if spec["public_network_id"] != nil {
-			nodePool.PublicNetworkId = GetString(spec["public_network_id"])
-		}
-
-		if spec["private_network_ids"] != nil {
-			nodePool.PrivateNetworkIds = BuildStringTypeSet(spec["private_network_ids"])
-		}
-
-		if spec["triton_tags"] != nil {
-			nodePool.TritonTags = GetStringMap(spec["triton_tags"])
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sDigitalOceanNodePools(specs []interface{}) *[]client.Mk8sDigitalOceanPool {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sDigitalOceanPool{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sDigitalOceanPool{}
-		nodePool.Name = GetString(spec["name"])
-		nodePool.DropletSize = GetString(spec["droplet_size"])
-		nodePool.MinSize = GetInt(spec["min_size"])
-		nodePool.MaxSize = GetInt(spec["max_size"])
-
-		if spec["labels"] != nil {
-			nodePool.Labels = GetStringMap(spec["labels"])
-		}
-
-		if spec["taint"] != nil {
-			nodePool.Taints = buildMk8sTaints(spec["taint"].([]interface{}))
-		}
-
-		if spec["override_image"] != nil {
-			nodePool.OverrideImage = GetString(spec["override_image"])
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-// AWS
-
-func buildMk8sAwsAmi(specs []interface{}) *client.Mk8sAwsAmi {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sAwsAmi{}
-	spec := specs[0].(map[string]interface{})
-
-	if spec["recommended"] != nil {
-		output.Recommended = GetString(spec["recommended"])
-	}
-
-	if spec["exact"] != nil {
-		output.Exact = GetString(spec["exact"])
-	}
-
-	return &output
-}
-
-func buildMk8sAwsDeployRoleChain(specs []interface{}) *[]client.Mk8sAwsAssumeRoleLink {
-
-	if len(specs) == 0 {
-		return nil
-	}
-
-	output := []client.Mk8sAwsAssumeRoleLink{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		assumeRoleLink := client.Mk8sAwsAssumeRoleLink{
-			RoleArn: GetString(spec["role_arn"]),
-		}
-
-		if spec["external_id"] != nil {
-			assumeRoleLink.ExternalId = GetString(spec["external_id"])
-		}
-
-		if spec["session_name_prefix"] != nil {
-			assumeRoleLink.SessionNamePrefix = GetString(spec["session_name_prefix"])
-		}
-
-		output = append(output, assumeRoleLink)
-	}
-
-	return &output
-}
-
-// Triton
-
-func buildMk8sTritonConnection(specs []interface{}) *client.Mk8sTritonConnection {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sTritonConnection{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Url = GetString(spec["url"])
-	output.Account = GetString(spec["account"])
-	output.PrivateKeySecretLink = GetString(spec["private_key_secret_link"])
-
-	if spec["user"] != nil {
-		output.User = GetString(spec["user"])
-	}
-
-	return &output
-}
-
-func buildMk8sTritonLoadBalancer(specs []interface{}) *client.Mk8sTritonLoadBalancer {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sTritonLoadBalancer{}
-	spec := specs[0].(map[string]interface{})
-
-	if spec["manual"] != nil {
-		output.Manual = buildMk8sTritonManual(spec["manual"].([]interface{}))
-	}
-
-	if spec["gateway"] != nil {
-		output.Gateway = buildMk8sTritonGateway(spec["gateway"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sTritonManual(specs []interface{}) *client.Mk8sTritonManual {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sTritonManual{
-		PackageId:         GetString(spec["package_id"]),
-		ImageId:           GetString(spec["image_id"]),
-		PublicNetworkId:   GetString(spec["public_network_id"]),
-		Count:             GetInt(spec["count"]),
-		CnsInternalDomain: GetString(spec["cns_internal_domain"]),
-		CnsPublicDomain:   GetString(spec["cns_public_domain"]),
-	}
-
-	if spec["private_network_ids"] != nil {
-		output.PrivateNetworkIds = BuildStringTypeSet(spec["private_network_ids"])
-	}
-
-	if spec["metadata"] != nil {
-		output.Metadata = GetStringMap(spec["metadata"])
-	}
-
-	if spec["tags"] != nil {
-		output.Tags = GetStringMap(spec["tags"])
-	}
-
-	return &output
-}
-
-func buildMk8sTritonGateway(specs []interface{}) *client.Mk8sTritonGateway {
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	return &client.Mk8sTritonGateway{}
-}
-
-// Common
-
-func buildMk8sNetworking(specs []interface{}) *client.Mk8sNetworkingConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sNetworkingConfig{}
-	spec := specs[0].(map[string]interface{})
-
-	if spec["service_network"] != nil {
-		output.ServiceNetwork = GetString(spec["service_network"])
-	}
-
-	if spec["pod_network"] != nil {
-		output.PodNetwork = GetString(spec["pod_network"])
-	}
-
-	return &output
-}
-
-func buildMk8sTaints(specs []interface{}) *[]client.Mk8sTaint {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := []client.Mk8sTaint{}
-
-	for _, _spec := range specs {
-
-		spec := _spec.(map[string]interface{})
-
-		nodePool := client.Mk8sTaint{}
-
-		if spec["key"] != nil {
-			nodePool.Key = GetString(spec["key"])
-		}
-
-		if spec["value"] != nil {
-			nodePool.Value = GetString(spec["value"])
-		}
-
-		if spec["effect"] != nil {
-			nodePool.Effect = GetString(spec["effect"])
-		}
-
-		output = append(output, nodePool)
-	}
-
-	return &output
-}
-
-func buildMk8sAutoscaler(specs []interface{}) *client.Mk8sAutoscalerConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	output := client.Mk8sAutoscalerConfig{}
-	spec := specs[0].(map[string]interface{})
-
-	output.Expander = BuildStringTypeSet(spec["expander"])
-	output.UnneededTime = GetString(spec["unneeded_time"])
-	output.UnreadyTime = GetString(spec["unready_time"])
-	output.UtilizationThreshold = GetFloat64(spec["utilization_threshold"])
-
-	return &output
-}
-
-// Add On Helpers //
-
-func buildMk8sAzureWorkloadIdentityAddOn(specs []interface{}) *client.Mk8sAzureWorkloadIdentityAddOnConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sAzureWorkloadIdentityAddOnConfig{}
-
-	if spec["tenant_id"] != nil {
-		output.TenantId = GetString(spec["tenant_id"])
-	}
-
-	return &output
-}
-
-func buildMk8sMetricsAddOn(specs []interface{}) *client.Mk8sMetricsAddOnConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sMetricsAddOnConfig{}
-
-	if spec["kube_state"] != nil {
-		output.KubeState = GetBool(spec["kube_state"])
-	}
-
-	if spec["core_dns"] != nil {
-		output.CoreDns = GetBool(spec["core_dns"])
-	}
-
-	if spec["kubelet"] != nil {
-		output.Kubelet = GetBool(spec["kubelet"])
-	}
-
-	if spec["api_server"] != nil {
-		output.Apiserver = GetBool(spec["api_server"])
-	}
-
-	if spec["node_exporter"] != nil {
-		output.NodeExporter = GetBool(spec["node_exporter"])
-	}
-
-	if spec["cadvisor"] != nil {
-		output.Cadvisor = GetBool(spec["cadvisor"])
-	}
-
-	if spec["scrape_annotated"] != nil {
-		output.ScrapeAnnotated = buildMk8sMetricsScrapeAnnotated(spec["scrape_annotated"].([]interface{}))
-	}
-
-	return &output
-}
-
-func buildMk8sMetricsScrapeAnnotated(specs []interface{}) *client.Mk8sMetricsScrapeAnnotated {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sMetricsScrapeAnnotated{}
-
-	if spec["interval_seconds"] != nil {
-		output.IntervalSeconds = GetInt(spec["interval_seconds"])
-	}
-
-	if spec["include_namespaces"] != nil {
-		output.IncludeNamespaces = GetString(spec["include_namespaces"])
-	}
-
-	if spec["exclude_namespaces"] != nil {
-		output.ExcludeNamespaces = GetString(spec["exclude_namespaces"])
-	}
-
-	if spec["retain_labels"] != nil {
-		output.RetainLabels = GetString(spec["retain_labels"])
-	}
-
-	return &output
-}
-
-func buildMk8sLogsAddOn(specs []interface{}) *client.Mk8sLogsAddOnConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sLogsAddOnConfig{}
-
-	if spec["audit_enabled"] != nil {
-		output.AuditEnabled = GetBool(spec["audit_enabled"])
-	}
-
-	if spec["include_namespaces"] != nil {
-		output.IncludeNamespaces = GetString(spec["include_namespaces"])
-	}
-
-	if spec["exclude_namespaces"] != nil {
-		output.ExcludeNamespaces = GetString(spec["exclude_namespaces"])
-	}
-
-	return &output
-}
-
-func buildMk8sNvidiaAddOn(specs []interface{}) *client.Mk8sNvidiaAddOnConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sNvidiaAddOnConfig{}
-
-	if spec["taint_gpu_nodes"] != nil {
-		output.TaintGPUNodes = GetBool(spec["taint_gpu_nodes"])
-	}
-
-	return &output
-}
-
-func buildMk8sAwsAddOn(specs []interface{}) *client.Mk8sAwsAddOnConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sAwsAddOnConfig{}
-
-	if spec["role_arn"] != nil {
-		output.RoleArn = GetString(spec["role_arn"])
-	}
-
-	return &output
-}
-
-func buildMk8sAzureAcrAddOn(specs []interface{}) *client.Mk8sAzureACRAddOnConfig {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	output := client.Mk8sAzureACRAddOnConfig{
-		ClientId: GetString(spec["client_id"]),
-	}
-
-	return &output
-}
-
-/*** Flatten ***/
-
-func flattenMk8sFirewall(firewalls *[]client.Mk8sFirewallRule) []interface{} {
-
-	if firewalls == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, firewall := range *firewalls {
-
-		spec := map[string]interface{}{
-			"source_cidr": *firewall.SourceCIDR,
-		}
-
-		if firewall.Description != nil {
-			spec["description"] = *firewall.Description
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sAddOns(addOns *client.Mk8sSpecAddOns) []interface{} {
-
-	if addOns == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if addOns.Dashboard != nil {
-		spec["dashboard"] = true
-	}
-
-	if addOns.AzureWorkloadIdentity != nil {
-		spec["azure_workload_identity"] = flattenMk8sAzureWorkloadIdentityAddOn(addOns.AzureWorkloadIdentity)
-	}
-
-	if addOns.AwsWorkloadIdentity != nil {
-		spec["aws_workload_identity"] = true
-	}
-
-	if addOns.LocalPathStorage != nil {
-		spec["local_path_storage"] = true
-	}
-
-	if addOns.Metrics != nil {
-		spec["metrics"] = flattenMk8sMetricsAddOn(addOns.Metrics)
-	}
-
-	if addOns.Logs != nil {
-		spec["logs"] = flattenMk8sLogsAddOn(addOns.Logs)
-	}
-
-	if addOns.Nvidia != nil {
-		spec["nvidia"] = flattenMk8sNvidiaAddOn(addOns.Nvidia)
-	}
-
-	if addOns.AwsEFS != nil {
-		spec["aws_efs"] = flattenMk8sAwsAddOn(addOns.AwsEFS)
-	}
-
-	if addOns.AwsECR != nil {
-		spec["aws_ecr"] = flattenMk8sAwsAddOn(addOns.AwsECR)
-	}
-
-	if addOns.AwsELB != nil {
-		spec["aws_elb"] = flattenMk8sAwsAddOn(addOns.AwsELB)
-	}
-
-	if addOns.AzureACR != nil {
-		spec["azure_acr"] = flattenMk8sAzureAcrAddOn(addOns.AzureACR)
-	}
-
-	if addOns.Sysbox != nil {
-		spec["sysbox"] = true
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sStatus(status *client.Mk8sStatus) []interface{} {
-
-	if status == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if status.OidcProviderUrl != nil {
-		spec["oidc_provider_url"] = *status.OidcProviderUrl
-	}
-
-	if status.ServerUrl != nil {
-		spec["server_url"] = *status.ServerUrl
-	}
-
-	if status.HomeLocation != nil {
-		spec["home_location"] = *status.HomeLocation
-	}
-
-	if status.AddOns != nil {
-		spec["add_ons"] = flattenMk8sAddOnsStatus(status.AddOns)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-// Providers //
-
-func flattenMk8sGenericProvider(generic *client.Mk8sGenericProvider) []interface{} {
-
-	if generic == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"location": *generic.Location,
-	}
-
-	if generic.Networking != nil {
-		spec["networking"] = flattenMk8sNetworking(generic.Networking)
-	}
-
-	if generic.NodePools != nil {
-		spec["node_pool"] = flattenMk8sGenericNodePools(generic.NodePools)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sHetznerProvider(hetzner *client.Mk8sHetznerProvider) []interface{} {
-
-	if hetzner == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"region": *hetzner.Region,
-	}
-
-	if hetzner.HetznerLabels != nil {
-		spec["hetzner_labels"] = *hetzner.HetznerLabels
-	}
-
-	if hetzner.Networking != nil {
-		spec["networking"] = flattenMk8sNetworking(hetzner.Networking)
-	}
-
-	if hetzner.PreInstallScript != nil {
-		spec["pre_install_script"] = *hetzner.PreInstallScript
-	}
-
-	spec["token_secret_link"] = *hetzner.TokenSecretLink
-	spec["network_id"] = *hetzner.NetworkId
-
-	if hetzner.FirewallId != nil {
-		spec["firewall_id"] = *hetzner.FirewallId
-	}
-
-	if hetzner.NodePools != nil {
-		spec["node_pool"] = flattenMk8sHetznerNodePools(hetzner.NodePools)
-	}
-
-	if hetzner.DedicatedServerNodePools != nil {
-		spec["dedicated_server_node_pool"] = flattenMk8sGenericNodePools(hetzner.DedicatedServerNodePools)
-	}
-
-	if hetzner.Image != nil {
-		spec["image"] = *hetzner.Image
-	}
-
-	if hetzner.SshKey != nil {
-		spec["ssh_key"] = *hetzner.SshKey
-	}
-
-	if hetzner.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(hetzner.Autoscaler)
-	}
-
-	if hetzner.FloatingIpSelector != nil {
-		spec["floating_ip_selector"] = *hetzner.FloatingIpSelector
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sAwsProvider(aws *client.Mk8sAwsProvider) []interface{} {
-
-	if aws == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"region": *aws.Region,
-	}
-
-	if aws.AwsTags != nil {
-		spec["aws_tags"] = *aws.AwsTags
-	}
-
-	if aws.SkipCreateRoles != nil {
-		spec["skip_create_roles"] = *aws.SkipCreateRoles
-	}
-
-	if aws.Networking != nil {
-		spec["networking"] = flattenMk8sNetworking(aws.Networking)
-	}
-
-	if aws.PreInstallScript != nil {
-		spec["pre_install_script"] = *aws.PreInstallScript
-	}
-
-	spec["image"] = flattenMk8sAwsAmi(aws.Image)
-	spec["deploy_role_arn"] = *aws.DeployRoleArn
-	spec["vpc_id"] = *aws.VpcId
-
-	if aws.DeployRoleChain != nil {
-		spec["deploy_role_chain"] = flattenMk8sAwsDeployRoleChain(aws.DeployRoleChain)
-	}
-
-	if aws.KeyPair != nil {
-		spec["key_pair"] = *aws.KeyPair
-	}
-
-	if aws.DiskEncryptionKeyArn != nil {
-		spec["disk_encryption_key_arn"] = *aws.DiskEncryptionKeyArn
-	}
-
-	if aws.SecurityGroupIds != nil {
-		spec["security_group_ids"] = FlattenStringTypeSet(aws.SecurityGroupIds)
-	}
-
-	if aws.ExtraNodePolicies != nil {
-		spec["extra_node_policies"] = FlattenStringTypeSet(aws.ExtraNodePolicies)
-	}
-
-	if aws.NodePools != nil {
-		spec["node_pool"] = flattenMk8sAwsNodePools(aws.NodePools)
-	}
-
-	if aws.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(aws.Autoscaler)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sLinodeProvider(linode *client.Mk8sLinodeProvider) []interface{} {
-
-	if linode == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"region":            *linode.Region,
-		"token_secret_link": *linode.TokenSecretLink,
-		"image":             *linode.Image,
-		"vpc_id":            *linode.VpcId,
-	}
-
-	if linode.FirewallId != nil {
-		spec["firewall_id"] = *linode.FirewallId
-	}
-
-	if linode.NodePools != nil {
-		spec["node_pool"] = flattenMk8sLinodeNodePools(linode.NodePools)
-	}
-
-	if linode.AuthorizedUsers != nil {
-		spec["authorized_users"] = FlattenStringTypeSet(linode.AuthorizedUsers)
-	}
-
-	if linode.AuthorizedKeys != nil {
-		spec["authorized_keys"] = FlattenStringTypeSet(linode.AuthorizedKeys)
-	}
-
-	if linode.PreInstallScript != nil {
-		spec["pre_install_script"] = *linode.PreInstallScript
-	}
-
-	if linode.Networking != nil {
-		spec["networking"] = flattenMk8sNetworking(linode.Networking)
-	}
-
-	if linode.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(linode.Autoscaler)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sOblivusProvider(oblivus *client.Mk8sOblivusProvider) []interface{} {
-
-	if oblivus == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"datacenter":        *oblivus.Datacenter,
-		"token_secret_link": *oblivus.TokenSecretLink,
-	}
-
-	if oblivus.NodePools != nil {
-		spec["node_pool"] = flattenMk8sOblivusNodePools(oblivus.NodePools)
-	}
-
-	if oblivus.SshKeys != nil {
-		spec["ssh_keys"] = FlattenStringTypeSet(oblivus.SshKeys)
-	}
-
-	if oblivus.UnmanagedNodePools != nil {
-		spec["unmanaged_node_pool"] = flattenMk8sGenericNodePools(oblivus.UnmanagedNodePools)
-	}
-
-	if oblivus.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(oblivus.Autoscaler)
-	}
-
-	if oblivus.PreInstallScript != nil {
-		spec["pre_install_script"] = *oblivus.PreInstallScript
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sLambdalabsProvider(lambdalabs *client.Mk8sLambdalabsProvider) []interface{} {
-
-	if lambdalabs == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"region":            *lambdalabs.Region,
-		"token_secret_link": *lambdalabs.TokenSecretLink,
-		"ssh_key":           *lambdalabs.SshKey,
-	}
-
-	if lambdalabs.NodePools != nil {
-		spec["node_pool"] = flattenMk8sLambdalabsNodePools(lambdalabs.NodePools)
-	}
-
-	if lambdalabs.UnmanagedNodePools != nil {
-		spec["unmanaged_node_pool"] = flattenMk8sGenericNodePools(lambdalabs.UnmanagedNodePools)
-	}
-
-	if lambdalabs.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(lambdalabs.Autoscaler)
-	}
-
-	if lambdalabs.PreInstallScript != nil {
-		spec["pre_install_script"] = *lambdalabs.PreInstallScript
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sPaperspaceProvider(paperspace *client.Mk8sPaperspaceProvider) []interface{} {
-
-	if paperspace == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"region":            *paperspace.Region,
-		"token_secret_link": *paperspace.TokenSecretLink,
-		"network_id":        *paperspace.NetworkId,
-	}
-
-	if paperspace.SharedDrives != nil {
-		spec["shared_drives"] = FlattenStringTypeSet(paperspace.SharedDrives)
-	}
-
-	if paperspace.NodePools != nil {
-		spec["node_pool"] = flattenMk8sPaperspaceNodePools(paperspace.NodePools)
-	}
-
-	if paperspace.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(paperspace.Autoscaler)
-	}
-
-	if paperspace.UnmanagedNodePools != nil {
-		spec["unmanaged_node_pool"] = flattenMk8sGenericNodePools(paperspace.UnmanagedNodePools)
-	}
-
-	if paperspace.PreInstallScript != nil {
-		spec["pre_install_script"] = *paperspace.PreInstallScript
-	}
-
-	if paperspace.UserIds != nil {
-		spec["user_ids"] = FlattenStringTypeSet(paperspace.UserIds)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sEphemeralProvider(ephemeral *client.Mk8sEphemeralProvider) []interface{} {
-
-	if ephemeral == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"location": *ephemeral.Location,
-	}
-
-	if ephemeral.NodePools != nil {
-		spec["node_pool"] = flattenMk8sEphemeralNodePools(ephemeral.NodePools)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sTritonProvider(triton *client.Mk8sTritonProvider) []interface{} {
-
-	if triton == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"connection":         flattenMk8sTritonConnection(triton.Connection),
-		"location":           *triton.Location,
-		"private_network_id": *triton.PrivateNetworkId,
-		"image_id":           *triton.ImageId,
-	}
-
-	if triton.Networking != nil {
-		spec["networking"] = flattenMk8sNetworking(triton.Networking)
-	}
-
-	if triton.PreInstallScript != nil {
-		spec["pre_install_script"] = *triton.PreInstallScript
-	}
-
-	if triton.LoadBalancer != nil {
-		spec["load_balancer"] = flattenMk8sTritonLoadBalancer(triton.LoadBalancer)
-	}
-
-	if triton.FirewallEnabled != nil {
-		spec["firewall_enabled"] = *triton.FirewallEnabled
-	}
-
-	if triton.NodePools != nil {
-		spec["node_pool"] = flattenMk8sTritonNodePools(triton.NodePools)
-	}
-
-	if triton.SshKeys != nil {
-		spec["ssh_keys"] = FlattenStringTypeSet(triton.SshKeys)
-	}
-
-	if triton.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(triton.Autoscaler)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sDigitalOceanProvider(digitalOcean *client.Mk8sDigitalOceanProvider) []interface{} {
-
-	if digitalOcean == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"region":            *digitalOcean.Region,
-		"token_secret_link": *digitalOcean.TokenSecretLink,
-		"vpc_id":            *digitalOcean.VpcId,
-		"image":             *digitalOcean.Image,
-		"ssh_keys":          FlattenStringTypeSet(digitalOcean.SshKeys),
-	}
-
-	if digitalOcean.DigitalOceanTags != nil {
-		spec["digital_ocean_tags"] = FlattenStringTypeSet(digitalOcean.DigitalOceanTags)
-	}
-
-	if digitalOcean.Networking != nil {
-		spec["networking"] = flattenMk8sNetworking(digitalOcean.Networking)
-	}
-
-	if digitalOcean.PreInstallScript != nil {
-		spec["pre_install_script"] = *digitalOcean.PreInstallScript
-	}
-
-	if digitalOcean.NodePools != nil {
-		spec["node_pool"] = flattenMk8sDigitalOceanNodePools(digitalOcean.NodePools)
-	}
-
-	if digitalOcean.ExtraSshKeys != nil {
-		spec["extra_ssh_keys"] = FlattenStringTypeSet(digitalOcean.ExtraSshKeys)
-	}
-
-	if digitalOcean.Autoscaler != nil {
-		spec["autoscaler"] = flattenMk8sAutoscaler(digitalOcean.Autoscaler)
-	}
-
-	if digitalOcean.ReservedIps != nil {
-		spec["reserved_ips"] = FlattenStringTypeSet(digitalOcean.ReservedIps)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-// Provider Helpers //
-
-// Node Pools
-
-func flattenMk8sGenericNodePools(nodePools *[]client.Mk8sGenericPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name": *pool.Name,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sHetznerNodePools(nodePools *[]client.Mk8sHetznerPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name": *pool.Name,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		spec["server_type"] = *pool.ServerType
-
-		if pool.OverrideImage != nil {
-			spec["override_image"] = *pool.OverrideImage
-		}
-
-		spec["min_size"] = *pool.MinSize
-		spec["max_size"] = *pool.MaxSize
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sAwsNodePools(nodePools *[]client.Mk8sAwsPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name": *pool.Name,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		spec["instance_types"] = FlattenStringTypeSet(pool.InstanceTypes)
-
-		if pool.OverrideImage != nil {
-			spec["override_image"] = flattenMk8sAwsAmi(pool.OverrideImage)
-		}
-
-		spec["boot_disk_size"] = *pool.BootDiskSize
-		spec["min_size"] = *pool.MinSize
-		spec["max_size"] = *pool.MaxSize
-		spec["on_demand_base_capacity"] = *pool.OnDemandBaseCapacity
-		spec["on_demand_percentage_above_base_capacity"] = *pool.OnDemandPercentageAboveBaseCapacity
-
-		if pool.SpotAllocationStrategy != nil {
-			spec["spot_allocation_strategy"] = *pool.SpotAllocationStrategy
-		}
-
-		spec["subnet_ids"] = FlattenStringTypeSet(pool.SubnetIds)
-
-		if pool.ExtraSecurityGroupIds != nil {
-			spec["extra_security_group_ids"] = FlattenStringTypeSet(pool.ExtraSecurityGroupIds)
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sLinodeNodePools(nodePools *[]client.Mk8sLinodePool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name": *pool.Name,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		if pool.OverrideImage != nil {
-			spec["override_image"] = *pool.OverrideImage
-		}
-
-		spec["server_type"] = *pool.ServerType
-		spec["subnet_id"] = *pool.SubnetId
-		spec["min_size"] = *pool.MinSize
-		spec["max_size"] = *pool.MaxSize
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sOblivusNodePools(nodePools *[]client.Mk8sOblivusPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name": *pool.Name,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		spec["min_size"] = *pool.MinSize
-		spec["max_size"] = *pool.MaxSize
-		spec["flavor"] = *pool.Flavor
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sLambdalabsNodePools(nodePools *[]client.Mk8sLambdalabsPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name": *pool.Name,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		spec["min_size"] = *pool.MinSize
-		spec["max_size"] = *pool.MaxSize
-		spec["instance_type"] = *pool.InstanceType
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sPaperspaceNodePools(nodePools *[]client.Mk8sPaperspacePool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name":           *pool.Name,
-			"min_size":       *pool.MinSize,
-			"max_size":       *pool.MaxSize,
-			"public_ip_type": *pool.PublicIpType,
-			"machine_type":   *pool.MachineType,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		if pool.BootDiskSize != nil {
-			spec["boot_disk_size"] = *pool.BootDiskSize
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sEphemeralNodePools(nodePools *[]client.Mk8sEphemeralPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name":   *pool.Name,
-			"count":  *pool.Count,
-			"arch":   *pool.Arch,
-			"flavor": *pool.Flavor,
-			"cpu":    *pool.Cpu,
-			"memory": *pool.Memory,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sTritonNodePools(nodePools *[]client.Mk8sTritonPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name":       *pool.Name,
-			"package_id": *pool.PackageId,
-			"min_size":   *pool.MinSize,
-			"max_size":   *pool.MaxSize,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		if pool.OverrideImageId != nil {
-			spec["override_image_id"] = *pool.OverrideImageId
-		}
-
-		if pool.PublicNetworkId != nil {
-			spec["public_network_id"] = *pool.PublicNetworkId
-		}
-
-		if pool.PrivateNetworkIds != nil {
-			spec["private_network_ids"] = FlattenStringTypeSet(pool.PrivateNetworkIds)
-		}
-
-		if pool.TritonTags != nil {
-			spec["triton_tags"] = *pool.TritonTags
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sDigitalOceanNodePools(nodePools *[]client.Mk8sDigitalOceanPool) []interface{} {
-
-	if nodePools == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, pool := range *nodePools {
-
-		spec := map[string]interface{}{
-			"name":         *pool.Name,
-			"droplet_size": *pool.DropletSize,
-			"min_size":     *pool.MinSize,
-			"max_size":     *pool.MaxSize,
-		}
-
-		if pool.Labels != nil {
-			spec["labels"] = *pool.Labels
-		}
-
-		if pool.Taints != nil {
-			spec["taint"] = flattenMk8sTaints(pool.Taints)
-		}
-
-		if pool.OverrideImage != nil {
-			spec["override_image"] = *pool.OverrideImage
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-// AWS
-
-func flattenMk8sAwsAmi(ami *client.Mk8sAwsAmi) []interface{} {
-
-	if ami == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	if ami.Recommended != nil {
-		spec["recommended"] = *ami.Recommended
-	}
-
-	if ami.Exact != nil {
-		spec["exact"] = *ami.Exact
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sAwsDeployRoleChain(deployRoleChain *[]client.Mk8sAwsAssumeRoleLink) []interface{} {
-
-	if deployRoleChain == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, assumeRoleLink := range *deployRoleChain {
-
-		spec := map[string]interface{}{
-			"role_arn": *assumeRoleLink.RoleArn,
-		}
-
-		if assumeRoleLink.ExternalId != nil {
-			spec["external_id"] = *assumeRoleLink.ExternalId
-		}
-
-		if assumeRoleLink.SessionNamePrefix != nil {
-			spec["session_name_prefix"] = *assumeRoleLink.SessionNamePrefix
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-// Triton
-
-func flattenMk8sTritonConnection(connection *client.Mk8sTritonConnection) []interface{} {
-
-	if connection == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	spec["url"] = *connection.Url
-	spec["account"] = *connection.Account
-	spec["private_key_secret_link"] = *connection.PrivateKeySecretLink
-
-	if connection.User != nil {
-		spec["user"] = *connection.User
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sTritonLoadBalancer(loadBalancer *client.Mk8sTritonLoadBalancer) []interface{} {
-	if loadBalancer == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	if loadBalancer.Manual != nil {
-		spec["manual"] = flattenMk8sTritonManual(loadBalancer.Manual)
-	}
-
-	if loadBalancer.Gateway != nil {
-		spec["gateway"] = flattenMk8sTritonGateway(loadBalancer.Gateway)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sTritonManual(manual *client.Mk8sTritonManual) []interface{} {
-	if manual == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	spec["package_id"] = *manual.PackageId
-	spec["image_id"] = *manual.ImageId
-	spec["public_network_id"] = *manual.PublicNetworkId
-	spec["count"] = *manual.Count
-	spec["cns_internal_domain"] = *manual.CnsInternalDomain
-	spec["cns_public_domain"] = *manual.CnsPublicDomain
-
-	if manual.PrivateNetworkIds != nil {
-		spec["private_network_ids"] = FlattenStringTypeSet(manual.PrivateNetworkIds)
-	}
-
-	if manual.Metadata != nil {
-		spec["metadata"] = *manual.Metadata
-	}
-
-	if manual.Tags != nil {
-		spec["tags"] = *manual.Tags
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sTritonGateway(gateway *client.Mk8sTritonGateway) []interface{} {
-	if gateway == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-// Common
-
-func flattenMk8sNetworking(networking *client.Mk8sNetworkingConfig) []interface{} {
-
-	if networking == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	if networking.ServiceNetwork != nil {
-		spec["service_network"] = *networking.ServiceNetwork
-	}
-
-	if networking.PodNetwork != nil {
-		spec["pod_network"] = *networking.PodNetwork
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sTaints(taints *[]client.Mk8sTaint) []interface{} {
-
-	if taints == nil {
-		return nil
-	}
-
-	specs := []interface{}{}
-
-	for _, taint := range *taints {
-
-		spec := make(map[string]interface{})
-
-		if taint.Key != nil {
-			spec["key"] = *taint.Key
-		}
-
-		if taint.Value != nil {
-			spec["value"] = *taint.Value
-		}
-
-		if taint.Effect != nil {
-			spec["effect"] = *taint.Effect
-		}
-
-		specs = append(specs, spec)
-	}
-
-	return specs
-}
-
-func flattenMk8sAutoscaler(autoscaler *client.Mk8sAutoscalerConfig) []interface{} {
-
-	if autoscaler == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	if autoscaler.Expander != nil {
-		spec["expander"] = FlattenStringTypeSet(autoscaler.Expander)
-	}
-
-	if autoscaler.UnneededTime != nil {
-		spec["unneeded_time"] = *autoscaler.UnneededTime
-	}
-
-	if autoscaler.UnreadyTime != nil {
-		spec["unready_time"] = *autoscaler.UnreadyTime
-	}
-
-	if autoscaler.UtilizationThreshold != nil {
-		spec["utilization_threshold"] = *autoscaler.UtilizationThreshold
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-// Add On Helpers //
-
-func flattenMk8sAzureWorkloadIdentityAddOn(azureWorkloadIdentity *client.Mk8sAzureWorkloadIdentityAddOnConfig) []interface{} {
-
-	if azureWorkloadIdentity == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	if azureWorkloadIdentity.TenantId != nil {
-		spec["tenant_id"] = *azureWorkloadIdentity.TenantId
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sMetricsAddOn(metrics *client.Mk8sMetricsAddOnConfig) []interface{} {
-
-	if metrics == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	if metrics.KubeState != nil {
-		spec["kube_state"] = *metrics.KubeState
-	}
-
-	if metrics.CoreDns != nil {
-		spec["core_dns"] = *metrics.CoreDns
-	}
-
-	if metrics.Kubelet != nil {
-		spec["kubelet"] = *metrics.Kubelet
-	}
-
-	if metrics.Apiserver != nil {
-		spec["api_server"] = *metrics.Apiserver
-	}
-
-	if metrics.NodeExporter != nil {
-		spec["node_exporter"] = *metrics.NodeExporter
-	}
-
-	if metrics.Cadvisor != nil {
-		spec["cadvisor"] = *metrics.Cadvisor
-	}
-
-	if metrics.ScrapeAnnotated != nil {
-		spec["scrape_annotated"] = flattenMk8sMetricsScrapeAnnotated(metrics.ScrapeAnnotated)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sMetricsScrapeAnnotated(scrapeAnnotated *client.Mk8sMetricsScrapeAnnotated) []interface{} {
-
-	if scrapeAnnotated == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	if scrapeAnnotated.IntervalSeconds != nil {
-		spec["interval_seconds"] = *scrapeAnnotated.IntervalSeconds
-	}
-
-	if scrapeAnnotated.IncludeNamespaces != nil {
-		spec["include_namespaces"] = *scrapeAnnotated.IncludeNamespaces
-	}
-
-	if scrapeAnnotated.ExcludeNamespaces != nil {
-		spec["exclude_namespaces"] = *scrapeAnnotated.ExcludeNamespaces
-	}
-
-	if scrapeAnnotated.RetainLabels != nil {
-		spec["retain_labels"] = *scrapeAnnotated.RetainLabels
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sLogsAddOn(logs *client.Mk8sLogsAddOnConfig) []interface{} {
-
-	if logs == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	if logs.AuditEnabled != nil {
-		spec["audit_enabled"] = *logs.AuditEnabled
-	}
-
-	if logs.IncludeNamespaces != nil {
-		spec["include_namespaces"] = *logs.IncludeNamespaces
-	}
-
-	if logs.ExcludeNamespaces != nil {
-		spec["exclude_namespaces"] = *logs.ExcludeNamespaces
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sNvidiaAddOn(nvidia *client.Mk8sNvidiaAddOnConfig) []interface{} {
-
-	if nvidia == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	if nvidia.TaintGPUNodes != nil {
-		spec["taint_gpu_nodes"] = *nvidia.TaintGPUNodes
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sAwsAddOn(aws *client.Mk8sAwsAddOnConfig) []interface{} {
-
-	if aws == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"placeholder_attribute": true,
-	}
-
-	if aws.RoleArn != nil {
-		spec["role_arn"] = *aws.RoleArn
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sAzureAcrAddOn(azureAcr *client.Mk8sAzureACRAddOnConfig) []interface{} {
-
-	if azureAcr == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{
-		"client_id": *azureAcr.ClientId,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-// Status Helpers //
-
-// Add Ons
-
-func flattenMk8sAddOnsStatus(addOns *client.Mk8sStatusAddOns) []interface{} {
-
-	if addOns == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if addOns.Dashboard != nil {
-		spec["dashboard"] = flattenMk8sDashboardAddOnStatus(addOns.Dashboard)
-	}
-
-	if addOns.AwsWorkloadIdentity != nil {
-		spec["aws_workload_identity"] = flattenMk8sAwsWorkloadIdentityAddOnStatus(addOns.AwsWorkloadIdentity)
-	}
-
-	if addOns.Metrics != nil {
-		spec["metrics"] = flattenMk8sMetricsAddOnStatus(addOns.Metrics)
-	}
-
-	if addOns.Logs != nil {
-		spec["logs"] = flattenMk8sLogsAddOnStatus(addOns.Logs)
-	}
-
-	if addOns.AwsECR != nil {
-		spec["aws_ecr"] = flattenMk8sAwsAddOnStatus(addOns.AwsECR)
-	}
-
-	if addOns.AwsEFS != nil {
-		spec["aws_efs"] = flattenMk8sAwsAddOnStatus(addOns.AwsEFS)
-	}
-
-	if addOns.AwsELB != nil {
-		spec["aws_elb"] = flattenMk8sAwsAddOnStatus(addOns.AwsELB)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sDashboardAddOnStatus(dashboard *client.Mk8sDashboardAddOnStatus) []interface{} {
-
-	if dashboard == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if dashboard.Url != nil {
-		spec["url"] = *dashboard.Url
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sAwsWorkloadIdentityAddOnStatus(awsWorkloadIdentity *client.Mk8sAwsWorkloadIdentityAddOnStatus) []interface{} {
-
-	if awsWorkloadIdentity == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if awsWorkloadIdentity.OidcProviderConfig != nil {
-		spec["oidc_provider_config"] = flattenMk8sAwsOidcProviderConfigStatus(awsWorkloadIdentity.OidcProviderConfig)
-	}
-
-	if awsWorkloadIdentity.TrustPolicy != nil {
-		spec["trust_policy"] = flattenObjectUnknown(awsWorkloadIdentity.TrustPolicy)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sMetricsAddOnStatus(metrics *client.Mk8sMetricsAddOnStatus) []interface{} {
-
-	if metrics == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if metrics.PrometheusEndpoint != nil {
-		spec["prometheus_endpoint"] = *metrics.PrometheusEndpoint
-	}
-
-	if metrics.RemoteWriteConfig != nil {
-		spec["remote_write_config"] = flattenObjectUnknown(metrics.RemoteWriteConfig)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sLogsAddOnStatus(logs *client.Mk8sLogsAddOnStatus) []interface{} {
-
-	if logs == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if logs.LokiAddress != nil {
-		spec["loki_address"] = *logs.LokiAddress
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenMk8sAwsAddOnStatus(aws *client.Mk8sAwsAddOnStatus) []interface{} {
-
-	if aws == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if aws.TrustPolicy != nil {
-		spec["trust_policy"] = flattenObjectUnknown(aws.TrustPolicy)
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-// Other
-
-func flattenMk8sAwsOidcProviderConfigStatus(oidcProviderConfig *client.Mk8sOidcProviderConfig) []interface{} {
-
-	if oidcProviderConfig == nil {
-		return nil
-	}
-
-	spec := map[string]interface{}{}
-
-	if oidcProviderConfig.ProviderUrl != nil {
-		spec["provider_url"] = *oidcProviderConfig.ProviderUrl
-	}
-
-	if oidcProviderConfig.Audience != nil {
-		spec["audience"] = *oidcProviderConfig.Audience
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenObjectUnknown(unknown *map[string]interface{}) interface{} {
-
-	if unknown == nil {
-		return nil
-	}
-
-	// Convert map to JSON
-	jsonData, _ := json.Marshal(*unknown)
-
-	// Convert byte array to string
-	return string(jsonData)
-}
-
-/*** Schema Helpers ***/
-
-// Node Pools //
-
-func Mk8sGenericNodePoolSchema(description string) *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: description,
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
+			"generic_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"location": schema.StringAttribute{
+							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.",
+							Required:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"networking": mr.NetworkingSchema(),
+						"node_pool":  mr.GenericNodePoolSchema("List of node pools."),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
-		},
-	}
-}
-
-func Mk8sHetznerNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
-				"server_type": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
+			"hetzner_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"region": schema.StringAttribute{
+							Description: "Hetzner region to deploy nodes to.",
+							Required:    true,
+						},
+						"hetzner_labels": schema.MapAttribute{
+							Description: "Extra labels to attach to servers.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+						"token_secret_link": schema.StringAttribute{
+							Description: "Link to a secret holding Hetzner access key.",
+							Required:    true,
+						},
+						"network_id": schema.StringAttribute{
+							Description: "ID of the Hetzner network to deploy nodes to.",
+							Required:    true,
+						},
+						"firewall_id": schema.StringAttribute{
+							Description: "Optional firewall rule to attach to all nodes.",
+							Optional:    true,
+						},
+						"image": schema.StringAttribute{
+							Description: "Default image for all nodes.",
+							Optional:    true,
+							Computed:    true,
+							Default:     stringdefault.StaticString("ubuntu-20.04"),
+						},
+						"ssh_key": schema.StringAttribute{
+							Description: "SSH key name for accessing deployed nodes.",
+							Optional:    true,
+						},
+						"floating_ip_selector": schema.MapAttribute{
+							Description: "If supplied, nodes will get assigned a random floating ip matching the selector.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"networking": mr.NetworkingSchema(),
+						"node_pool": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"server_type": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"override_image": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"dedicated_server_node_pool": mr.GenericNodePoolSchema("Node pools that can configure dedicated Hetzner servers."),
+						"autoscaler":                 mr.AutoscalerSchema(),
+					},
 				},
-				"override_image": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
 			},
-		},
-	}
-}
-
-func Mk8sAwsNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
-				"instance_types": {
-					Type:        schema.TypeSet,
-					Description: "",
-					Required:    true,
-					Elem:        StringSchema(),
+			"aws_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"region": schema.StringAttribute{
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"aws_tags": schema.MapAttribute{
+							Description: "Extra tags to attach to all created objects.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"skip_create_roles": schema.BoolAttribute{
+							Description: "If true, Control Plane will not create any roles.",
+							Optional:    true,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+						"deploy_role_arn": schema.StringAttribute{
+							Description: "Control Plane will set up the cluster by assuming this role.",
+							Required:    true,
+						},
+						"vpc_id": schema.StringAttribute{
+							Description: "The vpc where nodes will be deployed. Supports SSM.",
+							Required:    true,
+						},
+						"key_pair": schema.StringAttribute{
+							Description: "Name of keyPair. Supports SSM",
+							Optional:    true,
+						},
+						"disk_encryption_key_arn": schema.StringAttribute{
+							Description: "KMS key used to encrypt volumes. Supports SSM.",
+							Optional:    true,
+						},
+						"security_group_ids": schema.SetAttribute{
+							Description: "Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"extra_node_policies": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"networking": mr.NetworkingSchema(),
+						"image":      mr.AwsAmiSchema(),
+						"deploy_role_chain": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"role_arn": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"external_id": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"session_name_prefix": schema.StringAttribute{
+										Description: "Control Plane will set up the cluster by assuming this role.",
+										Optional:    true,
+									},
+								},
+							},
+						},
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"instance_types": schema.SetAttribute{
+										Description: "",
+										ElementType: types.StringType,
+										Required:    true,
+									},
+									"boot_disk_size": schema.Int32Attribute{
+										Description: "Size in GB.",
+										Optional:    true,
+										Computed:    true,
+										Default:     int32default.StaticInt32(20),
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+									"on_demand_base_capacity": schema.Int32Attribute{
+										Description: "",
+										Optional:    true,
+										Computed:    true,
+										Default:     int32default.StaticInt32(0),
+									},
+									"on_demand_percentage_above_base_capacity": schema.Int32Attribute{
+										Description: "",
+										Optional:    true,
+										Computed:    true,
+										Default:     int32default.StaticInt32(0),
+									},
+									"spot_allocation_strategy": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+										Computed:    true,
+										Default:     stringdefault.StaticString("lowest-price"),
+									},
+									"subnet_ids": schema.SetAttribute{
+										Description: "",
+										ElementType: types.StringType,
+										Required:    true,
+									},
+									"extra_security_group_ids": schema.SetAttribute{
+										Description: "Security groups to deploy nodes to. Security groups control if the cluster is multi-zone or single-zon.",
+										ElementType: types.StringType,
+										Optional:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"taint":          mr.GenericNodePoolTaintsSchema(),
+									"override_image": mr.AwsAmiSchema(),
+								},
+							},
+						},
+						"autoscaler": mr.AutoscalerSchema(),
+					},
 				},
-				"override_image": Mk8sAwsAmiSchema(),
-				"boot_disk_size": {
-					Type:        schema.TypeInt,
-					Description: "Size in GB.",
-					Optional:    true,
-					Default:     20,
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-				"on_demand_base_capacity": {
-					Type:        schema.TypeInt,
-					Description: "",
-					Optional:    true,
-					Default:     0,
+			},
+			"linode_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"region": schema.StringAttribute{
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"token_secret_link": schema.StringAttribute{
+							Description: "Link to a secret holding Linode access key.",
+							Required:    true,
+						},
+						"firewall_id": schema.StringAttribute{
+							Description: "Optional firewall rule to attach to all nodes.",
+							Optional:    true,
+						},
+						"image": schema.StringAttribute{
+							Description: "Default image for all nodes.",
+							Required:    true,
+						},
+						"authorized_users": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"authorized_keys": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"vpc_id": schema.StringAttribute{
+							Description: "The vpc where nodes will be deployed. Supports SSM.",
+							Required:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+					},
+					Blocks: map[string]schema.Block{
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"server_type": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"override_image": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"subnet_id": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"networking": mr.NetworkingSchema(),
+						"autoscaler": mr.AutoscalerSchema(),
+					},
 				},
-				"on_demand_percentage_above_base_capacity": {
-					Type:        schema.TypeInt,
-					Description: "",
-					Optional:    true,
-					Default:     0,
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
-				"spot_allocation_strategy": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-					Default:     "lowest-price",
+			},
+			"oblivus_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"datacenter": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+						"token_secret_link": schema.StringAttribute{
+							Description: "Link to a secret holding Oblivus access key.",
+							Required:    true,
+						},
+						"ssh_keys": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+					},
+					Blocks: map[string]schema.Block{
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+									"flavor": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"unmanaged_node_pool": mr.GenericNodePoolSchema(""),
+						"autoscaler":          mr.AutoscalerSchema(),
+					},
 				},
-				"subnet_ids": {
-					Type:        schema.TypeSet,
-					Description: "",
-					Required:    true,
-					Elem:        StringSchema(),
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
-				"extra_security_group_ids": {
-					Type:        schema.TypeSet,
-					Description: "",
-					Optional:    true,
-					Elem:        StringSchema(),
+			},
+			"lambdalabs_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"region": schema.StringAttribute{
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"token_secret_link": schema.StringAttribute{
+							Description: "Link to a secret holding Lambdalabs access key.",
+							Required:    true,
+						},
+						"ssh_key": schema.StringAttribute{
+							Description: "SSH key name for accessing deployed nodes.",
+							Required:    true,
+						},
+						"file_systems": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+					},
+					Blocks: map[string]schema.Block{
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+									"instance_type": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"unmanaged_node_pool": mr.GenericNodePoolSchema(""),
+						"autoscaler":          mr.AutoscalerSchema(),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"paperspace_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"region": schema.StringAttribute{
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"token_secret_link": schema.StringAttribute{
+							Description: "Link to a secret holding Paperspace access key.",
+							Required:    true,
+						},
+						"shared_drives": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+						"user_ids": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"network_id": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+									"public_ip_type": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"boot_disk_size": schema.Int32Attribute{
+										Description: "",
+										Optional:    true,
+									},
+									"machine_type": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"autoscaler":          mr.AutoscalerSchema(),
+						"unmanaged_node_pool": mr.GenericNodePoolSchema(""),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"ephemeral_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"location": schema.StringAttribute{
+							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to where the nodes are running.",
+							Required:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"count": schema.Int32Attribute{
+										Description: "Number of nodes to deploy.",
+										Required:    true,
+									},
+									"arch": schema.StringAttribute{
+										Description: "CPU architecture of the nodes.",
+										Required:    true,
+									},
+									"flavor": schema.StringAttribute{
+										Description: "Linux distro to use for ephemeral nodes.",
+										Optional:    true,
+										Computed:    true,
+										Default:     stringdefault.StaticString("debian"),
+									},
+									"cpu": schema.StringAttribute{
+										Description: "Allocated CPU.",
+										Required:    true,
+									},
+									"memory": schema.StringAttribute{
+										Description: "Allocated memory.",
+										Required:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"triton_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"pre_install_script": mr.PreInstallScriptSchema(),
+						"location": schema.StringAttribute{
+							Description: "Control Plane location that will host the K8s components. Prefer one that is closest to the Triton datacenter.",
+							Required:    true,
+						},
+						"private_network_id": schema.StringAttribute{
+							Description: "ID of the private Fabric/Network.",
+							Required:    true,
+						},
+						"firewall_enabled": schema.BoolAttribute{
+							Description: "Enable firewall for the instances deployed.",
+							Optional:    true,
+						},
+						"image_id": schema.StringAttribute{
+							Description: "Default image for all nodes.",
+							Required:    true,
+						},
+						"ssh_keys": schema.SetAttribute{
+							Description: "Extra SSH keys to provision for user root.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"connection": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"url": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"account": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"user": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"private_key_secret_link": schema.StringAttribute{
+										Description: "Link to a SSH or opaque secret.",
+										Required:    true,
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtLeast(1),
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"networking": mr.NetworkingSchema(),
+						"load_balancer": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Blocks: map[string]schema.Block{
+									"manual": schema.ListNestedBlock{
+										Description: "",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"package_id": schema.StringAttribute{
+													Description: "",
+													Required:    true,
+												},
+												"image_id": schema.StringAttribute{
+													Description: "",
+													Required:    true,
+												},
+												"public_network_id": schema.StringAttribute{
+													Description: "If set, machine will also get a public IP.",
+													Required:    true,
+												},
+												"private_network_ids": schema.SetAttribute{
+													Description: "If set, machine will also get a public IP.",
+													ElementType: types.StringType,
+													Required:    true,
+												},
+												"metadata": schema.MapAttribute{
+													Description: "Extra tags to attach to instances from a node pool.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+												"tags": schema.MapAttribute{
+													Description: "Extra tags to attach to instances from a node pool.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+												"count": schema.Int32Attribute{
+													Description: "",
+													Optional:    true,
+													Computed:    true,
+													Default:     int32default.StaticInt32(1),
+													Validators: []validator.Int32{
+														int32validator.Between(1, 3),
+													},
+												},
+												"cns_internal_domain": schema.StringAttribute{
+													Description: "",
+													Required:    true,
+												},
+												"cns_public_domain": schema.StringAttribute{
+													Description: "",
+													Required:    true,
+												},
+											},
+											Validators: []validator.Object{
+												objectvalidator.ConflictsWith(
+													path.MatchRelative().AtParent().AtParent().AtName("gateway"),
+												),
+											},
+										},
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
+										},
+									},
+									"gateway": schema.ListNestedBlock{
+										Description: "",
+										NestedObject: schema.NestedBlockObject{
+											Validators: []validator.Object{
+												objectvalidator.ConflictsWith(
+													path.MatchRelative().AtParent().AtParent().AtName("manual"),
+												),
+											}},
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
+										},
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtLeast(1),
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"node_pool": schema.ListNestedBlock{
+							Description: "List of node pools.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"package_id": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"override_image_id": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"public_network_id": schema.StringAttribute{
+										Description: "If set, machine will also get a public IP.",
+										Optional:    true,
+									},
+									"private_network_ids": schema.SetAttribute{
+										Description: "More private networks to join.",
+										ElementType: types.StringType,
+										Optional:    true,
+									},
+									"triton_tags": schema.MapAttribute{
+										Description: "Extra tags to attach to instances from a node pool.",
+										ElementType: types.StringType,
+										Optional:    true,
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"autoscaler": mr.AutoscalerSchema(),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"azure_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"location": schema.StringAttribute{
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"subscription_id": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+						"sdk_secret_link": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+						"resource_group": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+						"ssh_keys": schema.SetAttribute{
+							Description: `SSH keys to install for "azureuser" linux user`,
+							ElementType: types.StringType,
+							Required:    true,
+						},
+						"network_id": schema.StringAttribute{
+							Description: "The vpc where nodes will be deployed.",
+							Required:    true,
+						},
+						"tags": schema.MapAttribute{
+							Description: "Extra tags to attach to all created objects.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"networking": mr.NetworkingSchema(),
+						"image":      mr.AzureImageSchema("Default image for all nodes."),
+						"node_pool": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"size": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"subnet_id": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"zones": schema.SetAttribute{
+										Description: "",
+										ElementType: types.Int32Type,
+										Required:    true,
+									},
+									"boot_disk_size": schema.Int32Attribute{
+										Description: "",
+										Required:    true,
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+								},
+								Blocks: map[string]schema.Block{
+									"taint":          mr.GenericNodePoolTaintsSchema(),
+									"override_image": mr.AzureImageSchema(""),
+								},
+							},
+						},
+						"autoscaler": mr.AutoscalerSchema(),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"digital_ocean_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"region": schema.StringAttribute{
+							Description: "Region to deploy nodes to.",
+							Required:    true,
+						},
+						"digital_ocean_tags": schema.SetAttribute{
+							Description: "Extra tags to attach to droplets.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+						"token_secret_link": schema.StringAttribute{
+							Description: "Link to a secret holding personal access token.",
+							Required:    true,
+						},
+						"vpc_id": schema.StringAttribute{
+							Description: "ID of the Hetzner network to deploy nodes to.",
+							Required:    true,
+						},
+						"image": schema.StringAttribute{
+							Description: "Default image for all nodes.",
+							Required:    true,
+						},
+						"ssh_keys": schema.SetAttribute{
+							Description: "SSH key name for accessing deployed nodes.",
+							ElementType: types.StringType,
+							Required:    true,
+						},
+						"extra_ssh_keys": schema.SetAttribute{
+							Description: "Extra SSH keys to provision for user root that are not registered in the DigitalOcean.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"reserved_ips": schema.SetAttribute{
+							Description: "Optional set of IPs to assign as extra IPs for nodes of the cluster.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"networking": mr.NetworkingSchema(),
+						"node_pool": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"droplet_size": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+									"override_image": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+								},
+								Blocks: map[string]schema.Block{
+									"taint": mr.GenericNodePoolTaintsSchema(),
+								},
+							},
+						},
+						"autoscaler": mr.AutoscalerSchema(),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"add_ons": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"dashboard": schema.BoolAttribute{
+							Description: "",
+							Optional:    true,
+						},
+						"aws_workload_identity": schema.BoolAttribute{
+							Description: "",
+							Optional:    true,
+						},
+						"local_path_storage": schema.BoolAttribute{
+							Description: "",
+							Optional:    true,
+						},
+						"sysbox": schema.BoolAttribute{
+							Description: "",
+							Optional:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"azure_workload_identity": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"tenant_id": schema.StringAttribute{
+										Description: "Tenant ID to use for workload identity.",
+										Optional:    true,
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"metrics": schema.ListNestedBlock{
+							Description: "Scrape pods annotated with prometheus.io/scrape=true",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"kube_state": schema.BoolAttribute{
+										Description: "Enable kube-state metrics.",
+										Optional:    true,
+									},
+									"core_dns": schema.BoolAttribute{
+										Description: "Enable scraping of core-dns service.",
+										Optional:    true,
+									},
+									"kubelet": schema.BoolAttribute{
+										Description: "Enable scraping kubelet stats.",
+										Optional:    true,
+									},
+									"api_server": schema.BoolAttribute{
+										Description: "Enable scraping apiserver stats.",
+										Optional:    true,
+									},
+									"node_exporter": schema.BoolAttribute{
+										Description: "Enable collecting node-level stats (disk, network, filesystem, etc).",
+										Optional:    true,
+									},
+									"cadvisor": schema.BoolAttribute{
+										Description: "Enable CNI-level container stats.",
+										Optional:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"scrape_annotated": schema.ListNestedBlock{
+										Description: "",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"interval_seconds": schema.Int32Attribute{
+													Description: "",
+													Optional:    true,
+													Computed:    true,
+													Default:     int32default.StaticInt32(30),
+												},
+												"include_namespaces": schema.StringAttribute{
+													Description: "",
+													Optional:    true,
+												},
+												"exclude_namespaces": schema.StringAttribute{
+													Description: "",
+													Optional:    true,
+												},
+												"retain_labels": schema.StringAttribute{
+													Description: "",
+													Optional:    true,
+												},
+											},
+										},
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
+										},
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"logs": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"audit_enabled": schema.BoolAttribute{
+										Description: "Collect k8s audit log as log events.",
+										Optional:    true,
+									},
+									"include_namespaces": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"exclude_namespaces": schema.StringAttribute{
+										Description: "",
+										Optional:    true,
+									},
+									"docker": schema.BoolAttribute{
+										Description: "Collect docker logs if docker is also running.",
+										Optional:    true,
+									},
+									"kubelet": schema.BoolAttribute{
+										Description: "Collect kubelet logs from journald.",
+										Optional:    true,
+									},
+									"kernel": schema.BoolAttribute{
+										Description: "Collect kernel logs.",
+										Optional:    true,
+									},
+									"events": schema.BoolAttribute{
+										Description: "Collect K8S events from all namespaces.",
+										Optional:    true,
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"nvidia": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"taint_gpu_nodes": schema.BoolAttribute{
+										Description: "",
+										Optional:    true,
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"aws_efs": mr.HasRoleArnSchema("Use this role for EFS interaction."),
+						"aws_ecr": mr.HasRoleArnSchema("Role to use when authorizing ECR pulls. Optional on AWS, in which case it will use the instance role to pull."),
+						"aws_elb": mr.HasRoleArnSchema("Role to use when authorizing calls to EC2 ELB. Optional on AWS, when not provided it will create the recommended role."),
+						"azure_acr": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"client_id": schema.StringAttribute{
+										Description: "",
+										Required:    true,
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
 			},
 		},
 	}
 }
 
-func Mk8sLinodeNodePoolSchema() *schema.Schema {
+// ConfigValidators enforces mutual exclusivity between attributes.
+func (mr *Mk8sResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	expressions := []path.Expression{
+		path.MatchRoot("generic_provider"),
+		path.MatchRoot("hetzner_provider"),
+		path.MatchRoot("aws_provider"),
+		path.MatchRoot("linode_provider"),
+		path.MatchRoot("oblivus_provider"),
+		path.MatchRoot("lambdalabs_provider"),
+		path.MatchRoot("paperspace_provider"),
+		path.MatchRoot("ephemeral_provider"),
+		path.MatchRoot("triton_provider"),
+		path.MatchRoot("azure_provider"),
+		path.MatchRoot("digital_ocean_provider"),
+	}
 
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
-				"server_type": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-				"override_image": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-				"subnet_id": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-			},
-		},
+	return []resource.ConfigValidator{
+		resourcevalidator.ExactlyOneOf(expressions...),
 	}
 }
 
-func Mk8sOblivusNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":     Mk8sGenericNodePoolNameSchema(),
-				"labels":   Mk8sGenericNodePoolLabelsSchema(),
-				"taint":    Mk8sGenericNodePoolTaintsSchema(),
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-				"flavor": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-			},
-		},
-	}
+// Create creates the resource.
+func (mr *Mk8sResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, mr.Operations)
 }
 
-func Mk8sPaperspaceNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":     Mk8sGenericNodePoolNameSchema(),
-				"labels":   Mk8sGenericNodePoolLabelsSchema(),
-				"taint":    Mk8sGenericNodePoolTaintsSchema(),
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-				"public_ip_type": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-				"boot_disk_size": {
-					Type:        schema.TypeInt,
-					Description: "",
-					Optional:    true,
-				},
-				"machine_type": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-			},
-		},
-	}
+// Read fetches the current state of the resource.
+func (mr *Mk8sResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, mr.Operations)
 }
 
-func Mk8sLambdalabsNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":     Mk8sGenericNodePoolNameSchema(),
-				"labels":   Mk8sGenericNodePoolLabelsSchema(),
-				"taint":    Mk8sGenericNodePoolTaintsSchema(),
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-				"instance_type": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-			},
-		},
-	}
+// Update modifies the resource.
+func (mr *Mk8sResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, mr.Operations)
 }
 
-func Mk8sEphemeralNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
-				"count": {
-					Type:        schema.TypeInt,
-					Description: "Number of nodes to deploy.",
-					Required:    true,
-				},
-				"arch": {
-					Type:        schema.TypeString,
-					Description: "CPU architecture of the nodes.",
-					Required:    true,
-				},
-				"flavor": {
-					Type:        schema.TypeString,
-					Description: "Linux distro to use for ephemeral nodes.",
-					Required:    true,
-				},
-				"cpu": {
-					Type:        schema.TypeString,
-					Description: "Allocated CPU.",
-					Required:    true,
-				},
-				"memory": {
-					Type:        schema.TypeString,
-					Description: "Allocated memory.",
-					Required:    true,
-				},
-			},
-		},
-	}
+// Delete removes the resource.
+func (mr *Mk8sResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, mr.Operations)
 }
 
-func Mk8sTritonNodePoolSchema() *schema.Schema {
+/*** Schemas ***/
 
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
-				"package_id": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-				"override_image_id": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-				"public_network_id": {
-					Type:        schema.TypeString,
-					Description: "If set, machine will also get a public IP.",
-					Optional:    true,
-				},
-				"private_network_ids": {
-					Type:        schema.TypeSet,
-					Description: "More private networks to join.",
-					Optional:    true,
-					Elem:        StringSchema(),
-				},
-				"triton_tags": {
-					Type:        schema.TypeMap,
-					Description: "Extra tags to attach to instances from a node pool.",
-					Optional:    true,
-					Elem:        StringSchema(),
-				},
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-			},
-		},
-	}
-}
-
-func Mk8sDigitalOceanNodePoolSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "List of node pools.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name":   Mk8sGenericNodePoolNameSchema(),
-				"labels": Mk8sGenericNodePoolLabelsSchema(),
-				"taint":  Mk8sGenericNodePoolTaintsSchema(),
-				"droplet_size": {
-					Type:        schema.TypeString,
-					Description: "",
-					Required:    true,
-				},
-				"override_image": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-				"min_size": Mk8sGenericNodePoolMinSizeSchema(),
-				"max_size": Mk8sGenericNodePoolMaxSizeSchema(),
-			},
-		},
-	}
-}
-
-// Node Pools Helpers //
-
-func Mk8sGenericNodePoolNameSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeString,
+// NetworkingSchema returns the schema for the networking nested block.
+func (mr *Mk8sResource) NetworkingSchema() schema.ListNestedBlock {
+	return schema.ListNestedBlock{
 		Description: "",
-		Required:    true,
-	}
-}
-
-func Mk8sGenericNodePoolLabelsSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeMap,
-		Description: "Labels to attach to nodes of a node pool.",
-		Optional:    true,
-		Elem:        StringSchema(),
-	}
-}
-
-func Mk8sGenericNodePoolTaintsSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "Taint for the nodes of a pool.",
-		Optional:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"key": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-				"value": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-				"effect": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-			},
-		},
-	}
-}
-
-func Mk8sGenericNodePoolMinSizeSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeInt,
-		Description: "",
-		Optional:    true,
-		Default:     0,
-	}
-}
-
-func Mk8sGenericNodePoolMaxSizeSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeInt,
-		Description: "",
-		Optional:    true,
-		Default:     0,
-	}
-}
-
-// AWS Helpers //
-
-func Mk8sAwsAmiSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "Default image for all nodes.",
-		Required:    true,
-		MaxItems:    1,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"recommended": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-				},
-				"exact": {
-					Type:        schema.TypeString,
-					Description: "Support SSM.",
-					Optional:    true,
-				},
-			},
-		},
-	}
-}
-
-func Mk8sHasRoleArnSchema(description string) *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "",
-		Optional:    true,
-		MaxItems:    1,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"role_arn": {
-					Type:        schema.TypeString,
-					Description: description,
-					Optional:    true,
-				},
-				"placeholder_attribute": {
-					Type:     schema.TypeBool,
-					Optional: true,
-					Default:  true,
-				},
-			},
-		},
-	}
-}
-
-// Common //
-
-func Mk8sNetworkingSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeList,
-		Description: "",
-		Required:    true,
-		MaxItems:    1,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"service_network": {
-					Type:        schema.TypeString,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"service_network": schema.StringAttribute{
 					Description: "The CIDR of the service network.",
 					Optional:    true,
-					Default:     "10.43.0.0/16",
+					Computed:    true,
+					Default:     stringdefault.StaticString("10.43.0.0/16"),
 				},
-				"pod_network": {
-					Type:        schema.TypeString,
+				"pod_network": schema.StringAttribute{
 					Description: "The CIDR of the pod network.",
 					Optional:    true,
-					Default:     "10.42.0.0/16",
+					Computed:    true,
+					Default:     stringdefault.StaticString("10.42.0.0/16"),
+				},
+				"dns_forwarder": schema.StringAttribute{
+					Description: "DNS forwarder used by the cluster. Can be a space-delimited list of dns servers. Default is /etc/resolv.conf when not specified.",
+					Optional:    true,
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtLeast(1),
+			listvalidator.SizeAtMost(1),
+			listvalidator.IsRequired(),
+		},
+	}
+}
+
+// GenericNodePoolSchema returns the schema for a generic node pool nested block.
+func (mr *Mk8sResource) GenericNodePoolSchema(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"name":   mr.GenericNodePoolNameSchema(),
+				"labels": mr.GenericNodePoolLabelsSchema(),
+			},
+			Blocks: map[string]schema.Block{
+				"taint": mr.GenericNodePoolTaintsSchema(),
+			},
+		},
+	}
+}
+
+// GenericNodePoolNameSchema returns the schema for the generic node pool name attribute.
+func (mr *Mk8sResource) GenericNodePoolNameSchema() schema.StringAttribute {
+	return schema.StringAttribute{
+		Description: "",
+		Required:    true,
+	}
+}
+
+// GenericNodePoolLabelsSchema returns the schema for the generic node pool labels attribute.
+func (mr *Mk8sResource) GenericNodePoolLabelsSchema() schema.MapAttribute {
+	return schema.MapAttribute{
+		Description: "Labels to attach to nodes of a node pool.",
+		ElementType: types.StringType,
+		Optional:    true,
+	}
+}
+
+// GenericNodePoolTaintsSchema returns the schema for the generic node pool taints nested block.
+func (mr *Mk8sResource) GenericNodePoolTaintsSchema() schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: "Taint for the nodes of a pool.",
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"key": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+				},
+				"value": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+				},
+				"effect": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
 				},
 			},
 		},
 	}
 }
 
-func Mk8sAutoscalerSchema() *schema.Schema {
-
-	return &schema.Schema{
-		Type:        schema.TypeList,
+// GenericNodePoolMinSizeSchema returns the schema for the generic node pool minimum size attribute.
+func (mr *Mk8sResource) GenericNodePoolMinSizeSchema() schema.Int32Attribute {
+	return schema.Int32Attribute{
 		Description: "",
 		Optional:    true,
-		MaxItems:    1,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"expander": {
-					Type:        schema.TypeSet,
-					Description: "",
-					Required:    true,
-					Elem:        StringSchema(),
-				},
-				"unneeded_time": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-					Default:     "10m",
-				},
-				"unready_time": {
-					Type:        schema.TypeString,
-					Description: "",
-					Optional:    true,
-					Default:     "20m",
-				},
-				"utilization_threshold": {
-					Type:        schema.TypeFloat,
-					Description: "",
-					Optional:    true,
-					Default:     0.7,
-				},
-			},
-		},
+		Computed:    true,
+		Default:     int32default.StaticInt32(0),
 	}
 }
 
-func Mk8sPreInstallScriptSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeString,
+// GenericNodePoolMaxSizeSchema returns the schema for the generic node pool maximum size attribute.
+func (mr *Mk8sResource) GenericNodePoolMaxSizeSchema() schema.Int32Attribute {
+	return schema.Int32Attribute{
+		Description: "",
+		Optional:    true,
+		Computed:    true,
+		Default:     int32default.StaticInt32(0),
+	}
+}
+
+// PreInstallScriptSchema returns the schema for the pre-installation script attribute.
+func (mr *Mk8sResource) PreInstallScriptSchema() schema.StringAttribute {
+	return schema.StringAttribute{
 		Description: "Optional shell script that will be run before K8s is installed. Supports SSM.",
 		Optional:    true,
 	}
 }
 
-// Status //
+// AutoscalerSchema returns the schema for the cluster autoscaler nested block.
+func (mr *Mk8sResource) AutoscalerSchema() schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: "",
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"expander": schema.SetAttribute{
+					Description: "",
+					ElementType: types.StringType,
+					Optional:    true,
+					Computed:    true,
+					Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{types.StringValue("most-pods")})),
+				},
+				"unneeded_time": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+					Computed:    true,
+					Default:     stringdefault.StaticString("10m"),
+				},
+				"unready_time": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+					Computed:    true,
+					Default:     stringdefault.StaticString("20m"),
+				},
+				"utilization_threshold": schema.Float64Attribute{
+					Description: "",
+					Optional:    true,
+					Computed:    true,
+					Default:     float64default.StaticFloat64(0.7),
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtMost(1),
+		},
+	}
+}
 
-func Mk8sObjectUnknownStatusSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeString,
+// AwsAmiSchema returns the schema for the AWS AMI nested block.
+func (mr *Mk8sResource) AwsAmiSchema() schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: "Default image for all nodes.",
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"recommended": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+				},
+				"exact": schema.StringAttribute{
+					Description: "Support SSM.",
+					Optional:    true,
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtLeast(1),
+			listvalidator.SizeAtMost(1),
+		},
+	}
+}
+
+// HasRoleArnSchema returns the schema for the nested block that specifies a role ARN.
+func (mr *Mk8sResource) HasRoleArnSchema(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: "",
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"role_arn": schema.StringAttribute{
+					Description: description,
+					Optional:    true,
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtMost(1),
+		},
+	}
+}
+
+// ObjectUnknownStatusSchema returns the schema for an object’s unknown status attribute.
+func (mr *Mk8sResource) ObjectUnknownStatusSchema() schema.StringAttribute {
+	return schema.StringAttribute{
 		Description: "",
 		Computed:    true,
 	}
 }
 
-func Mk8sAwsAddOnStatusSchema() *schema.Schema {
-	return &schema.Schema{
-		Type:        schema.TypeList,
+// AwsAddOnStatusSchema returns the schema for the AWS add-on status nested attribute.
+func (mr *Mk8sResource) AwsAddOnStatusSchema() schema.ListNestedAttribute {
+	return schema.ListNestedAttribute{
 		Description: "",
 		Computed:    true,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"trust_policy": Mk8sObjectUnknownStatusSchema(),
+		NestedObject: schema.NestedAttributeObject{
+			Attributes: map[string]schema.Attribute{
+				"trust_policy": mr.ObjectUnknownStatusSchema(),
 			},
 		},
 	}
+}
+
+// AzureImageSchema returns a ListNestedBlock describing Azure VM image configuration with either a recommended image or a specific reference.
+func (mr *Mk8sResource) AzureImageSchema(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"recommended": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+				},
+			},
+			Blocks: map[string]schema.Block{
+				"reference": schema.ListNestedBlock{
+					Description: "",
+					NestedObject: schema.NestedBlockObject{
+						Attributes: map[string]schema.Attribute{
+							"publisher": schema.StringAttribute{
+								Description: "",
+								Required:    true,
+							},
+							"offer": schema.StringAttribute{
+								Description: "",
+								Required:    true,
+							},
+							"sku": schema.StringAttribute{
+								Description: "",
+								Required:    true,
+							},
+							"version": schema.StringAttribute{
+								Description: "",
+								Required:    true,
+							},
+						},
+					},
+					Validators: []validator.List{
+						listvalidator.SizeAtMost(1),
+					},
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtLeast(1),
+			listvalidator.SizeAtMost(1),
+			listvalidator.ExactlyOneOf(
+				path.MatchRelative().AtName("recommended"),
+				path.MatchRelative().AtName("reference"),
+			),
+		},
+	}
+}
+
+/*** Resource Operator ***/
+
+// Mk8sResourceOperator is the operator for managing the state.
+type Mk8sResourceOperator struct {
+	EntityOperator[Mk8sResourceModel]
+}
+
+// NewAPIRequest creates a request payload from a state model.
+func (mro *Mk8sResourceOperator) NewAPIRequest(isUpdate bool) client.Mk8s {
+	// Initialize a new request payload
+	requestPayload := client.Mk8s{}
+
+	// Initialize the Mk8s spec struct
+	var spec *client.Mk8sSpec = &client.Mk8sSpec{
+		Provider: &client.Mk8sProvider{},
+	}
+
+	// Populate Base fields from state
+	mro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Assignt he spec to the appropriate attribute
+	if isUpdate {
+		requestPayload.SpecReplace = spec
+	} else {
+		requestPayload.Spec = spec
+	}
+
+	// Set specific attributes
+	spec.Version = BuildString(mro.Plan.Version)
+	spec.Firewall = mro.buildFirewall(mro.Plan.Firewall)
+	spec.Provider.Generic = mro.buildGenericProvider(mro.Plan.GenericProvider)
+	spec.Provider.Hetzner = mro.buildHetznerProvider(mro.Plan.HetznerProvider)
+	spec.Provider.Aws = mro.buildAwsProvider(mro.Plan.AwsProvider)
+	spec.Provider.Linode = mro.buildLinodeProvider(mro.Plan.LinodeProvider)
+	spec.Provider.Oblivus = mro.buildOblivusProvider(mro.Plan.OblivusProvider)
+	spec.Provider.Lambdalabs = mro.buildLambdalabsProvider(mro.Plan.LambdalabsProvider)
+	spec.Provider.Paperspace = mro.buildPaperspaceProvider(mro.Plan.PaperspaceProvider)
+	spec.Provider.Ephemeral = mro.buildEphemeralProvider(mro.Plan.EphemeralProvider)
+	spec.Provider.Triton = mro.buildTritonProvider(mro.Plan.TritonProvider)
+	spec.Provider.Azure = mro.buildAzureProvider(mro.Plan.AzureProvider)
+	spec.Provider.DigitalOcean = mro.buildDigitalOceanProvider(mro.Plan.DigitalOceanProvider)
+	spec.AddOns = mro.buildAddOns(mro.Plan.AddOns)
+
+	// Return constructed request payload
+	return requestPayload
+}
+
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func (mro *Mk8sResourceOperator) MapResponseToState(apiResp *client.Mk8s, isCreate bool) Mk8sResourceModel {
+	// Initialize empty state model
+	state := Mk8sResourceModel{}
+
+	// Populate common fields from base resource data
+	state.From(apiResp.Base)
+
+	// Set specific attributes
+	state.Alias = types.StringPointerValue(apiResp.Alias)
+	state.Version = types.StringPointerValue(apiResp.Spec.Version)
+	state.Firewall = mro.flattenFirewall(apiResp.Spec.Firewall)
+	state.GenericProvider = mro.flattenGenericProvider(apiResp.Spec.Provider.Generic)
+	state.HetznerProvider = mro.flattenHetznerProvider(apiResp.Spec.Provider.Hetzner)
+	state.AwsProvider = mro.flattenAwsProvider(apiResp.Spec.Provider.Aws)
+	state.LinodeProvider = mro.flattenLinodeProvider(apiResp.Spec.Provider.Linode)
+	state.OblivusProvider = mro.flattenOblivusProvider(apiResp.Spec.Provider.Oblivus)
+	state.LambdalabsProvider = mro.flattenLambdalabsProvider(apiResp.Spec.Provider.Lambdalabs)
+	state.PaperspaceProvider = mro.flattenPaperspaceProvider(apiResp.Spec.Provider.Paperspace)
+	state.EphemeralProvider = mro.flattenEphemeralProvider(apiResp.Spec.Provider.Ephemeral)
+	state.TritonProvider = mro.flattenTritonProvider(apiResp.Spec.Provider.Triton)
+	state.AzureProvider = mro.flattenAzureProvider(apiResp.Spec.Provider.Azure)
+	state.DigitalOceanProvider = mro.flattenDigitalOceanProvider(apiResp.Spec.Provider.DigitalOcean)
+	state.AddOns = mro.flattenAddOns(apiResp.Spec.AddOns)
+	state.Status = mro.flattenStatus(apiResp.Status)
+
+	// Return completed state model
+	return state
+}
+
+// InvokeCreate invokes the Create API to create a new resource.
+func (mro *Mk8sResourceOperator) InvokeCreate(req client.Mk8s) (*client.Mk8s, int, error) {
+	return mro.Client.CreateMk8s(req)
+}
+
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (mro *Mk8sResourceOperator) InvokeRead(name string) (*client.Mk8s, int, error) {
+	return mro.Client.GetMk8s(name)
+}
+
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (mro *Mk8sResourceOperator) InvokeUpdate(req client.Mk8s) (*client.Mk8s, int, error) {
+	return mro.Client.UpdateMk8s(req)
+}
+
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (mro *Mk8sResourceOperator) InvokeDelete(name string) error {
+	return mro.Client.DeleteMk8s(name)
+}
+
+// Builders //
+
+// buildFirewall constructs a []client.Mk8sFirewallRule from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildFirewall(state []models.FirewallModel) *[]client.Mk8sFirewallRule {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sFirewallRule{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sFirewallRule{
+			SourceCIDR:  BuildString(block.SourceCIDR),
+			Description: BuildString(block.Description),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildNetworking constructs a Mk8sNetworkingConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildNetworking(state []models.NetworkingModel) *client.Mk8sNetworkingConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sNetworkingConfig{
+		ServiceNetwork: BuildString(block.ServiceNetwork),
+		PodNetwork:     BuildString(block.PodNetwork),
+		DnsForwarder:   BuildString(block.DnsForwarder),
+	}
+}
+
+// buildAutoscaler constructs a Mk8sAutoscalerConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAutoscaler(state []models.AutoscalerModel) *client.Mk8sAutoscalerConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAutoscalerConfig{
+		Expander:             mro.BuildSetString(block.Expander),
+		UnneededTime:         BuildString(block.UnneededTime),
+		UnreadyTime:          BuildString(block.UnreadyTime),
+		UtilizationThreshold: BuildFloat64(block.UtilizationThreshold),
+	}
+}
+
+// buildGenericProvider constructs a Mk8sGenericProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGenericProvider(state []models.GenericProviderModel) *client.Mk8sGenericProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sGenericProvider{
+		Location:   BuildString(block.Location),
+		Networking: mro.buildNetworking(block.Networking),
+		NodePools:  mro.buildGenericProviderNodePools(block.NodePools),
+	}
+}
+
+// buildGenericProviderNodePools constructs a []client.Mk8sGenericPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGenericProviderNodePools(state []models.GenericProviderNodePoolModel) *[]client.Mk8sGenericPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sGenericPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sGenericPool{
+			Name:   BuildString(block.Name),
+			Labels: mro.BuildMapString(block.Labels),
+			Taints: mro.buildGenericProviderNodePoolTaints(block.Taints),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildGenericProviderNodePoolTaints constructs a []client.Mk8sTaint from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGenericProviderNodePoolTaints(state []models.GenericProviderNodePoolTaintModel) *[]client.Mk8sTaint {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sTaint{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sTaint{
+			Key:    BuildString(block.Key),
+			Value:  BuildString(block.Value),
+			Effect: BuildString(block.Effect),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildHetznerProvider constructs a Mk8sHetznerProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildHetznerProvider(state []models.HetznerProviderModel) *client.Mk8sHetznerProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sHetznerProvider{
+		Region:                   BuildString(block.Region),
+		HetznerLabels:            mro.BuildMapString(block.HetznerLabels),
+		Networking:               mro.buildNetworking(block.Networking),
+		PreInstallScript:         BuildString(block.PreInstallScript),
+		TokenSecretLink:          BuildString(block.TokenSecretLink),
+		NetworkId:                BuildString(block.NetworkId),
+		FirewallId:               BuildString(block.FirewallId),
+		NodePools:                mro.buildHetznerProviderNodePools(block.NodePools),
+		DedicatedServerNodePools: mro.buildGenericProviderNodePools(block.DedicatedServerNodePools),
+		Image:                    BuildString(block.Image),
+		SshKey:                   BuildString(block.SshKey),
+		Autoscaler:               mro.buildAutoscaler(block.Autoscaler),
+		FloatingIpSelector:       mro.BuildMapString(block.FloatingIpSelector),
+	}
+}
+
+// buildHetznerProviderNodePools constructs a []client.Mk8sHetznerPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildHetznerProviderNodePools(state []models.HetznerProviderNodePoolModel) *[]client.Mk8sHetznerPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sHetznerPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sHetznerPool{
+			ServerType:    BuildString(block.ServerType),
+			OverrideImage: BuildString(block.OverrideImage),
+			MinSize:       BuildInt(block.MinSize),
+			MaxSize:       BuildInt(block.MaxSize),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildAwsProvider constructs a Mk8sAwsProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAwsProvider(state []models.AwsProviderModel) *client.Mk8sAwsProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAwsProvider{
+		Region:               BuildString(block.Region),
+		AwsTags:              mro.BuildMapString(block.AwsTags),
+		SkipCreateRoles:      BuildBool(block.SkipCreateRoles),
+		Networking:           mro.buildNetworking(block.Networking),
+		PreInstallScript:     BuildString(block.PreInstallScript),
+		Image:                mro.buildAwsAmi(block.Image),
+		DeployRoleArn:        BuildString(block.DeployRoleArn),
+		DeployRoleChain:      mro.buildAwsAssumeRoleLink(block.DeployRoleChain),
+		VpcId:                BuildString(block.VpcId),
+		KeyPair:              BuildString(block.KeyPair),
+		DiskEncryptionKeyArn: BuildString(block.DiskEncryptionKeyArn),
+		SecurityGroupIds:     mro.BuildSetString(block.SecurityGroupIds),
+		ExtraNodePolicies:    mro.BuildSetString(block.ExtraNodePolicies),
+		NodePools:            mro.buildAwsProviderNodePools(block.NodePools),
+		Autoscaler:           mro.buildAutoscaler(block.Autoscaler),
+	}
+}
+
+// buildAwsAmi constructs a Mk8sAwsAmi from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAwsAmi(state []models.AwsProviderAmiModel) *client.Mk8sAwsAmi {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAwsAmi{
+		Recommended: BuildString(block.Recommended),
+		Exact:       BuildString(block.Exact),
+	}
+}
+
+// buildAwsAssumeRoleLink constructs a []client.Mk8sAwsAssumeRoleLink from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAwsAssumeRoleLink(state []models.AwsProviderAssumeRoleLinkModel) *[]client.Mk8sAwsAssumeRoleLink {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sAwsAssumeRoleLink{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sAwsAssumeRoleLink{
+			RoleArn:           BuildString(block.RoleArn),
+			ExternalId:        BuildString(block.ExternalId),
+			SessionNamePrefix: BuildString(block.SessionNamePrefix),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildAwsProviderNodePools constructs a []client.Mk8sAwsPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAwsProviderNodePools(state []models.AwsProviderNodePoolModel) *[]client.Mk8sAwsPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sAwsPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sAwsPool{
+			InstanceTypes:                       mro.BuildSetString(block.InstanceTypes),
+			OverrideImage:                       mro.buildAwsAmi(block.OverrideImage),
+			BootDiskSize:                        BuildInt(block.BootDiskSize),
+			MinSize:                             BuildInt(block.MinSize),
+			MaxSize:                             BuildInt(block.MaxSize),
+			OnDemandBaseCapacity:                BuildInt(block.OnDemandBaseCapacity),
+			OnDemandPercentageAboveBaseCapacity: BuildInt(block.OnDemandPercentageAboveBaseCapacity),
+			SpotAllocationStrategy:              BuildString(block.SpotAllocationStrategy),
+			SubnetIds:                           mro.BuildSetString(block.SubnetIds),
+			ExtraSecurityGroupIds:               mro.BuildSetString(block.ExtraSecurityGroupIds),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildLinodeProvider constructs a Mk8sLinodeProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildLinodeProvider(state []models.LinodeProviderModel) *client.Mk8sLinodeProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sLinodeProvider{
+		Region:           BuildString(block.Region),
+		TokenSecretLink:  BuildString(block.TokenSecretLink),
+		FirewallId:       BuildString(block.FirewallId),
+		NodePools:        mro.buildLinodeProviderNodePools(block.NodePools),
+		Image:            BuildString(block.Image),
+		AuthorizedUsers:  mro.BuildSetString(block.AuthorizedUsers),
+		AuthorizedKeys:   mro.BuildSetString(block.AuthorizedKeys),
+		VpcId:            BuildString(block.VpcId),
+		PreInstallScript: BuildString(block.PreInstallScript),
+		Networking:       mro.buildNetworking(block.Networking),
+		Autoscaler:       mro.buildAutoscaler(block.Autoscaler),
+	}
+}
+
+// buildLinodeProviderNodePools constructs a []client.Mk8sLinodePool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildLinodeProviderNodePools(state []models.LinodeProviderNodePoolModel) *[]client.Mk8sLinodePool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sLinodePool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sLinodePool{
+			ServerType:    BuildString(block.ServerType),
+			OverrideImage: BuildString(block.OverrideImage),
+			SubnetId:      BuildString(block.SubnetId),
+			MinSize:       BuildInt(block.MinSize),
+			MaxSize:       BuildInt(block.MaxSize),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildOblivusProvider constructs a Mk8sOblivusProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildOblivusProvider(state []models.OblivusProviderModel) *client.Mk8sOblivusProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sOblivusProvider{
+		Datacenter:         BuildString(block.Datacenter),
+		TokenSecretLink:    BuildString(block.TokenSecretLink),
+		NodePools:          mro.buildOblivusProviderNodePools(block.NodePools),
+		SshKeys:            mro.BuildSetString(block.SshKeys),
+		UnmanagedNodePools: mro.buildGenericProviderNodePools(block.UnmanagedNodePool),
+		Autoscaler:         mro.buildAutoscaler(block.Autoscaler),
+		PreInstallScript:   BuildString(block.PreInstallScript),
+	}
+}
+
+// buildOblivusProviderNodePools constructs a []client.Mk8sOblivusPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildOblivusProviderNodePools(state []models.OblivusProviderNodePoolModel) *[]client.Mk8sOblivusPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sOblivusPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sOblivusPool{
+			MinSize: BuildInt(block.MinSize),
+			MaxSize: BuildInt(block.MaxSize),
+			Flavor:  BuildString(block.Flavor),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildLambdalabsProvider constructs a Mk8sLambdalabsProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildLambdalabsProvider(state []models.LambdalabsProviderModel) *client.Mk8sLambdalabsProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sLambdalabsProvider{
+		Region:             BuildString(block.Region),
+		TokenSecretLink:    BuildString(block.TokenSecretLink),
+		NodePools:          mro.buildLambdalabsProviderNodePools(block.NodePools),
+		SshKey:             BuildString(block.SshKey),
+		UnmanagedNodePools: mro.buildGenericProviderNodePools(block.UnmanagedNodePools),
+		Autoscaler:         mro.buildAutoscaler(block.Autoscaler),
+		FileSystems:        mro.BuildSetString(block.FileSystems),
+		PreInstallScript:   BuildString(block.PreInstallScript),
+	}
+}
+
+// buildLambdalabsProviderNodePools constructs a []client.Mk8sLambdalabsPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildLambdalabsProviderNodePools(state []models.LambdalabsProviderNodePoolModel) *[]client.Mk8sLambdalabsPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sLambdalabsPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sLambdalabsPool{
+			MinSize:      BuildInt(block.MinSize),
+			MaxSize:      BuildInt(block.MaxSize),
+			InstanceType: BuildString(block.InstanceType),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildPaperspaceProvider constructs a Mk8sPaperspaceProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildPaperspaceProvider(state []models.PaperspaceProviderModel) *client.Mk8sPaperspaceProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sPaperspaceProvider{
+		Region:             BuildString(block.Region),
+		TokenSecretLink:    BuildString(block.TokenSecretLink),
+		SharedDrives:       mro.BuildSetString(block.SharedDrives),
+		NodePools:          mro.buildPaperspaceProviderNodePools(block.NodePools),
+		Autoscaler:         mro.buildAutoscaler(block.Autoscaler),
+		UnmanagedNodePools: mro.buildGenericProviderNodePools(block.UnmanagedNodePools),
+		PreInstallScript:   BuildString(block.PreInstallScript),
+		UserIds:            mro.BuildSetString(block.UserIds),
+		NetworkId:          BuildString(block.NetworkId),
+	}
+}
+
+// buildPaperspaceProviderNodePools constructs a []client.Mk8sPaperspacePool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildPaperspaceProviderNodePools(state []models.PaperspaceProviderNodePoolModel) *[]client.Mk8sPaperspacePool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sPaperspacePool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sPaperspacePool{
+			MinSize:      BuildInt(block.MinSize),
+			MaxSize:      BuildInt(block.MaxSize),
+			PublicIpType: BuildString(block.PublicIpType),
+			BootDiskSize: BuildInt(block.BootDiskSize),
+			MachineType:  BuildString(block.MachineType),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildEphemeralProvider constructs a Mk8sEphemeralProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildEphemeralProvider(state []models.EphemeralProviderModel) *client.Mk8sEphemeralProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sEphemeralProvider{
+		Location:  BuildString(block.Location),
+		NodePools: mro.buildEphemeralProviderNodePools(block.NodePools),
+	}
+}
+
+// buildEphemeralProviderNodePools constructs a []client.Mk8sEphemeralPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildEphemeralProviderNodePools(state []models.EphemeralProviderNodePoolModel) *[]client.Mk8sEphemeralPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sEphemeralPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sEphemeralPool{
+			Count:  BuildInt(block.Count),
+			Arch:   BuildString(block.Arch),
+			Flavor: BuildString(block.Flavor),
+			Cpu:    BuildString(block.Cpu),
+			Memory: BuildString(block.Memory),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildTritonProvider constructs a Mk8sTritonProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProvider(state []models.TritonProviderModel) *client.Mk8sTritonProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sTritonProvider{
+		Connection:       mro.buildTritonProviderConnection(block.Connection),
+		Networking:       mro.buildNetworking(block.Networking),
+		PreInstallScript: BuildString(block.PreInstallScript),
+		Location:         BuildString(block.Location),
+		LoadBalancer:     mro.buildTritonProviderLoadBalancer(block.LoadBalancer),
+		PrivateNetworkId: BuildString(block.PrivateNetworkId),
+		FirewallEnabled:  BuildBool(block.FirewallEnabled),
+		NodePools:        mro.buildTritonProviderNodePools(block.NodePools),
+		ImageId:          BuildString(block.ImageId),
+		SshKeys:          mro.BuildSetString(block.SshKeys),
+		Autoscaler:       mro.buildAutoscaler(block.Autoscaler),
+	}
+}
+
+// buildTritonProviderConnection constructs a Mk8sTritonConnection from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderConnection(state []models.TritonProviderConnectionModel) *client.Mk8sTritonConnection {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sTritonConnection{
+		Url:                  BuildString(block.Url),
+		Account:              BuildString(block.Account),
+		User:                 BuildString(block.User),
+		PrivateKeySecretLink: BuildString(block.PrivateKeySecretLink),
+	}
+}
+
+// buildTritonProviderLoadBalancer constructs a Mk8sTritonLoadBalancer from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancer(state []models.TritonProviderLoadBalancerModel) *client.Mk8sTritonLoadBalancer {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sTritonLoadBalancer{
+		Manual:  mro.buildTritonProviderLoadBalancerManual(block.Manual),
+		Gateway: mro.buildTritonProviderLoadBalancerGateway(block.Gateway),
+	}
+}
+
+// buildTritonProviderLoadBalancerManual constructs a Mk8sTritonManual from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerManual(state []models.TritonProviderLoadBalancerManualModel) *client.Mk8sTritonManual {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sTritonManual{
+		PackageId:         BuildString(block.PackageId),
+		ImageId:           BuildString(block.ImageId),
+		PublicNetworkId:   BuildString(block.PublicNetworkId),
+		PrivateNetworkIds: mro.BuildSetString(block.PrivateNetworkIds),
+		Metadata:          mro.BuildMapString(block.Metadata),
+		Tags:              mro.BuildMapString(block.Tags),
+		Count:             BuildInt(block.Count),
+		CnsInternalDomain: BuildString(block.CnsInternalDomain),
+		CnsPublicDomain:   BuildString(block.CnsPublicDomain),
+	}
+}
+
+// buildTritonProviderLoadBalancerGateway constructs a Mk8sTritonGateway from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerGateway(state []models.TritonProviderLoadBalancerGatewayModel) *client.Mk8sTritonGateway {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sTritonGateway{}
+}
+
+// buildTritonProviderNodePools constructs a []client.Mk8sTritonPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderNodePools(state []models.TritonProviderNodePoolModel) *[]client.Mk8sTritonPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sTritonPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sTritonPool{
+			PackageId:         BuildString(block.PackageId),
+			OverrideImageId:   BuildString(block.OverrideImageId),
+			PublicNetworkId:   BuildString(block.PublicNetworkId),
+			PrivateNetworkIds: mro.BuildSetString(block.PrivateNetworkIds),
+			TritonTags:        mro.BuildMapString(block.TritonTags),
+			MinSize:           BuildInt(block.MinSize),
+			MaxSize:           BuildInt(block.MaxSize),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildAzureProvider constructs a Mk8sAzureProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAzureProvider(state []models.AzureProviderModel) *client.Mk8sAzureProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAzureProvider{
+		Location:         BuildString(block.Location),
+		SubscriptionId:   BuildString(block.SubscriptionId),
+		SdkSecretLink:    BuildString(block.SdkSecretLink),
+		ResourceGroup:    BuildString(block.ResourceGroup),
+		Networking:       mro.buildNetworking(block.Networking),
+		PreInstallScript: BuildString(block.PreInstallScript),
+		Image:            mro.buildAzureProviderImage(block.Image),
+		SshKeys:          mro.BuildSetString(block.SshKeys),
+		NetworkId:        BuildString(block.NetworkId),
+		Tags:             mro.BuildMapString(block.Tags),
+		NodePools:        mro.buildAzureProviderNodePools(block.NodePools),
+		Autoscaler:       mro.buildAutoscaler(block.Autoscaler),
+	}
+}
+
+// buildAzureProviderImage constructs a Mk8sAzureImage from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAzureProviderImage(state []models.AzureProviderImageModel) *client.Mk8sAzureImage {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAzureImage{
+		Recommended: BuildString(block.Recommended),
+		Reference:   mro.buildAzureProviderImageReference(block.Reference),
+	}
+}
+
+// buildAzureProviderImageReference constructs a Mk8sAzureImageReference from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAzureProviderImageReference(state []models.AzureProviderImageReferenceModel) *client.Mk8sAzureImageReference {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAzureImageReference{
+		Publisher: BuildString(block.Publisher),
+		Offer:     BuildString(block.Offer),
+		Sku:       BuildString(block.Sku),
+		Version:   BuildString(block.Version),
+	}
+}
+
+// buildAzureProviderNodePools constructs a []client.Mk8sAzurePool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAzureProviderNodePools(state []models.AzureProviderNodePoolModel) *[]client.Mk8sAzurePool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sAzurePool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sAzurePool{
+			Size:          BuildString(block.Size),
+			SubnetId:      BuildString(block.SubnetId),
+			Zones:         mro.BuildSetInt(block.Zones),
+			OverrideImage: mro.buildAzureProviderImage(block.OverrideImage),
+			BootDiskSize:  BuildInt(block.BootDiskSize),
+			MinSize:       BuildInt(block.MinSize),
+			MaxSize:       BuildInt(block.MaxSize),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildDigitalOceanProvider constructs a Mk8sDigitalOceanProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildDigitalOceanProvider(state []models.DigitalOceanProviderModel) *client.Mk8sDigitalOceanProvider {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sDigitalOceanProvider{
+		Region:           BuildString(block.Region),
+		DigitalOceanTags: mro.BuildSetString(block.DigitalOceanTags),
+		Networking:       mro.buildNetworking(block.Networking),
+		PreInstallScript: BuildString(block.PreInstallScript),
+		TokenSecretLink:  BuildString(block.TokenSecretLink),
+		VpcId:            BuildString(block.VpcId),
+		NodePools:        mro.buildDigitalOceanProviderNodePools(block.NodePools),
+		Image:            BuildString(block.Image),
+		SshKeys:          mro.BuildSetString(block.SshKeys),
+		ExtraSshKeys:     mro.BuildSetString(block.ExtraSshKeys),
+		Autoscaler:       mro.buildAutoscaler(block.Autoscaler),
+		ReservedIps:      mro.BuildSetString(block.ReservedIps),
+	}
+}
+
+// buildDigitalOceanProviderNodePools constructs a []client.Mk8sDigitalOceanPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildDigitalOceanProviderNodePools(state []models.DigitalOceanProviderNodePoolModel) *[]client.Mk8sDigitalOceanPool {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sDigitalOceanPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sDigitalOceanPool{
+			DropletSize:   BuildString(block.DropletSize),
+			OverrideImage: BuildString(block.OverrideImage),
+			MinSize:       BuildInt(block.MinSize),
+			MaxSize:       BuildInt(block.MaxSize),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildAddOns constructs a Mk8sSpecAddOns from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOns(state []models.AddOnsModel) *client.Mk8sSpecAddOns {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sSpecAddOns{
+		Dashboard:             mro.buildAddOnConfig(block.Dashboard),
+		AzureWorkloadIdentity: mro.buildAddOnAzureWorkloadIdentity(block.AzureWorkloadIdentity),
+		AwsWorkloadIdentity:   mro.buildAddOnConfig(block.AwsWorkloadIdentity),
+		LocalPathStorage:      mro.buildAddOnConfig(block.LocalPathStorage),
+		Metrics:               mro.buildAddOnMetrics(block.Metrics),
+		Logs:                  mro.buildAddOnLogs(block.Logs),
+		Nvidia:                mro.buildAddOnNvidia(block.Nvidia),
+		AwsEFS:                mro.buildAddOnAwsConfig(block.AwsEFS),
+		AwsECR:                mro.buildAddOnAwsConfig(block.AwsECR),
+		AwsELB:                mro.buildAddOnAwsConfig(block.AwsELB),
+		AzureACR:              mro.buildAddOnAzureAcr(block.AzureACR),
+		Sysbox:                mro.buildAddOnConfig(block.Sysbox),
+	}
+}
+
+// buildAddOnConfig builds a non-customizable addon configuration based on the provided state.
+func (mro *Mk8sResourceOperator) buildAddOnConfig(state types.Bool) *client.Mk8sNonCustomizableAddonConfig {
+	// Convert the Terraform bool value to a Go *bool
+	isEnabled := BuildBool(state)
+
+	// If the AddOn flag exists and is true, return a new config to enable the AddOn
+	if isEnabled != nil && *isEnabled {
+		return &client.Mk8sNonCustomizableAddonConfig{}
+	}
+
+	// Return nil to indicate the AddOn is disabled
+	return nil
+}
+
+// buildAddOnAzureWorkloadIdentity constructs a Mk8sAzureWorkloadIdentityAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnAzureWorkloadIdentity(state []models.AddOnAzureWorkloadIdentityModel) *client.Mk8sAzureWorkloadIdentityAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAzureWorkloadIdentityAddOnConfig{
+		TenantId: BuildString(block.TenantId),
+	}
+}
+
+// buildAddOnMetrics constructs a Mk8sMetricsAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnMetrics(state []models.AddOnsMetricsModel) *client.Mk8sMetricsAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sMetricsAddOnConfig{
+		KubeState:       BuildBool(block.KubeState),
+		CoreDns:         BuildBool(block.CoreDns),
+		Kubelet:         BuildBool(block.Kubelet),
+		Apiserver:       BuildBool(block.Apiserver),
+		NodeExporter:    BuildBool(block.NodeExporter),
+		Cadvisor:        BuildBool(block.Cadvisor),
+		ScrapeAnnotated: mro.buildAddOnMetricsScrapeAnnotated(block.ScrapeAnnotated),
+	}
+}
+
+// buildAddOnMetricsScrapeAnnotated constructs a Mk8sMetricsScrapeAnnotated from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnMetricsScrapeAnnotated(state []models.AddOnsMetricsScrapeAnnotatedModel) *client.Mk8sMetricsScrapeAnnotated {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sMetricsScrapeAnnotated{
+		IntervalSeconds:   BuildInt(block.IntervalSeconds),
+		IncludeNamespaces: BuildString(block.IncludeNamespaces),
+		ExcludeNamespaces: BuildString(block.ExcludeNamespaces),
+		RetainLabels:      BuildString(block.RetainLabels),
+	}
+}
+
+// buildAddOnLogs constructs a Mk8sLogsAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnLogs(state []models.AddOnsLogsModel) *client.Mk8sLogsAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sLogsAddOnConfig{
+		AuditEnabled:      BuildBool(block.AuditEnabled),
+		IncludeNamespaces: BuildString(block.IncludeNamespaaces),
+		ExcludeNamespaces: BuildString(block.ExcludeNamespaces),
+		Docker:            BuildBool(block.Docker),
+		Kubelet:           BuildBool(block.Kubelet),
+		Kernel:            BuildBool(block.Kernel),
+		Events:            BuildBool(block.Events),
+	}
+}
+
+// buildAddOnNvidia constructs a Mk8sNvidiaAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnNvidia(state []models.AddOnsNvidiaModel) *client.Mk8sNvidiaAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sNvidiaAddOnConfig{
+		TaintGPUNodes: BuildBool(block.TaintGpuNodes),
+	}
+}
+
+// buildAddOnAwsConfig constructs a Mk8sAwsAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnAwsConfig(state []models.AddOnsHasRoleArnModel) *client.Mk8sAwsAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAwsAddOnConfig{
+		RoleArn: BuildString(block.RoleArn),
+	}
+}
+
+// buildAddOnAzureAcr constructs a Mk8sAzureACRAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnAzureAcr(state []models.AddOnsAzureAcrModel) *client.Mk8sAzureACRAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sAzureACRAddOnConfig{
+		ClientId: BuildString(block.ClientId),
+	}
+}
+
+// Flatteners //
+
+// flattenFirewall transforms *[]client.Mk8sFirewallRule into a []models.FirewallModel.
+func (mro *Mk8sResourceOperator) flattenFirewall(input *[]client.Mk8sFirewallRule) []models.FirewallModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.FirewallModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.FirewallModel{
+			SourceCIDR:  types.StringPointerValue(item.SourceCIDR),
+			Description: types.StringPointerValue(item.Description),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenNetworking transforms *client.Mk8sNetworkingConfig into a []models.NetworkingModel.
+func (mro *Mk8sResourceOperator) flattenNetworking(input *client.Mk8sNetworkingConfig) []models.NetworkingModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.NetworkingModel{
+		ServiceNetwork: types.StringPointerValue(input.ServiceNetwork),
+		PodNetwork:     types.StringPointerValue(input.PodNetwork),
+		DnsForwarder:   types.StringPointerValue(input.DnsForwarder),
+	}
+
+	// Return a slice containing the single block
+	return []models.NetworkingModel{block}
+}
+
+// flattenAutoscaler transforms *client.Mk8sAutoscalerConfig into a []models.AutoscalerModel.
+func (mro *Mk8sResourceOperator) flattenAutoscaler(input *client.Mk8sAutoscalerConfig) []models.AutoscalerModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AutoscalerModel{
+		Expander:             FlattenSetString(input.Expander),
+		UnneededTime:         types.StringPointerValue(input.UnneededTime),
+		UnreadyTime:          types.StringPointerValue(input.UnreadyTime),
+		UtilizationThreshold: FlattenFloat64(input.UtilizationThreshold),
+	}
+
+	// Return a slice containing the single block
+	return []models.AutoscalerModel{block}
+}
+
+// flattenGenericProvider transforms *client.Mk8sGenericProvider into a []models.GenericProviderModel.
+func (mro *Mk8sResourceOperator) flattenGenericProvider(input *client.Mk8sGenericProvider) []models.GenericProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.GenericProviderModel{
+		Location:   types.StringPointerValue(input.Location),
+		Networking: mro.flattenNetworking(input.Networking),
+		NodePools:  mro.flattenGenericProviderNodePools(input.NodePools),
+	}
+
+	// Return a slice containing the single block
+	return []models.GenericProviderModel{block}
+}
+
+// flattenGenericProviderNodePools transforms *[]client.Mk8sGenericPool into a []models.GenericProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenGenericProviderNodePools(input *[]client.Mk8sGenericPool) []models.GenericProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.GenericProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.GenericProviderNodePoolModel{
+			Name:   types.StringPointerValue(item.Name),
+			Labels: FlattenMapString(item.Labels),
+			Taints: mro.flattenGenericProviderNodePoolTaints(item.Taints),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenGenericProviderNodePoolTaints transforms *[]client.Mk8sTaint into a []models.GenericProviderNodePoolTaintModel.
+func (mro *Mk8sResourceOperator) flattenGenericProviderNodePoolTaints(input *[]client.Mk8sTaint) []models.GenericProviderNodePoolTaintModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.GenericProviderNodePoolTaintModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.GenericProviderNodePoolTaintModel{
+			Key:    types.StringPointerValue(item.Key),
+			Value:  types.StringPointerValue(item.Value),
+			Effect: types.StringPointerValue(item.Effect),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenHetznerProvider transforms *client.Mk8sHetznerProvider into a []models.HetznerProviderModel.
+func (mro *Mk8sResourceOperator) flattenHetznerProvider(input *client.Mk8sHetznerProvider) []models.HetznerProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.HetznerProviderModel{
+		Region:                   types.StringPointerValue(input.Region),
+		HetznerLabels:            FlattenMapString(input.HetznerLabels),
+		Networking:               mro.flattenNetworking(input.Networking),
+		PreInstallScript:         types.StringPointerValue(input.PreInstallScript),
+		TokenSecretLink:          types.StringPointerValue(input.TokenSecretLink),
+		NetworkId:                types.StringPointerValue(input.NetworkId),
+		FirewallId:               types.StringPointerValue(input.FirewallId),
+		NodePools:                mro.flattenHetznerProviderNodePools(input.NodePools),
+		DedicatedServerNodePools: mro.flattenGenericProviderNodePools(input.DedicatedServerNodePools),
+		Image:                    types.StringPointerValue(input.Image),
+		SshKey:                   types.StringPointerValue(input.SshKey),
+		Autoscaler:               mro.flattenAutoscaler(input.Autoscaler),
+		FloatingIpSelector:       FlattenMapString(input.FloatingIpSelector),
+	}
+
+	// Return a slice containing the single block
+	return []models.HetznerProviderModel{block}
+}
+
+// flattenHetznerProviderNodePools transforms *[]client.Mk8sHetznerPool into a []models.HetznerProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenHetznerProviderNodePools(input *[]client.Mk8sHetznerPool) []models.HetznerProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.HetznerProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.HetznerProviderNodePoolModel{
+			ServerType:    types.StringPointerValue(item.ServerType),
+			OverrideImage: types.StringPointerValue(item.OverrideImage),
+			MinSize:       FlattenInt(item.MinSize),
+			MaxSize:       FlattenInt(item.MaxSize),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenAwsProvider transforms *client.Mk8sAwsProvider into a []models.AwsProviderModel.
+func (mro *Mk8sResourceOperator) flattenAwsProvider(input *client.Mk8sAwsProvider) []models.AwsProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AwsProviderModel{
+		Region:               types.StringPointerValue(input.Region),
+		AwsTags:              FlattenMapString(input.AwsTags),
+		SkipCreateRoles:      types.BoolPointerValue(input.SkipCreateRoles),
+		Networking:           mro.flattenNetworking(input.Networking),
+		PreInstallScript:     types.StringPointerValue(input.PreInstallScript),
+		Image:                mro.flattenAwsAmi(input.Image),
+		DeployRoleArn:        types.StringPointerValue(input.DeployRoleArn),
+		DeployRoleChain:      mro.flattenAwsAssumeRoleLink(input.DeployRoleChain),
+		VpcId:                types.StringPointerValue(input.VpcId),
+		KeyPair:              types.StringPointerValue(input.KeyPair),
+		DiskEncryptionKeyArn: types.StringPointerValue(input.DiskEncryptionKeyArn),
+		SecurityGroupIds:     FlattenSetString(input.SecurityGroupIds),
+		ExtraNodePolicies:    FlattenSetString(input.ExtraNodePolicies),
+		NodePools:            mro.flattenAwsProviderNodePools(input.NodePools),
+		Autoscaler:           mro.flattenAutoscaler(input.Autoscaler),
+	}
+
+	// Return a slice containing the single block
+	return []models.AwsProviderModel{block}
+}
+
+// flattenAwsAmi transforms *client.Mk8sAwsAmi into a []models.AwsProviderAmiModel.
+func (mro *Mk8sResourceOperator) flattenAwsAmi(input *client.Mk8sAwsAmi) []models.AwsProviderAmiModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AwsProviderAmiModel{
+		Recommended: types.StringPointerValue(input.Recommended),
+		Exact:       types.StringPointerValue(input.Exact),
+	}
+
+	// Return a slice containing the single block
+	return []models.AwsProviderAmiModel{block}
+}
+
+// flattenAwsAssumeRoleLink transforms *[]client.Mk8sAwsAssumeRoleLink into a []models.AwsProviderAssumeRoleLinkModel.
+func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAwsAssumeRoleLink) []models.AwsProviderAssumeRoleLinkModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.AwsProviderAssumeRoleLinkModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.AwsProviderAssumeRoleLinkModel{
+			RoleArn:           types.StringPointerValue(item.RoleArn),
+			ExternalId:        types.StringPointerValue(item.ExternalId),
+			SessionNamePrefix: types.StringPointerValue(item.SessionNamePrefix),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenAwsProviderNodePools transforms *[]client.Mk8sAwsPool into a []models.AwsProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8sAwsPool) []models.AwsProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.AwsProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.AwsProviderNodePoolModel{
+			InstanceTypes:                       FlattenSetString(item.InstanceTypes),
+			OverrideImage:                       mro.flattenAwsAmi(item.OverrideImage),
+			BootDiskSize:                        FlattenInt(item.BootDiskSize),
+			MinSize:                             FlattenInt(item.MinSize),
+			MaxSize:                             FlattenInt(item.MaxSize),
+			OnDemandBaseCapacity:                FlattenInt(item.OnDemandBaseCapacity),
+			OnDemandPercentageAboveBaseCapacity: FlattenInt(item.OnDemandPercentageAboveBaseCapacity),
+			SpotAllocationStrategy:              types.StringPointerValue(item.SpotAllocationStrategy),
+			SubnetIds:                           FlattenSetString(item.SubnetIds),
+			ExtraSecurityGroupIds:               FlattenSetString(item.ExtraSecurityGroupIds),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenLinodeProvider transforms *client.Mk8sLinodeProvider into a []models.LinodeProviderModel.
+func (mro *Mk8sResourceOperator) flattenLinodeProvider(input *client.Mk8sLinodeProvider) []models.LinodeProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.LinodeProviderModel{
+		Region:           types.StringPointerValue(input.Region),
+		TokenSecretLink:  types.StringPointerValue(input.TokenSecretLink),
+		FirewallId:       types.StringPointerValue(input.FirewallId),
+		NodePools:        mro.flattenLinodeProviderNodePools(input.NodePools),
+		Image:            types.StringPointerValue(input.Image),
+		AuthorizedUsers:  FlattenSetString(input.AuthorizedUsers),
+		AuthorizedKeys:   FlattenSetString(input.AuthorizedKeys),
+		VpcId:            types.StringPointerValue(input.VpcId),
+		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
+		Networking:       mro.flattenNetworking(input.Networking),
+		Autoscaler:       mro.flattenAutoscaler(input.Autoscaler),
+	}
+
+	// Return a slice containing the single block
+	return []models.LinodeProviderModel{block}
+}
+
+// flattenLinodeProviderNodePools transforms *[]client.Mk8sLinodePool into a []models.LinodeProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenLinodeProviderNodePools(input *[]client.Mk8sLinodePool) []models.LinodeProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.LinodeProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.LinodeProviderNodePoolModel{
+			ServerType:    types.StringPointerValue(item.ServerType),
+			OverrideImage: types.StringPointerValue(item.OverrideImage),
+			SubnetId:      types.StringPointerValue(item.SubnetId),
+			MinSize:       FlattenInt(item.MinSize),
+			MaxSize:       FlattenInt(item.MaxSize),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenOblivusProvider transforms *client.Mk8sOblivusProvider into a []models.OblivusProviderModel.
+func (mro *Mk8sResourceOperator) flattenOblivusProvider(input *client.Mk8sOblivusProvider) []models.OblivusProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.OblivusProviderModel{
+		Datacenter:        types.StringPointerValue(input.Datacenter),
+		TokenSecretLink:   types.StringPointerValue(input.TokenSecretLink),
+		NodePools:         mro.flattenOblivusProviderNodePools(input.NodePools),
+		SshKeys:           FlattenSetString(input.SshKeys),
+		UnmanagedNodePool: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
+		Autoscaler:        mro.flattenAutoscaler(input.Autoscaler),
+		PreInstallScript:  types.StringPointerValue(input.PreInstallScript),
+	}
+
+	// Return a slice containing the single block
+	return []models.OblivusProviderModel{block}
+}
+
+// flattenOblivusProviderNodePools transforms *[]client.Mk8sOblivusPool into a []models.OblivusProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenOblivusProviderNodePools(input *[]client.Mk8sOblivusPool) []models.OblivusProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.OblivusProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.OblivusProviderNodePoolModel{
+			MinSize: FlattenInt(item.MinSize),
+			MaxSize: FlattenInt(item.MaxSize),
+			Flavor:  types.StringPointerValue(item.Flavor),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenLambdalabsProvider transforms *client.Mk8sLambdalabsProvider into a []models.LambdalabsProviderModel.
+func (mro *Mk8sResourceOperator) flattenLambdalabsProvider(input *client.Mk8sLambdalabsProvider) []models.LambdalabsProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.LambdalabsProviderModel{
+		Region:             types.StringPointerValue(input.Region),
+		TokenSecretLink:    types.StringPointerValue(input.TokenSecretLink),
+		NodePools:          mro.flattenLambdalabsProviderNodePools(input.NodePools),
+		SshKey:             types.StringPointerValue(input.SshKey),
+		UnmanagedNodePools: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
+		Autoscaler:         mro.flattenAutoscaler(input.Autoscaler),
+		FileSystems:        FlattenSetString(input.FileSystems),
+		PreInstallScript:   types.StringPointerValue(input.PreInstallScript),
+	}
+
+	// Return a slice containing the single block
+	return []models.LambdalabsProviderModel{block}
+}
+
+// flattenLambdalabsProviderNodePools transforms *[]client.Mk8sLambdalabsPool into a []models.LambdalabsProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenLambdalabsProviderNodePools(input *[]client.Mk8sLambdalabsPool) []models.LambdalabsProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.LambdalabsProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.LambdalabsProviderNodePoolModel{
+			MinSize:      FlattenInt(item.MinSize),
+			MaxSize:      FlattenInt(item.MaxSize),
+			InstanceType: types.StringPointerValue(item.InstanceType),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenPaperspaceProvider transforms *client.Mk8sPaperspaceProvider into a []models.PaperspaceProviderModel.
+func (mro *Mk8sResourceOperator) flattenPaperspaceProvider(input *client.Mk8sPaperspaceProvider) []models.PaperspaceProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.PaperspaceProviderModel{
+		Region:             types.StringPointerValue(input.Region),
+		TokenSecretLink:    types.StringPointerValue(input.TokenSecretLink),
+		SharedDrives:       FlattenSetString(input.SharedDrives),
+		NodePools:          mro.flattenPaperspaceProviderNodePools(input.NodePools),
+		Autoscaler:         mro.flattenAutoscaler(input.Autoscaler),
+		UnmanagedNodePools: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
+		PreInstallScript:   types.StringPointerValue(input.PreInstallScript),
+		UserIds:            FlattenSetString(input.UserIds),
+		NetworkId:          types.StringPointerValue(input.NetworkId),
+	}
+
+	// Return a slice containing the single block
+	return []models.PaperspaceProviderModel{block}
+}
+
+// flattenPaperspaceProviderNodePools transforms *[]client.Mk8sPaperspacePool into a []models.PaperspaceProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenPaperspaceProviderNodePools(input *[]client.Mk8sPaperspacePool) []models.PaperspaceProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.PaperspaceProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.PaperspaceProviderNodePoolModel{
+			MinSize:      FlattenInt(item.MinSize),
+			MaxSize:      FlattenInt(item.MaxSize),
+			PublicIpType: types.StringPointerValue(item.PublicIpType),
+			BootDiskSize: FlattenInt(item.BootDiskSize),
+			MachineType:  types.StringPointerValue(item.MachineType),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenEphemeralProvider transforms *client.Mk8sEphemeralProvider into a []models.EphemeralProviderModel.
+func (mro *Mk8sResourceOperator) flattenEphemeralProvider(input *client.Mk8sEphemeralProvider) []models.EphemeralProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.EphemeralProviderModel{
+		Location:  types.StringPointerValue(input.Location),
+		NodePools: mro.flattenEphemeralProviderNodePools(input.NodePools),
+	}
+
+	// Return a slice containing the single block
+	return []models.EphemeralProviderModel{block}
+}
+
+// flattenEphemeralProviderNodePools transforms *[]client.Mk8sEphemeralPool into a []models.EphemeralProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenEphemeralProviderNodePools(input *[]client.Mk8sEphemeralPool) []models.EphemeralProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.EphemeralProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.EphemeralProviderNodePoolModel{
+			Count:  FlattenInt(item.Count),
+			Arch:   types.StringPointerValue(item.Arch),
+			Flavor: types.StringPointerValue(item.Flavor),
+			Cpu:    types.StringPointerValue(item.Cpu),
+			Memory: types.StringPointerValue(item.Memory),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenTritonProvider transforms *client.Mk8sTritonProvider into a []models.TritonProviderModel.
+func (mro *Mk8sResourceOperator) flattenTritonProvider(input *client.Mk8sTritonProvider) []models.TritonProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TritonProviderModel{
+		Connection:       mro.flattenTritonProviderConnection(input.Connection),
+		Networking:       mro.flattenNetworking(input.Networking),
+		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
+		Location:         types.StringPointerValue(input.Location),
+		LoadBalancer:     mro.flattenTritonProviderLoadBalancer(input.LoadBalancer),
+		PrivateNetworkId: types.StringPointerValue(input.PrivateNetworkId),
+		FirewallEnabled:  types.BoolPointerValue(input.FirewallEnabled),
+		NodePools:        mro.flattenTritonProviderNodePools(input.NodePools),
+		ImageId:          types.StringPointerValue(input.ImageId),
+		SshKeys:          FlattenSetString(input.SshKeys),
+		Autoscaler:       mro.flattenAutoscaler(input.Autoscaler),
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderModel{block}
+}
+
+// flattenTritonProviderConnection transforms *client.Mk8sTritonConnection into a []models.TritonProviderConnectionModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderConnection(input *client.Mk8sTritonConnection) []models.TritonProviderConnectionModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TritonProviderConnectionModel{
+		Url:                  types.StringPointerValue(input.Url),
+		Account:              types.StringPointerValue(input.Account),
+		User:                 types.StringPointerValue(input.User),
+		PrivateKeySecretLink: types.StringPointerValue(input.PrivateKeySecretLink),
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderConnectionModel{block}
+}
+
+// flattenTritonProviderLoadBalancer transforms *client.Mk8sTritonLoadBalancer into a []models.TritonProviderLoadBalancerModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancer(input *client.Mk8sTritonLoadBalancer) []models.TritonProviderLoadBalancerModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TritonProviderLoadBalancerModel{
+		Manual:  mro.flattenTritonProviderLoadBalancerManual(input.Manual),
+		Gateway: mro.flattenTritonProviderLoadBalancerGateway(input.Gateway),
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderLoadBalancerModel{block}
+}
+
+// flattenTritonProviderLoadBalancerManual transforms *client.Mk8sTritonManual into a []models.TritonProviderLoadBalancerManualModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManual(input *client.Mk8sTritonManual) []models.TritonProviderLoadBalancerManualModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TritonProviderLoadBalancerManualModel{
+		PackageId:         types.StringPointerValue(input.PackageId),
+		ImageId:           types.StringPointerValue(input.ImageId),
+		PublicNetworkId:   types.StringPointerValue(input.PublicNetworkId),
+		PrivateNetworkIds: FlattenSetString(input.PrivateNetworkIds),
+		Metadata:          FlattenMapString(input.Metadata),
+		Tags:              FlattenMapString(input.Tags),
+		Count:             FlattenInt(input.Count),
+		CnsInternalDomain: types.StringPointerValue(input.CnsInternalDomain),
+		CnsPublicDomain:   types.StringPointerValue(input.CnsPublicDomain),
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderLoadBalancerManualModel{block}
+}
+
+// flattenTritonProviderLoadBalancerGateway transforms *client.Mk8sTritonGateway into a []models.TritonProviderLoadBalancerGatewayModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerGateway(input *client.Mk8sTritonGateway) []models.TritonProviderLoadBalancerGatewayModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderLoadBalancerGatewayModel{{}}
+}
+
+// flattenTritonProviderNodePools transforms *[]client.Mk8sTritonPool into a []models.TritonProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderNodePools(input *[]client.Mk8sTritonPool) []models.TritonProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.TritonProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.TritonProviderNodePoolModel{
+			PackageId:         types.StringPointerValue(item.PackageId),
+			OverrideImageId:   types.StringPointerValue(item.OverrideImageId),
+			PublicNetworkId:   types.StringPointerValue(item.PublicNetworkId),
+			PrivateNetworkIds: FlattenSetString(item.PrivateNetworkIds),
+			TritonTags:        FlattenMapString(item.TritonTags),
+			MinSize:           FlattenInt(item.MinSize),
+			MaxSize:           FlattenInt(item.MaxSize),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenAzureProvider transforms *client.Mk8sAzureProvider into a []models.AzureProviderModel.
+func (mro *Mk8sResourceOperator) flattenAzureProvider(input *client.Mk8sAzureProvider) []models.AzureProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AzureProviderModel{
+		Location:         types.StringPointerValue(input.Location),
+		SubscriptionId:   types.StringPointerValue(input.SubscriptionId),
+		SdkSecretLink:    types.StringPointerValue(input.SdkSecretLink),
+		ResourceGroup:    types.StringPointerValue(input.ResourceGroup),
+		Networking:       mro.flattenNetworking(input.Networking),
+		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
+		Image:            mro.flattenAzureProviderImage(input.Image),
+		SshKeys:          FlattenSetString(input.SshKeys),
+		NetworkId:        types.StringPointerValue(input.NetworkId),
+		Tags:             FlattenMapString(input.Tags),
+		NodePools:        mro.flattenAzureProviderNodePools(input.NodePools),
+		Autoscaler:       mro.flattenAutoscaler(input.Autoscaler),
+	}
+
+	// Return a slice containing the single block
+	return []models.AzureProviderModel{block}
+}
+
+// flattenAzureProviderImage transforms *client.Mk8sAzureImage into a []models.AzureProviderImageModel.
+func (mro *Mk8sResourceOperator) flattenAzureProviderImage(input *client.Mk8sAzureImage) []models.AzureProviderImageModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AzureProviderImageModel{
+		Recommended: types.StringPointerValue(input.Recommended),
+		Reference:   mro.flattenAzureProviderImageReference(input.Reference),
+	}
+
+	// Return a slice containing the single block
+	return []models.AzureProviderImageModel{block}
+}
+
+// flattenAzureProviderImageReference transforms *client.Mk8sAzureImageReference into a []models.AzureProviderImageReferenceModel.
+func (mro *Mk8sResourceOperator) flattenAzureProviderImageReference(input *client.Mk8sAzureImageReference) []models.AzureProviderImageReferenceModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AzureProviderImageReferenceModel{
+		Publisher: types.StringPointerValue(input.Publisher),
+		Offer:     types.StringPointerValue(input.Offer),
+		Sku:       types.StringPointerValue(input.Sku),
+		Version:   types.StringPointerValue(input.Version),
+	}
+
+	// Return a slice containing the single block
+	return []models.AzureProviderImageReferenceModel{block}
+}
+
+// flattenAzureProviderNodePools transforms *[]client.Mk8sAzurePool into a []models.AzureProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenAzureProviderNodePools(input *[]client.Mk8sAzurePool) []models.AzureProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.AzureProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.AzureProviderNodePoolModel{
+			Size:          types.StringPointerValue(item.Size),
+			SubnetId:      types.StringPointerValue(item.SubnetId),
+			Zones:         FlattenSetInt(item.Zones),
+			OverrideImage: mro.flattenAzureProviderImage(item.OverrideImage),
+			BootDiskSize:  FlattenInt(item.BootDiskSize),
+			MinSize:       FlattenInt(item.MinSize),
+			MaxSize:       FlattenInt(item.MaxSize),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenDigitalOceanProvider transforms *client.Mk8sDigitalOceanProvider into a []models.DigitalOceanProviderModel.
+func (mro *Mk8sResourceOperator) flattenDigitalOceanProvider(input *client.Mk8sDigitalOceanProvider) []models.DigitalOceanProviderModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.DigitalOceanProviderModel{
+		Region:           types.StringPointerValue(input.Region),
+		DigitalOceanTags: FlattenSetString(input.DigitalOceanTags),
+		Networking:       mro.flattenNetworking(input.Networking),
+		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
+		TokenSecretLink:  types.StringPointerValue(input.TokenSecretLink),
+		VpcId:            types.StringPointerValue(input.VpcId),
+		NodePools:        mro.flattenDigitalOceanProviderNodePools(input.NodePools),
+		Image:            types.StringPointerValue(input.Image),
+		SshKeys:          FlattenSetString(input.SshKeys),
+		ExtraSshKeys:     FlattenSetString(input.ExtraSshKeys),
+		Autoscaler:       mro.flattenAutoscaler(input.Autoscaler),
+		ReservedIps:      FlattenSetString(input.ReservedIps),
+	}
+
+	// Return a slice containing the single block
+	return []models.DigitalOceanProviderModel{block}
+}
+
+// flattenDigitalOceanProviderNodePools transforms *[]client.Mk8sDigitalOceanPool into a []models.DigitalOceanProviderNodePoolModel.
+func (mro *Mk8sResourceOperator) flattenDigitalOceanProviderNodePools(input *[]client.Mk8sDigitalOceanPool) []models.DigitalOceanProviderNodePoolModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.DigitalOceanProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.DigitalOceanProviderNodePoolModel{
+			DropletSize:   types.StringPointerValue(item.DropletSize),
+			OverrideImage: types.StringPointerValue(item.OverrideImage),
+			MinSize:       FlattenInt(item.MinSize),
+			MaxSize:       FlattenInt(item.MaxSize),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenAddOns transforms *client.Mk8sSpecAddOns into a []models.AddOnsModel.
+func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) []models.AddOnsModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsModel{
+		Dashboard:             mro.flattenAddOnConfig(input.Dashboard),
+		AzureWorkloadIdentity: mro.flattenAddOnAzureWorkloadIdentity(input.AzureWorkloadIdentity),
+		AwsWorkloadIdentity:   mro.flattenAddOnConfig(input.AwsWorkloadIdentity),
+		LocalPathStorage:      mro.flattenAddOnConfig(input.LocalPathStorage),
+		Metrics:               mro.flattenAddOnMetrics(input.Metrics),
+		Logs:                  mro.flattenAddOnLogs(input.Logs),
+		Nvidia:                mro.flattenAddOnNvidia(input.Nvidia),
+		AwsEFS:                mro.flattenAddOnAwsConfig(input.AwsEFS),
+		AwsECR:                mro.flattenAddOnAwsConfig(input.AwsECR),
+		AwsELB:                mro.flattenAddOnAwsConfig(input.AwsELB),
+		AzureACR:              mro.flattenAddOnAzureAcr(input.AzureACR),
+		Sysbox:                mro.flattenAddOnConfig(input.Sysbox),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsModel{block}
+}
+
+// flattenAddOnConfig returns a Terraform bool indicating whether the addon config is enabled.
+func (mro *Mk8sResourceOperator) flattenAddOnConfig(input *client.Mk8sNonCustomizableAddonConfig) types.Bool {
+	// If the input config is nil, the addon is disabled
+	if input == nil {
+		return types.BoolNull()
+	}
+
+	// Otherwise, the addon is enabled
+	return types.BoolValue(true)
+}
+
+// flattenAddOnAzureWorkloadIdentity transforms *client.Mk8sAzureWorkloadIdentityAddOnConfig into a []models.AddOnAzureWorkloadIdentityModel.
+func (mro *Mk8sResourceOperator) flattenAddOnAzureWorkloadIdentity(input *client.Mk8sAzureWorkloadIdentityAddOnConfig) []models.AddOnAzureWorkloadIdentityModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnAzureWorkloadIdentityModel{
+		TenantId: types.StringPointerValue(input.TenantId),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnAzureWorkloadIdentityModel{block}
+}
+
+// flattenAddOnMetrics transforms *client.Mk8sMetricsAddOnConfig into a []models.AddOnsMetricsModel.
+func (mro *Mk8sResourceOperator) flattenAddOnMetrics(input *client.Mk8sMetricsAddOnConfig) []models.AddOnsMetricsModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsMetricsModel{
+		KubeState:       types.BoolPointerValue(input.KubeState),
+		CoreDns:         types.BoolPointerValue(input.CoreDns),
+		Kubelet:         types.BoolPointerValue(input.Kubelet),
+		Apiserver:       types.BoolPointerValue(input.Apiserver),
+		NodeExporter:    types.BoolPointerValue(input.NodeExporter),
+		Cadvisor:        types.BoolPointerValue(input.Cadvisor),
+		ScrapeAnnotated: mro.flattenAddOnMetricsScrapeAnnotated(input.ScrapeAnnotated),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsMetricsModel{block}
+}
+
+// flattenAddOnMetricsScrapeAnnotated transforms *client.Mk8sMetricsScrapeAnnotated into a []models.AddOnsMetricsScrapeAnnotatedModel.
+func (mro *Mk8sResourceOperator) flattenAddOnMetricsScrapeAnnotated(input *client.Mk8sMetricsScrapeAnnotated) []models.AddOnsMetricsScrapeAnnotatedModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsMetricsScrapeAnnotatedModel{
+		IntervalSeconds:   FlattenInt(input.IntervalSeconds),
+		IncludeNamespaces: types.StringPointerValue(input.IncludeNamespaces),
+		ExcludeNamespaces: types.StringPointerValue(input.ExcludeNamespaces),
+		RetainLabels:      types.StringPointerValue(input.RetainLabels),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsMetricsScrapeAnnotatedModel{block}
+}
+
+// flattenAddOnLogs transforms *client.Mk8sLogsAddOnConfig into a []models.AddOnsLogsModel.
+func (mro *Mk8sResourceOperator) flattenAddOnLogs(input *client.Mk8sLogsAddOnConfig) []models.AddOnsLogsModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsLogsModel{
+		AuditEnabled:       types.BoolPointerValue(input.AuditEnabled),
+		IncludeNamespaaces: types.StringPointerValue(input.IncludeNamespaces),
+		ExcludeNamespaces:  types.StringPointerValue(input.ExcludeNamespaces),
+		Docker:             types.BoolPointerValue(input.Docker),
+		Kubelet:            types.BoolPointerValue(input.Kubelet),
+		Kernel:             types.BoolPointerValue(input.Kernel),
+		Events:             types.BoolPointerValue(input.Events),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsLogsModel{block}
+}
+
+// flattenAddOnNvidia transforms *client.Mk8sNvidiaAddOnConfig into a []models.AddOnsNvidiaModel.
+func (mro *Mk8sResourceOperator) flattenAddOnNvidia(input *client.Mk8sNvidiaAddOnConfig) []models.AddOnsNvidiaModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsNvidiaModel{
+		TaintGpuNodes: types.BoolPointerValue(input.TaintGPUNodes),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsNvidiaModel{block}
+}
+
+// flattenAddOnAwsConfig transforms *client.Mk8sAwsAddOnConfig into a []models.AddOnsHasRoleArnModel.
+func (mro *Mk8sResourceOperator) flattenAddOnAwsConfig(input *client.Mk8sAwsAddOnConfig) []models.AddOnsHasRoleArnModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsHasRoleArnModel{
+		RoleArn: types.StringPointerValue(input.RoleArn),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsHasRoleArnModel{block}
+}
+
+// flattenAddOnAzureAcr transforms *client.Mk8sAzureACRAddOnConfig into a []models.AddOnsAzureAcrModel.
+func (mro *Mk8sResourceOperator) flattenAddOnAzureAcr(input *client.Mk8sAzureACRAddOnConfig) []models.AddOnsAzureAcrModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsAzureAcrModel{
+		ClientId: types.StringPointerValue(input.ClientId),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsAzureAcrModel{block}
+}
+
+// flattenStatus transforms *client.Mk8sStatus into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatus(input *client.Mk8sStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusModel{
+		OidcProviderUrl: types.StringPointerValue(input.OidcProviderUrl),
+		ServerUrl:       types.StringPointerValue(input.ServerUrl),
+		HomeLocation:    types.StringPointerValue(input.HomeLocation),
+		AddOns:          mro.flattenStatusAddOn(input.AddOns),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusModel{block})
+}
+
+// flattenStatusAddOn transforms *client.Mk8sStatusAddOns into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOn(input *client.Mk8sStatusAddOns) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsModel{
+		Dashboard:           mro.flattenStatusAddOnDashboard(input.Dashboard),
+		AwsWorkloadIdentity: mro.flattenStatusAddOnAwsWorkloadIdentity(input.AwsWorkloadIdentity),
+		Metrics:             mro.flattenStatusAddOnMetrics(input.Metrics),
+		Logs:                mro.flattenStatusAddOnLogs(input.Logs),
+		AwsECR:              mro.flattenStatusAddOnAwsConfig(input.AwsECR),
+		AwsEFS:              mro.flattenStatusAddOnAwsConfig(input.AwsEFS),
+		AwsELB:              mro.flattenStatusAddOnAwsConfig(input.AwsELB),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsModel{block})
+}
+
+// flattenStatusAddOnDashboard transforms *client.Mk8sDashboardAddOnStatus into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOnDashboard(input *client.Mk8sDashboardAddOnStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsDashboardModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsDashboardModel{
+		Url: types.StringPointerValue(input.Url),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsDashboardModel{block})
+}
+
+// flattenStatusAddOnAwsWorkloadIdentity transforms *client.Mk8sAwsWorkloadIdentityAddOnStatus into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOnAwsWorkloadIdentity(input *client.Mk8sAwsWorkloadIdentityAddOnStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsAwsWorkloadIdentityModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsAwsWorkloadIdentityModel{
+		OidcProviderConfig: mro.flattenStatusAddOnAwsWorkloadIdentityOidcProviderConfig(input.OidcProviderConfig),
+		TrustPolicy:        mro.flattenObjectUnknown(input.TrustPolicy),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsAwsWorkloadIdentityModel{block})
+}
+
+// flattenStatusAddOnAwsWorkloadIdentityOidcProviderConfig transforms *client.Mk8sOidcProviderConfig into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOnAwsWorkloadIdentityOidcProviderConfig(input *client.Mk8sOidcProviderConfig) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsAwsWorkloadIdentityOidcProviderConfigModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsAwsWorkloadIdentityOidcProviderConfigModel{
+		ProviderUrl: types.StringPointerValue(input.ProviderUrl),
+		Audience:    types.StringPointerValue(input.Audience),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsAwsWorkloadIdentityOidcProviderConfigModel{block})
+}
+
+// flattenObjectUnknown flattens an unknown map into a Terraform string containing its JSON representation, or returns a null string if unknown is nil.
+func (mro *Mk8sResourceOperator) flattenObjectUnknown(unknown *map[string]interface{}) types.String {
+	// If the unknown map is nil, return a null string
+	if unknown == nil {
+		return types.StringNull()
+	}
+
+	// Marshal the map into JSON bytes
+	jsonData, _ := json.Marshal(*unknown)
+
+	// Return the JSON bytes as a Terraform string value
+	return types.StringValue(string(jsonData))
+}
+
+// flattenStatusAddOnMetrics transforms *client.Mk8sMetricsAddOnStatus into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOnMetrics(input *client.Mk8sMetricsAddOnStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsMetricsModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsMetricsModel{
+		PrometheusEndpoint: types.StringPointerValue(input.PrometheusEndpoint),
+		RemoteWriteConfig:  mro.flattenObjectUnknown(input.RemoteWriteConfig),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsMetricsModel{block})
+}
+
+// flattenStatusAddOnLogs transforms *client.Mk8sLogsAddOnStatus into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOnLogs(input *client.Mk8sLogsAddOnStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsLogsModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsLogsModel{
+		LokiAddress: types.StringPointerValue(input.LokiAddress),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsLogsModel{block})
+}
+
+// flattenStatusAddOnAwsConfig transforms *client.Mk8sAwsAddOnStatus into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenStatusAddOnAwsConfig(input *client.Mk8sAwsAddOnStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusAddOnsAwsStatusModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.StatusAddOnsAwsStatusModel{
+		TrustPolicy: mro.flattenObjectUnknown(input.TrustPolicy),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsAwsStatusModel{block})
 }

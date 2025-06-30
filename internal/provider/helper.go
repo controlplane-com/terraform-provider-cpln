@@ -1,980 +1,744 @@
 package cpln
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"slices"
+
+	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	commonmodel "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/common"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// SetBase - Set Base Helper
-func SetBase(d *schema.ResourceData, base client.Base) error {
+/*** Exported Functions ***/
 
-	if err := d.Set("cpln_id", base.ID); err != nil {
-		return err
-	}
+// MergeAttributes combines multiple maps of schema.Attribute into a single map.
+func MergeAttributes(maps ...map[string]schema.Attribute) map[string]schema.Attribute {
+	merged := make(map[string]schema.Attribute)
 
-	if err := d.Set("name", base.Name); err != nil {
-		return err
-	}
-
-	if base.Description != nil {
-		if err := d.Set("description", DescriptionHelper(*base.Name, *base.Description)); err != nil {
-			return err
+	for _, m := range maps {
+		for key, value := range m {
+			merged[key] = value
 		}
 	}
 
-	if err := d.Set("tags", GetTags(base.Tags)); err != nil {
-		return err
-	}
-
-	return nil
+	return merged
 }
 
-func FormatTypeToString(v interface{}) string {
-	switch v := v.(type) {
-	case float64, float32:
-		return fmt.Sprintf("%.0f", v)
-	case int, int8, int16, int32, int64:
-		return fmt.Sprintf("%d", v)
-	case uint, uint8, uint16, uint32, uint64:
-		return fmt.Sprintf("%d", v)
-	case bool:
-		return fmt.Sprintf("%t", v)
-	case string:
-		return v
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-func GetTags(tags *map[string]interface{}) map[string]interface{} {
-
-	stringTypes := make(map[string]interface{})
-
-	if tags != nil {
-		for k, v := range *tags {
-
-			// Remove certain server side generated tags
-			if strings.HasPrefix(k, "cpln/deployTimestamp") || strings.HasPrefix(k, "cpln/aws") ||
-				strings.HasPrefix(k, "cpln/azure") || strings.HasPrefix(k, "cpln/docker") ||
-				strings.HasPrefix(k, "cpln/gcp") || strings.HasPrefix(k, "cpln/tls") ||
-				strings.HasPrefix(k, "cpln/managedByTerraform") || strings.HasPrefix(k, "cpln/city") ||
-				strings.HasPrefix(k, "cpln/continent") || strings.HasPrefix(k, "cpln/country") ||
-				strings.HasPrefix(k, "cpln/state") {
-
-				continue
-			}
-
-			stringTypes[k] = FormatTypeToString(v)
-		}
-	}
-
-	return stringTypes
-}
-
-func GetTagChanges(d *schema.ResourceData) *map[string]interface{} {
-
-	old, new := d.GetChange("tags")
-
-	oldMap := map[string]interface{}{}
-
-	for key, value := range old.(map[string]interface{}) {
-		oldMap[key] = value
-	}
-
-	newMap := new.(map[string]interface{})
-
-	for k := range oldMap {
-		oldMap[k] = newMap[k]
-	}
-
-	for k := range newMap {
-		oldMap[k] = newMap[k]
-	}
-
-	return &oldMap
-}
-
-func GetGVCEnvChanges(d *schema.ResourceData) *[]client.NameValue {
-	_, new := d.GetChange("env")
-
-	envArr := []client.NameValue{}
-	for k, v := range new.(map[string]interface{}) {
-		if v != nil {
-			keyString := strings.Clone(k)
-			valueString := v.(string)
-			localEnvObj := client.NameValue{
-				Name:  &keyString,
-				Value: &valueString,
-			}
-			envArr = append(envArr, localEnvObj)
-		}
-	}
-
-	return &envArr
-}
-
-func GetString(s interface{}) *string {
-
-	if s == nil {
-		return nil
-	}
-
-	output := s.(string)
-
-	if strings.TrimSpace(output) == "" {
-		return nil
-	}
-
-	return &output
-}
-
-func GetDescriptionString(s interface{}, name string) *string {
-
-	if s == nil {
-		return &name
-	}
-
-	output := s.(string)
-
-	if strings.TrimSpace(output) == "" {
-		return &name
-	}
-
-	return &output
-}
-
-func DescriptionHelper(name, description string) *string {
-
-	descTrim := strings.TrimSpace(description)
-
-	if descTrim == "" {
-		descTrim = strings.TrimSpace(name)
-	}
-
-	return &descTrim
-}
-
-func DiffSuppressDescription(k, old, new string, d *schema.ResourceData) bool {
-
-	if new == "" && old == d.State().ID {
-		return true
-	}
-
-	return old == new
-}
-
-func GetInt(s interface{}) *int {
-	if s == nil {
-		return nil
-	}
-
-	output := s.(int)
-	return &output
-}
-
-func GetFloat64(s interface{}) *float64 {
-
-	if s == nil {
-		return nil
-	}
-
-	output := s.(float64)
-	return &output
-}
-
-func GetPortInt(s interface{}) *int {
-	if s == nil {
-		return nil
-	}
-
-	output := s.(int)
-
-	if output == 0 {
-		return nil
-	} else {
-		return &output
-	}
-}
-
-func GetBool(s interface{}) *bool {
-	if s == nil {
-		return nil
-	}
-
-	output := s.(bool)
-	return &output
-}
-
-func GetStringMap(s interface{}) *map[string]interface{} {
-
-	if s == nil {
-		return &map[string]interface{}{}
-	}
-
-	output := s.(map[string]interface{})
-	return &output
-}
-
-func GetInterface(s interface{}) *interface{} {
-
-	if s == nil {
-		return nil
-	}
-
-	return &s
-}
-
-// MapSortHelper - Map Sort Helper
-func MapSortHelper(i interface{}) ([]string, map[string]interface{}) {
-
-	m := i.(map[string]interface{})
-
-	keys := make([]string, 0, len(m))
-
-	for k := range m {
-		keys = append(keys, k)
-	}
-
-	sort.Strings(keys)
-
-	return keys, m
-}
-
-func NameValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	re := regexp.MustCompile(`^[a-z]([-a-z0-9])*[a-z0-9]$`)
-
-	if !re.MatchString(v) {
-		errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
-	}
-
-	if len(v) > 63 {
-		errs = append(errs, fmt.Errorf("%q length is > 63, got length: %d", key, len(v)))
-	}
-
-	return
-}
-
-func DescriptionValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	trim := strings.Trim(v, " ")
-
-	if v != trim {
-		errs = append(errs, fmt.Errorf("%q contains whitespace at the beginning or end, got: '%s'", key, v))
-	}
-
-	if len(v) > 250 {
-		errs = append(errs, fmt.Errorf("%q length is > 250, got length: %d", key, len(v)))
-	}
-
-	return
-}
-
-func DescriptionDomainValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	trim := strings.Trim(v, " ")
-
-	if v != trim {
-		errs = append(errs, fmt.Errorf("%q contains whitespace at the beginning or end, got: '%s'", key, v))
-	}
-
-	// if len(v) > 250 {
-	// 	errs = append(errs, fmt.Errorf("%q length is > 250, got length: %d", key, len(v)))
-	// }
-
-	return
-}
-
-func TagValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(map[string]interface{})
-
-	if len(v) > 50 {
-		errs = append(errs, fmt.Errorf("%q cannot have > 50 tags per object, got length: %d", key, len(v)))
-	}
-
-	return
-}
-
-func LinkValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	re := regexp.MustCompile(`(\/org\/[^/]+\/.*)|(\/\/.+)`)
-
-	if !re.MatchString(v) {
-		errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
-	}
-
-	return
-}
-
-func KindValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	kind := val.(string)
-
-	kinds := []string{
-		"org",
-		"cloudaccount",
-		"policy",
-		"user",
-		"group",
-		"resource",
-		"task",
-		"permissions",
-		"serviceaccount",
-		"secret",
-		"location",
-		"gvc",
-		"workload",
-		"quota",
-		"identity",
-		"deployment",
-		"event",
-		"domain",
-		"image",
-		"resourcepolicy",
-		"agent",
-		"accessreport",
-		"policymembership",
-		"auditctx",
-	}
-
-	for _, v := range kinds {
-		if v == kind {
-			return
-		}
-	}
-
-	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, kind))
-
-	return
-}
-
-func AwsAccessKeyValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	re := regexp.MustCompile(`^AKIA.*`)
-
-	if !re.MatchString(v) {
-		errs = append(errs, fmt.Errorf("%q is invalid. must start with 'AKIA', got: %s", key, v))
-		return
-	}
-
-	return
-}
-
-func EncodingValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	if v != "plain" && v != "base64" {
-		errs = append(errs, fmt.Errorf("%q must be set to 'plain' or 'base64', got: %s", key, v))
-	}
-
-	return
-}
-
-func EmptyValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	if strings.TrimSpace(v) == "" {
-		errs = append(errs, fmt.Errorf("%q must be must not be empty, got: %s", key, v))
-	}
-
-	return
-}
-
-func AwsRoleArnValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	re := regexp.MustCompile(`^arn:.*`)
-
-	if !re.MatchString(v) {
-		errs = append(errs, fmt.Errorf("%q is invalid. must start with 'arn:', got: %s", key, v))
-		return
-	}
-
-	return
-}
-
-func PortValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(int)
-
-	if v < 80 || v > 65535 {
-		errs = append(errs, fmt.Errorf("%q must be between 80 and 65535 inclusive, got: %d", key, v))
-	}
-
-	return
-}
-
-func ObservabilityValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(int)
-
-	if v < 0 {
-		errs = append(errs, fmt.Errorf("%q must be >= 0, got: %d", key, v))
-	}
-
-	return
-}
-
-func CpuMemoryValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	v := val.(string)
-
-	re := regexp.MustCompile(`^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$`)
-
-	if !re.MatchString(v) {
-		errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, v))
-		return
-	}
-
-	if len(v) > 20 {
-		errs = append(errs, fmt.Errorf("%q cannot be greater than 20 characters, got: %d", key, len(v)))
-	}
-
-	return
-}
-
-func ThresholdValidator(val interface{}, key string) (warns []string, errs []error) {
-	v := val.(int)
-	if v < 1 || v > 20 {
-		errs = append(errs, fmt.Errorf("%q must be between 1 and 20 inclusive, got: %d", key, v))
-	}
-
-	return
-}
-
-func QuerySchemaResource() *schema.Resource {
-
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			// "kind": {
-			// 	Type:     schema.TypeString,
-			// 	Required: true,
-			// },
-			// "context": {
-			// 	Type:     schema.TypeString,
-			// 	Required: true,
-			// },
-			"fetch": {
-				Type:        schema.TypeString,
-				Description: "Type of fetch. Specify either: `links` or `items`. Default: `items`.",
-				Optional:    true,
-				Default:     "items",
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-					v := val.(string)
-
-					if v != "items" && v != "links" {
-						errs = append(errs, fmt.Errorf("%q must be either items or links. got: %s", key, v))
-					}
-
-					return
-				},
-			},
-			"spec": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"match": {
-							Type:        schema.TypeString,
-							Description: "Type of match. Available values: `all`, `any`, `none`. Default: `all`.",
-							Optional:    true,
-							Default:     "all",
-							ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-								v := val.(string)
-
-								if v != "all" && v != "any" && v != "none" {
-									errs = append(errs, fmt.Errorf("%q must be either 'all', 'any', 'none'. got: %s", key, v))
-								}
-
-								return
-							},
-						},
-						"terms": {
-							Type:        schema.TypeList,
-							Description: "Terms can only contain one of the following attributes: `property`, `rel`, `tag`.",
-							Optional:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"op": {
-										Type:        schema.TypeString,
-										Description: "Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.",
-										Optional:    true,
-										Default:     "=",
-										ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-											v := val.(string)
-
-											if v != "=" && v != ">" && v != ">=" && v != "<" && v != "<=" && v != "!=" && v != "~" && v != "exists" && v != "!exists" {
-												errs = append(errs, fmt.Errorf("%q must be either '=', '>', '>=', '<', '<=', '!=', '~', 'exists', '!exists'. got: %s", key, v))
-											}
-
-											return
-										},
-									},
-									"property": {
-										Type:        schema.TypeString,
-										Description: "Property to use for query evaluation.",
-										Optional:    true,
-									},
-									"rel": {
-										Type:     schema.TypeString,
-										Optional: true,
-									},
-									"tag": {
-										Type:        schema.TypeString,
-										Description: "Tag key to use for query evaluation.",
-										Optional:    true,
-									},
-									"value": {
-										Type:        schema.TypeString,
-										Description: "Testing value for query evaluation.",
-										Optional:    true,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func BuildQueryHelper(kind string, query interface{}) (queryObj *client.Query) {
-
-	if query != nil {
-
-		queryArray := query.([]interface{})
-
-		if len(queryArray) > 0 {
-
-			memberQueryMap := queryArray[0].(map[string]interface{})
-
-			queryObj = &client.Query{}
-			queryObj.Kind = GetString(kind)
-			queryObj.Fetch = GetString(memberQueryMap["fetch"])
-
-			specArray := memberQueryMap["spec"].([]interface{})
-
-			if len(specArray) > 0 {
-
-				specMap := specArray[0].(map[string]interface{})
-
-				queryObj.Spec = &client.Spec{}
-				queryObj.Spec.Match = GetString(specMap["match"])
-
-				termsArray := specMap["terms"].([]interface{})
-
-				if len(termsArray) > 0 {
-
-					ct := []client.Term{}
-
-					for _, t := range termsArray {
-
-						term := t.(map[string]interface{})
-
-						newTerm := client.Term{}
-
-						newTerm.Op = GetString(term["op"])
-						newTerm.Property = GetString(term["property"])
-						newTerm.Rel = GetString(term["rel"])
-						newTerm.Tag = GetString(term["tag"])
-						newTerm.Value = GetString(term["value"])
-
-						ct = append(ct, newTerm)
-					}
-
-					if len(ct) > 0 {
-						queryObj.Spec.Terms = &ct
-					}
-				}
-
-				return queryObj
-			}
-		}
-	}
-
-	return nil
-}
-
-func FlattenQueryHelper(query *client.Query) ([]interface{}, error) {
-
-	if query == nil {
-		return nil, nil
-	}
-
-	mq := make(map[string]interface{})
-
-	// mq["kind"] = query.Kind
-
-	if query.Fetch != nil {
-		mq["fetch"] = *query.Fetch
-	}
-
-	if query.Spec != nil {
-
-		spec := make(map[string]interface{})
-
-		if query.Spec.Match != nil {
-			spec["match"] = *query.Spec.Match
-		}
-
-		if query.Spec.Terms != nil && len(*query.Spec.Terms) > 0 {
-
-			terms := []interface{}{}
-
-			for _, term := range *query.Spec.Terms {
-
-				t := make(map[string]interface{})
-
-				if term.Op != nil {
-					t["op"] = *term.Op
-				}
-
-				if term.Property != nil {
-					t["property"] = *term.Property
-				}
-
-				if term.Rel != nil {
-					t["rel"] = *term.Rel
-				}
-
-				if term.Tag != nil {
-					t["tag"] = *term.Tag
-				}
-
-				if term.Value != nil {
-					t["value"] = *term.Value
-				}
-
-				terms = append(terms, t)
-			}
-
-			spec["terms"] = terms
-		}
-
-		specArray := []interface{}{
-			spec,
-		}
-
-		mq["spec"] = specArray
-	}
-
-	mqList := []interface{}{
-		mq,
-	}
-
-	return mqList, nil
-}
-
-func BuildStringTypeSet(set interface{}) *[]string {
-
-	if set == nil {
-		return nil
-	}
-
-	output := []string{}
-
-	for _, value := range set.(*schema.Set).List() {
-		output = append(output, value.(string))
-	}
-
-	return &output
-}
-
-func FlattenStringTypeSet(set *[]string) []interface{} {
-
-	if set == nil {
-		return nil
-	}
-
-	output := []interface{}{}
-
-	for _, value := range *set {
-		output = append(output, value)
-	}
-
-	return output
-}
-
-func ConvertStringSliceToSet(slice []string) *schema.Set {
-
-	var expanderSet []interface{}
-
-	for _, value := range slice {
-		expanderSet = append(expanderSet, value)
-	}
-
-	return schema.NewSet(schema.HashSchema(StringSchema()), expanderSet)
-}
-
-func ResourceExistsHelper() diag.Diagnostics {
-
-	var diags diag.Diagnostics
-
-	diags = append(diags, diag.Diagnostic{
-		Severity: diag.Error,
-		Summary:  "Resource already exists",
-		Detail:   "Run 'terraform import' then run 'terraform apply' again.",
-	})
-
-	return diags
-}
-
-func SetSelfLink(links *[]client.Link, d *schema.ResourceData) error {
-
-	if err := d.Set("self_link", GetSelfLink(links)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func GetSelfLink(links *[]client.Link) string {
-
-	selfLink := ""
-
-	if links != nil && len(*links) > 0 {
-		for _, ls := range *links {
-			if ls.Rel == "self" {
-				selfLink = ls.Href
-				break
-			}
-		}
-	}
-
-	return selfLink
-}
-
-func StringSchema() *schema.Schema {
-	return &schema.Schema{
-		Type: schema.TypeString,
-	}
-}
-
-func IntSchema() *schema.Schema {
-	return &schema.Schema{
-		Type: schema.TypeInt,
-	}
-}
-
-func WorkloadTypeValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	workloadType := val.(string)
-
-	workloadTypes := []string{
-		"serverless",
-		"standard",
-		"cron",
-		"stateful",
-	}
-
-	for _, v := range workloadTypes {
-		if v == workloadType {
-			return
-		}
-	}
-
-	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, workloadType))
-
-	return
-}
-
-func PortProtocolValidator(val interface{}, key string) (warns []string, errs []error) {
-
-	portProtocol := val.(string)
-
-	portProtocols := []string{
-		"http",
-		"http2",
-		"grpc",
-		"tcp",
-	}
-
-	for _, v := range portProtocols {
-		if v == portProtocol {
-			return
-		}
-	}
-
-	errs = append(errs, fmt.Errorf("%q is invalid, got: %s", key, portProtocol))
-
-	return
-}
-
+// GetNameFromSelfLink extracts the resource name from a selfLink string.
 func GetNameFromSelfLink(selfLink string) string {
+	// Split the selfLink by "/" separator
 	parts := strings.Split(selfLink, "/")
+
+	// Return the last element of the split parts as the name
 	return parts[len(parts)-1]
 }
 
-func ExtractNumberAndCharactersFromString(value string) (int, string) {
+// GetSelfLink construct the self link of the specified resource.
+func GetSelfLink(orgName string, kind string, name string) string {
+	return fmt.Sprintf("/org/%s/%s/%s", orgName, kind, name)
+}
 
+// GetSelfLinkWithGvc construct the self link of the specified resource.
+func GetSelfLinkWithGvc(orgName string, kind string, gvc string, name string) string {
+	return fmt.Sprintf("/org/%s/gvc/%s/%s/%s", orgName, gvc, kind, name)
+}
+
+// StringPointerFromInterface converts an interface{} to a *string.
+func StringPointerFromInterface(input interface{}) *string {
+	// Return nil if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Assert that the input is a string
+	strValue := input.(string)
+
+	// Trim whitespace and return nil if resulting string is empty
+	if strings.TrimSpace(strValue) == "" {
+		return nil
+	}
+
+	// Return pointer to the validated string value
+	return &strValue
+}
+
+// BoolPointer returns a pointer to the input bool.
+func BoolPointer(input bool) *bool {
+	return &input
+}
+
+// StringPointer returns a pointer to the input string.
+func StringPointer(input string) *string {
+	return &input
+}
+
+// IntPointer returns a pointer to the input int.
+func IntPointer(input int) *int {
+	return &input
+}
+
+// Float64Pointer returns a pointer to the input float64.
+func Float64Pointer(input float64) *float64 {
+	return &input
+}
+
+// IsGvcScopedResource returns true if the provided kind is scoped to GVC.
+func IsGvcScopedResource(kind string) bool {
+	return slices.Contains(GvcScopedKinds, kind)
+}
+
+// GetInterface returns a pointer to the provided interface value, or nil if the input is nil.
+func GetInterface(s interface{}) *interface{} {
+	// Check if the input is nil
+	if s == nil {
+		// Return nil for a nil input
+		return nil
+	}
+
+	// Return pointer to the input interface value
+	return &s
+}
+
+// ParseValueAndUnit extracts the numeric value and unit from a resource quantity string.
+func ParseValueAndUnit(value string) (int, string) {
+	// Compile regex for numeric characters
 	numberRegex := regexp.MustCompile("[0-9]+")
+
+	// Compile regex for alphabetic characters
 	charactersRegex := regexp.MustCompile("[A-Za-z]+")
 
+	// Find numeric substring and convert to integer
 	number, _ := strconv.Atoi(numberRegex.FindString(value))
+
+	// Find unit substring
 	characters := charactersRegex.FindString(value)
 
+	// Return the parsed number and characters
 	return number, characters
 }
 
-func MinValidator(min interface{}) schema.SchemaValidateFunc {
-	return func(val interface{}, key string) (warns []string, errs []error) {
+// ToStringSlice converts a slice of interface{} to a slice of strings, returning an error if any element is not a string.
+func ToStringSlice(ifaces []interface{}) []string {
+	// Initialize a slice of strings with capacity matching the number of interface elements
+	strs := make([]string, 0, len(ifaces))
 
-		// Convert values to float64 for comparison
-		valFloat := toFloat64(val)
-		minFloat := toFloat64(min)
-
-		// Perform minimum value validation
-		if valFloat < minFloat {
-			errs = append(errs, fmt.Errorf("%s must be at least %v, got: %v", key, min, val))
-		}
-
-		return
+	// Loop through each element in the input slice
+	for _, v := range ifaces {
+		// Add the asserted string to the result slice
+		strs = append(strs, v.(string))
 	}
+
+	// Return the resulting slice and a nil error
+	return strs
 }
 
-func RangeValidator(min, max interface{}) schema.SchemaValidateFunc {
-	return func(val interface{}, key string) (warns []string, errs []error) {
+// PreserveJSONFormatting returns the plan value if both raw API string and plan string parse to semantically identical JSON, otherwise returns the API string value.
+func PreserveJSONFormatting(raw interface{}, plan types.String) types.String {
+	// Convert raw interface to string value
+	rawAPI, ok := raw.(string)
 
-		// Convert values to float64 for comparison
-		valFloat := toFloat64(val)
-		minFloat := toFloat64(min)
-		maxFloat := toFloat64(max)
-
-		// Perform range validation
-		if valFloat < minFloat {
-			errs = append(errs, fmt.Errorf("%s must be at least %v, got: %v", key, min, val))
-		}
-		if valFloat > maxFloat {
-			errs = append(errs, fmt.Errorf("%s must be at most %v, got: %v", key, max, val))
-		}
-
-		return
+	// Check if raw value is not a string
+	if !ok {
+		// Return original plan value
+		return plan
 	}
-}
 
-func RegexValidator(pattern string) schema.SchemaValidateFunc {
-	return func(val interface{}, key string) (warns []string, errs []error) {
+	// Extract raw plan JSON string
+	rawPlan := plan.ValueString()
 
-		v := val.(string)
+	// Declare variables to hold parsed JSON structures
+	var apiObj, planObj interface{}
 
-		// Compile the regex pattern
-		re, err := regexp.Compile(pattern)
+	// Attempt to unmarshal raw API JSON into apiObj
+	if err := json.Unmarshal([]byte(rawAPI), &apiObj); err == nil {
+		// Attempt to unmarshal raw plan JSON into planObj
+		if err := json.Unmarshal([]byte(rawPlan), &planObj); err == nil {
+			// Re-marshal apiObj to canonical JSON
+			apiCanon, _ := json.Marshal(apiObj)
 
-		if err != nil {
-			errs = append(errs, fmt.Errorf("invalid regex pattern for %s: %s", key, err))
-			return
-		}
+			// Re-marshal planObj to canonical JSON
+			planCanon, _ := json.Marshal(planObj)
 
-		// Validate the value against the pattern
-		if !re.MatchString(v) {
-			errs = append(errs, fmt.Errorf("%s must match the pattern %s, got: %s", key, pattern, v))
-		}
-
-		return
-	}
-}
-
-func InSliceValidator(validValues []string) schema.SchemaValidateFunc {
-	return func(val interface{}, key string) (warns []string, errs []error) {
-		v := val.(string)
-
-		// Check if the value is in the validValues slice
-		valid := false
-
-		for _, allowed := range validValues {
-			if v == allowed {
-				valid = true
-				break
+			// Compare canonical JSON for semantic equality
+			if bytes.Equal(apiCanon, planCanon) {
+				// Use plan value if JSON matches
+				return plan
 			}
 		}
+	}
 
-		if !valid {
-			errs = append(errs, fmt.Errorf("%q must be one of %v, got: %s", key, validValues, v))
+	// Return API value preserving formatting
+	return types.StringValue(rawAPI)
+}
+
+// StringSliceToString returns a string representation of the string slice.
+func StringSliceToString(items []string) string {
+	// Format the string slice into a quoted space-separated list using fmt
+	q := fmt.Sprintf("%q", items)
+
+	// Replace spaces between quoted items with comma and space to mimic JSON-like list
+	return strings.ReplaceAll(q, `" "`, `", "`)
+}
+
+// IntSliceToString converts a slice of ints to a formatted string representation.
+func IntSliceToString(nums []int) string {
+	// Return empty slice representation if input is empty
+	if len(nums) == 0 {
+		return "[]"
+	}
+
+	// Create a string builder for efficient concatenation
+	var sb strings.Builder
+
+	// Write opening bracket
+	sb.WriteString("[")
+
+	// Iterate through numbers and append to builder
+	for i, n := range nums {
+		// Append number as string
+		sb.WriteString(fmt.Sprintf("%d", n))
+		// Append comma and space if not the last element
+		if i < len(nums)-1 {
+			sb.WriteString(", ")
+		}
+	}
+
+	// Write closing bracket
+	sb.WriteString("]")
+
+	// Return the complete string
+	return sb.String()
+}
+
+// IntSliceToStringSlice converts a slice of ints to a slice of strings.
+func IntSliceToStringSlice(nums []int) []string {
+	// Pre-allocate a string slice with the same length as the input slice
+	result := make([]string, len(nums))
+
+	// Iterate over each integer and convert it to a string
+	for i, n := range nums {
+		// Convert integer to string using strconv.Itoa
+		result[i] = strconv.Itoa(n)
+	}
+
+	// Return the resulting slice of strings
+	return result
+}
+
+// MapToHCL converts a map of key-value pairs to a formatted HCL block as a string.
+func MapToHCL(dict map[string]interface{}, indentLevel int) string {
+	// Define the default unit of indentation as two spaces
+	unitIndent := "  "
+
+	// Create the full base indentation string by repeating unitIndent
+	indent := strings.Repeat(unitIndent, indentLevel)
+
+	// Create a string builder to efficiently build the HCL string
+	var b strings.Builder
+
+	// Write the opening curly brace with indentation
+	b.WriteString(indent + "{\n")
+
+	// Initialize a slice to hold map keys
+	keys := make([]string, 0, len(dict))
+
+	// Iterate over the map to collect all keys
+	for k := range dict {
+		// Append each key to the slice
+		keys = append(keys, k)
+	}
+
+	// Sort the keys alphabetically for consistent output
+	sort.Strings(keys)
+
+	// Define the indentation level for the map entries (one level deeper)
+	entryIndent := indent + strings.Repeat(unitIndent, 1)
+
+	// Iterate over the sorted keys to generate HCL entries
+	for _, k := range keys {
+		// Write each key-value pair in HCL format with proper indentation
+		b.WriteString(fmt.Sprintf("%s%s = \"%v\"\n", entryIndent, k, dict[k]))
+	}
+
+	// Write the closing curly brace with base indentation
+	b.WriteString(indent + "}")
+
+	// Return the constructed HCL string
+	return b.String()
+}
+
+// ConvertMapToStringMap converts a map with interface{} values to a map with string values.
+func ConvertMapToStringMap(input map[string]interface{}) map[string]string {
+	// Create a new map to hold stringified key-value pairs
+	result := make(map[string]string)
+
+	// Iterate over each key-value pair in the input map
+	for k, v := range input {
+		// Convert the value to a string using fmt.Sprint
+		result[k] = fmt.Sprint(v)
+	}
+
+	// Return the resulting map with string values
+	return result
+}
+
+// CanonicalizeEnvoyJSON parses the given Envoy JSON string into a generic Go data structure and then marshals it back to JSON.
+func CanonicalizeEnvoyJSON(envoyStr string) string {
+	// Declare a variable to hold the unmarshaled JSON structure
+	var envoy interface{}
+
+	// Unmarshal the input JSON string into the generic interface
+	json.Unmarshal([]byte(envoyStr), &envoy)
+
+	// Marshal the generic interface back into JSON bytes
+	jsonOut, _ := json.Marshal(envoy)
+
+	// Return the canonical JSON output
+	return string(jsonOut)
+}
+
+// Builders //
+
+// BuildString converts a types.String to a pointer to string.
+func BuildString(input types.String) *string {
+	// Determine if input has no valid value
+	if input.IsNull() || input.IsUnknown() {
+		// Indicate absence of value by returning nil
+		return nil
+	}
+
+	// Return pointer to the underlying string value
+	return input.ValueStringPointer()
+}
+
+// BuildInt converts a types.Int32 to a pointer to int.
+func BuildInt(input types.Int32) *int {
+	// Determine if input has no valid value
+	if input.IsNull() || input.IsUnknown() {
+		// Indicate absence of value by returning nil
+		return nil
+	}
+
+	// Extract the Int32 value and cast to native int
+	result := int(input.ValueInt32())
+
+	// Provide pointer to the cast integer for further use
+	return &result
+}
+
+// BuildFloat64 converts a types.Float64 to a pointer to float64.
+func BuildFloat64(input types.Float64) *float64 {
+	// Determine if input has no valid value
+	if input.IsNull() || input.IsUnknown() {
+		// Indicate absence of value by returning nil
+		return nil
+	}
+
+	// Extract the Float64 value
+	output := input.ValueFloat64()
+
+	// Provide pointer to the float64 for further use
+	return &output
+}
+
+// BuildBool converts a types.Bool to a pointer to bool.
+func BuildBool(input types.Bool) *bool {
+	// Determine if input has no valid value
+	if input.IsNull() || input.IsUnknown() {
+		// Indicate absence of value by returning nil
+		return nil
+	}
+
+	// Return pointer to the underlying bool value
+	return input.ValueBoolPointer()
+}
+
+// BuildTags filters and converts a types.Map to *map[string]interface{}.
+func BuildTags(input types.Map) *map[string]interface{} {
+	// Initialize the output map
+	output := make(map[string]interface{})
+
+	// Check if the input map is null or unknown
+	if input.IsNull() || input.IsUnknown() {
+		return nil
+	}
+
+	// Iterate over each key-value pair in the converted map
+	for key, value := range input.Elements() {
+		// Skip tags with prefixes that indicate server-generated metadata
+		if shouldIgnoreTag(key) {
+			continue
 		}
 
-		return
+		// Check if the types.String value is null or unknown; if so, set the output value as nil
+		if value.IsNull() || value.IsUnknown() {
+			output[key] = nil
+		} else {
+			// Otherwise, convert the types.String to a regular string and add it to the output map
+			output[key] = formatFrameworkTypesToString(value)
+		}
 	}
+
+	return &output
 }
 
-func CompositeValidator(base schema.SchemaValidateFunc, additional ...schema.SchemaValidateFunc) schema.SchemaValidateFunc {
-	return func(val interface{}, key string) ([]string, []error) {
-		var allWarnings []string
-		var allErrors []error
+// BuildMapString converts a Terraform types.Map with tfsdk.StringType into a Go map[string]interface{} with nil entries for null or unknown values.
+func BuildMapString(ctx context.Context, diags *diag.Diagnostics, input types.Map) *map[string]interface{} {
+	// Exit early if map is null or unknown
+	if input.IsNull() || input.IsUnknown() {
+		// No data to process
+		return nil
+	}
 
-		// Run base validation
-		baseWarnings, baseErrors := base(val, key)
-		allWarnings = append(allWarnings, baseWarnings...)
-		allErrors = append(allErrors, baseErrors...)
+	// Declare intermediate map to unmarshal Terraform values
+	var intermediate map[string]types.String
 
-		// Run additional validations
-		for _, validator := range additional {
-			warnings, errs := validator(val, key)
-			allWarnings = append(allWarnings, warnings...)
-			allErrors = append(allErrors, errs...)
+	// Decode Terraform map into intermediate representation
+	diags.Append(input.ElementsAs(ctx, &intermediate, false)...)
+
+	// Abort on diagnostic errors
+	if diags.HasError() {
+		return nil
+	}
+
+	// Create output map with capacity for intermediate entries
+	output := make(map[string]interface{}, len(intermediate))
+
+	// Iterate over intermediate values
+	for key, value := range intermediate {
+		// Assign nil for null or unknown values
+		if value.IsNull() || value.IsUnknown() {
+			output[key] = nil
+		} else {
+			// Extract string value for known entries
+			output[key] = formatFrameworkTypesToString(value)
+		}
+	}
+
+	// Return populated map without error
+	return &output
+}
+
+// BuildSetString converts a Terraform types.Set with tfsdk.StringType into a Go *[]string.
+func BuildSetString(ctx context.Context, diags *diag.Diagnostics, input types.Set) *[]string {
+	// Exit early if set itself is null or unknown
+	if input.IsNull() || input.IsUnknown() {
+		return nil
+	}
+
+	// Prepare an intermediate slice to unmarshal Terraform values
+	var intermediate []types.String
+
+	// Decode Terraform set elements into the intermediate slice
+	diags.Append(input.ElementsAs(ctx, &intermediate, false)...)
+
+	// Abort if any diagnostic errors occurred during decoding
+	if diags.HasError() {
+		return nil
+	}
+
+	// Build the output slice, preallocating for efficiency
+	output := make([]string, 0, len(intermediate))
+
+	// Iterate and extract each known string value
+	for _, elem := range intermediate {
+		// Skip null or unknown entries
+		if elem.IsNull() || elem.IsUnknown() {
+			continue
 		}
 
-		return allWarnings, allErrors
-	}
-}
-
-func toFloat64(value interface{}) float64 {
-	switch v := value.(type) {
-	case int:
-		return float64(v)
-	case int64:
-		return float64(v)
-	case float32:
-		return float64(v)
-	case float64:
-		return v
-	default:
-		return 0.0
-	}
-}
-
-func toInterfaceSlice[T any](src []T) []interface{} {
-	dst := make([]interface{}, len(src))
-
-	for i, v := range src {
-		dst[i] = v
+		// Add the element to the output slice
+		output = append(output, elem.ValueString())
 	}
 
-	return dst
+	// Return a pointer to the populated slice
+	return &output
 }
 
-func contains(opts []string, opt string) bool {
-	for _, o := range opts {
-		if o == opt {
+// BuildSetInt converts a Terraform types.Set with tfsdk.Int32Type into a Go *[]int.
+func BuildSetInt(ctx context.Context, diags *diag.Diagnostics, input types.Set) *[]int {
+	// Exit early if set itself is null or unknown
+	if input.IsNull() || input.IsUnknown() {
+		return nil
+	}
+
+	// Prepare an intermediate slice to unmarshal Terraform values
+	var intermediate []types.Int32
+
+	// Decode Terraform set elements into the intermediate slice
+	diags.Append(input.ElementsAs(ctx, &intermediate, false)...)
+
+	// Abort if any diagnostic errors occurred during decoding
+	if diags.HasError() {
+		return nil
+	}
+
+	// Build the output slice, preallocating for efficiency
+	output := make([]int, 0, len(intermediate))
+
+	// Iterate and extract each known string value
+	for _, elem := range intermediate {
+		// Skip null or unknown entries
+		if elem.IsNull() || elem.IsUnknown() {
+			continue
+		}
+
+		// Add the element to the output slice
+		output = append(output, int(elem.ValueInt32()))
+	}
+
+	// Return a pointer to the populated slice
+	return &output
+}
+
+// BuildList extracts a slice of blocks of type T from a Terraform types.List.
+func BuildList[T any](ctx context.Context, diags *diag.Diagnostics, l types.List) ([]T, bool) {
+	// Return nil, false if list is null or unknown
+	if l.IsNull() || l.IsUnknown() {
+		return nil, false
+	}
+
+	// Prepare a slice to hold decoded blocks
+	var blocks []T
+
+	// Decode list elements into blocks and append any diagnostics
+	diags.Append(l.ElementsAs(ctx, &blocks, false)...)
+
+	// If decoding produced errors, abort and return false
+	if diags.HasError() {
+		return nil, false
+	}
+
+	// If there were no blocks, return nil
+	if len(blocks) == 0 {
+		return nil, false
+	}
+
+	// Return decoded blocks and success indicator
+	return blocks, true
+}
+
+// Flatteners //
+
+// FlattenInt converts an *int into a Terraform types.Int32.
+func FlattenInt(input *int) types.Int32 {
+	// Exit early on nil pointer to represent an absent value
+	if input == nil {
+		return types.Int32Null()
+	}
+
+	// Cast the Go int to int32 and return a concrete types.Int32 value
+	return types.Int32Value(int32(*input))
+}
+
+// FlattenFloat64 converts a *float64 into a Terraform types.Float64.
+func FlattenFloat64(input *float64) types.Float64 {
+	// Exit early on nil pointer to represent an absent value
+	if input == nil {
+		return types.Float64Null()
+	}
+
+	// Return the constructed types.Float64
+	return types.Float64Value(*input)
+}
+
+// FlattenSelfLink retrieves the "self" link from a list of client.Link objects and returns it as a types.String.
+func FlattenSelfLink(links *[]client.Link) types.String {
+	// Initialize selfLink as an empty string
+	var selfLink string
+
+	// Check if links is non-nil and contains elements
+	if links != nil && len(*links) > 0 {
+		// Iterate through each link in the slice to find the "self" link
+		for _, ls := range *links {
+			if ls.Rel == "self" {
+				selfLink = ls.Href
+				break // Stop searching once the "self" link is found
+			}
+		}
+	}
+
+	// Return the selfLink as a types.String, either with the found URL or as an empty types.String
+	return types.StringValue(selfLink)
+}
+
+// FlattenTags converts a *map[string]interface{} to a types.Map.
+func FlattenTags(input *map[string]interface{}) types.Map {
+	// If the input map is nil, return an empty types.Map immediately
+	if input == nil {
+		return types.MapNull(types.StringType)
+	}
+
+	// Prepare elements for the types.Map
+	elements := make(map[string]attr.Value)
+
+	// Iterate over each key-value pair in the input map
+	for key, value := range *input {
+		// Skip tags that should be ignored
+		if shouldIgnoreTag(key) {
+			continue
+		}
+
+		elements[key] = formatToTypeString(value)
+	}
+
+	// Return the constructed types.Map
+	return types.MapValueMust(types.StringType, elements)
+}
+
+// FlattenMapString converts a pointer to a Go map[string]interface{} into a Terraform types.Map.
+func FlattenMapString(input *map[string]interface{}) types.Map {
+	// Check if the input pointer is nil
+	if input == nil {
+		// Represent nil input as a null map
+		return types.MapNull(types.StringType)
+	}
+
+	// Prepare elements for the types.Map
+	elements := make(map[string]attr.Value)
+
+	// Iterate over each key-value pair in the input map
+	for key, value := range *input {
+		elements[key] = formatToTypeString(value)
+	}
+
+	// Return the constructed types.Map
+	return types.MapValueMust(types.StringType, elements)
+}
+
+// FlattenSetString converts a Go *[]string into a Terraform types.Set with tfsdk.StringType.
+func FlattenSetString(input *[]string) types.Set {
+	// No input slice means no data → return a null set
+	if input == nil {
+		return types.SetNull(types.StringType)
+	}
+
+	// Convert each Go string into an attr.Value (types.String)
+	values := make([]attr.Value, len(*input))
+	for i, s := range *input {
+		values[i] = types.StringValue(s)
+	}
+
+	// Build and return the Set, panicking on any internal error
+	return types.SetValueMust(types.StringType, values)
+}
+
+// FlattenSetInt converts a Go *[]int into a Terraform types.Set with tfsdk.Int32Type.
+func FlattenSetInt(input *[]int) types.Set {
+	// No input slice means no data → return a null set
+	if input == nil {
+		return types.SetNull(types.Int32Type)
+	}
+
+	// Convert each Go string into an attr.Value (types.String)
+	values := make([]attr.Value, len(*input))
+	for i, s := range *input {
+		values[i] = types.Int32Value(int32(s))
+	}
+
+	// Build and return the Set, panicking on any internal error
+	return types.SetValueMust(types.Int32Type, values)
+}
+
+// FlattenList creates a Terraform types.List from a slice of generic Model blocks.
+func FlattenList[T commonmodel.Model](ctx context.Context, diags *diag.Diagnostics, blocks []T) types.List {
+	// Declare a zero value to access attribute types
+	var zero T
+
+	// Obtain the element attribute types for the list
+	elemType := zero.AttributeTypes()
+
+	// Guard clause for existing diagnostics errors or empty input
+	if diags.HasError() || len(blocks) == 0 {
+		return types.ListNull(elemType)
+	}
+
+	// Convert the slice of blocks into a Terraform list while collecting diagnostics
+	l, d := types.ListValueFrom(ctx, elemType, blocks)
+
+	// Merge any diagnostics from the conversion into the main diagnostics
+	diags.Append(d...)
+
+	// If the conversion produced errors, return a null list
+	if d.HasError() {
+		return types.ListNull(elemType)
+	}
+
+	// Return the successfully built list
+	return l
+}
+
+/*** Local Functions ***/
+
+// shouldIgnoreTag checks if a tag key starts with any of the prefixes in IgnoredTagPrefixes.
+func shouldIgnoreTag(key string) bool {
+	// Iterate through each prefix in IgnoredTagPrefixes to check if the key starts with the prefix
+	for _, prefix := range IgnoredTagPrefixes {
+		// If the key starts with the current prefix, return true to ignore the tag
+		if strings.HasPrefix(key, prefix) {
 			return true
 		}
 	}
 
+	// If no prefixes match, return false to indicate the tag should not be ignored
 	return false
+}
+
+// FormatTypeToString converts an interface{} value to its string representation.
+func formatToTypeString(v interface{}) types.String {
+	switch v := v.(type) {
+	case nil:
+		// Set the types.String to null if the value is nil
+		return types.StringNull()
+	case float64, float32:
+		// Format floating-point numbers without decimal places
+		return types.StringValue(fmt.Sprintf("%.0f", v))
+	case int, int8, int16, int32, int64:
+		// Format signed integers directly
+		return types.StringValue(fmt.Sprintf("%d", v))
+	case uint, uint8, uint16, uint32, uint64:
+		// Format unsigned integers directly
+		return types.StringValue(fmt.Sprintf("%d", v))
+	case bool:
+		// Format boolean values as "true" or "false"
+		return types.StringValue(fmt.Sprintf("%t", v))
+	case string:
+		// Return string values as-is
+		return types.StringValue(v)
+	default:
+		// Fallback for unsupported types
+		return types.StringValue(fmt.Sprintf("%v", v))
+	}
+}
+
+// formatFrameworkTypesToString converts attr.Value to its string representation.
+func formatFrameworkTypesToString(value attr.Value) string {
+	switch v := value.(type) {
+	case types.Float32, types.Float64:
+		// Format floating-point numbers without decimal places
+		return fmt.Sprintf("%.0f", v)
+	case types.Int32, types.Int64:
+		// Format signed integers directly
+		return fmt.Sprintf("%d", v)
+	case types.Bool:
+		// Format boolean values as "true" or "false"
+		return fmt.Sprintf("%t", v.ValueBool())
+	case types.String:
+		return v.ValueString()
+	default:
+		// Fallback for unsupported types
+		return fmt.Sprintf("%v", v)
+	}
 }

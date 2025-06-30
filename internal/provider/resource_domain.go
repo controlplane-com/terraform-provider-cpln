@@ -4,922 +4,835 @@ import (
 	"context"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-/*** Main ***/
-func resourceDomain() *schema.Resource {
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &DomainResource{}
+	_ resource.ResourceWithImportState = &DomainResource{}
+)
 
-	return &schema.Resource{
-		CreateContext: resourceDomainCreate,
-		ReadContext:   resourceDomainRead,
-		UpdateContext: resourceDomainUpdate,
-		DeleteContext: resourceDomainDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the Domain.",
+/*** Resource Model ***/
+
+// DomainResourceModel holds the Terraform state for the resource.
+type DomainResourceModel struct {
+	EntityBaseModel
+	Spec   types.List `tfsdk:"spec"`
+	Status types.List `tfsdk:"status"`
+}
+
+/*** Resource Configuration ***/
+
+// DomainResource is the resource implementation.
+type DomainResource struct {
+	EntityBase
+	Operations EntityOperations[DomainResourceModel, client.Domain]
+}
+
+// NewDomainResource returns a new instance of the resource implementation.
+func NewDomainResource() resource.Resource {
+	return &DomainResource{}
+}
+
+// Configure configures the resource before use.
+func (dr *DomainResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	dr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	dr.Operations = NewEntityOperations(dr.client, &DomainResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (dr *DomainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (dr *DomainResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_domain"
+}
+
+// Schema defines the schema for the resource.
+func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(dr.EntityBaseAttributes("Domain"), map[string]schema.Attribute{
+			"status": schema.ListNestedAttribute{
+				Description: "Domain status.",
 				Computed:    true,
-			},
-			"name": {
-				Type:        schema.TypeString,
-				Description: "Domain name. (e.g., `example.com` / `test.example.com`). Control Plane will validate the existence of the domain with DNS. Create and Update will fail if the required DNS entries cannot be validated.",
-				Required:    true,
-				ForceNew:    true,
-				// TODO validate domain name
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of the domain name.",
-				Optional:         true,
-				ValidateFunc:     DescriptionDomainValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:        schema.TypeMap,
-				Description: "Key-value map of resource tags.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"status": schema.StringAttribute{
+							Description: "Status of Domain. Possible values: `initializing`, `ready`, `pendingDnsConfig`, `pendingCertificate`, `usedByGvc`.",
+							Computed:    true,
+						},
+						"warning": schema.StringAttribute{
+							Description: "Warning message.",
+							Computed:    true,
+						},
+						"fingerprint": schema.StringAttribute{
+							Description: "",
+							Computed:    true,
+						},
+						"endpoints": schema.ListNestedAttribute{
+							Description: "List of configured domain endpoints.",
+							Computed:    true,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"url": schema.StringAttribute{
+										Description: "URL of endpoint.",
+										Computed:    true,
+									},
+									"workload_link": schema.StringAttribute{
+										Description: "Full link to associated workload.",
+										Computed:    true,
+									},
+								},
+							},
+						},
+						"locations": schema.ListNestedAttribute{
+							Description: "Contains the cloud provider name, region, and certificate status.",
+							Computed:    true,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description: "The name of the location.",
+										Computed:    true,
+									},
+									"certificate_status": schema.StringAttribute{
+										Description: "The current validity or status of the SSL/TLS certificate.",
+										Computed:    true,
+									},
+								},
+							},
+						},
+						"dns_config": schema.ListNestedAttribute{
+							Description: "List of required DNS record entries.",
+							Computed:    true,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
+										Description: "The DNS record type specifies the type of data the DNS record contains. Valid values: `CNAME`, `NS`, `TXT`.",
+										Computed:    true,
+									},
+									"ttl": schema.Int32Attribute{
+										Description: "Time to live (TTL) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.",
+										Computed:    true,
+									},
+									"host": schema.StringAttribute{
+										Description: "The host in DNS terminology refers to the domain or subdomain that the DNS record is associated with. It's essentially the name that is being queried or managed. For example, in a DNS record for `www.example.com`, `www` is a host in the domain `example.com`.",
+										Computed:    true,
+									},
+									"value": schema.StringAttribute{
+										Description: "The value of a DNS record contains the data the record is meant to convey, based on the type of the record.",
+										Computed:    true,
+									},
+								},
+							},
+						},
+					},
 				},
-				ValidateFunc: TagValidator,
 			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to this resource. Can be referenced by other resources.",
-				Computed:    true,
-			},
-			"spec": {
-				Type:        schema.TypeList,
+		}),
+		Blocks: map[string]schema.Block{
+			"spec": schema.ListNestedBlock{
 				Description: "Domain specification.",
-				Required:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"dns_mode": {
-							Type:        schema.TypeString,
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"dns_mode": schema.StringAttribute{
 							Description: "In `cname` dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently `cname` dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In `ns` dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: `cname`, `ns`. Default: `cname`.",
 							Optional:    true,
-							Default:     "cname",
+							Computed:    true,
+							Default:     stringdefault.StaticString("cname"),
 						},
-						"gvc_link": {
-							Type:        schema.TypeString,
+						"gvc_link": schema.StringAttribute{
 							Description: "This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. **Do not include if path based routing is used.**",
 							Optional:    true,
 						},
-						"accept_all_hosts": {
-							Type:        schema.TypeBool,
+						"accept_all_hosts": schema.BoolAttribute{
 							Description: "Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled.",
 							Optional:    true,
-							Default:     false,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
 						},
-						"ports": {
-							Type:        schema.TypeList,
+					},
+					Blocks: map[string]schema.Block{
+						"ports": schema.ListNestedBlock{
 							Description: "Domain port specifications.",
-							Required:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"number": {
-										Type:        schema.TypeInt,
-										Description: "Port to expose externally. Values: `80`, `443`. Default: `443`.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"number": schema.Int32Attribute{
+										Description: "Sets or overrides headers to all http requests for this route.",
 										Optional:    true,
-										Default:     443,
+										Computed:    true,
+										Default:     int32default.StaticInt32(443),
 									},
-									"protocol": {
-										Type:        schema.TypeString,
+									"protocol": schema.StringAttribute{
 										Description: "Allowed protocol. Valid values: `http`, `http2`, `tcp`. Default: `http2`.",
 										Optional:    true,
-										Default:     "http2",
+										Computed:    true,
+										Default:     stringdefault.StaticString("http2"),
 									},
-									"cors": {
-										Type:        schema.TypeList,
+								},
+								Blocks: map[string]schema.Block{
+									"cors": schema.ListNestedBlock{
 										Description: "A security feature implemented by web browsers to allow resources on a web page to be requested from another domain outside the domain from which the resource originated.",
-										Optional:    true,
-										MaxItems:    1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"allow_origins": {
-													Type:        schema.TypeList,
-													Description: "Determines which origins are allowed to access a particular resource on a server from a web browser.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"allow_methods": schema.SetAttribute{
+													Description: "Specifies the HTTP methods (such as `GET`, `POST`, `PUT`, `DELETE`, etc.) that are allowed for a cross-origin request to a specific resource.",
+													ElementType: types.StringType,
 													Optional:    true,
-													Elem: &schema.Resource{
-														Schema: map[string]*schema.Schema{
-															"exact": {
-																Type:        schema.TypeString,
+												},
+												"allow_headers": schema.SetAttribute{
+													Description: "Specifies the custom HTTP headers that are allowed in a cross-origin request to a specific resource.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+												"expose_headers": schema.SetAttribute{
+													Description: "The HTTP headers that a server allows to be exposed to the client in response to a cross-origin request. These headers provide additional information about the server's capabilities or requirements, aiding in proper handling of the request by the client's browser or application.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+												"max_age": schema.StringAttribute{
+													Description: "Maximum amount of time that a preflight request result can be cached by the client browser. Input is expected as a duration string (i.e, 24h, 20m, etc.).",
+													Optional:    true,
+													Computed:    true,
+													Default:     stringdefault.StaticString("24h"),
+												},
+												"allow_credentials": schema.BoolAttribute{
+													Description: "Determines whether the client-side code (typically running in a web browser) is allowed to include credentials (such as cookies, HTTP authentication, or client-side SSL certificates) in cross-origin requests.",
+													Optional:    true,
+													Computed:    true,
+													Default:     booldefault.StaticBool(false),
+												},
+											},
+											Blocks: map[string]schema.Block{
+												"allow_origins": schema.ListNestedBlock{
+													Description: "Determines which origins are allowed to access a particular resource on a server from a web browser.",
+													NestedObject: schema.NestedBlockObject{
+														Attributes: map[string]schema.Attribute{
+															"exact": schema.StringAttribute{
 																Description: "Value of allowed origin.",
-																Required:    true,
+																Optional:    true,
+																Validators: []validator.String{
+																	stringvalidator.ExactlyOneOf(
+																		path.MatchRelative().AtParent().AtName("exact"),
+																		path.MatchRelative().AtParent().AtName("regex"),
+																	),
+																},
+															},
+															"regex": schema.StringAttribute{
+																Description: "",
+																Optional:    true,
+																Validators: []validator.String{
+																	stringvalidator.ExactlyOneOf(
+																		path.MatchRelative().AtParent().AtName("exact"),
+																		path.MatchRelative().AtParent().AtName("regex"),
+																	),
+																},
 															},
 														},
 													},
 												},
-												"allow_methods": {
-													Type:        schema.TypeSet,
-													Description: "Specifies the HTTP methods (such as `GET`, `POST`, `PUT`, `DELETE`, etc.) that are allowed for a cross-origin request to a specific resource.",
+											},
+										},
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
+										},
+									},
+									"tls": schema.ListNestedBlock{
+										Description: "Used for TLS connections for this Domain. End users are responsible for certificate updates.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"min_protocol_version": schema.StringAttribute{
+													Description: "Minimum TLS version to accept. Minimum is `1.0`. Default: `1.2`.",
 													Optional:    true,
-													Elem: &schema.Schema{
-														Type: schema.TypeString,
-														// TODO Disregard uppercase lowercase
+													Computed:    true,
+													Default:     stringdefault.StaticString("TLSV1_2"),
+												},
+												"cipher_suites": schema.SetAttribute{
+													Description: "Allowed cipher suites. Refer to the [Domain Reference](https://docs.controlplane.com/reference/domain#cipher-suites) for details.",
+													ElementType: types.StringType,
+													Optional:    true,
+													Computed:    true,
+													Default: setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{
+														types.StringValue("AES128-GCM-SHA256"),
+														types.StringValue("AES256-GCM-SHA384"),
+														types.StringValue("ECDHE-ECDSA-AES128-GCM-SHA256"),
+														types.StringValue("ECDHE-ECDSA-AES256-GCM-SHA384"),
+														types.StringValue("ECDHE-ECDSA-CHACHA20-POLY1305"),
+														types.StringValue("ECDHE-RSA-AES128-GCM-SHA256"),
+														types.StringValue("ECDHE-RSA-AES256-GCM-SHA384"),
+														types.StringValue("ECDHE-RSA-CHACHA20-POLY1305"),
+													})),
+												},
+											},
+											Blocks: map[string]schema.Block{
+												"client_certificate": schema.ListNestedBlock{
+													Description:  "The certificate authority PEM, stored as a TLS Secret, used to verify the authority of the client certificate. The only verification performed checks that the CN of the PEM matches the Domain (i.e., CN=*.DOMAIN).",
+													NestedObject: dr.CertificateSchema("The secret will include a client certificate authority cert in PEM format used to verify requests which include client certificates. The key subject must match the domain and the key usage properties must be configured for client certificate authorization. The secret type must be keypair."),
+													Validators: []validator.List{
+														listvalidator.SizeAtMost(1),
 													},
 												},
-												"allow_headers": {
-													Type:        schema.TypeSet,
-													Description: "Specifies the custom HTTP headers that are allowed in a cross-origin request to a specific resource.",
-													Optional:    true,
-													Elem: &schema.Schema{
-														Type: schema.TypeString,
-														// TODO Disregard uppercase lowercase
+												"server_certificate": schema.ListNestedBlock{
+													Description:  "Configure an optional custom server certificate for the domain. When the port number is 443 and this is not supplied, a certificate is provisioned automatically.",
+													NestedObject: dr.CertificateSchema("When provided, this is used as the server certificate authority. The secret type must be keypair and the content must be PEM encoded."),
+													Validators: []validator.List{
+														listvalidator.SizeAtMost(1),
 													},
-												},
-												"expose_headers": {
-													Type:        schema.TypeSet,
-													Description: "The HTTP headers that a server allows to be exposed to the client in response to a cross-origin request. These headers provide additional information about the server's capabilities or requirements, aiding in proper handling of the request by the client's browser or application.",
-													Optional:    true,
-													Elem: &schema.Schema{
-														Type: schema.TypeString,
-														// TODO Disregard uppercase lowercase
-													},
-												},
-												"max_age": {
-													Type:        schema.TypeString,
-													Description: "Maximum amount of time that a preflight request result can be cached by the client browser. Input is expected as a duration string (i.e, 24h, 20m, etc.).",
-													Optional:    true,
-													Default:     "24h",
-												},
-												"allow_credentials": {
-													Type:        schema.TypeBool,
-													Description: "Determines whether the client-side code (typically running in a web browser) is allowed to include credentials (such as cookies, HTTP authentication, or client-side SSL certificates) in cross-origin requests.",
-													Optional:    true,
-													Default:     false,
 												},
 											},
 										},
-									},
-									"tls": {
-										Type:     schema.TypeList,
-										Required: true,
-										MaxItems: 1,
-										Elem: &schema.Resource{
-											Schema: map[string]*schema.Schema{
-												"min_protocol_version": {
-													Type:        schema.TypeString,
-													Description: "Minimum TLS version to accept. Minimum is `1.0`. Default: `1.2`.",
-													Optional:    true,
-													Default:     "TLSV1_2",
-												},
-												"cipher_suites": {
-													Type:        schema.TypeSet,
-													Description: "Allowed cipher suites. Refer to the [Domain Reference](https://docs.controlplane.com/reference/domain#cipher-suites) for details.",
-													Optional:    true,
-													Elem: &schema.Schema{
-														Type: schema.TypeString,
-													},
-													DefaultFunc: func() (interface{}, error) {
-														return []string{
-															"AES128-GCM-SHA256",
-															"AES256-GCM-SHA384",
-															"ECDHE-ECDSA-AES128-GCM-SHA256",
-															"ECDHE-ECDSA-AES256-GCM-SHA384",
-															"ECDHE-ECDSA-CHACHA20-POLY1305",
-															"ECDHE-RSA-AES128-GCM-SHA256",
-															"ECDHE-RSA-AES256-GCM-SHA384",
-															"ECDHE-RSA-CHACHA20-POLY1305",
-														}, nil
-													},
-												},
-												"client_certificate": {
-													Type:        schema.TypeList,
-													Description: "The certificate authority PEM, stored as a TLS Secret, used to verify the authority of the client certificate. The only verification performed checks that the CN of the PEM matches the Domain (i.e., CN=*.DOMAIN).",
-													Optional:    true,
-													MaxItems:    1,
-													Elem:        certificateResource(),
-												},
-												"server_certificate": {
-													Type:        schema.TypeList,
-													Description: "Custom Server Certificate.",
-													Optional:    true,
-													MaxItems:    1,
-													Elem:        certificateResource(),
-												},
-											},
+										Validators: []validator.List{
+											listvalidator.IsRequired(),
+											listvalidator.SizeAtMost(1),
 										},
 									},
 								},
+							},
+							Validators: []validator.List{
+								listvalidator.IsRequired(),
 							},
 						},
 					},
 				},
-			},
-			"status": {
-				Type:     schema.TypeList,
-				Computed: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"endpoints": {
-							Type:        schema.TypeList,
-							Description: "List of configured domain endpoints.",
-							Optional:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"url": {
-										Type:        schema.TypeString,
-										Description: "URL of endpoint.",
-										Optional:    true,
-									},
-									"workload_link": {
-										Type:        schema.TypeString,
-										Description: "Full link to associated workload.",
-										Optional:    true,
-									},
-								},
-							},
-						},
-						"status": {
-							Type:        schema.TypeString,
-							Description: "Status of Domain. Possible values: `initializing`, `ready`, `pendingDnsConfig`, `pendingCertificate`, `usedByGvc`.",
-							Optional:    true,
-						},
-						"warning": {
-							Type:        schema.TypeString,
-							Description: "Warning message.",
-							Optional:    true,
-						},
-						"locations": {
-							Type:        schema.TypeList,
-							Description: "Contains the cloud provider name, region, and certificate status.",
-							Optional:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"name": {
-										Type:        schema.TypeString,
-										Description: "The name of the location.",
-										Optional:    true,
-									},
-									"certificate_status": {
-										Type:        schema.TypeString,
-										Description: "The current validity or status of the SSL/TLS certificate.",
-										Optional:    true,
-									},
-								},
-							},
-						},
-						"fingerprint": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"dns_config": {
-							Type:        schema.TypeList,
-							Description: "List of required DNS record entries.",
-							Optional:    true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"type": {
-										Type:        schema.TypeString,
-										Description: "The DNS record type specifies the type of data the DNS record contains. Valid values: `CNAME`, `NS`, `TXT`.",
-										Optional:    true,
-									},
-									"ttl": {
-										Type:        schema.TypeInt,
-										Description: "Time to live (TTL) is a value that signifies how long (in seconds) a DNS record should be cached by a resolver or a browser before a new request should be sent to refresh the data. Lower TTL values mean records are updated more frequently, which is beneficial for dynamic DNS configurations or during DNS migrations. Higher TTL values reduce the load on DNS servers and improve the speed of name resolution for end users by relying on cached data.",
-										Optional:    true,
-									},
-									"host": {
-										Type:        schema.TypeString,
-										Description: "The host in DNS terminology refers to the domain or subdomain that the DNS record is associated with. It's essentially the name that is being queried or managed. For example, in a DNS record for `www.example.com`, `www` is a host in the domain `example.com`.",
-										Optional:    true,
-									},
-									"value": {
-										Type:        schema.TypeString,
-										Description: "The value of a DNS record contains the data the record is meant to convey, based on the type of the record.",
-										Optional:    true,
-									},
-								},
-							},
-						},
-					},
+				Validators: []validator.List{
+					listvalidator.IsRequired(),
+					listvalidator.SizeAtMost(1),
 				},
 			},
 		},
-		Importer: &schema.ResourceImporter{},
 	}
 }
 
-func resourceDomainCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	domain := client.Domain{
-		Spec: buildDomainSpec(d.Get("spec")),
-	}
-
-	domain.Name = GetString(d.Get("name"))
-	domain.Description = GetString(d.Get("description"))
-	domain.Tags = GetStringMap(d.Get("tags"))
-
-	c := m.(*client.Client)
-
-	newDomain, code, err := c.CreateDomain(domain)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setDomain(d, newDomain)
+// Create creates the resource.
+func (dr *DomainResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, dr.Operations)
 }
 
-func resourceDomainRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-	domain, code, err := c.GetDomain(d.Id())
-
-	if code == 404 {
-		d.SetId("")
-		return nil
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setDomain(d, domain)
+// Read fetches the current state of the resource.
+func (dr *DomainResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, dr.Operations)
 }
 
-func resourceDomainUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	if d.HasChanges("description", "tags", "spec") {
-
-		domainToUpdate := client.Domain{}
-		domainToUpdate.Name = GetString(d.Get("name"))
-		domainToUpdate.Description = GetDescriptionString(d.Get("description"), *domainToUpdate.Name)
-		domainToUpdate.Tags = GetTagChanges(d)
-
-		c := m.(*client.Client)
-
-		if d.HasChange("spec") {
-
-			domain, _, err := c.GetDomain(*domainToUpdate.Name)
-
-			if err != nil {
-				return diag.FromErr(err)
-			}
-
-			domainToUpdate.SpecReplace = buildDomainSpec(d.Get("spec"))
-
-			// For loop is to restore routes created using domain_routes
-			for uIndex, uValue := range *domainToUpdate.SpecReplace.Ports {
-
-				for dIndex, dValue := range *domain.Spec.Ports {
-
-					if *uValue.Number == *dValue.Number && ((*domain.Spec.Ports)[dIndex].Routes != nil && len(*(*domain.Spec.Ports)[dIndex].Routes) > 0) {
-
-						destination := make([]client.DomainRoute, len(*(*domain.Spec.Ports)[dIndex].Routes))
-						copy(destination, (*(*domain.Spec.Ports)[dIndex].Routes))
-						(*domainToUpdate.SpecReplace.Ports)[uIndex].Routes = &destination
-					}
-				}
-			}
-		}
-
-		// Apply update
-
-		updatedDomain, _, err := c.UpdateDomain(domainToUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setDomain(d, updatedDomain)
-	}
-
-	return nil
+// Update modifies the resource.
+func (dr *DomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, dr.Operations)
 }
 
-func resourceDomainDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-
-	id := d.Id()
-	err := c.DeleteDomain(id)
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	d.SetId("")
-
-	return nil
+// Delete removes the resource.
+func (dr *DomainResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, dr.Operations)
 }
 
-/*** Resources ***/
-func certificateResource() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"secret_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to a TLS secret.",
+/*** Schemas ***/
+
+// CertificateSchema creates a nested block schema using the provided description.
+func (dr *DomainResource) CertificateSchema(description string) schema.NestedBlockObject {
+	return schema.NestedBlockObject{
+		Attributes: map[string]schema.Attribute{
+			"secret_link": schema.StringAttribute{
+				Description: description,
 				Optional:    true,
 			},
 		},
 	}
 }
 
-/*** Build Functions ***/
-// Spec Related //
-func buildDomainSpec(input interface{}) *client.DomainSpec {
+/*** Resource Operator ***/
 
-	specs := input.([]interface{})
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	result := &client.DomainSpec{}
-
-	if spec["dns_mode"] != nil {
-		result.DnsMode = GetString(spec["dns_mode"])
-	}
-
-	if spec["gvc_link"] != nil {
-		result.GvcLink = GetString(spec["gvc_link"])
-	}
-
-	if spec["accept_all_hosts"] != nil {
-		result.AcceptAllHosts = GetBool(spec["accept_all_hosts"])
-	}
-
-	if spec["ports"] != nil {
-		result.Ports = buildSpecPorts(spec["ports"].([]interface{}))
-	}
-
-	return result
+// DomainResourceOperator is the operator for managing the state.
+type DomainResourceOperator struct {
+	EntityOperator[DomainResourceModel]
 }
 
-func buildSpecPorts(specs []interface{}) *[]client.DomainSpecPort {
+// NewAPIRequest creates a request payload from a state model.
+func (dro *DomainResourceOperator) NewAPIRequest(isUpdate bool) client.Domain {
+	// Initialize a new request payload
+	requestPayload := client.Domain{}
 
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
+	// Populate Base fields from state
+	dro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Set specific attributes
+	if isUpdate {
+		requestPayload.SpecReplace = dro.buildSpec(dro.Plan.Spec)
+	} else {
+		requestPayload.Spec = dro.buildSpec(dro.Plan.Spec)
 	}
 
-	collection := []client.DomainSpecPort{}
-
-	for _, item := range specs {
-		port := item.(map[string]interface{})
-		newPort := client.DomainSpecPort{}
-
-		if port["number"] != nil {
-			newPort.Number = GetInt(port["number"])
-		}
-
-		if port["protocol"] != nil {
-			newPort.Protocol = GetString(port["protocol"])
-		}
-
-		if port["cors"] != nil {
-			newPort.Cors = buildCors(port["cors"].([]interface{}))
-		}
-
-		if port["tls"] != nil {
-			newPort.TLS = buildTLS(port["tls"].([]interface{}))
-		}
-
-		collection = append(collection, newPort)
-	}
-
-	return &collection
+	// Return the request payload object
+	return requestPayload
 }
 
-func buildCors(specs []interface{}) *client.DomainCors {
+// MapResponseToState creates a state model from response payload.
+func (dro *DomainResourceOperator) MapResponseToState(domain *client.Domain, isCreate bool) DomainResourceModel {
+	// Initialize empty state model
+	state := DomainResourceModel{}
 
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
+	// Populate common fields from base resource data
+	state.From(domain.Base)
 
-	spec := specs[0].(map[string]interface{})
-	result := &client.DomainCors{}
+	// In case the self link is empty, construct one
+	state.SelfLink = types.StringValue(GetSelfLink(dro.Client.Org, "domain", *domain.Name))
 
-	if spec["allow_origins"] != nil {
-		result.AllowOrigins = buildAllowOrigins(spec["allow_origins"].([]interface{}))
-	}
+	// Set specific attributes
+	state.Spec = dro.flattenSpec(domain.Spec)
+	state.Status = dro.flattenStatus(domain.Status)
 
-	if spec["allow_methods"] != nil {
-		result.AllowMethods = buildStringArray(spec["allow_methods"].(*schema.Set).List())
-	}
-
-	if spec["allow_headers"] != nil {
-		result.AllowHeaders = buildStringArray(spec["allow_headers"].(*schema.Set).List())
-	}
-
-	if spec["expose_headers"] != nil {
-		result.ExposeHeaders = buildStringArray(spec["expose_headers"].(*schema.Set).List())
-	}
-
-	if spec["max_age"] != nil {
-		result.MaxAge = GetString(spec["max_age"])
-	}
-
-	if spec["allow_credentials"] != nil {
-		result.AllowCredentials = GetBool(spec["allow_credentials"])
-	}
-
-	return result
+	// Return the built state
+	return state
 }
 
-func buildTLS(specs []interface{}) *client.DomainTLS {
-
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
-	}
-
-	spec := specs[0].(map[string]interface{})
-	result := &client.DomainTLS{}
-
-	if spec["min_protocol_version"] != nil {
-		result.MinProtocolVersion = GetString(spec["min_protocol_version"])
-	}
-
-	if spec["cipher_suites"] != nil {
-		result.CipherSuites = buildStringArray(spec["cipher_suites"].(*schema.Set).List())
-	}
-
-	if spec["client_certificate"] != nil {
-		result.ClientCertificate = buildCertificate(spec["client_certificate"].([]interface{}))
-	}
-
-	if spec["server_certificate"] != nil {
-		result.ServerCertificate = buildCertificate(spec["server_certificate"].([]interface{}))
-	}
-
-	return result
+// InvokeCreate invokes the Create API to create a new resource.
+func (dro *DomainResourceOperator) InvokeCreate(req client.Domain) (*client.Domain, int, error) {
+	return dro.Client.CreateDomain(req)
 }
 
-func buildAllowOrigins(specs []interface{}) *[]client.DomainAllowOrigin {
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (dro *DomainResourceOperator) InvokeRead(name string) (*client.Domain, int, error) {
+	return dro.Client.GetDomain(name)
+}
 
-	if len(specs) == 0 || specs[0] == nil {
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (dro *DomainResourceOperator) InvokeUpdate(req client.Domain) (*client.Domain, int, error) {
+	return dro.Client.UpdateDomain(req)
+}
+
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (dro *DomainResourceOperator) InvokeDelete(name string) error {
+	return dro.Client.DeleteDomain(name)
+}
+
+// Builders //
+
+// buildSpec constructs a DomainSpec struct from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpec(state types.List) *client.DomainSpec {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	collection := []client.DomainAllowOrigin{}
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	for _, item := range specs {
-		allowOrigin := item.(map[string]interface{})
-		newAllowOrigin := client.DomainAllowOrigin{}
-		if allowOrigin["exact"] != nil {
-			newAllowOrigin.Exact = GetString(allowOrigin["exact"].(string))
+	// Construct and return the result
+	return &client.DomainSpec{
+		DnsMode:        BuildString(block.DnsMode),
+		GvcLink:        BuildString(block.GvcLink),
+		AcceptAllHosts: BuildBool(block.AcceptAllHosts),
+		Ports:          dro.buildSpecPorts(block.Ports),
+	}
+}
+
+// buildSpecPorts constructs a []client.DomainSpecPort slice from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpecPorts(state types.List) *[]client.DomainSpecPort {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Declare the result slice
+	result := []client.DomainSpecPort{}
+
+	// Iterate over each block and construct a result item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.DomainSpecPort{
+			Number:   BuildInt(block.Number),
+			Protocol: BuildString(block.Protocol),
+			Cors:     dro.buildSpecPortCors(block.Cors),
+			TLS:      dro.buildSpecPortTls(block.TLS),
 		}
-		collection = append(collection, newAllowOrigin)
+
+		// Add the item to the result slice
+		result = append(result, item)
 	}
 
-	return &collection
-}
-
-func buildCertificate(specs []interface{}) *client.DomainCertificate {
-
-	if len(specs) == 0 {
-		return nil
-	}
-
-	spec := specs[0]
-	result := client.DomainCertificate{}
-
-	if spec == nil {
-		return &result
-	}
-
-	specAsMap := spec.(map[string]interface{})
-
-	if specAsMap["secret_link"] != nil {
-		result.SecretLink = GetString(specAsMap["secret_link"].(string))
-	}
-
+	// Return the result
 	return &result
 }
 
-/*** Flatten Functions ***/
-// Spec Related //
+// buildSpecPortCors constructs a DomainCors struct from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpecPortCors(state types.List) *client.DomainCors {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecPortsCorsModel](dro.Ctx, dro.Diags, state)
 
-func flattenDomainSpec(domainSpec *client.DomainSpec) []interface{} {
-
-	if domainSpec == nil {
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	spec := make(map[string]interface{})
-	if domainSpec.DnsMode != nil {
-		spec["dns_mode"] = *domainSpec.DnsMode
-	}
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	if domainSpec.GvcLink != nil {
-		spec["gvc_link"] = *domainSpec.GvcLink
-	}
-
-	if domainSpec.AcceptAllHosts != nil {
-		spec["accept_all_hosts"] = *domainSpec.AcceptAllHosts
-	}
-	spec["ports"] = flattenSpecPorts(domainSpec.Ports)
-
-	return []interface{}{
-		spec,
+	// Construct and return the result
+	return &client.DomainCors{
+		AllowOrigins:     dro.buildSpecPortCorsAllowOrigins(block.AllowOrigins),
+		AllowMethods:     BuildSetString(dro.Ctx, dro.Diags, block.AllowMethods),
+		AllowHeaders:     BuildSetString(dro.Ctx, dro.Diags, block.AllowHeaders),
+		ExposeHeaders:    BuildSetString(dro.Ctx, dro.Diags, block.ExposeHeaders),
+		MaxAge:           BuildString(block.MaxAge),
+		AllowCredentials: BuildBool(block.AllowCredentials),
 	}
 }
 
-func flattenSpecPorts(ports *[]client.DomainSpecPort) []interface{} {
+// buildSpecPortCorsAllowOrigins constructs a []client.DomainAllowOrigin slice from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpecPortCorsAllowOrigins(state types.List) *[]client.DomainAllowOrigin {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecPortsCorsAllowOriginsModel](dro.Ctx, dro.Diags, state)
 
-	if ports == nil || len(*ports) == 0 {
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	collection := make([]interface{}, len(*ports))
-	for i, item := range *ports {
+	// Declare the result slice
+	result := []client.DomainAllowOrigin{}
 
-		port := make(map[string]interface{})
-		if item.Number != nil {
-			port["number"] = *item.Number
+	// Iterate over each block and construct a result item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.DomainAllowOrigin{
+			Exact: BuildString(block.Exact),
+			Regex: BuildString(block.Regex),
 		}
 
-		if item.Protocol != nil {
-			port["protocol"] = *item.Protocol
-		}
-
-		port["cors"] = flattenCors(item.Cors)
-		port["tls"] = flattenTLS(item.TLS)
-
-		collection[i] = port
+		// Add the item to the result slice
+		result = append(result, item)
 	}
 
-	return collection
+	// Return the result
+	return &result
 }
 
-func flattenCors(cors *client.DomainCors) []interface{} {
+// buildSpecPortTls constructs a DomainTLS struct from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpecPortTls(state types.List) *client.DomainTLS {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecPortsTlsModel](dro.Ctx, dro.Diags, state)
 
-	if cors == nil {
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	result := make(map[string]interface{})
-	result["allow_origins"] = flattenAllowOrigins(cors.AllowOrigins)
-	result["allow_methods"] = flattenStringsArray(cors.AllowMethods)
-	result["allow_headers"] = flattenStringsArray(cors.AllowHeaders)
-	result["expose_headers"] = flattenStringsArray(cors.ExposeHeaders)
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	if cors.MaxAge != nil {
-		result["max_age"] = *cors.MaxAge
-	}
-
-	if cors.AllowCredentials != nil {
-		result["allow_credentials"] = *cors.AllowCredentials
-	}
-
-	return []interface{}{
-		result,
-	}
-}
-
-func flattenTLS(tls *client.DomainTLS) []interface{} {
-
-	if tls == nil {
-		return nil
-	}
-
-	result := make(map[string]interface{})
-	if tls.MinProtocolVersion != nil {
-		result["min_protocol_version"] = *tls.MinProtocolVersion
-	}
-
-	result["cipher_suites"] = flattenStringsArray(tls.CipherSuites)
-	result["client_certificate"] = flattenCertificate(tls.ClientCertificate)
-	result["server_certificate"] = flattenCertificate(tls.ServerCertificate)
-
-	return []interface{}{
-		result,
+	// Construct and return the result
+	return &client.DomainTLS{
+		MinProtocolVersion: BuildString(block.MinProtocolVersion),
+		CipherSuites:       BuildSetString(dro.Ctx, dro.Diags, block.CipherSuites),
+		ClientCertificate:  dro.buildSpecPortTlsCertificate(block.ClientCertificate),
+		ServerCertificate:  dro.buildSpecPortTlsCertificate(block.ServerCertificate),
 	}
 }
 
-func flattenAllowOrigins(allowOrigins *[]client.DomainAllowOrigin) []interface{} {
+// buildSpecPortTlsCertificate constructs a DomainCertificate struct from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpecPortTlsCertificate(state types.List) *client.DomainCertificate {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecPortsTlsCertificateModel](dro.Ctx, dro.Diags, state)
 
-	if allowOrigins == nil || len(*allowOrigins) == 0 {
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	collection := make([]interface{}, len(*allowOrigins))
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	for i, item := range *allowOrigins {
-
-		allowOrigin := make(map[string]interface{})
-		if item.Exact != nil {
-			allowOrigin["exact"] = *item.Exact
-		}
-
-		collection[i] = allowOrigin
-	}
-
-	return collection
-}
-
-func flattenCertificate(certificate *client.DomainCertificate) []interface{} {
-
-	if certificate == nil {
-		return nil
-	}
-
-	result := make(map[string]interface{})
-	if certificate.SecretLink != nil {
-		result["secret_link"] = *certificate.SecretLink
-	}
-
-	return []interface{}{
-		result,
+	// Construct and return the result
+	return &client.DomainCertificate{
+		SecretLink: BuildString(block.SecretLink),
 	}
 }
 
-func flattenDomainStatus(status *client.DomainStatus) []interface{} {
-	if status == nil {
-		return nil
+// Flatteners //
+
+// flattenSpec transforms client.DomainSpec into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpec(input *client.DomainSpec) types.List {
+	// Get attribute types
+	elementType := models.SpecModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	spec := make(map[string]interface{})
-
-	endpoints := flattenDomainStatusEndpoints(status.Endpoints)
-	if endpoints != nil {
-		spec["endpoints"] = endpoints
+	// Build a single block
+	block := models.SpecModel{
+		DnsMode:        types.StringPointerValue(input.DnsMode),
+		GvcLink:        types.StringPointerValue(input.GvcLink),
+		AcceptAllHosts: types.BoolPointerValue(input.AcceptAllHosts),
+		Ports:          dro.flattenSpecPorts(input.Ports),
 	}
 
-	if status.Status != nil {
-		spec["status"] = *status.Status
-	}
-
-	if status.Warning != nil {
-		spec["warning"] = *status.Warning
-	}
-
-	locations := flattenDomainStatusLocations(status.Locations)
-	if locations != nil {
-		spec["locations"] = locations
-	}
-
-	if status.Fingerprint != nil {
-		spec["fingerprint"] = *status.Fingerprint
-	}
-
-	dnsConfig := flattenDomainStatusDnsConfig(status.DnsConfig)
-	if dnsConfig != nil {
-		spec["dns_config"] = dnsConfig
-	}
-
-	return []interface{}{
-		spec,
-	}
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, []models.SpecModel{block})
 }
 
-func flattenDomainStatusEndpoints(endpoints *[]client.DomainEndpoint) []interface{} {
-	if endpoints == nil || len(*endpoints) == 0 {
-		return nil
+// flattenSpecPorts transforms []client.DomainSpecPort into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPort) types.List {
+	// Get attribute types
+	elementType := models.SpecPortsModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	specs := []interface{}{}
+	// Define the blocks slice
+	blocks := []models.SpecPortsModel{}
 
-	for _, endpoint := range *endpoints {
-		if endpoint.URL == nil && endpoint.WorkloadLink == nil {
-			continue
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.SpecPortsModel{
+			Number:   FlattenInt(item.Number),
+			Protocol: types.StringPointerValue(item.Protocol),
+			Cors:     dro.flattenSpecPortCors(item.Cors),
+			TLS:      dro.flattenSpecPortTls(item.TLS),
 		}
 
-		spec := make(map[string]interface{})
-
-		if endpoint.URL != nil {
-			spec["url"] = *endpoint.URL
-		}
-
-		if endpoint.WorkloadLink != nil {
-			spec["workload_link"] = *endpoint.WorkloadLink
-		}
-
-		specs = append(specs, spec)
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
 	}
 
-	return specs
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
 }
 
-func flattenDomainStatusLocations(locations *[]client.DomainStatusLocation) []interface{} {
-	if locations == nil || len(*locations) == 0 {
-		return nil
+// flattenSpecPortCors transforms client.DomainCors into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpecPortCors(input *client.DomainCors) types.List {
+	// Get attribute types
+	elementType := models.SpecPortsCorsModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	specs := []interface{}{}
-
-	for _, location := range *locations {
-		if location.Name == nil && location.CertificateStatus == nil {
-			continue
-		}
-
-		spec := make(map[string]interface{})
-
-		if location.Name != nil {
-			spec["name"] = *location.Name
-		}
-
-		if location.CertificateStatus != nil {
-			spec["certificate_status"] = *location.CertificateStatus
-		}
-
-		specs = append(specs, spec)
+	// Build a single block
+	block := models.SpecPortsCorsModel{
+		AllowOrigins:     dro.flattenSpecPortCorsAllowOrigins(input.AllowOrigins),
+		AllowMethods:     FlattenSetString(input.AllowMethods),
+		AllowHeaders:     FlattenSetString(input.AllowHeaders),
+		ExposeHeaders:    FlattenSetString(input.ExposeHeaders),
+		MaxAge:           types.StringPointerValue(input.MaxAge),
+		AllowCredentials: types.BoolPointerValue(input.AllowCredentials),
 	}
 
-	return specs
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, []models.SpecPortsCorsModel{block})
 }
 
-func flattenDomainStatusDnsConfig(configs *[]client.DnsConfigRecord) []interface{} {
-	if configs == nil || len(*configs) == 0 {
-		return nil
+// flattenSpecPortCorsAllowOrigins transforms []client.DomainAllowOrigin into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpecPortCorsAllowOrigins(input *[]client.DomainAllowOrigin) types.List {
+	// Get attribute types
+	elementType := models.SpecPortsCorsAllowOriginsModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	specs := []interface{}{}
+	// Define the blocks slice
+	blocks := []models.SpecPortsCorsAllowOriginsModel{}
 
-	for _, config := range *configs {
-		if config.Type == nil && config.TTL == nil && config.Host == nil && config.Value == nil {
-			continue
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.SpecPortsCorsAllowOriginsModel{
+			Exact: types.StringPointerValue(item.Exact),
+			Regex: types.StringPointerValue(item.Regex),
 		}
 
-		spec := make(map[string]interface{})
-
-		if config.Type != nil {
-			spec["type"] = *config.Type
-		}
-
-		if config.TTL != nil {
-			spec["ttl"] = *config.TTL
-		}
-
-		if config.Host != nil {
-			spec["host"] = *config.Host
-		}
-
-		if config.Value != nil {
-			spec["value"] = *config.Value
-		}
-
-		specs = append(specs, spec)
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
 	}
 
-	return specs
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
 }
 
-/*** Helper Functions ***/
-func setDomain(d *schema.ResourceData, domain *client.Domain) diag.Diagnostics {
+// flattenSpecPortTls transforms client.DomainTLS into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpecPortTls(input *client.DomainTLS) types.List {
+	// Get attribute types
+	elementType := models.SpecPortsTlsModel{}.AttributeTypes()
 
-	if domain == nil {
-		d.SetId("")
-		return nil
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	d.SetId(*domain.Name)
-
-	if err := SetBase(d, domain.Base); err != nil {
-		return diag.FromErr(err)
+	// Build a single block
+	block := models.SpecPortsTlsModel{
+		MinProtocolVersion: types.StringPointerValue(input.MinProtocolVersion),
+		CipherSuites:       FlattenSetString(input.CipherSuites),
+		ClientCertificate:  dro.flattenSpecPortTlsCertificate(input.ClientCertificate),
+		ServerCertificate:  dro.flattenSpecPortTlsCertificate(input.ServerCertificate),
 	}
 
-	if err := SetSelfLink(domain.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("spec", flattenDomainSpec(domain.Spec)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("status", flattenDomainStatus(domain.Status)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, []models.SpecPortsTlsModel{block})
 }
 
-// Build //
-func buildStringArray(specs []interface{}) *[]string {
+// flattenSpecPortTlsCertificate transforms client.DomainCertificate into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpecPortTlsCertificate(input *client.DomainCertificate) types.List {
+	// Get attribute types
+	elementType := models.SpecPortsTlsCertificateModel{}.AttributeTypes()
 
-	if len(specs) == 0 || specs[0] == nil {
-		return nil
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	collection := []string{}
-	for _, item := range specs {
-		collection = append(collection, item.(string))
+	// Build a single block
+	block := models.SpecPortsTlsCertificateModel{
+		SecretLink: types.StringPointerValue(input.SecretLink),
 	}
 
-	return &collection
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, []models.SpecPortsTlsCertificateModel{block})
 }
 
-// Flatten //
-func flattenStringsArray(strings *[]string) []interface{} {
+// flattenStatus transforms client.DomainStatus into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenStatus(input *client.DomainStatus) types.List {
+	// Get attribute types
+	elementType := models.StatusModel{}.AttributeTypes()
 
-	if strings == nil || len(*strings) == 0 {
-		return nil
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	collection := make([]interface{}, len(*strings))
-	for i, item := range *strings {
-		collection[i] = item
+	// Build a single block
+	block := models.StatusModel{
+		Endpoints:   dro.flattenStatusEndpoints(input.Endpoints),
+		Status:      types.StringPointerValue(input.Status),
+		Warning:     types.StringPointerValue(input.Warning),
+		Locations:   dro.flattenStatusLocations(input.Locations),
+		Fingerprint: types.StringPointerValue(input.Fingerprint),
+		DnsConfig:   dro.flattenStatusDnsConfig(input.DnsConfig),
 	}
 
-	return collection
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, []models.StatusModel{block})
+}
+
+// flattenStatusEndpoints transforms []client.DomainEndpoint into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenStatusEndpoints(input *[]client.DomainStatusEndpoint) types.List {
+	// Get attribute types
+	elementType := models.StatusEndpointModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	blocks := []models.StatusEndpointModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.StatusEndpointModel{
+			URL:          types.StringPointerValue(item.URL),
+			WorkloadLink: types.StringPointerValue(item.WorkloadLink),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
+}
+
+// flattenStatusLocations transforms []client.DomainStatusLocation into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenStatusLocations(input *[]client.DomainStatusLocation) types.List {
+	// Get attribute types
+	elementType := models.StatusLocationModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	blocks := []models.StatusLocationModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.StatusLocationModel{
+			Name:              types.StringPointerValue(item.Name),
+			CertificateStatus: types.StringPointerValue(item.CertificateStatus),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
+}
+
+// flattenStatusDnsConfig transforms []client.DnsConfigRecord into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenStatusDnsConfig(input *[]client.DomainStatusDnsConfigRecord) types.List {
+	// Get attribute types
+	elementType := models.StatusDnsConfigModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	blocks := []models.StatusDnsConfigModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.StatusDnsConfigModel{
+			Type:  types.StringPointerValue(item.Type),
+			TTL:   FlattenInt(item.TTL),
+			Host:  types.StringPointerValue(item.Host),
+			Value: types.StringPointerValue(item.Value),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
 }

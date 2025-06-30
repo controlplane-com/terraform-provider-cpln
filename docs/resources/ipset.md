@@ -48,6 +48,7 @@ Read-Only:
 
 - **ip_address** (Block List) ([see below](#nestedblock--status-ip_address))
 - **error** (String)
+- **warning** (String)
 
 <a id="nestedblock--status--ip_address"></a>
 

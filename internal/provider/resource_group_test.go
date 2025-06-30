@@ -1,474 +1,437 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/go-test/deep"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+/*** Acceptance Test ***/
+
+// TestAccControlPlaneGroup_basic performs an acceptance test for the resource.
 func TestAccControlPlaneGroup_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewGroupResourceTest()
 
-	var testGroup client.Group
-
-	randomName := "group-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "GROUP") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneGroupCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneGroupWithJMESPATH(randomName),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGroupExists("cpln_group.tf-group", randomName, &testGroup),
-					testAccCheckControlPlaneGroupAttributes(&testGroup, "language_jmespath"),
-					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName),
-					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName),
-				),
-			},
-			{
-				Config: testAccControlPlaneGroupWithJavaScript(randomName + "-javascript"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneGroupExists("cpln_group.tf-group", randomName+"-javascript", &testGroup),
-					testAccCheckControlPlaneGroupAttributes(&testGroup, "language_javascript"),
-					resource.TestCheckResourceAttr("cpln_group.tf-group", "name", randomName+"-javascript"),
-					resource.TestCheckResourceAttr("cpln_group.tf-group", "description", "group description "+randomName+"-javascript"),
-				),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "GROUP") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccControlPlaneGroupWithJMESPATH(name string) string {
+/*** Resource Test ***/
 
-	return fmt.Sprintf(`
-	
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_service_account" "tf_sa" {
-
-		name = "service-account-${var.random-name}"
-		description = "service account description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_group" "tf-group" {
-
-		depends_on = [cpln_service_account.tf_sa]
-
-		name = var.random-name
-		description = "group description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-
-		// user_ids_and_emails = ["unittest@controlplane.com"]
-
-		service_accounts = [cpln_service_account.tf_sa.name]
-
-		member_query {
-
-			fetch = "items"
-
-			spec {
-				match = "all"
-
-				terms {
-					op = "="
-					tag = "firebase/sign_in_provider"
-					value = "microsoft.com"
-				}
-			}
-		}
-
-		identity_matcher {
-			expression = "groups"
-			// language default value is 'jmespath'
-		}
-	}
-	`, name)
+// GroupResourceTest defines the necessary functionality to test the resource.
+type GroupResourceTest struct {
+	Steps []resource.TestStep
 }
 
-func testAccControlPlaneGroupWithJavaScript(name string) string {
+// NewGroupResourceTest creates a GroupResourceTest with initialized test cases.
+func NewGroupResourceTest() GroupResourceTest {
+	// Create a resource test instance
+	resourceTest := GroupResourceTest{}
 
-	return fmt.Sprintf(`
-	
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-	resource "cpln_service_account" "tf_sa" {
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewDefaultScenario()...)
 
-		name = "service-account-${var.random-name}"
-		description = "service account description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-	}
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-	resource "cpln_group" "tf-group" {
-
-		depends_on = [cpln_service_account.tf_sa]
-
-		name = var.random-name
-		description = "group description ${var.random-name}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-		}
-
-		// user_ids_and_emails = ["unittest@controlplane.com"]
-
-		service_accounts = [cpln_service_account.tf_sa.name]
-
-		member_query {
-
-			fetch = "items"
-
-			spec {
-				match = "all"
-
-				terms {
-					op = "="
-					tag = "firebase/sign_in_provider"
-					value = "microsoft.com"
-				}
-			}
-		}
-
-		identity_matcher {
-			expression = "if ($.includes('groups')) { const y = $.groups; }"
-			language = "javascript"
-		}
-	}
-	`, name)
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccCheckControlPlaneGroupExists(resourceName string, groupName string, group *client.Group) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
+// CheckDestroy verifies that all resources have been destroyed.
+func (grt *GroupResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_group resources. Total resources: %d", len(s.RootModule().Resources)))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneGroupExists. Resources Length: %d", len(s.RootModule().Resources))
-
-		rs, ok := s.RootModule().Resources[resourceName]
-
-		if !ok {
-			return fmt.Errorf("Not found: %s", s)
-		}
-
-		if rs.Primary.ID != groupName {
-			return fmt.Errorf("Group name does not match")
-		}
-
-		client := testAccProvider.Meta().(*client.Client)
-
-		wl, _, err := client.GetGroup(groupName)
-
-		if err != nil {
-			return err
-		}
-
-		if *wl.Name != groupName {
-			return fmt.Errorf("Group name does not match")
-		}
-
-		*group = *wl
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneGroupAttributes(group *client.Group, groupType string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		tags := *group.Tags
-
-		if tags["terraform_generated"] != "true" {
-			return fmt.Errorf("Tags - group terraform_generated attribute does not match")
-		}
-
-		identityMatcher, _, _ := generateTestIdentityMatcher(groupType)
-
-		if diff := deep.Equal(identityMatcher, group.IdentityMatcher); diff != nil {
-			return fmt.Errorf("Identity matcher attributes do not match. Diff: %s", diff)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneGroupCheckDestroy(s *terraform.State) error {
-
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
-		if rs.Type == "cpln_group" {
-
-			groupName := rs.Primary.ID
-
-			group, _, _ := c.GetGroup(groupName)
-			if group != nil {
-				return fmt.Errorf("Group still exists. Name: %s", *group.Name)
-			}
+		// Continue only if the resource is as expected
+		if rs.Type != "cpln_group" {
+			continue
 		}
 
-		if rs.Type == "cpln_service_account" {
+		// Retrieve the name for the current resource
+		groupName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of group with name: %s", groupName))
 
-			saName := rs.Primary.ID
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		group, code, err := TestProvider.client.GetGroup(groupName)
 
-			sa, _, _ := c.GetGroup(saName)
-			if sa != nil {
-				return fmt.Errorf("Service Account still exists. Name: %s", *sa.Name)
-			}
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if group %s exists: %w", groupName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
+		if group != nil {
+			return fmt.Errorf("CheckDestroy failed: group %s still exists in the system", *group.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_group resources have been successfully destroyed")
 	return nil
 }
 
-/*** Unit Tests ***/
-// Build Functions //
-func TestControlPlane_BuildGroupMemberLinks(t *testing.T) {
+// Test Scenarios //
 
-	u, sa := generateFlatTestMemberLinks()
+// NewDefaultScenario creates a test case for a group using JMESPATH with initial and updated configurations.
+func (grt *GroupResourceTest) NewDefaultScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	name := fmt.Sprintf("sa-default-%s", random)
+	resourceName := "new"
+	serviceAccountName := fmt.Sprintf("sa-%s", random)
 
-	unitTestGroup := client.Group{}
-	buildMemberLinks("testorg", u, sa, &unitTestGroup)
-
-	if diff := deep.Equal(unitTestGroup, generateTestMemberLinks()); diff != nil {
-		t.Errorf("Group Member Links was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildGroupQuery(t *testing.T) {
-
-	unitTestGroup := client.Group{}
-	unitTestGroup.MemberQuery = BuildQueryHelper("user", generateFlatTestGroupQuery())
-
-	if diff := deep.Equal(&unitTestGroup, generateTestGroupQuery()); diff != nil {
-		t.Errorf("Group Query was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildIdentityMatcher_WithJMESPATH(t *testing.T) {
-	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("language_jmespath")
-
-	if diff := deep.Equal(identityMatcher, &expectedIdentityMatcher); diff != nil {
-		t.Errorf("Identity Matcher was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildIdentityMatcher_WithJavaScript(t *testing.T) {
-	identityMatcher, expectedIdentityMatcher, _ := generateTestIdentityMatcher("language_javascript")
-
-	if diff := deep.Equal(identityMatcher, &expectedIdentityMatcher); diff != nil {
-		t.Errorf("Identity Matcher was not built correctly. Diff: %s", diff)
-	}
-}
-
-// Generate Functions //
-func generateTestMemberLinks() client.Group {
-
-	testGroup := client.Group{}
-	testGroup.MemberLinks = &[]string{
-		"/org/testorg/user/username@cpln.io",
-		"/org/testorg/user/control_plane_user",
-		"/org/testorg/serviceaccount/terraform-service-account",
-		"/org/testorg/serviceaccount/test-service-account",
-	}
-
-	return testGroup
-}
-
-func generateTestGroupQuery() *client.Group {
-
-	testGroup := client.Group{}
-	testGroup.MemberQuery = &client.Query{
-		Kind:  GetString("user"),
-		Fetch: GetString("items"),
-	}
-
-	testGroup.MemberQuery.Spec = &client.Spec{
-		Match: GetString("all"),
-		Terms: &[]client.Term{
-			{
-				Op:       GetString("="),
-				Property: GetString("property"),
-				// Rel:      GetString(""),
-				// Tag:      GetString(""),
-				Value: GetString("property-value"),
-			},
-			{
-				Op: GetString("!="),
-				// Property: GetString(""),
-				Rel: GetString("rel"),
-				// Tag:      GetString(""),
-				Value: GetString("rel-value"),
-			},
-			{
-				Op: GetString(">"),
-				// Property: GetString(""),
-				// Rel:      GetString(""),
-				Tag:   GetString("tag"),
-				Value: GetString("tag-value"),
-			},
+	// Create the service account case
+	serviceAccountCase := ServiceAccountResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "serviceaccount",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_service_account.new",
+			Name:              serviceAccountName,
+			Description:       serviceAccountName,
+			DescriptionUpdate: "service account default description updated",
 		},
 	}
 
-	return &testGroup
-}
+	// Create a service account resource test instance
+	serviceAccountResourceTest := ServiceAccountResourceTest{}
 
-func generateTestIdentityMatcher(groupType string) (*client.IdentityMatcher, client.IdentityMatcher, []interface{}) {
-	expression := "groups"
-	language := "jmespath"
+	// Initialize the service account config
+	serviceAccountConfig := serviceAccountResourceTest.RequiredOnly(serviceAccountCase)
 
-	if groupType == "language_javascript" {
-		expression = "if ($.includes('groups')) { const y = $.groups; }"
-		language = "javascript"
-	}
+	// Build test steps
+	initialConfig, initialStep := grt.BuildInitialTestStep(resourceName, name)
+	caseUpdate1 := grt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, resourceName, serviceAccountConfig, serviceAccountCase)
+	caseUpdate2 := grt.BuildUpdate2TestStep(initialConfig.ProviderTestCase, resourceName, serviceAccountConfig, serviceAccountCase)
 
-	flattened := generateFlatTestIdentityMatcher(expression, language)
-	identityMatcher := buildIdentityMatcher(flattened)
-	expectedIdentityMatcher := client.IdentityMatcher{
-		Expression: &expression,
-		Language:   &language,
-	}
-
-	return identityMatcher, expectedIdentityMatcher, flattened
-}
-
-// Flatten Functions //
-func TestControlPlane_FlattenMemberLinks(t *testing.T) {
-
-	userIDs, serviceAccounts, err := flattenMemberLinks("testorg", generateTestMemberLinks().MemberLinks)
-
-	if err != nil {
-		t.Errorf("%s", err.Error())
-		return
-	}
-
-	userIDsFlat, serviceAccountsFlat := generateFlatTestMemberLinks()
-
-	if diff := deep.Equal(userIDs, userIDsFlat.(*schema.Set).List()); diff != nil {
-		t.Errorf("User IDs were not flattened correctly. Diff: %s", diff)
-		return
-	}
-
-	if diff := deep.Equal(serviceAccounts, serviceAccountsFlat.(*schema.Set).List()); diff != nil {
-		t.Errorf("Service Accounts were not flattened correctly. Diff: %s", diff)
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		caseUpdate2,
+		// Revert the resource to its initial state
+		// initialStep, // TODO: Uncomment this once the issue with memberQuery and identityMatcher removal is fixed.
 	}
 }
 
-func TestControlPlane_FlattenQuery(t *testing.T) {
+// Test Cases //
 
-	query, err := FlattenQueryHelper(generateTestGroupQuery().MemberQuery)
-
-	if err != nil {
-		t.Errorf("%s", err.Error())
-		return
+// BuildInitialTestStep returns a default initial test step and its associated test case for the resource.
+func (grt *GroupResourceTest) BuildInitialTestStep(resourceName string, name string) (GroupResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := GroupResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "group",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_group.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "group default description updated",
+		},
 	}
 
-	if diff := deep.Equal(query, generateFlatTestGroupQuery()); diff != nil {
-		t.Errorf("Member Query was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-func generateFlatTestMemberLinks() (interface{}, interface{}) {
-
-	usersFlat := []interface{}{
-		"username@cpln.io",
-		"control_plane_user",
-	}
-
-	serviceAccountsFlat := []interface{}{
-		"test-service-account",
-		"terraform-service-account",
-	}
-
-	stringFunc := schema.HashSchema(StringSchema())
-
-	return schema.NewSet(stringFunc, usersFlat), schema.NewSet(stringFunc, serviceAccountsFlat)
-}
-
-func generateFlatTestGroupQuery() []interface{} {
-
-	query := make(map[string]interface{})
-
-	query["fetch"] = "items"
-
-	spec := make(map[string]interface{})
-	spec["match"] = "all"
-
-	term01 := make(map[string]interface{})
-	term01["op"] = "="
-	term01["property"] = "property"
-	// term01["rel"] = ""
-	// term01["tag"] = ""
-	term01["value"] = "property-value"
-
-	term02 := make(map[string]interface{})
-	term02["op"] = "!="
-	// term02["property"] = ""
-	term02["rel"] = "rel"
-	// term02["tag"] = ""
-	term02["value"] = "rel-value"
-
-	term03 := make(map[string]interface{})
-	term03["op"] = ">"
-	// term03["property"] = ""
-	// term03["rel"] = ""
-	term03["tag"] = "tag"
-	term03["value"] = "tag-value"
-
-	terms := []interface{}{
-		term01,
-		term02,
-		term03,
-	}
-
-	spec["terms"] = terms
-	specArray := []interface{}{
-		spec,
-	}
-
-	query["spec"] = specArray
-
-	return []interface{}{
-		query,
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: grt.RequiredOnly(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+		),
 	}
 }
 
-func generateFlatTestIdentityMatcher(expression string, language string) []interface{} {
-	spec := map[string]interface{}{
-		"expression": expression,
-		"language":   language,
+// BuildUpdate1TestStep returns a test step for the update.
+func (grt *GroupResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase, resourceName string, serviceAccountConfig string, serviceAccountCase ServiceAccountResourceTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := GroupResourceTestCase{
+		ProviderTestCase: initialCase,
+		UserIdsAndEmails: []string{"unittest@controlplane.com"},
+		MemberQuery: client.Query{
+			Fetch: StringPointer("items"),
+			Spec: &client.QuerySpec{
+				Match: StringPointer("all"),
+				Terms: &[]client.QueryTerm{
+					{
+						Op:    StringPointer("="),
+						Tag:   StringPointer("firebase/sign_in_provider"),
+						Value: StringPointer("microsoft.com"),
+					},
+				},
+			},
+		},
+		IdentityMatcher: client.GroupIdentityMatcher{
+			Expression: StringPointer("groups"),
+			Language:   StringPointer("jmespath"),
+		},
 	}
 
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: grt.UpdateWithMinimalOptionals(c, serviceAccountConfig, serviceAccountCase),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckSetAttr("user_ids_and_emails", c.UserIdsAndEmails),
+			c.TestCheckSetAttr("service_accounts", []string{serviceAccountCase.Name}),
+			c.TestCheckNestedBlocks("member_query", []map[string]interface{}{
+				{
+					"fetch": *c.MemberQuery.Fetch,
+					"spec": []map[string]interface{}{
+						{
+							"match": *c.MemberQuery.Spec.Match,
+							"terms": []map[string]interface{}{
+								{
+									"op":    *(*c.MemberQuery.Spec.Terms)[0].Op,
+									"tag":   *(*c.MemberQuery.Spec.Terms)[0].Tag,
+									"value": *(*c.MemberQuery.Spec.Terms)[0].Value,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("identity_matcher", []map[string]interface{}{
+				{
+					"expression": *c.IdentityMatcher.Expression,
+					"language":   *c.IdentityMatcher.Language,
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate2TestStep returns a test step for the update.
+func (grt *GroupResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, resourceName string, serviceAccountConfig string, serviceAccountCase ServiceAccountResourceTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := GroupResourceTestCase{
+		ProviderTestCase: initialCase,
+		UserIdsAndEmails: []string{"unittest@controlplane.com", "unittest2@controlplane.com"},
+		MemberQuery: client.Query{
+			Fetch: StringPointer("items"),
+			Spec: &client.QuerySpec{
+				Match: StringPointer("all"),
+				Terms: &[]client.QueryTerm{
+					{
+						Op:    StringPointer("="),
+						Tag:   StringPointer("firebase/sign_in_provider"),
+						Value: StringPointer("microsoft.com"),
+					},
+				},
+			},
+		},
+		IdentityMatcher: client.GroupIdentityMatcher{
+			Expression: StringPointer("if ($.includes('groups')) { const y = $.groups; }"),
+			Language:   StringPointer("javascript"),
+		},
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: grt.UpdateWithAllOptionals(c, serviceAccountConfig, serviceAccountCase),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckSetAttr("user_ids_and_emails", c.UserIdsAndEmails),
+			c.TestCheckSetAttr("service_accounts", []string{serviceAccountCase.Name}),
+			c.TestCheckNestedBlocks("member_query", []map[string]interface{}{
+				{
+					"fetch": *c.MemberQuery.Fetch,
+					"spec": []map[string]interface{}{
+						{
+							"match": *c.MemberQuery.Spec.Match,
+							"terms": []map[string]interface{}{
+								{
+									"op":    *(*c.MemberQuery.Spec.Terms)[0].Op,
+									"tag":   *(*c.MemberQuery.Spec.Terms)[0].Tag,
+									"value": *(*c.MemberQuery.Spec.Terms)[0].Value,
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("identity_matcher", []map[string]interface{}{
+				{
+					"expression": *c.IdentityMatcher.Expression,
+					"language":   *c.IdentityMatcher.Language,
+				},
+			}),
+		),
+	}
+}
+
+// Configs //
+
+// RequiredOnly returns a minimal HCL block for a resource using only required fields.
+func (grt *GroupResourceTest) RequiredOnly(c GroupResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_group" "%s" {
+  name = "%s"
+}
+`, c.ResourceName, c.Name)
+}
+
+// UpdateWithMinimalOptionals constructs an HCL configuration for a group resource using minimal optional fields including member query and identity matcher
+func (grt *GroupResourceTest) UpdateWithMinimalOptionals(c GroupResourceTestCase, serviceAccountConfig string, serviceAccountCase ServiceAccountResourceTestCase) string {
+	return fmt.Sprintf(`
+# Service Account Resource
+%s
+
+resource "cpln_group" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  user_ids_and_emails = %s
+  service_accounts    = [%s]
+
+  member_query {
+    spec {
+      terms {
+        tag   = "%s"
+        value = "%s"
+      }
+    }
+  }
+
+  identity_matcher {
+    expression = "%s"
+    # language default value is 'jmespath'
+	}
+}
+`, serviceAccountConfig, c.ResourceName, serviceAccountCase.ResourceAddress, c.Name, c.DescriptionUpdate, StringSliceToString(c.UserIdsAndEmails),
+		serviceAccountCase.GetResourceNameAttr(), *(*c.MemberQuery.Spec.Terms)[0].Tag, *(*c.MemberQuery.Spec.Terms)[0].Value, *c.IdentityMatcher.Expression,
+	)
+}
+
+// UpdateWithAllOptionals constructs an HCL configuration for a group resource using all optional fields including fetch, match, and full identity matcher settings.
+func (grt *GroupResourceTest) UpdateWithAllOptionals(c GroupResourceTestCase, serviceAccountConfig string, serviceAccountCase ServiceAccountResourceTestCase) string {
+	return fmt.Sprintf(`
+# Service Account Resource
+%s
+
+resource "cpln_group" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  user_ids_and_emails = %s
+  service_accounts    = [%s]
+
+  member_query {
+    fetch = "%s"
+
+    spec {
+      match = "%s"
+
+      terms {
+        op    = "%s"
+        tag   = "%s"
+        value = "%s"
+      }
+    }
+  }
+
+  identity_matcher {
+    expression = "%s"
+    language   = "%s"
+  }
+}
+`, serviceAccountConfig, c.ResourceName, serviceAccountCase.ResourceAddress, c.Name, c.DescriptionUpdate, StringSliceToString(c.UserIdsAndEmails), serviceAccountCase.GetResourceNameAttr(),
+		*c.MemberQuery.Fetch, *c.MemberQuery.Spec.Match, *(*c.MemberQuery.Spec.Terms)[0].Op, *(*c.MemberQuery.Spec.Terms)[0].Tag, *(*c.MemberQuery.Spec.Terms)[0].Value,
+		*c.IdentityMatcher.Expression, *c.IdentityMatcher.Language,
+	)
+}
+
+/*** Resource Test Case ***/
+
+// GroupResourceTestCase defines a specific resource test case.
+type GroupResourceTestCase struct {
+	ProviderTestCase
+	UserIdsAndEmails []string
+	MemberQuery      client.Query
+	IdentityMatcher  client.GroupIdentityMatcher
+}
+
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (grtc *GroupResourceTestCase) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of group: %s. Total resources: %d", grtc.Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[grtc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", grtc.ResourceAddress)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != grtc.Name {
+			return fmt.Errorf("resource ID %s does not match expected group name %s", rs.Primary.ID, grtc.Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remoteGroup, _, err := TestProvider.client.GetGroup(grtc.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving group from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remoteGroup.Name != grtc.Name {
+			return fmt.Errorf("mismatch in group name: expected %s, got %s", grtc.Name, *remoteGroup.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Group %s verified successfully in both state and external system.", grtc.Name))
+		return nil
 	}
 }

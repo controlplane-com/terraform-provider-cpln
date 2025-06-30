@@ -7,8 +7,8 @@ import (
 // Secret - Secret
 type Secret struct {
 	Base
-	Type 		*string      `json:"type,omitempty"`
-	Data 	    *interface{} `json:"data,omitempty"`
+	Type        *string      `json:"type,omitempty"`
+	Data        *interface{} `json:"data,omitempty"`
 	DataReplace *interface{} `json:"$replace/data,omitempty"`
 }
 

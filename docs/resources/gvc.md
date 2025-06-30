@@ -16,17 +16,17 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 
 ### Optional
 
-- **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 - **description** (String) Description of the GVC.
 - **tags** (Map of String) Key-value map of resource tags.
-- **domain** (String) Custom domain name used by associated workloads.
+- **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
+- **domain** (String) Custom domain name used by associated workloads.
 - **endpoint_naming_format** (String) Customizes the subdomain format for the canonical workload endpoint. `default` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${org}.cpln.app'.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
-- **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
 - **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
+- **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
 
 ~> **Note** Only one of the tracing blocks can be defined.
 
@@ -76,9 +76,16 @@ Optional:
 Optional:
 
 - **dedicated** (Boolean) Creates a dedicated load balancer in each location and enables additional Domain features: custom ports, protocols and wildcard hostnames. Charges apply for each location.
+- **multi_zone** (Block List, Max: 1) ([see below](#nestedblock--load_balancer--multi_zone)).
 - **trusted_proxies** (Int) Controls the address used for request logging and for setting the X-Envoy-External-Address header. If set to 1, then the last address in an existing X-Forwarded-For header will be used in place of the source client IP address. If set to 2, then the second to last address in an existing X-Forwarded-For header will be used in place of the source client IP address. If the XFF header does not have at least two addresses or does not exist then the source client IP address will be used instead.
 - **redirect** (Block List, Max: 1) ([see below](#nestedblock--load_balancer--redirect)).
 - **ipset** (String) The link or the name of the IP Set that will be used for this load balancer.
+
+<a id="nestedblock--load_balancer--multi_zone"></a>
+
+### `load_balancer.multi_zone`
+
+- **enabled** (Boolean) Default: `false`.
 
 <a id="nestedblock--load_balancer--redirect"></a>
 
@@ -180,6 +187,10 @@ resource "cpln_gvc" "example" {
     dedicated       = true
     trusted_proxies = 1
     ipset           = "my-ipset"
+
+    multi_zone {
+      enabled = false
+    }
 
     redirect {
       class {

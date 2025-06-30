@@ -2,102 +2,179 @@ package cpln
 
 import (
 	"context"
+	"os"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Provider -
-func Provider() *schema.Provider {
+// Ensure the implementation satisfies the expected interfaces.
+var (
+	_ provider.Provider = &CplnProvider{}
+)
 
-	return &schema.Provider{
+// CplnProvider is the provider implementation.
+type CplnProvider struct {
+	// version is set to the provider version on release, "dev" when the
+	// provider is built and ran locally, and "test" when running acceptance
+	// testing.
+	version string
+	client  *client.Client
+}
 
-		Schema: map[string]*schema.Schema{
-			"org": {
-				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPLN_ORG", ""),
-			},
-			"endpoint": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPLN_ENDPOINT", "https://api.cpln.io"),
-			},
-			"profile": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPLN_PROFILE", ""),
-			},
-			"token": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPLN_TOKEN", ""),
-			},
-			"refresh_token": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPLN_REFRESH_TOKEN", ""),
-			},
-		},
+// CplnProviderModel maps provider schema data to a Go type.
+type CplnProviderModel struct {
+	Org          types.String `tfsdk:"org"`
+	Endpoint     types.String `tfsdk:"endpoint"`
+	Profile      types.String `tfsdk:"profile"`
+	Token        types.String `tfsdk:"token"`
+	RefreshToken types.String `tfsdk:"refresh_token"`
+}
 
-		ResourcesMap: map[string]*schema.Resource{
-			"cpln_agent":               resourceAgent(),
-			"cpln_audit_context":       resourceAuditContext(),
-			"cpln_cloud_account":       resourceCloudAccount(),
-			"cpln_custom_location":     resourceCustomLocation(),
-			"cpln_domain":              resourceDomain(),
-			"cpln_domain_route":        resourceDomainRoute(),
-			"cpln_group":               resourceGroup(),
-			"cpln_gvc":                 resourceGvc(),
-			"cpln_identity":            resourceIdentity(),
-			"cpln_ipset":               resourceIpSet(),
-			"cpln_location":            resourceLocation(),
-			"cpln_mk8s":                resourceMk8s(),
-			"cpln_mk8s_kubeconfig":     resourceMk8sKubeconfig(),
-			"cpln_org_logging":         resourceOrgLogging(),
-			"cpln_org_tracing":         resourceOrgTracing(),
-			"cpln_org":                 resourceOrg(),
-			"cpln_policy":              resourcePolicy(),
-			"cpln_secret":              resourceSecret(),
-			"cpln_service_account":     resourceServiceAccount(),
-			"cpln_service_account_key": resourceServiceAccountKey(),
-			"cpln_volume_set":          resourceVolumeSet(),
-			"cpln_workload":            resourceWorkload(),
-		},
-
-		DataSourcesMap: map[string]*schema.Resource{
-			// "cpln_gvcs": dataSourceGvcs(),
-			"cpln_cloud_account": dataSourceCloudAccount(),
-			"cpln_gvc":           dataSourceGvc(),
-			"cpln_image":         dataSourceImage(),
-			"cpln_images":        dataSourceImages(),
-			"cpln_location":      dataSourceLocation(),
-			"cpln_locations":     dataSourceLocations(),
-			"cpln_org":           dataSourceOrg(),
-			"cpln_secret":        dataSourceSecret(),
-		},
-
-		ConfigureContextFunc: providerConfigure,
+// New is a helper function to simplify provider server and testing implementation.
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &CplnProvider{
+			version: version,
+		}
 	}
 }
 
-func providerConfigure(_ context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+// Metadata returns the provider type name.
+func (p *CplnProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "cpln"
+	resp.Version = p.version
+}
 
-	org := d.Get("org").(string)
-	host := d.Get("endpoint").(string)
-	profile := d.Get("profile").(string)
-	token := d.Get("token").(string)
-	refreshToken := d.Get("refresh_token").(string)
+// Schema defines the provider-level schema for configuration data.
+func (p *CplnProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"org": schema.StringAttribute{
+				Optional:    true,
+				Description: "The Control Plane org that this provider will perform actions against. Can be specified with the CPLN_ORG environment variable.",
+			},
+			"endpoint": schema.StringAttribute{
+				Optional:    true,
+				Description: "The Control Plane Data Service API endpoint. Default is: https://api.cpln.io. Can be specified with the CPLN_ENDPOINT environment variable.",
+			},
+			"profile": schema.StringAttribute{
+				Optional:    true,
+				Description: "The user/service account profile that this provider will use to authenticate to the data service. Can be specified with the CPLN_PROFILE environment variable.",
+			},
+			"token": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "A generated token that can be used to authenticate to the data service API. Can be specified with the CPLN_TOKEN environment variable.",
+			},
+			"refresh_token": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "A generated token that can be used to authenticate to the data service API. Can be specified with the CPLN_REFRESH_TOKEN environment variable. Used when the provider is required to create an org or update the auth_config property. Refer to the section above on how to obtain the refresh token.",
+			},
+		},
+	}
+}
 
-	var diags diag.Diagnostics
+// Configure prepares a Control Plane API client for data sources and resources.
+func (p *CplnProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	// Retrieve provider data from configuration
+	var config CplnProviderModel
 
-	httpClient, err := client.NewClient(&org, &host, &profile, &token, &refreshToken)
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
 
-	if err != nil {
-		return nil, diag.FromErr(err)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	return httpClient, diags
+	// Give config attributes environment variables as default values if unknown or null
+	if config.Org.IsNull() || config.Org.IsUnknown() {
+		config.Org = types.StringValue(os.Getenv("CPLN_ORG"))
+	}
+
+	if config.Endpoint.IsNull() || config.Endpoint.IsUnknown() {
+		if endpoint := os.Getenv("CPLN_ENDPOINT"); endpoint != "" {
+			config.Endpoint = types.StringValue(endpoint)
+		}
+	}
+
+	if config.Profile.IsNull() || config.Profile.IsUnknown() {
+		config.Profile = types.StringValue(os.Getenv("CPLN_PROFILE"))
+	}
+
+	if config.Token.IsNull() || config.Token.IsUnknown() {
+		config.Token = types.StringValue(os.Getenv("CPLN_TOKEN"))
+	}
+
+	if config.RefreshToken.IsNull() || config.RefreshToken.IsUnknown() {
+		config.RefreshToken = types.StringValue(os.Getenv("CPLN_REFRESH_TOKEN"))
+	}
+
+	// Create a new cpln client using the configuration values
+	c, err := client.NewClient(config.Org.ValueStringPointer(), config.Endpoint.ValueStringPointer(), config.Profile.ValueStringPointer(), config.Token.ValueStringPointer(), config.RefreshToken.ValueStringPointer())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Failed to Create Cpln API Client",
+			"An error occurred while attempting to create the Cpln API c. "+
+				"Please verify your configuration or try again. "+
+				"If the issue persists, consider reaching out to the provider's support team.\n\n"+
+				"Detailed Error: "+err.Error(),
+		)
+
+		return
+	}
+
+	// Set provider client
+	p.client = c
+
+	// Make the cpln client available during DataSource and Resource type Configure methods
+	resp.DataSourceData = c
+	resp.ResourceData = c
+}
+
+// DataSources defines the data sources implemented in the provider.
+func (p *CplnProvider) DataSources(_ context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		NewCloudAccountDataSource,
+		NewGvcDataSource,
+		NewImageDataSource,
+		NewImagesDataSource,
+		NewLocationDataSource,
+		NewLocationsDataSource,
+		NewOrgDataSource,
+		NewSecretDataSource,
+	}
+}
+
+// Resources defines the resources implemented in the provider.
+func (p *CplnProvider) Resources(_ context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewAgentResource,
+		NewAuditContextResource,
+		NewCloudAccountResource,
+		NewCustomLocationResource,
+		NewDomainRouteResource,
+		NewDomainResource,
+		NewGroupResource,
+		NewGvcResource,
+		NewIdentityResource,
+		NewIpSetResource,
+		NewLocationResource,
+		NewMk8sResource,
+		NewOrgLoggingResource,
+		NewOrgTracingResource,
+		NewOrgResource,
+		NewPolicyResource,
+		NewSecretResource,
+		NewServiceAccountKeyResource,
+		NewServiceAccountResource,
+		NewVolumeSetResource,
+		NewWorkloadResource,
+	}
 }

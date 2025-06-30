@@ -25,12 +25,12 @@ type DomainSpec struct {
 }
 
 type DomainStatus struct {
-	Endpoints   *[]DomainEndpoint       `json:"endPoints,omitempty"`
-	Status      *string                 `json:"status,omitempty"`
-	Warning     *string                 `json:"warning,omitempty"`
-	Locations   *[]DomainStatusLocation `json:"locations,omitempty"`
-	Fingerprint *string                 `json:"fingerprint,omitempty"`
-	DnsConfig   *[]DnsConfigRecord      `json:"dnsConfig,omitempty"`
+	Endpoints   *[]DomainStatusEndpoint        `json:"endPoints,omitempty"`
+	Status      *string                        `json:"status,omitempty"`
+	Warning     *string                        `json:"warning,omitempty"`
+	Locations   *[]DomainStatusLocation        `json:"locations,omitempty"`
+	Fingerprint *string                        `json:"fingerprint,omitempty"`
+	DnsConfig   *[]DomainStatusDnsConfigRecord `json:"dnsConfig,omitempty"`
 }
 
 /*** Spec Related ***/
@@ -51,6 +51,7 @@ type DomainRoute struct {
 	HostPrefix    *string             `json:"hostPrefix,omitempty"`
 	HostRegex     *string             `json:"hostRegex,omitempty"`
 	Headers       *DomainRouteHeaders `json:"headers,omitempty"`
+	Replica       *int                `json:"replica,omitempty"`
 }
 
 type DomainCors struct {
@@ -71,6 +72,7 @@ type DomainTLS struct {
 
 type DomainAllowOrigin struct {
 	Exact *string `json:"exact,omitempty"`
+	Regex *string `json:"regex,omitempty"`
 }
 
 type DomainCertificate struct {
@@ -86,7 +88,7 @@ type DomainHeaderOperation struct {
 }
 
 /*** Status Related ***/
-type DomainEndpoint struct {
+type DomainStatusEndpoint struct {
 	URL          *string `json:"url,omitempty"`
 	WorkloadLink *string `json:"workloadLink,omitempty"`
 }
@@ -96,7 +98,7 @@ type DomainStatusLocation struct {
 	CertificateStatus *string `json:"certificateStatus,omitempty"`
 }
 
-type DnsConfigRecord struct {
+type DomainStatusDnsConfigRecord struct {
 	Type  *string `json:"type,omitempty"`
 	TTL   *int    `json:"ttl,omitempty"`
 	Host  *string `json:"host,omitempty"`
@@ -147,16 +149,16 @@ func (c *Client) DeleteDomain(name string) error {
 }
 
 /*** Domain Route ***/
-func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainRoute) error {
+func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainRoute) (*DomainRoute, int, error) {
 
 	domain, _, err := c.GetDomain(domainName)
 
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 
 	if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
-		return fmt.Errorf("domain is not configured correctly, ports are not set")
+		return nil, 0, fmt.Errorf("domain is not configured correctly, ports are not set")
 	}
 
 	for index, value := range *domain.Spec.Ports {
@@ -168,7 +170,7 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 				(*domain.Spec.Ports)[index].Routes = &[]DomainRoute{}
 			}
 
-			if *route.Port == 0 {
+			if route.Port != nil && *route.Port == 0 {
 				route.Port = nil
 			}
 
@@ -182,10 +184,11 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 			_, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
 
 			if err != nil {
-				return err
+				return nil, 0, err
 			}
 
-			return nil
+			// If we got here then route has been added successfully
+			return c.GetDomainRoute(domainName, domainPort, route.Prefix, route.Regex)
 		}
 	}
 
@@ -200,19 +203,40 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 		routeIdentifier = fmt.Sprintf("with regex '%s'", *route.Regex)
 	}
 
-	return fmt.Errorf("unable to add route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
+	return nil, 0, fmt.Errorf("unable to add route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
 }
 
-func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *DomainRoute) error {
+func (c *Client) GetDomainRoute(domainName string, domainPort int, prefix *string, regex *string) (*DomainRoute, int, error) {
+	domain, code, err := c.GetDomain(domainName)
+
+	if err != nil {
+		return nil, code, err
+	}
+
+	for _, value := range *domain.Spec.Ports {
+		if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
+			for _, route := range *value.Routes {
+				if (prefix != nil && route.Prefix != nil && *route.Prefix == *prefix) ||
+					(regex != nil && route.Regex != nil && *route.Regex == *regex) {
+					return &route, code, nil
+				}
+			}
+		}
+	}
+
+	return nil, code, err
+}
+
+func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *DomainRoute) (*DomainRoute, int, error) {
 
 	domain, _, err := c.GetDomain(domainName)
 
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 
 	if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
-		return fmt.Errorf("Domain is not configured correctly, ports are not set")
+		return nil, 0, fmt.Errorf("Domain is not configured correctly, ports are not set")
 	}
 
 	for pIndex, value := range *domain.Spec.Ports {
@@ -237,6 +261,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostRegex = route.HostRegex
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Replica = route.Replica
 
 					// Update resource
 					domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)
@@ -246,10 +271,11 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 					_, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
 
 					if err != nil {
-						return err
+						return nil, 0, err
 					}
 
-					return nil
+					// If we got here, then the route has been updated successfully
+					return c.GetDomainRoute(domainName, domainPort, route.Prefix, route.Regex)
 				}
 			}
 		}
@@ -266,7 +292,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 		routeIdentifier = fmt.Sprintf("with regex '%s'", *route.Regex)
 	}
 
-	return fmt.Errorf("unable to update route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
+	return nil, 0, fmt.Errorf("unable to update route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
 }
 
 func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix *string, regex *string) error {
