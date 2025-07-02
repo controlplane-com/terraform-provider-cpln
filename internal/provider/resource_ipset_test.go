@@ -1,434 +1,256 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-	"github.com/go-test/deep"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+/*** Acceptance Test ***/
+
+// TestAccControlPlaneIpSet_basic performs an acceptance test for the resource.
 func TestAccControlPlaneIpSet_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewIpSetResourceTest()
 
-	var ipSet client.IpSet
-
-	randomName := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	name := "ipset-" + randomName
-	description := "IpSet description created using Terraform"
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "IPSET") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneIpSetCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneIpSet(name, description),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneIpSetExists("cpln_ipset.new", name, &ipSet),
-					testAccCheckControlPlaneIpSetAttributes(&ipSet, randomName, ""),
-					resource.TestCheckResourceAttr("cpln_ipset.new", "name", name),
-					resource.TestCheckResourceAttr("cpln_ipset.new", "description", description),
-				),
-			},
-			{
-				Config: testAccControlPlaneIpSetWithLinkOnly(randomName, name, description),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneIpSetExists("cpln_ipset.new", name, &ipSet),
-					testAccCheckControlPlaneIpSetAttributes(&ipSet, randomName, "link_only"),
-					resource.TestCheckResourceAttr("cpln_ipset.new", "name", name),
-					resource.TestCheckResourceAttr("cpln_ipset.new", "description", description),
-				),
-			},
-			{
-				Config: testAccControlPlaneIpSetWithAllArguments(randomName, name, description),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneIpSetExists("cpln_ipset.new", name, &ipSet),
-					testAccCheckControlPlaneIpSetAttributes(&ipSet, randomName, "all_attributes"),
-					resource.TestCheckResourceAttr("cpln_ipset.new", "name", name),
-					resource.TestCheckResourceAttr("cpln_ipset.new", "description", description),
-				),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "IPSET") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccCheckControlPlaneIpSetExists(resourceName string, name string, ipSet *client.IpSet) resource.TestCheckFunc {
+/*** Resource Test ***/
 
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneIpSetExists. Resources Length: %d", len(s.RootModule().Resources))
-
-		rs, ok := s.RootModule().Resources[resourceName]
-
-		if !ok {
-			return fmt.Errorf("Not found: %s", s)
-		}
-
-		if rs.Primary.ID != name {
-			return fmt.Errorf("IpSet name does not match")
-		}
-
-		client := testAccProvider.Meta().(*client.Client)
-		_ipSet, _, err := client.GetIpSet(name)
-
-		if err != nil {
-			return err
-		}
-
-		if *_ipSet.Name != name {
-			return fmt.Errorf("IpSet name does not match")
-		}
-
-		*ipSet = *_ipSet
-
-		return nil
-	}
+// IpSetResourceTest defines the necessary functionality to test the resource.
+type IpSetResourceTest struct {
+	Steps []resource.TestStep
 }
 
-func testAccCheckControlPlaneIpSetAttributes(ipSet *client.IpSet, randomName string, update string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
+// NewIpSetResourceTest creates a IpSetResourceTest with initialized test cases.
+func NewIpSetResourceTest() IpSetResourceTest {
+	// Create a resource test instance
+	resourceTest := IpSetResourceTest{}
 
-		tags := *ipSet.Tags
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-		if tags["terraform_generated"] != "true" {
-			return fmt.Errorf("IpSet Tags - `terraform_generated` attribute does not match")
-		}
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewDefaultScenario()...)
 
-		if tags["acceptance_test"] != "true" {
-			return fmt.Errorf("IpSet Tags - `acceptance_test` attribute does not match")
-		}
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-		expectedLink := fmt.Sprintf("/org/terraform-test-org/gvc/ipset-gvc-%s/workload/httpbin-example-%s", randomName, randomName)
-
-		switch update {
-		case "link_only":
-			if diff := deep.Equal(ipSet.Spec.Link, &expectedLink); diff != nil {
-				return fmt.Errorf("IpSet Link does not match. Diff: %s", diff)
-			}
-
-		case "all_attributes":
-			if diff := deep.Equal(ipSet.Spec.Link, &expectedLink); diff != nil {
-				return fmt.Errorf("IpSet Link does not match. Diff: %s", diff)
-			}
-
-			// Locations
-			expectedLocations, _, _ := generateTestIpSetLocations()
-
-			if diff := deep.Equal(ipSet.Spec.Locations, expectedLocations); diff != nil {
-				return fmt.Errorf("IpSet Locations does not match. Diff: %s", diff)
-			}
-		}
-
-		return nil
-	}
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccCheckControlPlaneIpSetCheckDestroy(s *terraform.State) error {
+// CheckDestroy verifies that all resources have been destroyed.
+func (isrt *IpSetResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_ipset resources. Total resources: %d", len(s.RootModule().Resources)))
 
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
+		// Continue only if the resource is as expected
 		if rs.Type != "cpln_ipset" {
 			continue
 		}
 
-		ipSet, _, _ := c.GetIpSet(rs.Primary.ID)
+		// Retrieve the name for the current resource
+		ipsetName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of ipset with name: %s", ipsetName))
 
-		if ipSet != nil {
-			return fmt.Errorf("IpSet still exists. Name: %s", *ipSet.Name)
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		ipset, code, err := TestProvider.client.GetIpSet(ipsetName)
+
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if ipset %s exists: %w", ipsetName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
+		if ipset != nil {
+			return fmt.Errorf("CheckDestroy failed: ipset %s still exists in the system", *ipset.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_ipset resources have been successfully destroyed")
 	return nil
 }
 
-// SECTION Acceptance Tests
+// Test Scenarios //
 
-// SECTION Create
+// NewDefaultScenario creates a test case for a group using JMESPATH with initial and updated configurations.
+func (isrt *IpSetResourceTest) NewDefaultScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	name := fmt.Sprintf("ipset-default-%s", random)
+	resourceName := "new"
 
-func testAccControlPlaneIpSet(name string, description string) string {
+	// Build test steps
+	initialConfig, initialStep := isrt.BuildInitialTestStep(resourceName, name)
+	caseUpdate1 := isrt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, resourceName)
 
-	return fmt.Sprintf(`
-
-	resource "cpln_ipset" "new" {
-		
-		name        = "%s"
-		description = "%s"
-
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-	}
-	`, name, description)
-}
-
-// !SECTION
-
-// SECTION Update
-
-func testAccControlPlaneIpSetWithLinkOnly(randomName string, name string, description string) string {
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "ipset-gvc-${var.random-name}"	
-		description = "ipset-gvc-${var.random-name}"
-
-		locations = ["aws-eu-central-1"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-
-		name = "httpbin-example-${var.random-name}"
-		description = "httpbin-example-${var.random-name}"
-		type = "serverless"
-		support_dynamic_tags = false
-
-		container {
-
-			name = "httpbin"
-			image = "kennethreitz/httpbin"
-			cpu = "50m"
-			memory = "128Mi"
-
-			ports {
-				number = 80
-				protocol = "http"
-			}
-		}
-
-		options {
-
-			timeout_seconds = 5
-			capacity_ai = true
-			debug = false
-			suspend = true
-
-			autoscaling {
-				metric = "concurrency"
-				target = 100
-				min_scale = 1
-				max_scale = 1
-				scale_to_zero_delay = 300
-				max_concurrency = 1000
-			}
-		}
-
-		firewall_spec {
-		
-			external {
-				inbound_allow_cidr = ["0.0.0.0/0"]
-				outbound_allow_cidr = ["0.0.0.0/0"]
-			}
-
-			internal {
-				inbound_allow_type = "none"
-			}
-		}
-	}
-
-	resource "cpln_ipset" "new" {
-		
-		name        = "%s"
-		description = "%s"
-
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-
-		link = cpln_workload.new.self_link
-	}
-	`, randomName, name, description)
-}
-
-func testAccControlPlaneIpSetWithAllArguments(randomName string, name string, description string) string {
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	data "cpln_location" "aws-eu-central-1" {
-		name = "aws-eu-central-1"
-	}
-
-	resource "cpln_gvc" "new" {
-		name        = "ipset-gvc-${var.random-name}"	
-		description = "ipset-gvc-${var.random-name}"
-
-		locations = ["aws-eu-central-1"]
-	  
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test = "true"
-		}
-	}
-
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.new.name
-
-		name = "httpbin-example-${var.random-name}"
-		description = "httpbin-example-${var.random-name}"
-		type = "serverless"
-		support_dynamic_tags = false
-
-		container {
-
-			name = "httpbin"
-			image = "kennethreitz/httpbin"
-			cpu = "50m"
-			memory = "128Mi"
-
-			ports {
-				number = 80
-				protocol = "http"
-			}
-		}
-
-		options {
-
-			timeout_seconds = 5
-			capacity_ai = true
-			debug = false
-			suspend = true
-
-			autoscaling {
-				metric = "concurrency"
-				target = 100
-				min_scale = 1
-				max_scale = 1
-				scale_to_zero_delay = 300
-				max_concurrency = 1000
-			}
-		}
-
-		firewall_spec {
-		
-			external {
-				inbound_allow_cidr = ["0.0.0.0/0"]
-				outbound_allow_cidr = ["0.0.0.0/0"]
-			}
-
-			internal {
-				inbound_allow_type = "none"
-			}
-		}
-	}
-
-	resource "cpln_ipset" "new" {
-		
-		name        = "%s"
-		description = "%s"
-
-		tags = {
-		  terraform_generated = "true"
-		  acceptance_test     = "true"
-		}
-
-		link = cpln_workload.new.self_link
-		
-		location {
-			name             = data.cpln_location.aws-eu-central-1.self_link
-			retention_policy = "keep"
-		}
-	}
-	`, randomName, name, description)
-}
-
-// !SECTION
-// !SECTION
-
-// SECTION Unit Tests
-
-// SECTION Build
-
-func TestControlPlane_BuildIpSetLocations(t *testing.T) {
-
-	locations, expectedLocations, _ := generateTestIpSetLocations()
-
-	if diff := deep.Equal(locations, expectedLocations); diff != nil {
-		t.Errorf("IpSet Locations was not built correctly, Diff: %s", diff)
-	}
-}
-
-// !SECTION
-
-// SECTION Flatten
-
-func TestControlPlane_FlattenIpSetLocations(t *testing.T) {
-
-	_, expectedLocations, expectedFlatten := generateTestIpSetLocations()
-	flattenedLocations := flattenIpSetLocations(expectedLocations)
-
-	if diff := deep.Equal(expectedFlatten, flattenedLocations); diff != nil {
-		t.Errorf("IpSet Locations was not flattened correctly. Diff: %s", diff)
-	}
-}
-
-// !SECTION
-// !SECTION
-
-// SECTION Generate
-
-// SECTION Build
-
-func generateTestIpSetLocations() (*[]client.IpSetLocation, *[]client.IpSetLocation, []interface{}) {
-
-	name := "/org/terraform-test-org/location/aws-eu-central-1"
-	retentionPolicy := "keep"
-
-	flattened := generateFlatTestIpSetLocations(name, retentionPolicy)
-	locations := buildIpSetLocations(flattened)
-	expectedLocations := &[]client.IpSetLocation{
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			Name:            &name,
-			RetentionPolicy: &retentionPolicy,
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// Test Cases //
+
+// BuildInitialTestStep returns a default initial test step and its associated test case for the resource.
+func (isrt *IpSetResourceTest) BuildInitialTestStep(resourceName string, name string) (IpSetResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := IpSetResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "ipset",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_ipset.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "ipset default description updated",
 		},
 	}
 
-	return locations, expectedLocations, flattened
-}
-
-// !SECTION
-
-// SECTION Flatten
-
-func generateFlatTestIpSetLocations(name string, retentionPolicy string) []interface{} {
-
-	spec := map[string]interface{}{
-		"name":             name,
-		"retention_policy": retentionPolicy,
-	}
-
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: isrt.RequiredOnly(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+		),
 	}
 }
 
-// !SECTION
-// !SECTION
+// BuildUpdate1TestStep returns a test step for the update.
+func (isrt *IpSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase, resourceName string) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := IpSetResourceTestCase{
+		ProviderTestCase: initialCase,
+		Link:             fmt.Sprintf("/org/%s/gvc/default-gvc", OrgName),
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: isrt.UpdateWithMinimalOptionals(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "link", c.Link),
+			c.TestCheckNestedBlocks("location", []map[string]interface{}{
+				{
+					"name":             fmt.Sprintf("/org/%s/location/aws-eu-central-1", OrgName),
+					"retention_policy": "keep",
+				},
+			}),
+		),
+	}
+}
+
+// Configs //
+
+// RequiredOnly returns a minimal HCL block for a resource using only required fields.
+func (isrt *IpSetResourceTest) RequiredOnly(c IpSetResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_ipset" "%s" {
+  name = "%s"
+}
+`, c.ResourceName, c.Name)
+}
+
+// UpdateWithMinimalOptionals constructs an HCL configuration for an IP set resource including minimal optionals like tags, link, and location settings
+func (isrt *IpSetResourceTest) UpdateWithMinimalOptionals(c IpSetResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_ipset" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+	link = "%s"
+
+	location {
+	  name             = "/org/%s/location/aws-eu-central-1"
+		retention_policy = "keep"
+	}
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate, c.Link, OrgName)
+}
+
+/*** Resource Test Case ***/
+
+// IpSetResourceTestCase defines a specific resource test case.
+type IpSetResourceTestCase struct {
+	ProviderTestCase
+	Link string
+}
+
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (isrtc *IpSetResourceTestCase) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of ipset: %s. Total resources: %d", isrtc.Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[isrtc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", isrtc.ResourceAddress)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != isrtc.Name {
+			return fmt.Errorf("resource ID %s does not match expected ipset name %s", rs.Primary.ID, isrtc.Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remoteIpSet, _, err := TestProvider.client.GetIpSet(isrtc.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving ipset from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remoteIpSet.Name != isrtc.Name {
+			return fmt.Errorf("mismatch in ipset name: expected %s, got %s", isrtc.Name, *remoteIpSet.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("ipset %s verified successfully in both state and external system.", isrtc.Name))
+		return nil
+	}
+}

@@ -20,17 +20,17 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 ### Optional
 
 - **description** (String) Description of the Workload.
-- **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
 - **identity_link** (String) Full link to an Identity.
+- **support_dynamic_tags** (Boolean) Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.
+- **extras** (String) Extra Kubernetes modifications. Only used for BYOK.
+- **firewall_spec** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec)).
 - **options** (Block List, Max: 1) ([see below](#nestedblock--options)).
 - **local_options** (Block List) ([see below](#nestedblock--options)).
 - **tags** (Map of String) Key-value map of resource tags.
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
-- **support_dynamic_tags** (Boolean) Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
-- **extras** (String) Extra Kubernetes modifications. Only used for BYOK.
 - **request_retry_policy** (Block List, Max: 1) ([see below](#nestedblock--request_retry_policy))
 
 <a id="nestedblock--container"></a>
@@ -51,31 +51,38 @@ Required:
 
 Optional:
 
+- **working_directory** (String) Override the working directory. Must be an absolute path.
 - **port** (Number) The port the container exposes. Only one container is allowed to specify a port. Min: `80`. Max: `65535`. Used by `serverless` Workload type. **DEPRECATED - Use `ports`.**
-
+- **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
+- **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
+- **min_cpu** (String) Minimum CPU when capacity AI is enabled.
+- **min_memory** (String) Minimum memory when capacity AI is enabled.
+- **env** (Map of String) Name-Value list of environment variables.
+- **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
+- **command** (String) Override the entry point.
+- **args** (List of String) Command line arguments passed to the container at runtime.
+- **metrics** (Block List, Max: 1) ([see below](#nestedblock--container--metrics)) [Reference Page](https://docs.controlplane.com/reference/workload#metrics).
 - **ports** (Block List) ([see below](#nestedblock--container--ports)).
 
 ~> **Note** The ports listed below are blocked and are not allowed to be used.
 Containers which attempt to use these ports will not be able to bind:
 8012, 8022, 9090, 9091, 15000, 15001, 15006, 15020, 15021, 15090, 41000.
 
-- **args** (List of String) Command line arguments passed to the container at runtime.
-- **env** (Map of String) Name-Value list of environment variables.
-- **command** (String) Override the entry point.
-- **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
-- **cpu** (String) Reserved CPU of the workload when capacityAI is disabled. Maximum CPU when CapacityAI is enabled. Default: "50m".
-- **memory** (String) Reserved memory of the workload when capacityAI is disabled. Maximum memory when CapacityAI is enabled. Default: "128Mi".
-- **min_cpu** (String) Minimum CPU when capacity AI is enabled.
-- **min_memory** (String) Minimum memory when capacity AI is enabled.
+- **readiness_probe** (Block List, Max: 1) Readiness Probe ([see below](#nestedblock--container--readiness_probe)).
+- **liveness_probe** (Block List, Max: 1) Liveness Probe ([see below](#nestedblock--container--liveness_probe)).
 - **gpu_nvidia** (Block List, Max: 1) ([see below](#nestedblock--container--gpu_nvidia))
 - **gpu_custom** (Block List, Max: 1) ([see below](#nestedblock--container--gpu_custom))
-- **liveness_probe** (Block List, Max: 1) Liveness Probe ([see below](#nestedblock--container--liveness_probe)).
-- **readiness_probe** (Block List, Max: 1) Readiness Probe ([see below](#nestedblock--container--readiness_probe)).
-
-- **metrics** (Block List, Max: 1) ([see below](#nestedblock--container--metrics)) [Reference Page](https://docs.controlplane.com/reference/workload#metrics).
-- **volume** (Block List) ([see below](#nestedblock--container--volume)) [Reference Page](https://docs.controlplane.com/reference/workload#volumes).
-- **working_directory** (String) Override the working directory. Must be an absolute path.
 - **lifecycle** (Block List, Max: 1) LifeCycle ([see below](#nestedblock--container--lifecycle)) [Reference Page](https://docs.controlplane.com/reference/workload#lifecycle).
+- **volume** (Block List) ([see below](#nestedblock--container--volume)) [Reference Page](https://docs.controlplane.com/reference/workload#volumes).
+
+<a id="nestedblock--container--metrics"></a>
+
+### `container.metrics`
+
+Required:
+
+- **path** (String) Path from container emitting custom metrics
+- **port** (Number) Port from container emitting custom metrics
 
 <a id="nestedblock--container--ports"></a>
 
@@ -85,6 +92,110 @@ Required:
 
 - **protocol** (String) Protocol. Choice of: `http`, `http2`, `tcp`, or `grpc`.
 - **number** (String) Port to expose.
+
+<a id="nestedblock--container--readiness_probe"></a>
+
+### `container.readiness_probe`
+
+Optional:
+
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
+- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
+- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
+- **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
+- **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
+
+- **exec** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--exec)).
+- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--grpc)).
+- **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--tcp_socket)).
+- **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--http_get)).
+
+<a id="nestedblock--container--readiness_probe--exec"></a>
+
+### `container.readiness_probe.exec`
+
+Required:
+
+- **command** (List of Strings, Min: 1) List of commands to execute.
+
+<a id="nestedblock--container--readiness_probe--grpc"></a>
+
+### `container.readiness_probe.grpc`
+
+Optional:
+
+- **port** (Number) gRPC Port.
+
+<a id="nestedblock--container--readiness_probe--tcp_socket"></a>
+
+### `container.readiness_probe.tcp_socket`
+
+Optional:
+
+- **port** (Number) TCP Socket Port.
+
+<a id="nestedblock--container--readiness_probe--http_get"></a>
+
+### `container.readiness_probe.http_get`
+
+Optional:
+
+- **path** (String) Path. Default: "/".
+- **port** (Number) Port. Min: `80`. Max: `65535`.
+- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
+- **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
+
+<a id="nestedblock--container--liveness_probe"></a>
+
+### `container.liveness_probe`
+
+Optional:
+
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
+- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
+- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
+- **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
+- **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
+
+- **exec** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--exec)).
+- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--grpc)).
+- **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--tcp_socket)).
+- **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--http_get)).
+
+<a id="nestedblock--container--liveness_probe--exec"></a>
+
+### `container.liveness_probe.exec`
+
+Required:
+
+- **command** (List of Strings, Min: 1) List of commands to execute.
+
+<a id="nestedblock--container--liveness_probe--grpc"></a>
+
+### `container.liveness_probe.grpc`
+
+Optional:
+
+- **port** (Number) gRPC Port.
+
+<a id="nestedblock--container--liveness_probe--tcp_socket"></a>
+
+### `container.liveness_probe.tcp_socket`
+
+Optional:
+
+- **port** (Number) TCP Socket Port.
+
+<a id="nestedblock--container--liveness_probe--http_get"></a>
+
+### `container.liveness_probe.http_get`
+
+Optional:
+
+- **path** (String) Path. Default: "/".
+- **port** (Number) Port. Min: `80`. Max: `65535`.
+- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
+- **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
 <a id="nestedblock--container--gpu_nvidia"></a>
 
@@ -107,135 +218,6 @@ Required:
 Optional:
 
 - **runtime_class** (String)
-
-<a id="nestedblock--container--liveness_probe"></a>
-
-### `container.liveness_probe`
-
-Optional:
-
-- **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
-- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
-- **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
-- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
-
-- **exec** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--exec)).
-- **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--http_get)).
-- **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--tcp_socket)).
-- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--liveness_probe--grpc)).
-
-<a id="nestedblock--container--liveness_probe--exec"></a>
-
-### `container.liveness_probe.exec`
-
-Required:
-
-- **command** (List of Strings, Min: 1) List of commands to execute.
-
-<a id="nestedblock--container--liveness_probe--http_get"></a>
-
-### `container.liveness_probe.http_get`
-
-Optional:
-
-- **path** (String) Path. Default: "/".
-- **port** (Number) Port. Min: `80`. Max: `65535`.
-- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
-- **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
-
-<a id="nestedblock--container--liveness_probe--tcp_socket"></a>
-
-### `container.liveness_probe.tcp_socket`
-
-Optional:
-
-- **port** (Number) TCP Socket Port.
-
-<a id="nestedblock--container--liveness_probe--grpc"></a>
-
-### `container.liveness_probe.grpc`
-
-Optional:
-
-- **port** (Number) gRPC Port.
-
-<a id="nestedblock--container--readiness_probe"></a>
-
-### `container.readiness_probe`
-
-Optional:
-
-- **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
-- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
-- **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
-- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
-
-- **exec** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--exec)).
-- **http_get** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--http_get)).
-- **tcp_socket** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--tcp_socket)).
-- **grpc** (Block List, Max: 1) ([see below](#nestedblock--container--readiness_probe--grpc)).
-
-<a id="nestedblock--container--readiness_probe--exec"></a>
-
-### `container.readiness_probe.exec`
-
-Required:
-
-- **command** (List of Strings, Min: 1) List of commands to execute.
-
-<a id="nestedblock--container--readiness_probe--http_get"></a>
-
-### `container.readiness_probe.http_get`
-
-Optional:
-
-- **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
-- **path** (String) Path. Default: "/".
-- **port** (Number) Port. Min: `80`. Max: `65535`.
-- **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
-
-<a id="nestedblock--container--readiness_probe--tcp_socket"></a>
-
-### `container.readiness_probe.tcp_socket`
-
-Optional:
-
-- **port** (Number) TCP Socket Port.
-
-<a id="nestedblock--container--readiness_probe--grpc"></a>
-
-### `container.readiness_probe.grpc`
-
-Optional:
-
-- **port** (Number) gRPC Port.
-
-<a id="nestedblock--container--volume"></a>
-
-### `container.volume`
-
-Volumes mounted on a container can be from multiple sources. Refer to the [workload volume reference page](https://docs.controlplane.com/reference/workload#volumes) for additional details.
-
-Required:
-
-- **uri** (String) URI of a volume hosted at Control Plane (Volume Set) or at a cloud provider (AWS, Azure, GCP).
-- **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**
-- **path** (String) The file path to the mounted volume.
-
-~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
-
-~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`.
-
-<a id="nestedblock--container--metrics"></a>
-
-### `container.metrics`
-
-Required:
-
-- **path** (String) Path from container emitting custom metrics
-- **port** (Number) Port from container emitting custom metrics
 
 <a id="nestedblock--container--lifecycle"></a>
 
@@ -262,6 +244,22 @@ Required:
 
 - **command** (List of Strings, Min: 1) List of commands to execute.
 
+<a id="nestedblock--container--volume"></a>
+
+### `container.volume`
+
+Volumes mounted on a container can be from multiple sources. Refer to the [workload volume reference page](https://docs.controlplane.com/reference/workload#volumes) for additional details.
+
+Required:
+
+- **uri** (String) URI of a volume hosted at Control Plane (Volume Set) or at a cloud provider (AWS, Azure, GCP).
+- **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**
+- **path** (String) The file path to the mounted volume.
+
+~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
+
+~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`.
+
 <a id="nestedblock--firewall_spec"></a>
 
 ### `firewall_spec`
@@ -283,8 +281,9 @@ Optional:
 - **inbound_blocked_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
-- **outbound_allow_port** (Block List) ([see below](#nestedblock--firewall_spec--external--outbound_allow_port)).
 - **outbound_blocked_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is NOT allowed to reach. Addresses in the allow list will only be allowed if they do not exist in this list.
+- **outbound_allow_port** (Block List) ([see below](#nestedblock--firewall_spec--external--outbound_allow_port)).
+- **http** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec--external--http)).
 
 <a id="nestedblock--firewall_spec--external--outbound_allow_port"></a>
 
@@ -296,6 +295,31 @@ Required:
 
 - **protocol** (String) Either `http`, `https` or `tcp`. Default: `tcp`.
 - **number** (Number) Port number. Max: 65000
+
+<a id="nestedblock--firewall_spec--external--http"></a>
+
+### `firewall_spec.external.http`
+
+Firewall options for HTTP workloads.
+
+Optionals:
+
+- **inbound_header_filter** (Block List, Max: 1) ([see below](#nestedblock--firewall_spec--external--http--inbound_header_filter)).
+
+<a id="nestedblock--firewall_spec--external--http"></a>
+
+### `firewall_spec.external.http.inbound_header_filter`
+
+A list of header filters for HTTP workloads.
+
+Required:
+
+- **key** (String) The header to match for.
+
+~> **Note** Only one of the following below can be included in an inbound_header_filter block.
+
+- **allowed_values** (List of String) A list of regular expressions to match for allowed header values. Headers that do not match ANY of these values will be filtered and will not reach the workload.
+- **blocked_values** (List of String) A list of regular expressions to match for blocked header values. Headers that match ANY of these values will be filtered and will not reach the workload.
 
 <a id="nestedblock--firewall_spec--internal"></a>
 
@@ -325,6 +349,7 @@ Optional:
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
 - **debug** (Boolean) Debug mode. Default: `false`
 - **suspend** (Boolean) Workload suspend. Default: `false`
+- **multi_zone** (Block List, Max: 1) ([see below](#nestedblock--options--multi_zone)).
 
 - **location** (String) Valid only for `local_options`. Override options for a specific location.
 
@@ -340,8 +365,8 @@ Optional:
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
-- **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
 - **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
 
 <a id="nestedblock--options--autoscaling--multi"></a>
 
@@ -351,6 +376,12 @@ Optional:
 
 - **metric** (String) Valid values: `cpu` or `memory`.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
+
+<a id="nestedblock--options--multi_zone"></a>
+
+### `options.multi_zone`
+
+- **enabled** (Boolean)
 
 <a id="nestedblock--job"></a>
 
@@ -379,6 +410,7 @@ Optional:
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
 - **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.
+- **termination_grace_period_seconds** (Number) The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run.
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
 
@@ -398,6 +430,7 @@ Optional:
 
 Optional:
 
+- **replica_direct** (Boolean) When enabled, individual replicas of the workload can be reached directly using the subdomain prefix replica-<index>. For example, replica-0.my-workload.my-gvc.cpln.local or replica-0.my-workload-<gvc-alias>.cpln.app - Can only be used with stateful workloads. Default: false.
 - **direct** (Block List, Max: 1) ([see below](#nestedblock--load_balancer--direct))
 - **geo_location** (Block List, Max: 1) ([see below](#nestedblock--load_balancer--geo_location)).
 
@@ -411,6 +444,7 @@ Required:
 
 Optional:
 
+- **ipset** (String)
 - **port** (Block List) ([see below](#nestedblock--load_balancer--direct--port))
 
 <a id="nestedblock--load_balancer--direct--port"></a>
@@ -449,6 +483,15 @@ Optional:
 - **country** (String) The geo country header.
 - **region** (String) The geo region header.
 
+<a id="nestedblock--request_retry_policy"></a>
+
+### `request_retry_policy`
+
+Optional:
+
+- **attempts** (Number) Default: `2`
+- **retry_on** (List of String)
+
 ## Outputs
 
 The following attributes are exported:
@@ -478,8 +521,8 @@ Read-Only:
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
 - **internal_name** (String) Internal hostname for the workload. Used for service-to-service requests.
-- **current_replica_count** (Number) Current amount of replicas deployed.
 - **health_check** (Block List) ([see below](#nestedblock--status--health_check)).
+- **current_replica_count** (Number) Current amount of replicas deployed.
 - **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
 - **load_balancer** (Block List) ([see below](#nestedblock--status--load_balancer)).
 
@@ -492,12 +535,12 @@ Current health status.
 Read-Only:
 
 - **active** (Boolean) Active boolean for the associated workload.
-- **code** (Number) Current output code for the associated workload.
-- **failures** (Number) Failure integer for the associated workload.
-- **last_checked** (String) Timestamp in UTC of the last health check.
-- **message** (String) Current health status for the associated workload.
 - **success** (Boolean) Success boolean for the associated workload.
+- **code** (Number) Current output code for the associated workload.
+- **message** (String) Current health status for the associated workload.
+- **failures** (Number) Failure integer for the associated workload.
 - **successes** (Number) Success integer for the associated workload.
+- **last_checked** (String) Timestamp in UTC of the last health check.
 
 <a id="nestedblock--status--resolved_images"></a>
 
@@ -509,6 +552,7 @@ Read-Only:
 
 - **resolved_for_version** (Number) Workload version the images were resolved for.
 - **resolved_at** (String) UTC Time when the images were resolved.
+- **error_messages** (List of String)
 - **images** (Block List) ([see below](#nestedblock--status--resolved_images--images)).
 
 <a id="nestedblock--status--resolved_images--images"></a>
@@ -872,7 +916,14 @@ resource "cpln_workload" "new" {
 			outbound_allow_port {
 				protocol = "https"
 				number   = 443
-			}
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "Allow-Header"
+          allowed_values = ["reg", "req2"]
+        }
+      }
     }
     internal {
       # Allowed Types: "none", "same-gvc", "same-org", "workload-list"
@@ -893,9 +944,11 @@ resource "cpln_workload" "new" {
   }
 
   load_balancer {
+    replica_direct = false
 
     direct {
       enabled = true
+      ipset   = "my-ipset-01"
       
       port {
         external_port  = 22
@@ -914,6 +967,11 @@ resource "cpln_workload" "new" {
         region = "North America"
       }
     }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
   }
 }
 

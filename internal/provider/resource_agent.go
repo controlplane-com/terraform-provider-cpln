@@ -2,173 +2,158 @@ package cpln
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
-	"encoding/json"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceAgent() *schema.Resource {
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &AgentResource{}
+	_ resource.ResourceWithImportState = &AgentResource{}
+)
 
-	return &schema.Resource{
-		CreateContext: resourceAgentCreate,
-		ReadContext:   resourceAgentRead,
-		UpdateContext: resourceAgentUpdate,
-		DeleteContext: resourceAgentDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the Agent.",
-				Computed:    true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Description:  "Name of the Agent.",
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of the Agent.",
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:        schema.TypeMap,
-				Description: "Key-value map of resource tags.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-				ValidateFunc: TagValidator,
-			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to this resource. Can be referenced by other resources.",
-				Computed:    true,
-			},
-			"user_data": {
-				Type:        schema.TypeString,
-				Description: "The JSON output needed when [creating an agent](https://docs.controlplane.com/guides/agent).",
+/*** Resource Model ***/
+
+// AgentResourceModel holds the Terraform state for the resource.
+type AgentResourceModel struct {
+	EntityBaseModel
+	UserData types.String `tfsdk:"user_data"`
+}
+
+/*** Resource Configuration ***/
+
+// AgentResource is the resource implementation.
+type AgentResource struct {
+	EntityBase
+	Operations EntityOperations[AgentResourceModel, client.Agent]
+}
+
+// NewAgentResource returns a new instance of the resource implementation.
+func NewAgentResource() resource.Resource {
+	return &AgentResource{}
+}
+
+// Configure configures the resource before use.
+func (ar *AgentResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	ar.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	ar.Operations = NewEntityOperations(ar.client, &AgentResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (ar *AgentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (ar *AgentResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_agent"
+}
+
+// Schema defines the schema for the resource.
+func (ar *AgentResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(ar.EntityBaseAttributes("Agent"), map[string]schema.Attribute{
+			"user_data": schema.StringAttribute{
+				Description: "The JSON output needed when creating an agent.",
 				Computed:    true,
 				Sensitive:   true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-		},
-		Importer: &schema.ResourceImporter{},
+		}),
 	}
 }
 
-func resourceAgentCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceAgentCreate")
-
-	agent := client.Agent{}
-	agent.Name = GetString(d.Get("name"))
-	agent.Description = GetString(d.Get("description"))
-	agent.Tags = GetStringMap(d.Get("tags"))
-
-	c := m.(*client.Client)
-	newAgent, code, err := c.CreateAgent(agent)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	a, err := json.Marshal(newAgent.Status.BootstrapConfig)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	// User data is only available on create
-	if err := d.Set("user_data", string(a)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setAgent(d, newAgent)
+// Create creates the resource.
+func (ar *AgentResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, ar.Operations)
 }
 
-func resourceAgentRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	// log.Printf("[INFO] Method: resourceAgentRead")
-
-	c := m.(*client.Client)
-	agent, code, err := c.GetAgent(d.Id())
-
-	if code == 404 {
-		d.SetId("")
-		return nil
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setAgent(d, agent)
+// Read fetches the current state of the resource.
+func (ar *AgentResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, ar.Operations)
 }
 
-func setAgent(d *schema.ResourceData, agent *client.Agent) diag.Diagnostics {
-
-	if agent == nil {
-		d.SetId("")
-		return nil
-	}
-
-	d.SetId(*agent.Name)
-
-	if err := SetBase(d, agent.Base); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := SetSelfLink(agent.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
+// Update modifies the resource.
+func (ar *AgentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, ar.Operations)
 }
 
-func resourceAgentUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Delete removes the resource.
+func (ar *AgentResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, ar.Operations)
+}
 
-	// log.Printf("[INFO] Method: resourceAgentUpdate")
+/*** Resource Operator ***/
 
-	if d.HasChanges("description", "tags") {
+// AgentResourceOperator is the operator for managing the state.
+type AgentResourceOperator struct {
+	EntityOperator[AgentResourceModel]
+}
 
-		agentToUpdate := client.Agent{}
-		agentToUpdate.Name = GetString(d.Get("name"))
-		agentToUpdate.Description = GetDescriptionString(d.Get("description"), *agentToUpdate.Name)
-		agentToUpdate.Tags = GetTagChanges(d)
+// NewAPIRequest creates a request payload from a state model.
+func (aro *AgentResourceOperator) NewAPIRequest(isUpdate bool) client.Agent {
+	// Initialize a new request payload
+	requestPayload := client.Agent{}
 
-		c := m.(*client.Client)
-		updatedAgent, _, err := c.UpdateAgent(agentToUpdate)
+	// Populate Base fields from state
+	aro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Return constructed request payload
+	return requestPayload
+}
+
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func (aro *AgentResourceOperator) MapResponseToState(agent *client.Agent, isCreate bool) AgentResourceModel {
+	// Initialize empty state model
+	state := AgentResourceModel{}
+
+	// On create operation, include bootstrap config as user_data
+	if isCreate {
+		// Convert BootstrapConfig to JSON string
+		userData, err := json.Marshal(agent.Status.BootstrapConfig)
 		if err != nil {
-			return diag.FromErr(err)
+			// Report JSON marshalling error
+			aro.Diags.AddError("JSON Marshal Error", fmt.Sprintf("Error marshalling user_data: %s", err))
+			return state
 		}
 
-		return setAgent(d, updatedAgent)
+		// Set user_data attribute in state
+		state.UserData = types.StringValue(string(userData))
 	}
 
-	return nil
+	// Populate common fields from base resource data
+	state.From(agent.Base)
+
+	// Return completed state model
+	return state
 }
 
-func resourceAgentDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// InvokeCreate invokes the Create API to create a new resource.
+func (aro *AgentResourceOperator) InvokeCreate(req client.Agent) (*client.Agent, int, error) {
+	return aro.Client.CreateAgent(req)
+}
 
-	// log.Printf("[INFO] Method: resourceAgentDelete")
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (aro *AgentResourceOperator) InvokeRead(name string) (*client.Agent, int, error) {
+	return aro.Client.GetAgent(name)
+}
 
-	c := m.(*client.Client)
-	err := c.DeleteAgent(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
-	}
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (aro *AgentResourceOperator) InvokeUpdate(req client.Agent) (*client.Agent, int, error) {
+	return aro.Client.UpdateAgent(req)
+}
 
-	d.SetId("")
-
-	return nil
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (aro *AgentResourceOperator) InvokeDelete(name string) error {
+	return aro.Client.DeleteAgent(name)
 }

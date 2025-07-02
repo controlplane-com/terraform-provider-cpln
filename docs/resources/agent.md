@@ -38,14 +38,12 @@ To use the `user_data` output:
 
 ** Only the `user_data` value is required when configuring an agent, not the entire output. **
 
-Refer to this [example](https://github.com/controlplane-com/examples/blob/main/terraform/poc/example-postgres/main.tf) in which
-one of the steps creates an Agent at AWS using the `user_data` output.
+Refer to this [example](https://github.com/controlplane-com/examples/blob/main/terraform/poc/example-postgres/main.tf) in which one of the steps creates an Agent at AWS using the `user_data` output.
 
 ## Example Usage
 
 ```terraform
 resource "cpln_agent" "example" {
-
   name        = "agent-example"
   description = "Example Agent"
 

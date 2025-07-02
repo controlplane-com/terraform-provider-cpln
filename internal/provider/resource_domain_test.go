@@ -1,1251 +1,1336 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
-	"github.com/go-test/deep"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func getGVC() string {
-	gvc := "/org/terraform-test-org/gvc/domain-test-gvc"
-	return gvc
-}
+/*** Acceptance Test ***/
 
-func getWorkloadOne() string {
-	workload := getGVC() + "/workload/wl1"
-	return workload
-}
-
-func getWorkloadTwo() string {
-	workload := getGVC() + "/workload/wl2"
-	return workload
-}
-
-// func getDomainOne() string {
-// 	domain := "domain-test.example.com"
-// 	return domain
-// }
-
-// func getDomainTwo() string {
-// 	domain := "example.example.com"
-// 	return domain
-// }
-
-// func getDomainThree() string {
-// 	domain := "example2.example.com"
-// 	return domain
-// }
-
-// func getDomainFour() string {
-// 	domain := "example3.example.com"
-// 	return domain
-// }
-
-// TODO: Once the pipline is configured to run the acc tests, it will be set to not validate the apex txt record and we can use '.example.com'
-// func getTestApex() string {
-// 	return ".erickotler.com"
-// }
-
-func getTestApex() string {
-	return "erickotler.com"
-}
-
+// TestAccControlPlaneDomain_basic performs an acceptance test for the resource.
 func TestAccControlPlaneDomain_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewDomainResourceTest()
 
-	var domain client.Domain
-	var org client.Org
-
-	randomName := "domain-acctest-" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-	domainName := randomName + "." + getTestApex()
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "DOMAIN") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneDomainCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccDomainApexClean(getTestApex(), getTestApex()+" Description"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
-				),
-			},
-			{
-				Config: testAccDomainApexClean(getTestApex(), getTestApex()+" Description Updated"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
-				),
-			},
-			{
-				Config: testAccDomainApex(randomName, getTestApex(), getTestApex()+" Description Updated"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
-				),
-			},
-			{
-				Config: testAccDomainApex(randomName, getTestApex(), getTestApex()+" Description Updated Again"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.domain_apex", getTestApex(), &domain, &org),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomainSubdomain(randomName, getTestApex(), getTestApex()+" Description", domainName, "ns"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", domainName, &domain, &org),
-					// testAccCheckControlPlaneDomainNSSubdomain(&domain, &org, "gvc-"+randomName),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomainSubdomain(randomName, getTestApex(), getTestApex()+" Description - Updated", domainName, "ns"),
-			},
-			{
-				Config: testAccControlPlaneDomainPathBased(randomName, getTestApex(), getTestApex()+" Description", domainName, "ns"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", domainName, &domain, &org),
-					// testAccCheckControlPlaneDomainNSPathBased(&domain, &org, randomName),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomainPathBased(randomName, getTestApex(), getTestApex()+" Description - Updated", domainName, "ns"),
-			},
-			{
-				Config: testAccControlPlaneDomainPathBased(randomName, getTestApex(), getTestApex()+" Description", domainName, "cname"),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneDomainExists("cpln_domain.subdomain", domainName, &domain, &org),
-					// testAccCheckControlPlaneDomainNSPathBased(&domain, &org, randomName),
-				),
-			},
-			{
-				Config: testAccControlPlaneDomainPathBasedUpdateRoutePort(randomName, getTestApex(), getTestApex()+" Description - Updated", domainName, "cname"),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "DOMAIN") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccDomainApexClean(domain, description string) string {
+/*** Resource Test ***/
 
-	TestLogger.Printf("Inside testAccDomainApex")
-
-	return fmt.Sprintf(`
-
-	resource "cpln_domain" "domain_apex" {
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		spec {
-			ports {
-				tls { }
-			 }
-		}
-		
-	}`, domain, description)
+// DomainResourceTest defines the necessary functionality to test the resource.
+type DomainResourceTest struct {
+	Steps      []resource.TestStep
+	RandomName string
+	ApexDomain string
 }
 
-func testAccDomainApex(random, domain, description string) string {
-
-	TestLogger.Printf("Inside testAccDomainApex")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
+// DomainResourceTest creates a DomainResourceTest with initialized test cases.
+func NewDomainResourceTest() DomainResourceTest {
+	// Create a resource test instance
+	resourceTest := DomainResourceTest{
+		RandomName: acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum),
+		ApexDomain: "erickotler.com",
 	}
 
-	resource "cpln_gvc" "domain_gvc" {
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-		name        = "gvc-${var.random-name}"
-		description = "Example GVC"
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewDefaultScenario()...)
 
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-		tags = {
-		  terraform_generated = "true"
-		}
-	}
-
-	resource "cpln_domain" "domain_apex" {
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		spec {
-
-			dns_mode         = "cname"
-		  	gvc_link         = cpln_gvc.domain_gvc.self_link
-			accept_all_hosts = false
-
-			ports {
-
-				number = 443
-				protocol = "http2"
-
-				cors {
-
-					allow_origins {						
-						exact = "*"
-					}
-
-					allow_origins {						
-						exact = "*.erickotler.com"
-					}
-
-					allow_methods = ["GET", "OPTIONS", "POST"]
-					allow_headers = ["authorization", "host"]
-					expose_headers = ["accept/type"]
-					max_age = "12h"
-					allow_credentials = true
-				}
-
-				tls {
-
-					min_protocol_version = "TLSV1_1"
-					cipher_suites = ["AES256-GCM-SHA384"]
-
-					client_certificate {
-						secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
-					}
-
-					server_certificate {
-						secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
-					}
-				}
-			}
-		}
-		
-	}`, random, domain, description)
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccControlPlaneDomainSubdomain(random, apex, description, domain, dnsMode string) string {
+// CheckDestroy verifies that all resources have been destroyed.
+func (drt *DomainResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_domain resources. Total resources: %d", len(s.RootModule().Resources)))
 
-	TestLogger.Printf("Inside testAccControlPlaneDomain")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
+	// If no resources are present in the Terraform state, log and return early
+	if len(s.RootModule().Resources) == 0 {
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	resource "cpln_gvc" "domain_gvc" {
-
-		name        = "gvc-${var.random-name}"
-		description = "Example GVC"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-
-		tags = {
-		  terraform_generated = "true"
-		}
-	}
-
-	resource "cpln_domain" "domain_apex" {
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		spec {
-			ports {
-				tls { }
-			 }
-		}	
-	}
-
-	resource "cpln_domain" "subdomain" {
-
-		depends_on = [cpln_domain.domain_apex]
-
-		name        = "%s"
-		description = "NS - Subdomain Based"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-	  
-		spec {
-		  dns_mode         = "%s"
-		  gvc_link         = cpln_gvc.domain_gvc.self_link
-	  
-		  ports {
-				number   = 443
-				protocol = "http"
-			
-				cors {
-					allow_origins {
-						exact = "example.com"
-					}
-
-					allow_origins {
-						exact = "*"
-					}
-			
-					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
-					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-					expose_headers    = ["expose_header_1", "expose_header_2", "expose_header_3"]
-					max_age           = "24h"
-					allow_credentials = "true"
-				}
-	  
-				tls {
-					min_protocol_version = "TLSV1_2"
-					cipher_suites = [
-						"ECDHE-ECDSA-AES256-GCM-SHA384",
-						"ECDHE-ECDSA-CHACHA20-POLY1305",
-						"ECDHE-ECDSA-AES128-GCM-SHA256",
-						"ECDHE-RSA-AES256-GCM-SHA384",
-						"ECDHE-RSA-CHACHA20-POLY1305",
-						"ECDHE-RSA-AES128-GCM-SHA256",
-						"AES256-GCM-SHA384",
-						"AES128-GCM-SHA256",
-					]
-					client_certificate {}
-				}
-			}
-		}
-	}`, random, apex, description, domain, dnsMode)
-}
-
-func testAccControlPlaneDomainPathBased(random, apex, description, domain, dnsMode string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneDomain")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "domain_gvc" {
-
-		name        = "gvc-${var.random-name}"
-		description = "Example GVC"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-
-		tags = {
-		  terraform_generated = "true"
-		}
-	}
-
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.domain_gvc.name
-
-		name        = "workload-${var.random-name}"
-		description = "Example Workload"
-		type        = "serverless"
-
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		container {
-		  name   = "container-01"
-		  image  = "gcr.io/knative-samples/helloworld-go"
-		  port   = 8080
-		  memory = "128Mi"
-		  cpu    = "50m"
-		}
-
-		options {
-		  capacity_ai     = false
-		  timeout_seconds = 30
-		  suspend         = true
-
-		  autoscaling {
-			metric          = "concurrency"
-			target          = 100
-			max_scale       = 0
-			min_scale       = 0
-			max_concurrency = 500
-		  }
-		}
-	}
-
-	resource "cpln_domain" "domain_apex" {
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		spec {
-			ports {
-				tls { }
-			 }
-		}	
-	}
-
-	resource "cpln_domain" "subdomain" {
-		
-		depends_on = [cpln_domain.domain_apex]
-
-		name        = "%s"
-		description = "NS - Path Based"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-	  
-		spec {
-
-			dns_mode = "%s"
-			
-			ports {
-				number   = 443
-				protocol = "http"
-
-				cors {
-					allow_origins {
-						exact = "example.com"
-					}
-
-					allow_origins {
-						exact = "*"
-					}
-			
-					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
-					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
-					max_age           = "24h"
-					allow_credentials = "true"
-				}
-	  
-				tls {
-					min_protocol_version = "TLSV1_2"
-					cipher_suites = [
-						"ECDHE-ECDSA-AES256-GCM-SHA384",
-						"ECDHE-ECDSA-CHACHA20-POLY1305",
-						"ECDHE-ECDSA-AES128-GCM-SHA256",
-						"ECDHE-RSA-AES256-GCM-SHA384",
-						"ECDHE-RSA-CHACHA20-POLY1305",
-						"ECDHE-RSA-AES128-GCM-SHA256",
-						"AES256-GCM-SHA384",
-						"AES128-GCM-SHA256",
-					]
-				}
-			}
-
-			ports {
-				number   = 80
-				protocol = "http"
-
-				cors {
-					allow_origins {
-						exact = "example.com"
-					}
-
-					allow_origins {
-						exact = "*"
-					}
-			
-					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
-					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
-					max_age           = "24h"
-					allow_credentials = "true"
-				}
-	  
-				tls {
-					min_protocol_version = "TLSV1_2"
-					cipher_suites = [
-						"ECDHE-ECDSA-AES256-GCM-SHA384",
-						"ECDHE-ECDSA-CHACHA20-POLY1305",
-						"ECDHE-ECDSA-AES128-GCM-SHA256",
-						"ECDHE-RSA-AES256-GCM-SHA384",
-						"ECDHE-RSA-CHACHA20-POLY1305",
-						"ECDHE-RSA-AES128-GCM-SHA256",
-						"AES256-GCM-SHA384",
-						"AES128-GCM-SHA256",
-					]
-				}
-			}
-		}
-	}
-	
-	resource "cpln_domain_route" "route_first" {
-
-		domain_link = cpln_domain.subdomain.self_link
-		// domain_port = 443
-
-		prefix = "/first"
-		workload_link = cpln_workload.new.self_link
-		host_prefix   = "my.thing."
-		// port = 80
-	}
-
-	resource "cpln_domain_route" "route_second" {
-
-		depends_on = [cpln_domain_route.route_first]
-		
-		domain_link = cpln_domain.subdomain.self_link
-		// domain_port = 443
-
-		prefix = "/second"
-		replace_prefix = "/"
-		workload_link = cpln_workload.new.self_link
-		port = 443
-		host_prefix   = "my.thing."
-	}
-
-	resource "cpln_domain_route" "route_3" {
-
-		depends_on = [cpln_domain_route.route_second]
-		
-		domain_link = cpln_domain.subdomain.self_link
-		domain_port = 80
-
-		prefix = "/3"
-		workload_link = cpln_workload.new.self_link
-		port = 443
-		host_prefix   = "my.thing."
-	}
-	
-	`, random, apex, description, domain, dnsMode)
-}
-
-func testAccControlPlaneDomainPathBasedUpdateRoutePort(random, apex, description, domain, dnsMode string) string {
-
-	TestLogger.Printf("Inside testAccControlPlaneDomain")
-
-	return fmt.Sprintf(`
-
-	variable "random-name" {
-		type = string
-		default = "%s"
-	}
-
-	resource "cpln_gvc" "domain_gvc" {
-
-		name        = "gvc-${var.random-name}"
-		description = "Example GVC"
-
-		locations = ["aws-eu-central-1", "aws-us-west-2"]
-
-		tags = {
-		  terraform_generated = "true"
-		}
-	}
-
-	resource "cpln_workload" "new" {
-
-		gvc = cpln_gvc.domain_gvc.name
-
-		name        = "workload-${var.random-name}"
-		description = "Example Workload"
-		type        = "serverless"
-
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		container {
-		  name   = "container-01"
-		  image  = "gcr.io/knative-samples/helloworld-go"
-		  port   = 8080
-		  memory = "128Mi"
-		  cpu    = "50m"
-		}
-
-		options {
-		  capacity_ai     = false
-		  timeout_seconds = 30
-		  suspend         = true
-
-		  autoscaling {
-			metric          = "concurrency"
-			target          = 100
-			max_scale       = 0
-			min_scale       = 0
-			max_concurrency = 500
-		  }
-		}
-	}
-
-	resource "cpln_domain" "domain_apex" {
-		name        = "%s"
-		description = "%s"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-
-		spec {
-			ports {
-				tls { }
-			 }
-		}	
-	}
-
-	resource "cpln_domain" "subdomain" {
-		
-		depends_on = [cpln_domain.domain_apex]
-
-		name        = "%s"
-		description = "NS - Path Based"
-	  
-		tags = {
-		  terraform_generated = "true"
-		}
-	  
-		spec {
-
-			dns_mode = "%s"
-			
-			ports {
-				number   = 443
-				protocol = "http"
-
-				cors {
-					allow_origins {
-						exact = "example.com"
-					}
-
-					allow_origins {
-						exact = "*"
-					}
-			
-					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
-					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
-					max_age           = "24h"
-					allow_credentials = "true"
-				}
-	  
-				tls {
-					min_protocol_version = "TLSV1_2"
-					cipher_suites = [
-						"ECDHE-ECDSA-AES256-GCM-SHA384",
-						"ECDHE-ECDSA-CHACHA20-POLY1305",
-						"ECDHE-ECDSA-AES128-GCM-SHA256",
-						"ECDHE-RSA-AES256-GCM-SHA384",
-						"ECDHE-RSA-CHACHA20-POLY1305",
-						"ECDHE-RSA-AES128-GCM-SHA256",
-						"AES256-GCM-SHA384",
-						"AES128-GCM-SHA256",
-					]
-				}
-			}
-
-			ports {
-				number   = 80
-				protocol = "http"
-
-				cors {
-					allow_origins {
-						exact = "example.com"
-					}
-
-					allow_origins {
-						exact = "*"
-					}
-			
-					allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
-					allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
-					expose_headers     = ["expose_header_1", "expose_header_2", "expose_header_3"]
-					max_age           = "24h"
-					allow_credentials = "true"
-				}
-	  
-				tls {
-					min_protocol_version = "TLSV1_2"
-					cipher_suites = [
-						"ECDHE-ECDSA-AES256-GCM-SHA384",
-						"ECDHE-ECDSA-CHACHA20-POLY1305",
-						"ECDHE-ECDSA-AES128-GCM-SHA256",
-						"ECDHE-RSA-AES256-GCM-SHA384",
-						"ECDHE-RSA-CHACHA20-POLY1305",
-						"ECDHE-RSA-AES128-GCM-SHA256",
-						"AES256-GCM-SHA384",
-						"AES128-GCM-SHA256",
-					]
-				}
-			}
-		}
-	}
-	
-	resource "cpln_domain_route" "route_first" {
-
-		domain_link = cpln_domain.subdomain.self_link
-		// domain_port = 443
-
-		prefix = "/first"
-		workload_link = cpln_workload.new.self_link
-		port = 80
-		host_prefix   = "my.thing.update."
-	}
-
-	resource "cpln_domain_route" "route_second" {
-
-		depends_on = [cpln_domain_route.route_first]
-		
-		domain_link = cpln_domain.subdomain.self_link
-		// domain_port = 443
-
-		prefix = "/second"
-		replace_prefix = "/"
-		workload_link = cpln_workload.new.self_link
-		port = 443
-		host_prefix   = "my.thing.update."
-	}
-
-	resource "cpln_domain_route" "route_3" {
-
-		depends_on = [cpln_domain_route.route_second]
-		
-		domain_link = cpln_domain.subdomain.self_link
-		domain_port = 80
-
-		prefix = "/3"
-		workload_link = cpln_workload.new.self_link
-		port = 443
-		host_prefix   = "my.thing.update."
-	}
-	
-	`, random, apex, description, domain, dnsMode)
-}
-
-func testAccCheckControlPlaneDomainExists(resourceName string, domainName string, domain *client.Domain, orgName *client.Org) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadExists. Resources Length: %d", len(s.RootModule().Resources))
-
-		resources := s.RootModule().Resources
-		rs, ok := resources[resourceName]
-
-		if !ok {
-			return fmt.Errorf("Not found: %s", s)
-		}
-
-		if rs.Primary.ID != domainName {
-			return fmt.Errorf("Domain name does not match")
-		}
-
-		client := testAccProvider.Meta().(*client.Client)
-
-		d, _, err := client.GetDomain(domainName)
-
-		if err != nil {
-			return err
-		}
-
-		if *d.Name != domainName {
-			return fmt.Errorf("Domain name does not match")
-		}
-
-		*domain = *d
-
-		o, _, err := client.GetOrg()
-
-		if err != nil {
-			return err
-		}
-
-		*orgName = *o
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneDomainNSSubdomain(domain *client.Domain, org *client.Org, gvc string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadNsSubdomain. Resources Length: %d", len(s.RootModule().Resources))
-
-		expectedDnsMode := "ns"
-		dnsMode := domain.Spec.DnsMode
-
-		if *dnsMode != expectedDnsMode {
-			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", *dnsMode, expectedDnsMode)
-		}
-
-		gvcLink := domain.Spec.GvcLink
-		gvcName := "/org/" + *org.Name + "/gvc/" + gvc
-
-		if *gvcLink != gvcName {
-			return fmt.Errorf("GvcLink does not match, value %v, expected: %v", *gvcLink, gvcName)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneDomainNSPathBased(domain *client.Domain, org *client.Org, randomName string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadNsPathBased. Resources Length: %d", len(s.RootModule().Resources))
-
-		expectedDnsMode := "ns"
-		dnsMode := domain.Spec.DnsMode
-
-		if *dnsMode != expectedDnsMode {
-			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", dnsMode, expectedDnsMode)
-		}
-
-		port1 := 80
-		prefix1 := "/first"
-		hostPrefix := "my.thing." // On update this will fail
-		wl := "/org/" + *org.Name + "/gvc/gvc-" + randomName + "/workload/workload-" + randomName
-
-		routes := []client.DomainRoute{
-			{
-				Prefix:       &prefix1,
-				WorkloadLink: &wl,
-				Port:         &port1,
-				HostPrefix:   &hostPrefix,
-			},
-		}
-
-		if diff := deep.Equal(&routes, (*domain.Spec.Ports)[0].Routes); diff != nil {
-			return fmt.Errorf("Domain spec port routes does not match. Diff: %s", diff)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneDomainCNameSubdomain(domain *client.Domain) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadCNameSubdomain. Resources Length: %d", len(s.RootModule().Resources))
-
-		expectedDnsMode := "cname"
-		dnsMode := domain.Spec.DnsMode
-
-		if *dnsMode != expectedDnsMode {
-			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", *dnsMode, expectedDnsMode)
-		}
-
-		expectedGVCLink := getGVC()
-		gvcLink := domain.Spec.GvcLink
-		if *gvcLink != expectedGVCLink {
-			return fmt.Errorf("GVCLink does not match, value: %v, expected: %v", *gvcLink, expectedGVCLink)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneDomainCNamePathBased(domain *client.Domain) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		TestLogger.Printf("Inside testAccCheckControlPlaneWorkloadCNamePathBased. Resources Length: %d", len(s.RootModule().Resources))
-
-		expectedDnsMode := "cname"
-		dnsMode := domain.Spec.DnsMode
-
-		if *dnsMode != expectedDnsMode {
-			return fmt.Errorf("DnsMode does not match, value: %v, expected: %v", *dnsMode, expectedDnsMode)
-		}
-
-		prefix1 := "/first"
-		prefix2 := "/second"
-		wl1 := getWorkloadOne()
-		wl2 := getWorkloadTwo()
-		port1 := 8080
-		port2 := 8081
-		hostPrefix1 := "my.thing." // On update this will fail
-		hostPrefix2 := "my."       // On update this will fail
-		routes := []client.DomainRoute{
-			{
-				Prefix:       &prefix1,
-				WorkloadLink: &wl1,
-				Port:         &port1,
-				HostPrefix:   &hostPrefix1,
-			},
-			{
-				Prefix:       &prefix2,
-				WorkloadLink: &wl2,
-				Port:         &port2,
-				HostPrefix:   &hostPrefix2,
-			},
-		}
-
-		if diff := deep.Equal(&routes, (*domain.Spec.Ports)[0].Routes); diff != nil {
-			return fmt.Errorf("Domain spec port routes does not match. Diff: %s", diff)
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneDomainCheckDestroy(s *terraform.State) error {
-
-	TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy. Resources Length: %d", len(s.RootModule().Resources))
-
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy: rs.Type: %s", rs.Type)
-
+		// Continue only if the resource is as expected
 		if rs.Type != "cpln_domain" {
 			continue
 		}
 
+		// Retrieve the name for the current resource
 		domainName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of domain with name: %s", domainName))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneDomainCheckDestroy: domainName: %s", domainName)
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		domain, code, err := TestProvider.client.GetDomain(domainName)
 
-		domain, _, _ := c.GetDomain(domainName)
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if domain %s exists: %w", domainName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
 		if domain != nil {
-			return fmt.Errorf("Domain still exists. Name: %s.", *domain.Name)
+			return fmt.Errorf("CheckDestroy failed: domain %s still exists in the system", *domain.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_domain resources have been successfully destroyed")
 	return nil
 }
 
-/*** Unit Tests ***/
-// Build Domain Spec //
-func TestControlPlane_BuildDomainSpec(t *testing.T) {
-	dnsMode := "ns"
-	gvcLink := getGVC()
-	acceptAllHosts := true
-	_, expectedPorts, flattenedPorts := generatePorts()
+// Test Scenarios //
 
-	domainSpec := buildDomainSpec(generateFlatTestDomainSpec(dnsMode, gvcLink, acceptAllHosts, flattenedPorts))
-	expectedDomainSpec := client.DomainSpec{
-		DnsMode:        &dnsMode,
-		GvcLink:        &gvcLink,
-		AcceptAllHosts: &acceptAllHosts,
-		Ports:          &expectedPorts,
-	}
+// NewDefaultScenario creates a test case with initial and updated configurations.
+func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "new"
+	name := drt.ApexDomain
+	subDomainSelfLink := GetSelfLink(OrgName, "domain", fmt.Sprintf("domain-acctest-%s.%s", drt.RandomName, name))
 
-	if diff := deep.Equal(domainSpec, &expectedDomainSpec); diff != nil {
-		t.Errorf("DomainSpec was not built correctly. Diff: %s", diff)
-	}
-}
+	// Build test steps
+	initialConfig, initialStep := drt.BuildDefaultTestStep(resourceName, name)
+	caseUpdate1 := drt.BuildUpdate1TestStep(initialConfig.ProviderTestCase)
+	caseUpdate2 := drt.BuildUpdate2TestStep(initialConfig.ProviderTestCase)
+	caseUpdate3 := drt.BuildUpdate3TestStep(initialConfig.ProviderTestCase)
 
-func TestControlPlane_BuildDomainSpec_NoPorts(t *testing.T) {
-	dnsMode := "ns"
-	gvcLink := getGVC()
-	acceptAllHosts := false
-
-	domainSpec := buildDomainSpec(generateFlatTestDomainSpec(dnsMode, gvcLink, acceptAllHosts, nil))
-	expectedDomainSpec := client.DomainSpec{
-		DnsMode:        &dnsMode,
-		GvcLink:        &gvcLink,
-		AcceptAllHosts: &acceptAllHosts,
-		Ports:          nil,
-	}
-
-	if diff := deep.Equal(domainSpec, &expectedDomainSpec); diff != nil {
-		t.Errorf("DomainSpec was not built correctly. Diff: %s", diff)
-	}
-}
-
-// Build Ports //
-func TestControlPlane_BuildPorts(t *testing.T) {
-	ports, expectedPorts, _ := generatePorts()
-	if diff := deep.Equal(ports, &expectedPorts); diff != nil {
-		t.Errorf("Ports were not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildPorts_Empty(t *testing.T) {
-	ports := buildSpecPorts(generateEmptyInterfaceArray())
-	expectedPorts := []client.DomainSpecPort{{}}
-
-	if diff := deep.Equal(ports, &expectedPorts); diff != nil {
-		t.Errorf("Ports were not built correctly. Diff: %s", diff)
-	}
-}
-
-// Build Cors //
-func TestControlPlane_BuildCors(t *testing.T) {
-
-	allowMethods := []string{"2", "3", "1"}
-	allowHeaders := []string{"2"}
-	exposeHeaders := []string{"3"}
-	maxAge := "24h"
-	allowCredentials := true
-
-	stringFunc := schema.HashSchema(StringSchema())
-
-	_, expectedAllowOrigins, flattenedAllowOrigins := generateAllowOrigins()
-	flattened := generateFlatTestCors(flattenedAllowOrigins,
-		schema.NewSet(stringFunc, flattenStringsArray(&allowMethods)),
-		schema.NewSet(stringFunc, flattenStringsArray(&allowHeaders)),
-		schema.NewSet(stringFunc, flattenStringsArray(&exposeHeaders)), maxAge, allowCredentials)
-
-	cors := buildCors(flattened)
-	expectedCors := client.DomainCors{
-		AllowOrigins:     &expectedAllowOrigins,
-		AllowMethods:     &allowMethods,
-		AllowHeaders:     &allowHeaders,
-		ExposeHeaders:    &exposeHeaders,
-		MaxAge:           &maxAge,
-		AllowCredentials: &allowCredentials,
-	}
-
-	if diff := deep.Equal(cors, &expectedCors); diff != nil {
-		t.Errorf("Cors was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildCors_Empty(t *testing.T) {
-	cors := buildCors(generateEmptyInterfaceArray())
-	expectedCors := client.DomainCors{}
-
-	if diff := deep.Equal(cors, &expectedCors); diff != nil {
-		t.Errorf("Cors was not built correctly. Diff: %s", diff)
-	}
-}
-
-// Build TLS Unit Test //
-func TestControlPlane_BuildTLS(t *testing.T) {
-	tls, expectedTLS, _ := generateTLS()
-	if diff := deep.Equal(tls, &expectedTLS); diff != nil {
-		t.Errorf("TLS was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildTLS_Empty(t *testing.T) {
-	tls := buildTLS(generateEmptyInterfaceArray())
-	expectedTLS := client.DomainTLS{}
-
-	if diff := deep.Equal(tls, &expectedTLS); diff != nil {
-		t.Errorf("TLS was not built correctly. Diff: %s", diff)
-	}
-}
-
-// Build Allow Origins Unit Test //
-func TestControlPlane_BuildAllowOrigins(t *testing.T) {
-	collection, expectedCollection, _ := generateAllowOrigins()
-	if diff := deep.Equal(collection, &expectedCollection); diff != nil {
-		t.Errorf("Allow Origins was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildAllowOrigins_WithoutExact(t *testing.T) {
-	collection := buildAllowOrigins(generateEmptyInterfaceArray())
-	expectedCollection := []client.DomainAllowOrigin{{}}
-
-	if diff := deep.Equal(collection, &expectedCollection); diff != nil {
-		t.Errorf("Allow Origins was not built correctly. Diff: %s", diff)
-	}
-}
-
-// Build Certificate Unit Test //
-func TestControlPlane_BuildCertificate(t *testing.T) {
-	secret := "/org/myorg/secret/mysecret"
-
-	cert := buildCertificate(generateFlatTestCertificate(secret))
-	expectedCert := client.DomainCertificate{SecretLink: &secret}
-
-	// TODO move expectedCert to a function, can be array of items too for different cases
-	if diff := deep.Equal(cert, &expectedCert); diff != nil {
-		t.Errorf("Domain Certificate was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildCertificate_WithoutSecret(t *testing.T) {
-	cert := buildCertificate(generateEmptyInterfaceArray())
-	certTest := client.DomainCertificate{}
-
-	if diff := deep.Equal(cert, &certTest); diff != nil {
-		t.Errorf("Domain Certificate was not built correctly. Diff: %s", diff)
-	}
-}
-
-/*** Generate ***/
-func generatePorts() (*[]client.DomainSpecPort, []client.DomainSpecPort, []interface{}) {
-	number := 443
-	protocol := "http"
-
-	_, expectedCors, flattenedCors := generateCors()
-	_, expectedTLS, flattenedTLS := generateTLS()
-
-	flattenGeneration := generateInterfaceArrayFromMapArray([]map[string]interface{}{
-		generateFlatTestPort(number, protocol, flattenedCors, flattenedTLS),
-	})
-
-	ports := buildSpecPorts(flattenGeneration)
-	expectedPorts := []client.DomainSpecPort{
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			Number:   &number,
-			Protocol: &protocol,
-			Cors:     &expectedCors,
-			TLS:      &expectedTLS,
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		caseUpdate2,
+		caseUpdate3,
+		// Domain Route Import
+		{
+			ResourceName:  "cpln_domain_route.first-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:443:/first", subDomainSelfLink),
+		},
+		{
+			ResourceName:  "cpln_domain_route.second-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:80:/second", subDomainSelfLink),
+		},
+		{
+			ResourceName:  "cpln_domain_route.third-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:80:/third", subDomainSelfLink),
+		},
+		{
+			ResourceName:  "cpln_domain_route.fourth-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:443:/user/.*/profile", subDomainSelfLink),
+		},
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// Test Cases //
+
+// BuildDefaultTestStep returns a default initial test step and its associated test case for the resource.
+func (drt *DomainResourceTest) BuildDefaultTestStep(resourceName string, name string) (DomainResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "domain",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_domain.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "domain new description",
 		},
 	}
 
-	return ports, expectedPorts, flattenGeneration
-}
-
-func generateCors() (*client.DomainCors, client.DomainCors, []interface{}) {
-	allowMethods := []string{"1"}
-	allowHeaders := []string{"2"}
-	exposeHeaders := []string{"3"}
-	maxAge := "24h"
-	allowCredentials := true
-
-	stringFunc := schema.HashSchema(StringSchema())
-
-	_, expectedAllowOrigins, flattenedAllowOrigins := generateAllowOrigins()
-	flattened := generateFlatTestCors(flattenedAllowOrigins,
-		schema.NewSet(stringFunc, flattenStringsArray(&allowMethods)),
-		schema.NewSet(stringFunc, flattenStringsArray(&allowHeaders)),
-		schema.NewSet(stringFunc, flattenStringsArray(&exposeHeaders)), maxAge, allowCredentials)
-
-	cors := buildCors(flattened)
-	expectedCors := client.DomainCors{
-		AllowOrigins:     &expectedAllowOrigins,
-		AllowMethods:     &allowMethods,
-		AllowHeaders:     &allowHeaders,
-		ExposeHeaders:    &exposeHeaders,
-		MaxAge:           &maxAge,
-		AllowCredentials: &allowCredentials,
-	}
-
-	return cors, expectedCors, flattened
-}
-
-func generateTLS() (*client.DomainTLS, client.DomainTLS, []interface{}) {
-	minProtocolVersion := "TLSv1_1"
-	cipherSuites := []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA"}
-	clientSecret := "/org/myorg/secret/mysecret_client"
-	serverSecret := "/org/myorg/secret/mysecret_server"
-
-	stringFunc := schema.HashSchema(StringSchema())
-	cipherSuitesFlattened := schema.NewSet(stringFunc, flattenStringsArray(&cipherSuites))
-	clientCertificate := generateFlatTestCertificate(clientSecret)
-	serverCertificate := generateFlatTestCertificate(serverSecret)
-
-	flattened := generateFlatTestTLS(minProtocolVersion, cipherSuitesFlattened, clientCertificate, serverCertificate)
-
-	tls := buildTLS(flattened)
-	expectedTLS := client.DomainTLS{
-		MinProtocolVersion: &minProtocolVersion,
-		CipherSuites:       &cipherSuites,
-		ClientCertificate:  &client.DomainCertificate{SecretLink: &clientSecret},
-		ServerCertificate:  &client.DomainCertificate{SecretLink: &serverSecret},
-	}
-
-	return tls, expectedTLS, flattened
-}
-
-func generateAllowOrigins() (*[]client.DomainAllowOrigin, []client.DomainAllowOrigin, []interface{}) {
-	exact := "example.com"
-	flattened := generateFlatTestAllowOrigins(exact)
-
-	collection := buildAllowOrigins(flattened)
-	expectedCollection := []client.DomainAllowOrigin{{Exact: &exact}}
-
-	return collection, expectedCollection, flattened
-}
-
-/*** Flatten ***/
-func generateFlatTestDomainSpec(dnsMode string, gvcLink string, acceptAllHosts bool, ports []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"dns_mode":         dnsMode,
-		"gvc_link":         gvcLink,
-		"accept_all_hosts": acceptAllHosts,
-		"ports":            ports,
-	}
-
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: drt.RequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "cname",
+					"accept_all_hosts": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http2",
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"AES128-GCM-SHA256",
+										"AES256-GCM-SHA384",
+										"ECDHE-ECDSA-AES128-GCM-SHA256",
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-ECDSA-CHACHA20-POLY1305",
+										"ECDHE-RSA-AES128-GCM-SHA256",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-CHACHA20-POLY1305",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestPort(number int, protocol string, cors []interface{}, tls []interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"number":   number,
-		"protocol": protocol,
-		"cors":     cors,
-		"tls":      tls,
+// BuildUpdate1TestStep returns a test step for the update.
+func (drt *DomainResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := DomainResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: drt.Update1Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "cname",
+					"gvc_link":         "/org/terraform-test-org/gvc/gvc-01",
+					"accept_all_hosts": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http2",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "*",
+										},
+										{
+											"exact": "*.erickotler.com",
+										},
+										{
+											"regex": `^https://example\.com$`,
+										},
+									},
+									"allow_methods":     []string{"GET", "OPTIONS", "POST"},
+									"allow_headers":     []string{"authorization", "host"},
+									"expose_headers":    []string{"accept/type"},
+									"max_age":           "12h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_1",
+									"cipher_suites":        []string{"AES256-GCM-SHA384"},
+									"client_certificate": []map[string]interface{}{
+										{
+											"secret_link": "/org/terraform-test-org/secret/aa-tbd-2",
+										},
+									},
+									"server_certificate": []map[string]interface{}{
+										{
+											"secret_link": "/org/terraform-test-org/secret/aa-tbd-2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestRoute(prefix string, replacePrefix string, workloadLink string, port int) map[string]interface{} {
-	return map[string]interface{}{
-		"prefix":         prefix,
-		"replace_prefix": replacePrefix,
-		"workload_link":  workloadLink,
-		"port":           port,
+// BuildUpdate2TestStep returns a test step for the update.
+func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := DomainResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Create the sub-domain test case
+	subDomainName := fmt.Sprintf("domain-acctest-%s.%s", drt.RandomName, initialCase.Name)
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "domain",
+			ResourceName:      "subdomain",
+			ResourceAddress:   "cpln_domain.subdomain",
+			Name:              subDomainName,
+			Description:       subDomainName,
+			DescriptionUpdate: "domain new description",
+		},
+	}
+
+	// Create the domain route test cases
+	domainRoute1 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "first-route",
+			ResourceAddress: "cpln_domain_route.first-route",
+		},
+	}
+
+	domainRoute2 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "second-route",
+			ResourceAddress: "cpln_domain_route.second-route",
+		},
+	}
+
+	domainRoute3 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "third-route",
+			ResourceAddress: "cpln_domain_route.third-route",
+		},
+	}
+
+	domainRoute4 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "fourth-route",
+			ResourceAddress: "cpln_domain_route.fourth-route",
+		},
+	}
+
+	// Construct the workload self link
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: drt.Update2Hcl(c, subDomain),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Apex Domain
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "cname",
+					"gvc_link":         "/org/terraform-test-org/gvc/gvc-01",
+					"accept_all_hosts": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http2",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "*",
+										},
+										{
+											"exact": "*.erickotler.com",
+										},
+										{
+											"regex": `^https://example\.com$`,
+										},
+									},
+									"allow_methods":     []string{"GET", "OPTIONS", "POST"},
+									"allow_headers":     []string{"authorization", "host"},
+									"expose_headers":    []string{"accept/type"},
+									"max_age":           "12h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_1",
+									"cipher_suites":        []string{"AES256-GCM-SHA384"},
+									"client_certificate": []map[string]interface{}{
+										{
+											"secret_link": "/org/terraform-test-org/secret/aa-tbd-2",
+										},
+									},
+									"server_certificate": []map[string]interface{}{
+										{
+											"secret_link": "/org/terraform-test-org/secret/aa-tbd-2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// Sub Domain
+			subDomain.GetDefaultChecks(subDomain.DescriptionUpdate, "1"),
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "example.com",
+										},
+										{
+											"exact": "*",
+										},
+									},
+									"allow_methods":     []string{"allow_method_1", "allow_method_2", "allow_method_3"},
+									"allow_headers":     []string{"allow_header_1", "allow_header_2", "allow_header_3"},
+									"expose_headers":    []string{"expose_header_1", "expose_header_2", "expose_header_3"},
+									"max_age":           "24h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-ECDSA-CHACHA20-POLY1305",
+										"ECDHE-ECDSA-AES128-GCM-SHA256",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-CHACHA20-POLY1305",
+										"ECDHE-RSA-AES128-GCM-SHA256",
+										"AES256-GCM-SHA384",
+										"AES128-GCM-SHA256",
+									},
+									"client_certificate": []map[string]interface{}{{}},
+								},
+							},
+						},
+						{
+							"number":   "80",
+							"protocol": "http",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "example.com",
+										},
+										{
+											"exact": "*",
+										},
+									},
+									"allow_methods":     []string{"allow_method"},
+									"allow_headers":     []string{"allow_header"},
+									"expose_headers":    []string{"expose_header"},
+									"max_age":           "24h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// First Route
+			domainRoute1.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			domainRoute1.TestCheckResourceAttr("domain_port", "443"),
+			domainRoute1.TestCheckResourceAttr("prefix", "/first"),
+			domainRoute1.TestCheckResourceAttr("replica", "1"),
+			domainRoute1.TestCheckResourceAttr("workload_link", workloadSelfLink),
+
+			// Second Route
+			domainRoute2.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			domainRoute2.TestCheckResourceAttr("domain_port", "80"),
+			domainRoute2.TestCheckResourceAttr("prefix", "/second"),
+			domainRoute2.TestCheckResourceAttr("replace_prefix", "/"),
+			domainRoute2.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			domainRoute2.TestCheckResourceAttr("port", "443"),
+			domainRoute2.TestCheckResourceAttr("host_prefix", "my.thing."),
+			domainRoute2.TestCheckResourceAttr("replica", "0"),
+			domainRoute2.TestCheckNestedBlocks("headers", []map[string]interface{}{
+				{
+					"request": []map[string]interface{}{
+						{
+							"set": map[string]interface{}{
+								"Host":         "example.com",
+								"Content-Type": "application/json",
+							},
+						},
+					},
+				},
+			}),
+
+			// Third Route
+			domainRoute3.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			domainRoute3.TestCheckResourceAttr("domain_port", "80"),
+			domainRoute3.TestCheckResourceAttr("prefix", "/third"),
+			domainRoute3.TestCheckResourceAttr("replace_prefix", "/"),
+			domainRoute3.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			domainRoute3.TestCheckResourceAttr("port", "443"),
+			domainRoute3.TestCheckResourceAttr("host_regex", "reg"),
+			domainRoute3.TestCheckNestedBlocks("headers", []map[string]interface{}{
+				{
+					"request": []map[string]interface{}{
+						{
+							"set": map[string]interface{}{
+								"Host":         "example.com",
+								"Content-Type": "application/json",
+							},
+						},
+					},
+				},
+			}),
+
+			// Fourth Route
+			domainRoute4.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			domainRoute4.TestCheckResourceAttr("domain_port", "443"),
+			domainRoute4.TestCheckResourceAttr("regex", "/user/.*/profile"),
+			domainRoute4.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			domainRoute4.TestCheckResourceAttr("port", "80"),
+		),
 	}
 }
 
-func generateFlatTestCors(allowOrigins []interface{}, allowMethods interface{}, allowHeaders interface{}, exposeHeaders interface{}, maxAge string, allowCredentials bool) []interface{} {
-
-	spec := map[string]interface{}{
-		"allow_origins":     allowOrigins,
-		"allow_methods":     allowMethods,
-		"allow_headers":     allowHeaders,
-		"expose_headers":    exposeHeaders,
-		"max_age":           maxAge,
-		"allow_credentials": allowCredentials,
+// BuildUpdate3TestStep returns a test step for the update.
+func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := DomainResourceTestCase{
+		ProviderTestCase: initialCase,
 	}
 
-	return []interface{}{
-		spec,
+	// Create the sub-domain test case
+	subDomainName := fmt.Sprintf("domain-acctest-%s.%s", drt.RandomName, initialCase.Name)
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "domain",
+			ResourceName:      "subdomain",
+			ResourceAddress:   "cpln_domain.subdomain",
+			Name:              subDomainName,
+			Description:       subDomainName,
+			DescriptionUpdate: "domain new description",
+		},
+	}
+
+	// Create the domain route test cases
+	domainRoute1 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "first-route",
+			ResourceAddress: "cpln_domain_route.first-route",
+		},
+	}
+
+	domainRoute2 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "second-route",
+			ResourceAddress: "cpln_domain_route.second-route",
+		},
+	}
+
+	// Construct the workload self link
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: drt.Update2Hcl(c, subDomain),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Apex Domain
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "cname",
+					"gvc_link":         "/org/terraform-test-org/gvc/gvc-01",
+					"accept_all_hosts": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http2",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "*",
+										},
+										{
+											"exact": "*.erickotler.com",
+										},
+										{
+											"regex": `^https://example\.com$`,
+										},
+									},
+									"allow_methods":     []string{"GET", "OPTIONS", "POST"},
+									"allow_headers":     []string{"authorization", "host"},
+									"expose_headers":    []string{"accept/type"},
+									"max_age":           "12h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_1",
+									"cipher_suites":        []string{"AES256-GCM-SHA384"},
+									"client_certificate": []map[string]interface{}{
+										{
+											"secret_link": "/org/terraform-test-org/secret/aa-tbd-2",
+										},
+									},
+									"server_certificate": []map[string]interface{}{
+										{
+											"secret_link": "/org/terraform-test-org/secret/aa-tbd-2",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// Sub Domain
+			subDomain.GetDefaultChecks(subDomain.DescriptionUpdate, "1"),
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "example.com",
+										},
+										{
+											"exact": "*",
+										},
+									},
+									"allow_methods":     []string{"allow_method_1", "allow_method_2", "allow_method_3"},
+									"allow_headers":     []string{"allow_header_1", "allow_header_2", "allow_header_3"},
+									"expose_headers":    []string{"expose_header_1", "expose_header_2", "expose_header_3"},
+									"max_age":           "24h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-ECDSA-CHACHA20-POLY1305",
+										"ECDHE-ECDSA-AES128-GCM-SHA256",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-CHACHA20-POLY1305",
+										"ECDHE-RSA-AES128-GCM-SHA256",
+										"AES256-GCM-SHA384",
+										"AES128-GCM-SHA256",
+									},
+									"client_certificate": []map[string]interface{}{{}},
+								},
+							},
+						},
+						{
+							"number":   "80",
+							"protocol": "http",
+							"cors": []map[string]interface{}{
+								{
+									"allow_origins": []map[string]interface{}{
+										{
+											"exact": "example.com",
+										},
+										{
+											"exact": "*",
+										},
+									},
+									"allow_methods":     []string{"allow_method"},
+									"allow_headers":     []string{"allow_header"},
+									"expose_headers":    []string{"expose_header"},
+									"max_age":           "24h",
+									"allow_credentials": "true",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// First Route
+			domainRoute1.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			domainRoute1.TestCheckResourceAttr("domain_port", "443"),
+			domainRoute1.TestCheckResourceAttr("prefix", "/first"),
+			domainRoute1.TestCheckResourceAttr("workload_link", workloadSelfLink),
+
+			// Second Route
+			domainRoute2.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			domainRoute2.TestCheckResourceAttr("domain_port", "80"),
+			domainRoute2.TestCheckResourceAttr("prefix", "/second"),
+			domainRoute2.TestCheckResourceAttr("replace_prefix", "/"),
+			domainRoute2.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			domainRoute2.TestCheckResourceAttr("port", "443"),
+			domainRoute2.TestCheckResourceAttr("host_prefix", "my.thing."),
+			domainRoute2.TestCheckNestedBlocks("headers", []map[string]interface{}{
+				{
+					"request": []map[string]interface{}{
+						{
+							"set": map[string]interface{}{
+								"Host":         "example.com",
+								"Content-Type": "application/json",
+							},
+						},
+					},
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestTLS(minProtocolVersion string, cipherSuites interface{}, clientCertificate []interface{}, serverCertificate []interface{}) []interface{} {
-	spec := map[string]interface{}{
-		"min_protocol_version": minProtocolVersion,
-		"cipher_suites":        cipherSuites,
-		"client_certificate":   clientCertificate,
-		"server_certificate":   serverCertificate,
-	}
+// Configs //
 
-	return []interface{}{
-		spec,
+// RequiredOnlyHcl returns a minimal HCL block for a resource using only required fields.
+func (drt *DomainResourceTest) RequiredOnlyHcl(c DomainResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_domain" "%s" {
+  name        = "%s"
+
+  spec {
+    ports {
+      tls {}
+    }
+  }
+}
+`, c.ResourceName, c.Name)
+}
+
+// Update1Hcl returns a minimal HCL block for a resource using only required fields.
+func (drt *DomainResourceTest) Update1Hcl(c DomainResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_domain" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode         = "cname"
+    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
+    accept_all_hosts = false
+
+    ports {
+      number = 443
+      protocol = "http2"
+
+      cors {
+
+        allow_origins {						
+          exact = "*"
+        }
+
+        allow_origins {						
+          exact = "*.erickotler.com"
+        }
+
+        allow_origins {						
+          regex = "^https://example\\.com$"
+        }
+
+        allow_methods     = ["GET", "OPTIONS", "POST"]
+        allow_headers     = ["authorization", "host"]
+        expose_headers    = ["accept/type"]
+        max_age           = "12h"
+        allow_credentials = true
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_1"
+        cipher_suites        = ["AES256-GCM-SHA384"]
+
+        client_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+
+        server_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+			}
+		}
+  }
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+// Update2Hcl returns a minimal HCL block for a resource using only required fields.
+func (drt *DomainResourceTest) Update2Hcl(c DomainResourceTestCase, subDomain DomainResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_gvc" "new" {
+
+  name        = "gvc-${var.random_name}"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.new.name
+
+  name        = "workload-${var.random_name}"
+  description = "Example Workload"
+  type        = "serverless"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+    port   = 8080
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = true
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 0
+      min_scale       = 0
+      max_concurrency = 500
+    }
+  }
+}
+
+resource "cpln_domain" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode         = "cname"
+    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
+    accept_all_hosts = false
+
+    ports {
+      number = 443
+      protocol = "http2"
+
+      cors {
+
+        allow_origins {						
+          exact = "*"
+        }
+
+        allow_origins {						
+          exact = "*.erickotler.com"
+        }
+
+        allow_origins {						
+          regex = "^https://example\\.com$"
+        }
+
+        allow_methods     = ["GET", "OPTIONS", "POST"]
+        allow_headers     = ["authorization", "host"]
+        expose_headers    = ["accept/type"]
+        max_age           = "12h"
+        allow_credentials = true
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_1"
+        cipher_suites        = ["AES256-GCM-SHA384"]
+
+        client_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+
+        server_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+			}
+		}
+  }
+}
+
+resource "cpln_domain" "%s" {
+
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode = "ns"
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      cors {
+        allow_origins {
+          exact = "example.com"
+        }
+
+        allow_origins {
+          exact = "*"
+        }
+		
+        allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+        allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+        expose_headers    = ["expose_header_1", "expose_header_2", "expose_header_3"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
+        client_certificate {}
+      }
+    }
+
+    ports {
+      number   = 80
+      protocol = "http"
+
+      cors {
+        allow_origins {
+          exact = "example.com"
+        }
+
+        allow_origins {
+          exact = "*"
+        }
+
+        allow_methods     = ["allow_method"]
+        allow_headers     = ["allow_header"]
+        expose_headers    = ["expose_header"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+        ]
+      }
+    }
+  }
+}
+
+resource "cpln_domain_route" "first-route" {
+  domain_link   = %s
+  prefix        = "/first"
+  workload_link = cpln_workload.new.self_link
+  replica       = 1
+}
+
+resource "cpln_domain_route" "second-route" {
+
+  depends_on = [cpln_domain_route.first-route]
+
+  domain_link = cpln_domain.subdomain.self_link
+  domain_port = 80
+
+  prefix         = "/second"
+  replace_prefix = "/"
+  workload_link  = cpln_workload.new.self_link
+  port 		       = 443
+  host_prefix    = "my.thing."
+  replica        = 0
+
+  headers {
+    request {
+      set = {
+        Host           = "example.com"
+        "Content-Type" = "application/json"
+      }
+    }
+  }
+}
+
+resource "cpln_domain_route" "third-route" {
+
+  depends_on = [cpln_domain_route.second-route]
+
+  domain_link = cpln_domain.subdomain.self_link
+  domain_port = 80
+
+  prefix         = "/third"
+  replace_prefix = "/"
+  workload_link  = cpln_workload.new.self_link
+  port 		       = 443
+  host_regex     = "reg"
+
+  headers {
+    request {
+      set = {
+        Host           = "example.com"
+        "Content-Type" = "application/json"
+      }
+    }
+  }
+}
+
+resource "cpln_domain_route" "fourth-route" {
+  depends_on = [cpln_domain_route.third-route]
+
+  domain_link   = cpln_domain.subdomain.self_link
+  regex         = "/user/.*/profile"
+  workload_link = cpln_workload.new.self_link
+  port          = 80
+}
+`, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate,
+		subDomain.GetSelfLinkAttr(),
+	)
+}
+
+// Update2Hcl returns a minimal HCL block for a resource using only required fields.
+func (drt *DomainResourceTest) Update3Hcl(c DomainResourceTestCase, subDomain DomainResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_gvc" "new" {
+
+  name        = "gvc-${var.random_name}"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.new.name
+
+  name        = "workload-${var.random_name}"
+  description = "Example Workload"
+  type        = "serverless"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+    port   = 8080
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = true
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 0
+      min_scale       = 0
+      max_concurrency = 500
+    }
+  }
+}
+
+resource "cpln_domain" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode         = "cname"
+    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
+    accept_all_hosts = false
+
+    ports {
+      number = 443
+      protocol = "http2"
+
+      cors {
+
+        allow_origins {						
+          exact = "*"
+        }
+
+        allow_origins {						
+          exact = "*.erickotler.com"
+        }
+
+        allow_origins {						
+          regex = "^https://example\\.com$"
+        }
+
+        allow_methods     = ["GET", "OPTIONS", "POST"]
+        allow_headers     = ["authorization", "host"]
+        expose_headers    = ["accept/type"]
+        max_age           = "12h"
+        allow_credentials = true
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_1"
+        cipher_suites        = ["AES256-GCM-SHA384"]
+
+        client_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+
+        server_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+			}
+		}
+  }
+}
+
+resource "cpln_domain" "%s" {
+
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode = "ns"
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      cors {
+        allow_origins {
+          exact = "example.com"
+        }
+
+        allow_origins {
+          exact = "*"
+        }
+		
+        allow_methods     = ["allow_method_1", "allow_method_2", "allow_method_3"]
+        allow_headers     = ["allow_header_1", "allow_header_2", "allow_header_3"]
+        expose_headers    = ["expose_header_1", "expose_header_2", "expose_header_3"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
+        client_certificate {}
+      }
+    }
+
+    ports {
+      number   = 80
+      protocol = "http"
+
+      cors {
+        allow_origins {
+          exact = "example.com"
+        }
+
+        allow_origins {
+          exact = "*"
+        }
+
+        allow_methods     = ["allow_method"]
+        allow_headers     = ["allow_header"]
+        expose_headers    = ["expose_header"]
+        max_age           = "24h"
+        allow_credentials = "true"
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+        ]
+      }
+    }
+  }
+}
+
+resource "cpln_domain_route" "first-route" {
+  domain_link   = %s
+  prefix        = "/first"
+  workload_link = cpln_workload.new.self_link
+}
+
+resource "cpln_domain_route" "second-route" {
+
+  depends_on = [cpln_domain_route.first-route]
+
+  domain_link = cpln_domain.subdomain.self_link
+  domain_port = 80
+
+  prefix         = "/second"
+  replace_prefix = "/"
+  workload_link  = cpln_workload.new.self_link
+  port 		       = 443
+  host_prefix    = "my.thing."
+
+  headers {
+    request {
+      set = {
+        Host           = "example.com"
+        "Content-Type" = "application/json"
+      }
+    }
+  }
+}
+`, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate,
+		subDomain.GetSelfLinkAttr(),
+	)
+}
+
+/*** Resource Test Cases ***/
+
+// DomainResourceTestCase defines a specific resource test case.
+type DomainResourceTestCase struct {
+	ProviderTestCase
+}
+
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (drtc *DomainResourceTestCase) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of domain: %s. Total resources: %d", drtc.Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[drtc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", drtc.ResourceAddress)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != drtc.Name {
+			return fmt.Errorf("resource ID %s does not match expected domain name %s", rs.Primary.ID, drtc.Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remoteDomain, _, err := TestProvider.client.GetDomain(drtc.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving domain from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remoteDomain.Name != drtc.Name {
+			return fmt.Errorf("mismatch in domain name: expected %s, got %s", drtc.Name, *remoteDomain.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Domain %s verified successfully in both state and external system.", drtc.Name))
+		return nil
 	}
 }
 
-func generateFlatTestAllowOrigins(exact string) []interface{} {
-	spec := map[string]interface{}{
-		"exact": exact,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestCertificate(secretLink string) []interface{} {
-	spec := map[string]interface{}{
-		"secret_link": secretLink,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateInterfaceArrayFromMapArray(specs []map[string]interface{}) []interface{} {
-	collection := make([]interface{}, len(specs))
-	for i, spec := range specs {
-		collection[i] = spec
-	}
-
-	return collection
-}
-
-func generateEmptyInterfaceArray() []interface{} {
-	return []interface{}{
-		map[string]interface{}{},
-	}
+// DomainRouteResourceTestCase defines a specific resource test case.
+type DomainRouteResourceTestCase struct {
+	ProviderTestCase
 }

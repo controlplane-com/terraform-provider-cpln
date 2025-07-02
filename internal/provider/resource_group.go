@@ -6,326 +6,323 @@ import (
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/group"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourceGroup() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceGroupCreate,
-		ReadContext:   resourceGroupRead,
-		UpdateContext: resourceGroupUpdate,
-		DeleteContext: resourceGroupDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the Group.",
-				Computed:    true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Description:  "Name of the Group.",
-				ForceNew:     true,
-				Required:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of Group.",
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:        schema.TypeMap,
-				Description: "Key-value map of resource tags.",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-				ValidateFunc: TagValidator,
-			},
-			"user_ids_and_emails": {
-				Type:        schema.TypeSet,
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &GroupResource{}
+	_ resource.ResourceWithImportState = &GroupResource{}
+)
+
+/*** Resource Model ***/
+
+// GroupResourceModel holds the Terraform state for the resource.
+type GroupResourceModel struct {
+	EntityBaseModel
+	UserIdsAndEmails types.Set    `tfsdk:"user_ids_and_emails"`
+	ServiceAccounts  types.Set    `tfsdk:"service_accounts"`
+	MemberQuery      types.List   `tfsdk:"member_query"`
+	IdentityMatcher  types.List   `tfsdk:"identity_matcher"`
+	Origin           types.String `tfsdk:"origin"`
+}
+
+/*** Resource Configuration ***/
+
+// GroupResource is the resource implementation.
+type GroupResource struct {
+	EntityBase
+	Operations EntityOperations[GroupResourceModel, client.Group]
+}
+
+// NewGroupResource returns a new instance of the resource implementation.
+func NewGroupResource() resource.Resource {
+	return &GroupResource{}
+}
+
+// Configure configures the resource before use.
+func (gr *GroupResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	gr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	gr.Operations = NewEntityOperations(gr.client, &GroupResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (gr *GroupResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (gr *GroupResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_group"
+}
+
+// Schema defines the schema for the resource.
+func (gr *GroupResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(gr.EntityBaseAttributes("Group"), map[string]schema.Attribute{
+			"user_ids_and_emails": schema.SetAttribute{
 				Description: "List of either the user ID or email address for a user that exists within the configured org. Group membership will fail if the user ID / email does not exist within the org.",
+				ElementType: types.StringType,
 				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
-			"service_accounts": {
-				Type:        schema.TypeSet,
+			"service_accounts": schema.SetAttribute{
 				Description: "List of service accounts that exists within the configured org. Group membership will fail if the service account does not exits within the org.",
+				ElementType: types.StringType,
 				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+			},
+			"origin": schema.StringAttribute{
+				Description: "Origin of the service account. Either `builtin` or `default`.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Fully qualified link to the this group.",
-				Computed:    true,
+		}),
+		Blocks: map[string]schema.Block{
+			"member_query": schema.ListNestedBlock{
+				Description:  "A predefined set of criteria or conditions used to query and retrieve members within the group.",
+				NestedObject: gr.QuerySchema(),
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
-			"member_query": {
-				Type:        schema.TypeList,
-				Description: "A predefined set of criteria or conditions used to query and retrieve members within the group.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem:        QuerySchemaResource(),
-			},
-			"identity_matcher": {
-				Type:        schema.TypeList,
+			"identity_matcher": schema.ListNestedBlock{
 				Description: "Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged-in with SAML providers.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"expression": {
-							Type:        schema.TypeString,
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"expression": schema.StringAttribute{
 							Description: "Executes the expression against the users' claims to decide whether a user belongs to this group. This method is useful for managing the grouping of users logged in with SAML providers.",
 							Required:    true,
 						},
-						"language": {
-							Type:        schema.TypeString,
+						"language": schema.StringAttribute{
 							Description: "Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`.",
 							Optional:    true,
-							Default:     "jmespath",
+							Computed:    true,
+							Default:     stringdefault.StaticString("jmespath"),
 						},
 					},
 				},
-			},
-			"origin": {
-				Type:        schema.TypeString,
-				Description: "Origin of the service account. Either `builtin` or `default`.",
-				Computed:    true,
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
 		},
-		Importer: &schema.ResourceImporter{},
 	}
 }
 
-func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	group := client.Group{}
-	group.Name = GetString(d.Get("name"))
-	group.Description = GetString(d.Get("description"))
-	group.Tags = GetStringMap(d.Get("tags"))
-
-	c := m.(*client.Client)
-
-	buildMemberLinks(c.Org, d.Get("user_ids_and_emails"), d.Get("service_accounts"), &group)
-	group.MemberQuery = BuildQueryHelper("user", d.Get("member_query"))
-	group.IdentityMatcher = buildIdentityMatcher(d.Get("identity_matcher").([]interface{}))
-
-	newGroup, code, err := c.CreateGroup(group)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setGroup(d, c.Org, newGroup)
+// Create creates the resource.
+func (gr *GroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, gr.Operations)
 }
 
-func resourceGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-	group, code, err := c.GetGroup(d.Id())
-
-	if code == 404 {
-		d.SetId("")
-		return nil
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setGroup(d, c.Org, group)
+// Read fetches the current state of the resource.
+func (gr *GroupResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, gr.Operations)
 }
 
-func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	if d.HasChanges("description", "tags", "user_ids_and_emails", "service_accounts", "member_query", "identity_matcher") {
-
-		c := m.(*client.Client)
-
-		groupToUpdate := client.Group{}
-		groupToUpdate.Name = GetString(d.Get("name"))
-		groupToUpdate.Description = GetDescriptionString(d.Get("description"), *groupToUpdate.Name)
-		groupToUpdate.Tags = GetTagChanges(d)
-
-		if d.HasChange("user_ids_and_emails") || d.HasChange("service_accounts") || d.HasChange("member_query") {
-
-			userMembers := d.Get("user_ids_and_emails")
-			serviceAccountMembers := d.Get("service_accounts")
-			queryMembers := d.Get("member_query")
-
-			buildMemberLinks(c.Org, userMembers, serviceAccountMembers, &groupToUpdate)
-			groupToUpdate.MemberQuery = BuildQueryHelper("user", queryMembers)
-		}
-
-		if d.HasChange("identity_matcher") {
-			groupToUpdate.IdentityMatcher = buildIdentityMatcher(d.Get("identity_matcher").([]interface{}))
-		}
-
-		updatedGroup, _, err := c.UpdateGroup(groupToUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setGroup(d, c.Org, updatedGroup)
-	}
-
-	return nil
+// Update modifies the resource.
+func (gr *GroupResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, gr.Operations)
 }
 
-func resourceGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-	err := c.DeleteGroup(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	d.SetId("")
-
-	return nil
+// Delete removes the resource.
+func (gr *GroupResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, gr.Operations)
 }
 
-/*** Build Functions ***/
-func buildMemberLinks(org string, users, serviceAccounts interface{}, group *client.Group) {
+/*** Resource Operator ***/
 
+// GroupResourceOperator is the operator for managing the state.
+type GroupResourceOperator struct {
+	EntityOperator[GroupResourceModel]
+}
+
+// NewAPIRequest creates a request payload from a state model.
+func (gro *GroupResourceOperator) NewAPIRequest(isUpdate bool) client.Group {
+	// Initialize a new request payload
+	requestPayload := client.Group{}
+
+	// Populate Base fields from state
+	gro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Set specific attributes
+	requestPayload.MemberLinks = gro.buildMemberLinks(gro.Plan)
+	requestPayload.MemberQuery = gro.BuildQuery(gro.Plan.MemberQuery)
+	requestPayload.IdentityMatcher = gro.buildIdentityMatcher(gro.Plan.IdentityMatcher)
+
+	// Return constructed request payload
+	return requestPayload
+}
+
+// MapResponseToState creates a state model from response payload.
+func (gro *GroupResourceOperator) MapResponseToState(group *client.Group, isCreate bool) GroupResourceModel {
+	// Initialize empty state model
+	state := GroupResourceModel{}
+
+	// Populate common fields from base resource data
+	state.From(group.Base)
+
+	// Set specific attributes
+	gro.flattenMemberLinks(group.MemberLinks, &state)
+	state.MemberQuery = gro.FlattenQuery(group.MemberQuery)
+	state.IdentityMatcher = gro.flattenIdentityMatcher(group.IdentityMatcher)
+	state.Origin = types.StringPointerValue(group.Origin)
+
+	// Return completed state model
+	return state
+}
+
+// InvokeCreate invokes the Create API to create a new resource.
+func (gro *GroupResourceOperator) InvokeCreate(req client.Group) (*client.Group, int, error) {
+	return gro.Client.CreateGroup(req)
+}
+
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (gro *GroupResourceOperator) InvokeRead(name string) (*client.Group, int, error) {
+	return gro.Client.GetGroup(name)
+}
+
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (gro *GroupResourceOperator) InvokeUpdate(req client.Group) (*client.Group, int, error) {
+	return gro.Client.UpdateGroup(req)
+}
+
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (gro *GroupResourceOperator) InvokeDelete(name string) error {
+	return gro.Client.DeleteGroup(name)
+}
+
+// Builders //
+
+// buildMemberLinks builds a list of member link strings combining user IDs/emails and service accounts.
+func (gro *GroupResourceOperator) buildMemberLinks(state GroupResourceModel) *[]string {
+	// Initialize an empty slice to hold member link strings
 	memberLinks := []string{}
 
-	if users != nil {
-		for _, u := range users.(*schema.Set).List() {
-			memberLinks = append(memberLinks, fmt.Sprintf("/org/%s/user/%s", org, u.(string)))
+	// Retrieve user ID and email links from state
+	userIdsAndEmails := BuildSetString(gro.Ctx, gro.Diags, state.UserIdsAndEmails)
+
+	// Retrieve service account links from state
+	serviceAccounts := BuildSetString(gro.Ctx, gro.Diags, state.ServiceAccounts)
+
+	// If user ID and email links are present, append them to the result slice
+	if userIdsAndEmails != nil {
+		// Iterate over the users/emails, construct their self link and append it to the memberLinks slice
+		for _, u := range *userIdsAndEmails {
+			memberLinks = append(memberLinks, fmt.Sprintf("/org/%s/user/%s", gro.Client.Org, u))
 		}
 	}
 
+	// If service account links are present, append them to the result slice
 	if serviceAccounts != nil {
-		for _, s := range serviceAccounts.(*schema.Set).List() {
-			memberLinks = append(memberLinks, fmt.Sprintf("/org/%s/serviceaccount/%s", org, s.(string)))
+		// Iterate over the service accounts, construct their self link and append it to the memberLinks slice
+		for _, s := range *serviceAccounts {
+			memberLinks = append(memberLinks, fmt.Sprintf("/org/%s/serviceaccount/%s", gro.Client.Org, s))
 		}
 	}
 
-	group.MemberLinks = &memberLinks
+	// Return a pointer to the slice of member links
+	return &memberLinks
 }
 
-func buildIdentityMatcher(specs []interface{}) *client.IdentityMatcher {
-	if len(specs) == 0 || specs[0] == nil {
+// buildIdentityMatcher constructs a IdentityMatcher struct from the given Terraform state.
+func (gro *GroupResourceOperator) buildIdentityMatcher(state types.List) *client.GroupIdentityMatcher {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.IdentityMatcherModel](gro.Ctx, gro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
-	spec := specs[0].(map[string]interface{})
-	result := client.IdentityMatcher{}
+	// Extract the very first block from the blocks slice
+	block := blocks[0]
 
-	if spec["expression"] != nil {
-		result.Expression = GetString(spec["expression"].(string))
+	// Construct and return the result
+	return &client.GroupIdentityMatcher{
+		Expression: BuildString(block.Expression),
+		Language:   BuildString(block.Language),
 	}
-
-	if spec["language"] != nil {
-		result.Language = GetString(spec["language"].(string))
-	}
-
-	return &result
 }
 
-/*** Flatten Functions ***/
-func flattenMemberLinks(org string, memberLinks *[]string) ([]interface{}, []interface{}, error) {
+// Flatteners //
 
-	if org == "" || memberLinks == nil {
-		return nil, nil, fmt.Errorf("org is empty or member links is nil")
+// FlattenMemberLinks splits a flat list of member link URLs into separate Terraform sets for users and service accounts.
+func (gro *GroupResourceOperator) flattenMemberLinks(input *[]string, state *GroupResourceModel) {
+	// Handle missing attribute by setting both sets to null
+	if input == nil {
+		(*state).UserIdsAndEmails = types.SetNull(types.StringType)
+		(*state).ServiceAccounts = types.SetNull(types.StringType)
+		return
 	}
 
-	linksPrefix := fmt.Sprintf("/org/%s/", org)
+	// Base URL prefix for all group members
+	linksPrefix := fmt.Sprintf("/org/%s", gro.Client.Org)
 
-	userIDs := []interface{}{}
-	userIDPrefix := linksPrefix + "user/"
+	// Prefix identifying user links
+	userIdPrefix := fmt.Sprintf("%s/user/", linksPrefix)
 
-	serviceAccounts := []interface{}{}
-	serviceAccountPrefix := linksPrefix + "serviceaccount/"
+	// Prefix identifying service account links
+	serviceAccountsPrefix := fmt.Sprintf("%s/serviceaccount/", linksPrefix)
 
-	for _, m := range *memberLinks {
+	// Slice to collect user link URLs
+	userIdsAndEmails := []string{}
 
-		if strings.HasPrefix(m, userIDPrefix) {
-			userIDs = append(userIDs, strings.TrimPrefix(m, userIDPrefix))
-		} else if strings.HasPrefix(m, serviceAccountPrefix) {
-			serviceAccounts = append(serviceAccounts, strings.TrimPrefix(m, serviceAccountPrefix))
+	// Slice to collect service account link URLs
+	serviceAccounts := []string{}
+
+	// Iterate over each provided link
+	for _, item := range *input {
+		// Classify as user link if prefix matches
+		if strings.HasPrefix(item, userIdPrefix) {
+			userIdsAndEmails = append(userIdsAndEmails, strings.TrimPrefix(item, userIdPrefix))
+		} else if strings.HasPrefix(item, serviceAccountsPrefix) {
+			// Classify as service account link if prefix matches
+			serviceAccounts = append(serviceAccounts, strings.TrimPrefix(item, serviceAccountsPrefix))
 		}
 	}
 
-	return userIDs, serviceAccounts, nil
-}
-
-func flattenIdentityMatcher(identityMatcher *client.IdentityMatcher) []interface{} {
-	if identityMatcher == nil {
-		return nil
+	// Convert found user links to Terraform set or set null if none
+	if len(userIdsAndEmails) != 0 {
+		(*state).UserIdsAndEmails = FlattenSetString(&userIdsAndEmails)
+	} else {
+		(*state).UserIdsAndEmails = types.SetNull(types.StringType)
 	}
 
-	result := make(map[string]interface{})
-
-	if identityMatcher.Expression != nil {
-		result["expression"] = *identityMatcher.Expression
-	}
-
-	if identityMatcher.Language != nil {
-		result["language"] = *identityMatcher.Language
-	}
-
-	return []interface{}{
-		result,
+	// Convert found service account links to Terraform set or set null if none
+	if len(serviceAccounts) != 0 {
+		(*state).ServiceAccounts = FlattenSetString(&serviceAccounts)
+	} else {
+		(*state).ServiceAccounts = types.SetNull(types.StringType)
 	}
 }
 
-/*** Helper Functions ***/
-func setGroup(d *schema.ResourceData, org string, group *client.Group) diag.Diagnostics {
+// flattenIdentityMatcher transforms client.IdentityMatcher into a Terraform types.List.
+func (gro *GroupResourceOperator) flattenIdentityMatcher(input *client.GroupIdentityMatcher) types.List {
+	// Get attribute types
+	elementType := models.IdentityMatcherModel{}.AttributeTypes()
 
-	if group == nil {
-		d.SetId("")
-		return nil
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
-	d.SetId(*group.Name)
-
-	if err := SetBase(d, group.Base); err != nil {
-		return diag.FromErr(err)
+	// Build a single block
+	block := models.IdentityMatcherModel{
+		Expression: types.StringPointerValue(input.Expression),
+		Language:   types.StringPointerValue(input.Language),
 	}
 
-	if err := SetSelfLink(group.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	userIDs, serviceAccounts, err := flattenMemberLinks(org, group.MemberLinks)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("user_ids_and_emails", userIDs); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("service_accounts", serviceAccounts); err != nil {
-		return diag.FromErr(err)
-	}
-
-	mqList, err := FlattenQueryHelper(group.MemberQuery)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("member_query", mqList); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("identity_matcher", flattenIdentityMatcher(group.IdentityMatcher)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
+	// Return the successfully created types.List
+	return FlattenList(gro.Ctx, gro.Diags, []models.IdentityMatcherModel{block})
 }

@@ -1,1667 +1,1153 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/go-test/deep"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+/*** Acceptance Test ***/
+
+// TestAccControlPlaneOrgLogging_basic performs an acceptance test for the resource.
 func TestAccControlPlaneOrgLogging_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewOrgLoggingResourceTest()
 
-	var testLogging []client.Logging
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "ORG_LOGGING") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneOrgCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneOrgS3(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgCoralogix(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgDatadog(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgLogzio(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgLogzioWithDifferentListenerHost(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgElasticAWS(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgElasticCloud(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgElasticGeneric(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgCloudWatch(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgFluentd(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgFluentd(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgStackdriver(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgSyslog(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgThreeUniqueLoggings(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-			{
-				Config: testAccControlPlaneOrgTwoUniqueLoggings(),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckControlPlaneLoggingExists("cpln_org_logging.tf-logging", &testLogging),
-					testAccCheckControlPlaneLoggingAttributes(&testLogging),
-				),
-			},
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "ORG_LOGGING") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.Steps,
 	})
 }
 
-func testAccControlPlaneOrgS3() string {
+/*** Resource Test ***/
 
-	TestLogger.Printf("Inside testAccControlPlaneOrg")
-
-	return `
-
-    resource "cpln_secret" "aws" {
-        name = "aws-random-tbd"
-        description = "aws description aws-random-tbd" 
-                
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "aws"
-        } 
-        
-        aws {
-            secret_key = "AKIAIOSFODNN7EXAMPLE"
-            access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            role_arn = "arn:awskey" 
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        s3_logging {
-
-            bucket = "test-bucket"
-            region = "us-east1"
-            prefix = "/"
-
-            // AWS Secret Only
-            credentials = cpln_secret.aws.self_link
-        }   
-    }
-    `
+// OrgLoggingResourceTest defines the necessary functionality to test the resource.
+type OrgLoggingResourceTest struct {
+	Steps      []resource.TestStep
+	RandomName string
 }
 
-func testAccControlPlaneOrgCoralogix() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgCoralogix")
-
-	return `
-
-    resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-coralogix-tbd"
-        description = "opaque description opaque-random-tbd" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        coralogix_logging {
-
-            // Valid clusters
-            // coralogix.com, coralogix.us, app.coralogix.in, app.eu2.coralogix.com, app.coralogixsg.com
-            cluster = "coralogix.com"
-
-            // Opaque Secret Only
-            credentials = cpln_secret.opaque.self_link
-            
-            // Supported variables for App and Subsystem are:
-            // {org}, {gvc}, {workload}, {location}
-            app = "{workload}"
-            subsystem = "{org}"
-        }
-    }       
-    `
-}
-
-func testAccControlPlaneOrgDatadog() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgDatadog")
-
-	return `
-
-    resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-datadog-tbd"
-        description = "opaque description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-	resource "cpln_secret" "opaque-1" {
-
-        name = "opaque-random-datadog-tbd-1"
-        description = "opaque description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        datadog_logging {
-
-            // Valid Host
-            // http-intake.logs.datadoghq.com, http-intake.logs.us3.datadoghq.com, 
-            // http-intake.logs.us5.datadoghq.com, http-intake.logs.datadoghq.eu
-            host = "http-intake.logs.datadoghq.com"
-
-            // Opaque Secret Only
-            credentials = cpln_secret.opaque.self_link  
-        }
-
-		datadog_logging {
-			host = "http-intake.logs.datadoghq.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-1.self_link  
-		}
-    }       
-    `
-}
-
-func testAccControlPlaneOrgLogzio() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgLogzio")
-
-	return `
-
-    resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-datadog-tbd"
-        description = "opaque description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        logzio_logging {
-
-            // Valid Listener Hosts
-            // listener.logz.io, listener-nl.logz.io 
-            listener_host = "listener.logz.io"
-
-            // Opaque Secret Only
-            credentials = cpln_secret.opaque.self_link  
-        }
-    }       
-    `
-}
-
-func testAccControlPlaneOrgLogzioWithDifferentListenerHost() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgLogzio1")
-
-	return `
-
-    resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-datadog-tbd"
-        description = "opaque description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        logzio_logging {
-
-            // Valid Hosts
-            // listener.logz.io, listener-nl.logz.io 
-            listener_host = "listener-nl.logz.io"
-
-            // Opaque Secret Only
-            credentials = cpln_secret.opaque.self_link  
-        }
-    }       
-    `
-}
-
-func testAccControlPlaneOrgElasticAWS() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgElasticAWS")
-
-	return `
-
-	resource "cpln_secret" "aws" {
-
-        name = "aws-random-elastic-logging-aws-tbd"
-        description = "opaque description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        aws {
-			secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
-			role_arn = "arn:awskeyupdate"
-		}
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        elastic_logging {
-			aws {
-				host = "es.amazonaws.com"
-				port = 8080
-				index = "my-index"
-				type = "my-type"
-				credentials = cpln_secret.aws.self_link
-				region = "us-east-1"
-			}
-        }
-    }
-	`
-}
-
-func testAccControlPlaneOrgElasticCloud() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgElasticCloud")
-
-	return `
-	resource "cpln_secret" "userpass-elastic-cloud" {
-
-        name = "userpass-random-elastic-logging-elastic-cloud-tbd"
-        description = "userpass description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        userpass {
-			username = "cpln_username"
-			password = "cpln_password"
-			encoding = "plain"
-		}
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        elastic_logging {
-			elastic_cloud {
-				index = "my-index"
-				type = "my-type"
-				credentials = cpln_secret.userpass-elastic-cloud.self_link
-				cloud_id = "my-cloud-id"
-			}
-        }
-    }
-    `
-}
-
-func testAccControlPlaneOrgElasticGeneric() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgElasticGeneric")
-
-	return `
-
-	resource "cpln_secret" "userpass-elastic-generic" {
-
-        name = "userpass-random-elastic-logging-generic-tbd"
-        description = "userpass description" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        userpass {
-			username = "cpln_username"
-			password = "cpln_password"
-			encoding = "plain"
-		}
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        elastic_logging {
-			generic {
-				host  = "example.com"
-				port  = 9200
-				path  = "/var/log/elasticsearch/"
-				index = "my-index"
-				type  = "my-type"
-				credentials = cpln_secret.userpass-elastic-generic.self_link
-			}
-        }
-    }
-    `
-}
-
-func testAccControlPlaneOrgCloudWatch() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgCloudWatch")
-
-	return `
-
-    resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-cloud-watch-tbd"
-        description = "opaque description opaque-random-tbd" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        cloud_watch_logging {
-
-			region          = "us-east-1"
-			retention_days  = 1
-			group_name      = "demo-group-name"
-			stream_name     = "demo-stream-name"
-			extract_fields  = {
-				log_level = "$.level"
-			}
-
-            // Opaque Secret Only
-            credentials = cpln_secret.opaque.self_link
-        }
-    }       
-    `
-}
-
-func testAccControlPlaneOrgFluentd() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgFluentd")
-
-	return `
-	
-    resource "cpln_org_logging" "tf-logging" {
-
-        fluentd_logging {
-
-			host = "example.com"
-			port = 24224
-        }
-    }       
-    `
-}
-
-func testAccControlPlaneOrgStackdriver() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgStackdriver")
-
-	return `
-
-    resource "cpln_secret" "opaque" {
-
-        name = "opaque-random-stackdriver-tbd"
-        description = "opaque description opaque-random-tbd" 
-        
-        tags = {
-            terraform_generated = "true"
-            acceptance_test = "true"
-            secret_type = "opaque"
-        }
-
-        opaque {
-            payload = "opaque_secret_payload"
-            encoding = "plain"
-        }
-    }
-
-    resource "cpln_org_logging" "tf-logging" {
-
-        stackdriver_logging {
-
-			location = "us-east4"
-
-            // Opaque Secret Only
-            credentials = cpln_secret.opaque.self_link
-        }
-    }
-    `
-}
-
-func testAccControlPlaneOrgSyslog() string {
-
-	TestLogger.Printf("Inside testAccControlPlaneOrgSyslog")
-
-	return `
-	
-    resource "cpln_org_logging" "tf-logging" {
-
-        syslog_logging {
-
-			host     = "syslog.example.com"
-			port     = 443
-			mode     = "tcp"
-			format   = "rfc5424"
-			severity = 6
-        }
-    }       
-    `
-}
-
-func testAccControlPlaneOrgThreeUniqueLoggings() string {
-	return `
-
-	resource "cpln_secret" "aws" {
-		name = "aws-random-tbd"
-		description = "aws description aws-random-tbd" 
-							
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "aws"
-		}
-			
-		aws {
-			secret_key = "AKIAIOSFODNN7EXAMPLE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey" 
-		}
+// NewOrgLoggingResourceTest creates a OrgLoggingResourceTest with initialized test cases.
+func NewOrgLoggingResourceTest() OrgLoggingResourceTest {
+	// Create a resource test instance
+	resourceTest := OrgLoggingResourceTest{
+		RandomName: acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum),
 	}
 
-	resource "cpln_secret" "opaque-coralogix" {
+	// Initialize the test steps slice
+	steps := []resource.TestStep{}
 
-		name = "opaque-random-coralogix-tbd"
-		description = "opaque description opaque-random-tbd" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		}
+	// Fill the steps slice
+	steps = append(steps, resourceTest.NewDefaultScenario()...)
 
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
+	// Set the cases for the resource test
+	resourceTest.Steps = steps
 
-	resource "cpln_secret" "opaque-datadog" {
-
-		name = "opaque-random-datadog-tbd"
-		description = "opaque description" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		}
-
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_secret" "opaque-datadog-1" {
-
-		name = "opaque-random-datadog-tbd-1"
-		description = "opaque description" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		}
-
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_org_logging" "tf-logging" {
-
-		s3_logging {
-			bucket = "test-bucket"
-			region = "us-east1"
-			prefix = "/"
-
-			// AWS Secret Only
-			credentials = cpln_secret.aws.self_link
-		}
-
-
-		coralogix_logging {
-			cluster = "coralogix.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-coralogix.self_link
-
-			app = "{workload}"
-			subsystem = "{org}"
-		}
-
-
-		datadog_logging {
-			host = "http-intake.logs.datadoghq.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-datadog.self_link  
-		}
-
-		datadog_logging {
-			host = "http-intake.logs.datadoghq.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-datadog-1.self_link  
-		}
-	}
-
-	`
+	// Return the resource test
+	return resourceTest
 }
 
-func testAccControlPlaneOrgTwoUniqueLoggings() string {
-	return `
-
-	resource "cpln_secret" "opaque-coralogix" {
-
-		name = "opaque-random-coralogix-tbd"
-		description = "opaque description opaque-random-tbd" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		}
-
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_secret" "opaque-datadog" {
-
-		name = "opaque-random-datadog-tbd"
-		description = "opaque description" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		}
-
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_secret" "opaque-datadog-1" {
-
-		name = "opaque-random-datadog-tbd-1"
-		description = "opaque description" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-		}
-
-		opaque {
-			payload = "opaque_secret_payload"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_org_logging" "tf-logging" {
-
-		coralogix_logging {
-			cluster = "coralogix.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-coralogix.self_link
-
-			app = "{workload}"
-			subsystem = "{org}"
-		}
-
-
-		datadog_logging {
-			host = "http-intake.logs.datadoghq.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-datadog.self_link  
-		}
-
-		datadog_logging {
-			host = "http-intake.logs.datadoghq.com"
-
-			// Opaque Secret Only
-			credentials = cpln_secret.opaque-datadog-1.self_link  
-		}
-	}
-
-	`
-}
-
-func testAccCheckControlPlaneLoggingExists(resourceName string, loggings *[]client.Logging) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		TestLogger.Printf("Inside testAccCheckControlPlaneLoggingExists. Resources Length: %d", len(s.RootModule().Resources))
-
-		_, ok := s.RootModule().Resources[resourceName]
-
-		if !ok {
-			return fmt.Errorf("Resource not found: %s", s)
-		}
-
-		c := testAccProvider.Meta().(*client.Client)
-		org, _, err := c.GetOrg()
-
-		if err != nil {
-			return err
-		}
-
-		if org.Spec == nil {
-			return fmt.Errorf("Org spec is nil")
-		}
-
-		_loggings := []client.Logging{}
-
-		if org.Spec.Logging != nil {
-			_loggings = append(_loggings, *org.Spec.Logging)
-		}
-
-		if org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0 {
-			_loggings = append(_loggings, *org.Spec.ExtraLogging...)
-		}
-
-		*loggings = _loggings
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneLoggingAttributes(loggings *[]client.Logging) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-
-		if loggings == nil || len(*loggings) == 0 {
-			return fmt.Errorf("Logging Attributes: Loggings were nil or empty")
-		}
-
-		var s3TestValue, coralogixTestValue, dataDogTestValue,
-			logzioTestvalue, cloudWatchTestValue, fluentdTestValue,
-			stackdriverTestValue, syslogTestValue, elasticTestValue []client.Logging
-
-		for _, logging := range *loggings {
-
-			var loggingType string
-
-			// Determine logging type
-			if logging.S3 != nil {
-				loggingType = "s3_logging"
-			} else if logging.Coralogix != nil {
-				loggingType = "coralogix_logging"
-			} else if logging.Datadog != nil {
-				loggingType = "datadog_logging"
-			} else if logging.Logzio != nil {
-				loggingType = "logzio_logging"
-
-				if *logging.Logzio.ListenerHost == "listener-nl.logz.io" {
-					loggingType = "logzio_logging-different_listener_host"
-				}
-			} else if logging.Elastic != nil {
-				if logging.Elastic.AWS != nil {
-					loggingType = "elastic_logging-aws"
-				} else if logging.Elastic.ElasticCloud != nil {
-					loggingType = "elastic_logging-elastic_cloud"
-				} else if logging.Elastic.Generic != nil {
-					loggingType = "elastic_logging-generic"
-				}
-			} else if logging.CloudWatch != nil {
-				loggingType = "cloud_watch_logging"
-			} else if logging.Fluentd != nil {
-				loggingType = "fluentd_logging"
-			} else if logging.Stackdriver != nil {
-				loggingType = "stackdriver_logging"
-			} else if logging.Syslog != nil {
-				loggingType = "syslog_logging"
-			} else {
-				return fmt.Errorf("Logging Attributes: We were not able to determine logging type")
-			}
-
-			switch loggingType {
-			case "s3_logging":
-
-				temp := client.Logging{
-					S3: logging.S3,
-				}
-
-				s3TestValue = append(s3TestValue, temp)
-
-			case "coralogix_logging":
-
-				temp := client.Logging{
-					Coralogix: logging.Coralogix,
-				}
-
-				coralogixTestValue = append(coralogixTestValue, temp)
-
-			case "datadog_logging":
-
-				temp := client.Logging{
-					Datadog: logging.Datadog,
-				}
-
-				dataDogTestValue = append(dataDogTestValue, temp)
-
-			case "logzio_logging":
-
-				temp := client.Logging{
-					Logzio: logging.Logzio,
-				}
-
-				logzioTestvalue = append(logzioTestvalue, temp)
-
-			case "elastic_logging-aws":
-			case "elastic_logging-elastic_cloud":
-			case "elastic_logging-generic":
-
-				temp := client.Logging{
-					Elastic: logging.Elastic,
-				}
-
-				elasticTestValue = append(elasticTestValue, temp)
-
-			case "cloud_watch_logging":
-
-				temp := client.Logging{
-					CloudWatch: logging.CloudWatch,
-				}
-
-				cloudWatchTestValue = append(cloudWatchTestValue, temp)
-
-			case "fluentd_logging":
-
-				temp := client.Logging{
-					Fluentd: logging.Fluentd,
-				}
-
-				fluentdTestValue = append(fluentdTestValue, temp)
-
-			case "stackdriver_logging":
-
-				temp := client.Logging{
-					Stackdriver: logging.Stackdriver,
-				}
-
-				stackdriverTestValue = append(stackdriverTestValue, temp)
-
-			case "syslog_logging":
-
-				temp := client.Logging{
-					Syslog: logging.Syslog,
-				}
-
-				syslogTestValue = append(syslogTestValue, temp)
-			default:
-				return nil
-			}
-		}
-
-		for _, logging := range loggingNames {
-
-			var expectedValue interface{}
-			var toTestValue interface{}
-
-			switch logging {
-			case "s3_logging":
-				expectedValue, _, _ = generateTestS3Logging()
-				toTestValue = s3TestValue
-
-			case "coralogix_logging":
-				expectedValue, _, _ = generateTestCoralogixLogging()
-				toTestValue = coralogixTestValue
-
-			case "datadog_logging":
-				expectedValue, _, _ = generateTestDatadogLogging2()
-				toTestValue = dataDogTestValue
-
-			case "logzio_logging":
-				expectedValue, _, _ = generateTestLogzioLogging("")
-				toTestValue = logzioTestvalue
-
-			case "elastic_logging":
-				var loggingType string
-
-				if elasticTestValue != nil {
-					if elasticTestValue[0].Elastic.AWS != nil {
-						loggingType = "elastic_logging-aws"
-					} else if elasticTestValue[0].Elastic.ElasticCloud != nil {
-						loggingType = "elastic_logging-elastic_cloud"
-					} else if elasticTestValue[0].Elastic.Generic != nil {
-						loggingType = "elastic_logging-generic"
-					} else {
-						return fmt.Errorf("Logging Attributes: Unable to get logging type from elastic logging")
-					}
-				}
-
-				expectedValue, _, _ = generateTestElasticLogging(loggingType)
-				toTestValue = elasticTestValue
-
-			case "cloud_watch_logging":
-				expectedValue, _, _ = generateTestCloudWatchLogging()
-				toTestValue = cloudWatchTestValue
-
-			case "fluentd_logging":
-				expectedValue, _, _ = generateTestFluentdLogging()
-				toTestValue = fluentdTestValue
-
-			case "stackdriver_logging":
-				expectedValue, _, _ = generateTestStackdriverLogging()
-				toTestValue = stackdriverTestValue
-
-			case "syslog_logging":
-				expectedValue, _, _ = generateTestSyslogLogging()
-				toTestValue = syslogTestValue
-
-			default:
-				return nil
-			}
-
-			if toTestValue != nil && len(toTestValue.([]client.Logging)) > 0 {
-
-				if diff := deep.Equal(expectedValue, toTestValue); diff != nil {
-					return fmt.Errorf("%s attributes do not match. Diff: %s", logging, diff)
-				}
-			}
-		}
-
-		return nil
-	}
-}
-
-func testAccCheckControlPlaneOrgCheckDestroy(s *terraform.State) error {
-
-	// TestLogger.Printf("Inside testAccCheckControlPlaneOrgCheckDestroy. Resources Length: %d", len(s.RootModule().Resources))
-
+// CheckDestroy verifies that all resources have been destroyed.
+func (olrt *OrgLoggingResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_org_logging resources. Total resources: %d", len(s.RootModule().Resources)))
+
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneOrgCheckDestroy: rs.Type: %s", rs.Type)
-
+		// Continue only if the resource is as expected
 		if rs.Type != "cpln_org_logging" {
 			continue
 		}
 
+		// Retrieve the name for the current resource
 		orgName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of org with name: %s", orgName))
 
-		TestLogger.Printf("Inside testAccCheckControlPlaneOrgCheckDestroy: Org name: %s", orgName)
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		org, _, _ := TestProvider.client.GetOrg()
 
-		org, _, _ := c.GetOrg()
-
+		// Make sure the org has no logging spec at all
 		if org.Spec.Logging != nil || (org.Spec.ExtraLogging != nil && len(*org.Spec.ExtraLogging) != 0) {
 			return fmt.Errorf("Org Spec Logging still exists. Org Name: %s", *org.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_org_logging resources have been successfully destroyed")
 	return nil
 }
 
-/*** Unit Tests ***/
-
-// Build //
-
-func TestControlPlane_BuildS3Logging(t *testing.T) {
-	s3Logging, expectedS3Logging, _ := generateTestS3Logging()
-	if diff := deep.Equal(s3Logging, expectedS3Logging); diff != nil {
-		t.Errorf("Coralogix Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildCoralogixLogging(t *testing.T) {
-	coralogixLogging, expectedCoralogixLogging, _ := generateTestCoralogixLogging()
-	if diff := deep.Equal(coralogixLogging, expectedCoralogixLogging); diff != nil {
-		t.Errorf("Coralogix Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildDatadogLogging(t *testing.T) {
-	datadogLogging, expectedDatadogLogging, _ := generateTestDatadogLogging()
-	if diff := deep.Equal(datadogLogging, &expectedDatadogLogging); diff != nil {
-		t.Errorf("Datadog Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildLogzioLogging(t *testing.T) {
-	logzioLogging, expectedLogzioLogging, _ := generateTestLogzioLogging("logzio_logging")
-	if diff := deep.Equal(logzioLogging, expectedLogzioLogging); diff != nil {
-		t.Errorf("Logzio Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildLogzioLogging_DifferentListenerHost(t *testing.T) {
-	logzio, expectedLogzioLogging, _ := generateTestLogzioLogging("logzio_logging-different_listener_host")
-	if diff := deep.Equal(logzio, expectedLogzioLogging); diff != nil {
-		t.Errorf("Logzio Logging with different listener host was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildElasticLogging(t *testing.T) {
-	elasticLogging, expectedElasticLogging, _ := generateTestElasticLogging("")
-	if diff := deep.Equal(elasticLogging, expectedElasticLogging); diff != nil {
-		t.Errorf("AWS Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildCloudWatchLogging(t *testing.T) {
-
-	logging, expectedLogging, _ := generateTestCloudWatchLogging()
-
-	if diff := deep.Equal(logging, expectedLogging); diff != nil {
-		t.Errorf("Cloud Watch Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildFluentdLogging(t *testing.T) {
-
-	logging, expectedLogging, _ := generateTestFluentdLogging()
-
-	if diff := deep.Equal(logging, expectedLogging); diff != nil {
-		t.Errorf("Fluentd Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildStackdriverLogging(t *testing.T) {
-
-	logging, expectedLogging, _ := generateTestStackdriverLogging()
-
-	if diff := deep.Equal(logging, expectedLogging); diff != nil {
-		t.Errorf("Stackdriver Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildSyslogLogging(t *testing.T) {
-
-	logging, expectedLogging, _ := generateTestSyslogLogging()
-
-	if diff := deep.Equal(logging, expectedLogging); diff != nil {
-		t.Errorf("Syslog Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildAWSLogging(t *testing.T) {
-	awsLogging, expectedAWSLogging, _ := generateTestAWSLogging()
-	if diff := deep.Equal(awsLogging, &expectedAWSLogging); diff != nil {
-		t.Errorf("AWS Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildElasticCloudLogging(t *testing.T) {
-	elasticCloudLogging, expectedElasticCloudLogging, _ := generateTestElasticCloudLogging()
-	if diff := deep.Equal(elasticCloudLogging, &expectedElasticCloudLogging); diff != nil {
-		t.Errorf("Elastic Cloud Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildGenericLogging(t *testing.T) {
-	genericLogging, expectedGenericLogging, _ := generateTestGenericLogging()
-	if diff := deep.Equal(genericLogging, &expectedGenericLogging); diff != nil {
-		t.Errorf("Elastic Generic Logging was not built correctly. Diff: %s", diff)
-	}
-}
-
-/*** Generate Functions ***/
-
-func generateTestS3Logging() ([]client.Logging, []client.Logging, []interface{}) {
-
-	bucket := "test-bucket"
-	region := "us-east1"
-	prefix := "/"
-	credentials := "/org/terraform-test-org/secret/aws-random-tbd"
-
-	flattened := generateFlatTestS3Logging(bucket, region, prefix, credentials)
-	s3Logging := buildS3Logging(flattened)
-
-	expectedS3 := client.S3Logging{
-		Bucket:      &bucket,
-		Prefix:      &prefix,
-		Region:      &region,
-		Credentials: &credentials,
-	}
-
-	expectedS3Logging := client.Logging{
-		S3: &expectedS3,
-	}
-
-	output := []client.Logging{
-		expectedS3Logging,
-	}
-
-	return s3Logging, output, flattened
-}
-
-func generateTestCoralogixLogging() ([]client.Logging, []client.Logging, []interface{}) {
-
-	cluster := "coralogix.com"
-	credentials := "/org/terraform-test-org/secret/opaque-random-coralogix-tbd"
-	app := "{workload}"
-	subsystem := "{org}"
-
-	flattened := generateFlatTestCoralogixLogging(cluster, credentials, app, subsystem)
-	coralogixLogging := buildCoralogixLogging(flattened)
-
-	expectedCoralogix := client.CoralogixLogging{
-		Cluster:     &cluster,
-		Credentials: &credentials,
-		App:         &app,
-		Subsystem:   &subsystem,
-	}
-
-	expectedS3Logging := client.Logging{
-		Coralogix: &expectedCoralogix,
-	}
-
-	output := []client.Logging{
-		expectedS3Logging,
-	}
-
-	return coralogixLogging, output, flattened
-}
-
-func generateTestDatadogLogging() (*client.DatadogLogging, client.DatadogLogging, []interface{}) {
-	host := "http-intake.logs.datadoghq.com"
-	credentials := "/org/terraform-test-org/secret/opaque-random-datadog-tbd"
-
-	flattened := generateFlatTestDatadogLogging(host, credentials)
-	datadogLogging := buildDatadogLogging(flattened)[0].Datadog
-	expectedDatadogLogging := client.DatadogLogging{
-		Host:        &host,
-		Credentials: &credentials,
-	}
-
-	return datadogLogging, expectedDatadogLogging, flattened
-}
-
-func generateTestDatadogLogging2() ([]client.Logging, []client.Logging, []interface{}) {
-
-	host := "http-intake.logs.datadoghq.com"
-	credentials := "/org/terraform-test-org/secret/opaque-random-datadog-tbd"
-
-	host2 := "http-intake.logs.datadoghq.com"
-	credentials2 := "/org/terraform-test-org/secret/opaque-random-datadog-tbd-1"
-
-	flattened := generateFlatTestDatadogLogging2(host, credentials, host2, credentials2)
-	datadogLogging := buildDatadogLogging(flattened)
-
-	expectedDatadogLogging1 := client.DatadogLogging{
-		Host:        &host,
-		Credentials: &credentials,
-	}
-
-	expectedDatadogLogging2 := client.DatadogLogging{
-		Host:        &host2,
-		Credentials: &credentials2,
-	}
-
-	log1 := client.Logging{
-		Datadog: &expectedDatadogLogging1,
-	}
-
-	log2 := client.Logging{
-		Datadog: &expectedDatadogLogging2,
-	}
-
-	output := []client.Logging{
-		log1,
-		log2,
-	}
-
-	return datadogLogging, output, flattened
-}
-
-func generateTestLogzioLogging(loggingType string) ([]client.Logging, []client.Logging, []interface{}) {
-
-	listenerHost := "listener.logz.io"
-	credentials := "/org/terraform-test-org/secret/opaque-random-datadog-tbd"
-
-	if loggingType == "logzio_logging-different_listener_host" {
-		listenerHost = "listener-nl.logz.io"
-	}
-
-	flattened := generateFlatTestLogzioLogging(listenerHost, credentials)
-	logzio := buildLogzioLogging(flattened)
-
-	expectedLogzioLogging := client.LogzioLogging{
-		ListenerHost: &listenerHost,
-		Credentials:  &credentials,
-	}
-
-	expectedS3Logging := client.Logging{
-		Logzio: &expectedLogzioLogging,
-	}
-
-	output := []client.Logging{
-		expectedS3Logging,
-	}
-
-	return logzio, output, flattened
-}
-
-func generateTestElasticLogging(loggingType string) ([]client.Logging, []client.Logging, []interface{}) {
-	var expectedAWSLogging client.AWSLogging
-	var expectedElasticCloudLogging client.ElasticCloudLogging
-	var expectedGenericLogging client.GenericLogging
-
-	var flattenedAWSLogging []interface{}
-	var flattenedElasticCloudLogging []interface{}
-	var flattenedGenericLogging []interface{}
-
-	switch loggingType {
-	case "elastic_logging-aws":
-		_, expectedAWSLogging, flattenedAWSLogging = generateTestAWSLogging()
-	case "elastic_logging-elastic_cloud":
-		_, expectedElasticCloudLogging, flattenedElasticCloudLogging = generateTestElasticCloudLogging()
-	case "elastic_logging-generic":
-		_, expectedGenericLogging, flattenedGenericLogging = generateTestGenericLogging()
-	default:
-		_, expectedAWSLogging, flattenedAWSLogging = generateTestAWSLogging()
-		_, expectedElasticCloudLogging, flattenedElasticCloudLogging = generateTestElasticCloudLogging()
-		_, expectedGenericLogging, flattenedGenericLogging = generateTestGenericLogging()
-	}
-
-	flattened := generateFlatTestElasticLogging(flattenedAWSLogging, flattenedElasticCloudLogging, flattenedGenericLogging)
-	elasticLogging := buildElasticLogging(flattened)
-	expectedElasticLogging := client.ElasticLogging{
-		AWS:          &expectedAWSLogging,
-		ElasticCloud: &expectedElasticCloudLogging,
-		Generic:      &expectedGenericLogging,
-	}
-
-	expectedLogging := client.Logging{
-		Elastic: &expectedElasticLogging,
-	}
-
-	output := []client.Logging{
-		expectedLogging,
-	}
-
-	return elasticLogging, output, flattened
-}
-
-func generateTestCloudWatchLogging() ([]client.Logging, []client.Logging, []interface{}) {
-
-	region := "us-east-1"
-	credentials := "/org/terraform-test-org/secret/opaque-random-cloud-watch-tbd"
-	retentionDays := 1
-	groupName := "demo-group-name"
-	streamName := "demo-stream-name"
-	extractFields := map[string]interface{}{
-		"log_level": "$.level",
-	}
-
-	flattened := generateFlatTestCloudWatchLogging(region, credentials, retentionDays, groupName, streamName, extractFields)
-	cloudWatch := buildCloudWatchLogging(flattened)
-	expectedCloudWatch := []client.Logging{
+// Test Scenarios //
+
+// NewDefaultScenario creates a test case with initial and updated configurations.
+func (olrt *OrgLoggingResourceTest) NewDefaultScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "tf-logging"
+
+	// Build test steps
+	initialConfig, initialStep := olrt.BuildInitialTestStep(resourceName)
+	caseUpdate1 := olrt.BuildUpdate1TestStep(initialConfig.ProviderTestCase)
+	caseUpdate2 := olrt.BuildUpdate2TestStep(initialConfig.ProviderTestCase)
+	caseUpdate3 := olrt.BuildUpdate3TestStep(initialConfig.ProviderTestCase)
+	caseUpdate4 := olrt.BuildUpdate4TestStep(initialConfig.ProviderTestCase)
+	caseUpdate5 := olrt.BuildUpdate5TestStep(initialConfig.ProviderTestCase)
+	caseUpdate6 := olrt.BuildUpdate6TestStep(initialConfig.ProviderTestCase)
+	caseUpdate7 := olrt.BuildUpdate7TestStep(initialConfig.ProviderTestCase)
+	caseUpdate8 := olrt.BuildUpdate8TestStep(initialConfig.ProviderTestCase)
+	caseUpdate9 := olrt.BuildUpdate9TestStep(initialConfig.ProviderTestCase)
+	caseUpdate10 := olrt.BuildUpdate10TestStep(initialConfig.ProviderTestCase)
+	caseUpdate11 := olrt.BuildUpdate11TestStep(initialConfig.ProviderTestCase)
+	caseUpdate12 := olrt.BuildUpdate12TestStep(initialConfig.ProviderTestCase)
+	caseUpdate13 := olrt.BuildUpdate13TestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
 		{
-			CloudWatch: &client.CloudWatchLogging{
-				Region:        &region,
-				Credentials:   &credentials,
-				RetentionDays: &retentionDays,
-				GroupName:     &groupName,
-				StreamName:    &streamName,
-				ExtractFields: &extractFields,
-			},
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+		// Update & Read
+		caseUpdate1,
+		caseUpdate2,
+		caseUpdate3,
+		caseUpdate4,
+		caseUpdate5,
+		caseUpdate6,
+		caseUpdate7,
+		caseUpdate8,
+		caseUpdate9,
+		caseUpdate10,
+		caseUpdate11,
+		caseUpdate12,
+		caseUpdate13,
+		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// Test Cases //
+
+// BuildInitialTestStep returns a default initial test step and its associated test case for the resource.
+func (olrt *OrgLoggingResourceTest) BuildInitialTestStep(resourceName string) (OrgLoggingResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "org",
+			ResourceName:    resourceName,
+			ResourceAddress: fmt.Sprintf("cpln_org_logging.%s", resourceName),
+			Name:            OrgName,
+			Description:     OrgName,
 		},
 	}
 
-	return cloudWatch, expectedCloudWatch, flattened
-}
-
-func generateTestFluentdLogging() ([]client.Logging, []client.Logging, []interface{}) {
-
-	host := "example.com"
-	port := 24224
-
-	flattened := generateFlatTestFluentdLogging(host, port)
-	fluentd := buildFluentdLogging(flattened)
-	expectedFluentd := []client.Logging{
-		{
-			Fluentd: &client.FluentdLogging{
-				Host: &host,
-				Port: &port,
-			},
-		},
-	}
-
-	return fluentd, expectedFluentd, flattened
-}
-
-func generateTestStackdriverLogging() ([]client.Logging, []client.Logging, []interface{}) {
-
-	credentials := "/org/terraform-test-org/secret/opaque-random-stackdriver-tbd"
-	location := "us-east4"
-
-	flattened := generateFlatTestStackdriverLogging(credentials, location)
-	stackdriver := buildStackdriverLogging(flattened)
-	expectedStackdriver := []client.Logging{
-		{
-			Stackdriver: &client.StackdriverLogging{
-				Credentials: &credentials,
-				Location:    &location,
-			},
-		},
-	}
-
-	return stackdriver, expectedStackdriver, flattened
-}
-
-func generateTestSyslogLogging() ([]client.Logging, []client.Logging, []interface{}) {
-
-	host := "syslog.example.com"
-	port := 443
-	mode := "tcp"
-	format := "rfc5424"
-	severity := 6
-
-	flattened := generateFlatTestSyslogLogging(host, port, mode, format, severity)
-	syslog := buildSyslogLogging(flattened)
-	expectedSyslog := []client.Logging{
-		{
-			Syslog: &client.SyslogLogging{
-				Host:     &host,
-				Port:     &port,
-				Mode:     &mode,
-				Format:   &format,
-				Severity: &severity,
-			},
-		},
-	}
-
-	return syslog, expectedSyslog, flattened
-}
-
-func generateTestAWSLogging() (*client.AWSLogging, client.AWSLogging, []interface{}) {
-	host := "es.amazonaws.com"
-	port := 8080
-	index := "my-index"
-	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/aws-random-elastic-logging-aws-tbd"
-	region := "us-east-1"
-
-	flattened := generateFlatTestAWSLogging(host, port, index, loggingType, credentials, region)
-	awsLogging := buildAWSLogging(flattened)
-	expectedAWSLogging := client.AWSLogging{
-		Host:        &host,
-		Port:        &port,
-		Index:       &index,
-		Type:        &loggingType,
-		Credentials: &credentials,
-		Region:      &region,
-	}
-
-	return awsLogging, expectedAWSLogging, flattened
-}
-
-func generateTestElasticCloudLogging() (*client.ElasticCloudLogging, client.ElasticCloudLogging, []interface{}) {
-	index := "my-index"
-	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/userpass-random-elastic-logging-elastic-cloud-tbd"
-	cloudId := "my-cloud-id"
-
-	flattened := generateFlatTestElasticCloudLogging(index, loggingType, credentials, cloudId)
-	elasticCloudLogging := buildElasticCloudLogging(flattened)
-	expectedElasticCloudLogging := client.ElasticCloudLogging{
-		Index:       &index,
-		Type:        &loggingType,
-		Credentials: &credentials,
-		CloudID:     &cloudId,
-	}
-
-	return elasticCloudLogging, expectedElasticCloudLogging, flattened
-}
-
-func generateTestGenericLogging() (*client.GenericLogging, client.GenericLogging, []interface{}) {
-	host := "example.com"
-	port := 9200
-	path := "/var/log/elasticsearch/"
-	index := "my-index"
-	loggingType := "my-type"
-	credentials := "/org/terraform-test-org/secret/userpass-random-elastic-logging-generic-tbd"
-
-	flattened := generateFlatTestGenericLogging(host, port, path, index, loggingType, credentials)
-	genericLogging := buildGenericLogging(flattened)
-	expectedGenericLogging := client.GenericLogging{
-		Host:        &host,
-		Port:        &port,
-		Path:        &path,
-		Index:       &index,
-		Type:        &loggingType,
-		Credentials: &credentials,
-	}
-
-	return genericLogging, expectedGenericLogging, flattened
-}
-
-/*** Flatten Functions ***/
-
-func generateFlatTestS3Logging(bucket string, region string, prefix string, credentials string) []interface{} {
-	spec := map[string]interface{}{
-		"bucket":      bucket,
-		"region":      region,
-		"prefix":      prefix,
-		"credentials": credentials,
-	}
-
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: olrt.HclLoggingS3(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("s3_logging", []map[string]interface{}{
+				{
+					"bucket":      "test-bucket",
+					"region":      "us-east1",
+					"prefix":      "/",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-aws-%s", olrt.RandomName)),
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestCoralogixLogging(cluster string, credentials string, app string, subsystem string) []interface{} {
-	spec := map[string]interface{}{
-		"cluster":     cluster,
-		"credentials": credentials,
-		"app":         app,
-		"subsystem":   subsystem,
+// BuildUpdate1TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
 	}
 
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestDatadogLogging(host string, credentials string) []interface{} {
-	spec := map[string]interface{}{
-		"host":        host,
-		"credentials": credentials,
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestDatadogLogging2(host, credential, host2, credential2 string) []interface{} {
-	spec := map[string]interface{}{
-		"host":        host,
-		"credentials": credential,
-	}
-
-	spec2 := map[string]interface{}{
-		"host":        host2,
-		"credentials": credential2,
-	}
-
-	return []interface{}{
-		spec,
-		spec2,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingCoralogix(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("coralogix_logging", []map[string]interface{}{
+				{
+					"cluster":     "coralogix.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"app":         "{workload}",
+					"subsystem":   "{org}",
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestLogzioLogging(listenerHost string, credentials string) []interface{} {
-	spec := map[string]interface{}{
-		"listener_host": listenerHost,
-		"credentials":   credentials,
+// BuildUpdate2TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
 	}
 
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestElasticLogging(awsLogging []interface{}, elasticCloudLogging []interface{}, genericLogging []interface{}) []interface{} {
-	spec := make(map[string]interface{})
-
-	if awsLogging != nil {
-		spec["aws"] = awsLogging
-	}
-
-	if elasticCloudLogging != nil {
-		spec["elastic_cloud"] = elasticCloudLogging
-	}
-
-	if genericLogging != nil {
-		spec["generic"] = genericLogging
-	}
-
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingDatadog(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("datadog_logging", []map[string]interface{}{
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-00-%s", olrt.RandomName)),
+				},
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-01-%s", olrt.RandomName)),
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestCloudWatchLogging(region string, credentials string, retentionDays int, groupName string, streamName string, extractFields map[string]interface{}) []interface{} {
-
-	spec := map[string]interface{}{
-		"region":         region,
-		"credentials":    credentials,
-		"retention_days": retentionDays,
-		"group_name":     groupName,
-		"stream_name":    streamName,
-		"extract_fields": extractFields,
+// BuildUpdate3TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase:   initialCase,
+		LogzioListenerHost: "listener.logz.io",
 	}
 
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestFluentdLogging(host string, port int) []interface{} {
-
-	spec := map[string]interface{}{
-		"host": host,
-		"port": port,
-	}
-
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingLogzio(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("logzio_logging", []map[string]interface{}{
+				{
+					"listener_host": c.LogzioListenerHost,
+					"credentials":   GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestStackdriverLogging(credentials string, location string) []interface{} {
-
-	spec := map[string]interface{}{
-		"credentials": credentials,
-		"location":    location,
+// BuildUpdate4TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase:   initialCase,
+		LogzioListenerHost: "listener-nl.logz.io",
 	}
 
-	return []interface{}{
-		spec,
-	}
-}
-
-func generateFlatTestSyslogLogging(host string, port int, mode string, format string, severity int) []interface{} {
-
-	spec := map[string]interface{}{
-		"host":     host,
-		"port":     port,
-		"mode":     mode,
-		"format":   format,
-		"severity": severity,
-	}
-
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingLogzio(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("logzio_logging", []map[string]interface{}{
+				{
+					"listener_host": c.LogzioListenerHost,
+					"credentials":   GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestAWSLogging(host string, port int, index string, loggingType string, credentials string, region string) []interface{} {
-	spec := map[string]interface{}{
-		"host":        host,
-		"port":        port,
-		"index":       index,
-		"type":        loggingType,
-		"credentials": credentials,
-		"region":      region,
+// BuildUpdate5TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
 	}
 
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingElasticAws(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("elastic_logging", []map[string]interface{}{
+				{
+					"aws": []map[string]interface{}{
+						{
+							"host":        "es.amazonaws.com",
+							"port":        "8080",
+							"index":       "my-index",
+							"type":        "my-type",
+							"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-aws-%s", olrt.RandomName)),
+							"region":      "us-east-1",
+						},
+					},
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestElasticCloudLogging(index string, loggingType string, credentials string, cloudId string) []interface{} {
-	spec := map[string]interface{}{
-		"index":       index,
-		"type":        loggingType,
-		"credentials": credentials,
-		"cloud_id":    cloudId,
+// BuildUpdate6TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate6TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
 	}
 
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingElasticCloud(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("elastic_logging", []map[string]interface{}{
+				{
+					"elastic_cloud": []map[string]interface{}{
+						{
+							"index":       "my-index",
+							"type":        "my-type",
+							"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-userpass-elastic-cloud-%s", olrt.RandomName)),
+							"cloud_id":    "my-cloud-id",
+						},
+					},
+				},
+			}),
+		),
 	}
 }
 
-func generateFlatTestGenericLogging(host string, port int, path string, index string, loggingType string, credentials string) []interface{} {
-	spec := map[string]interface{}{
-		"host":        host,
-		"port":        port,
-		"path":        path,
-		"index":       index,
-		"type":        loggingType,
-		"credentials": credentials,
+// BuildUpdate7TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate7TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
 	}
 
-	return []interface{}{
-		spec,
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingElasticGeneric(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("elastic_logging", []map[string]interface{}{
+				{
+					"generic": []map[string]interface{}{
+						{
+							"host":        "example.com",
+							"port":        "9200",
+							"path":        "/var/log/elasticsearch/",
+							"index":       "my-index",
+							"type":        "my-type",
+							"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-userpass-elastic-generic-%s", olrt.RandomName)),
+						},
+					},
+				},
+			}),
+		),
 	}
+}
+
+// BuildUpdate8TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate8TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingCloudWatch(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("cloud_watch_logging", []map[string]interface{}{
+				{
+					"region":         "us-east-1",
+					"retention_days": "1",
+					"group_name":     "demo-group-name",
+					"stream_name":    "demo-stream-name",
+					"extract_fields": map[string]interface{}{
+						"log_level": "$.level",
+					},
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate9TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate9TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingFluentd(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("fluentd_logging", []map[string]interface{}{
+				{
+					"host": "example.com",
+					"port": "24224",
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate10TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate10TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingStackdriver(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("stackdriver_logging", []map[string]interface{}{
+				{
+					"location":    "us-east4",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate11TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate11TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingSyslog(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("syslog_logging", []map[string]interface{}{
+				{
+					"host":     "syslog.example.com",
+					"port":     "443",
+					"mode":     "tcp",
+					"format":   "rfc5424",
+					"severity": "6",
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate12TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate12TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclThreeUniqueLoggings(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("s3_logging", []map[string]interface{}{
+				{
+					"bucket":      "test-bucket",
+					"region":      "us-east1",
+					"prefix":      "/",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-aws-%s", olrt.RandomName)),
+				},
+			}),
+			c.TestCheckNestedBlocks("coralogix_logging", []map[string]interface{}{
+				{
+					"cluster":     "coralogix.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-coralogix-%s", olrt.RandomName)),
+					"app":         "{workload}",
+					"subsystem":   "{org}",
+				},
+			}),
+			c.TestCheckNestedBlocks("datadog_logging", []map[string]interface{}{
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-00-%s", olrt.RandomName)),
+				},
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", olrt.RandomName)),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate13TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate13TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclTwoUniqueLoggings(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("coralogix_logging", []map[string]interface{}{
+				{
+					"cluster":     "coralogix.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-coralogix-%s", olrt.RandomName)),
+					"app":         "{workload}",
+					"subsystem":   "{org}",
+				},
+			}),
+			c.TestCheckNestedBlocks("datadog_logging", []map[string]interface{}{
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-00-%s", olrt.RandomName)),
+				},
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", olrt.RandomName)),
+				},
+			}),
+		),
+	}
+}
+
+// Configs //
+
+// HclLoggingS3 returns a minimal HCL block for a resource using only required fields.
+func (olrt *OrgLoggingResourceTest) HclLoggingS3(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "aws" {
+  name        = "tf-aws-${var.random_name}"
+  description = "aws description aws-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "aws"
+  }
+
+  aws {
+    secret_key = "AKIAIOSFODNN7EXAMPLE"
+    access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    role_arn   = "arn:awskey" 
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+  s3_logging {
+    bucket = "test-bucket"
+    region = "us-east1"
+    prefix = "/"
+
+    // AWS Secret Only
+    credentials = cpln_secret.aws.self_link
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingCoralogix returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingCoralogix(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque" {
+  name        = "tf-opaque-${var.random_name}"
+  description = "opaque description opaque-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  coralogix_logging {
+
+    // Valid clusters
+    // coralogix.com, coralogix.us, app.coralogix.in, app.eu2.coralogix.com, app.coralogixsg.com
+    cluster = "coralogix.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+
+    // Supported variables for App and Subsystem are:
+    // {org}, {gvc}, {workload}, {location}
+    app       = "{workload}"
+    subsystem = "{org}"
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingDatadog returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingDatadog(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque-00" {
+  name        = "tf-opaque-00-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-01" {
+  name        = "tf-opaque-01-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  datadog_logging {
+
+    // Valid Host
+    // http-intake.logs.datadoghq.com, http-intake.logs.us3.datadoghq.com, 
+    // http-intake.logs.us5.datadoghq.com, http-intake.logs.datadoghq.eu
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-00.self_link  
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-01.self_link  
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingLogzio returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingLogzio(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque" {
+  name        = "tf-opaque-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  logzio_logging {
+
+    // Valid Listener Hosts
+    // listener.logz.io, listener-nl.logz.io 
+    listener_host = "%s"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link  
+  }
+}
+`, olrt.RandomName, c.ResourceName, c.LogzioListenerHost)
+}
+
+// HclLoggingElasticAws returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingElasticAws(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "aws" {
+  name        = "tf-aws-${var.random_name}"
+  description = "aws description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "aws"
+  }
+
+  aws {
+    secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
+    access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
+    role_arn = "arn:awskeyupdate"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  elastic_logging {
+    aws {
+      host        = "es.amazonaws.com"
+      port        = 8080
+      index       = "my-index"
+      type        = "my-type"
+      credentials = cpln_secret.aws.self_link
+      region      = "us-east-1"
+    }
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingElasticCloud returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingElasticCloud(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "userpass-elastic-cloud" {
+  name        = "tf-userpass-elastic-cloud-${var.random_name}"
+  description = "userpass-elastic-cloud description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "userpass"
+  }
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  elastic_logging {
+    elastic_cloud {
+      index       = "my-index"
+      type        = "my-type"
+      credentials = cpln_secret.userpass-elastic-cloud.self_link
+      cloud_id    = "my-cloud-id"
+    }
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingElasticGeneric returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingElasticGeneric(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "userpass-elastic-generic" {
+  name        = "tf-userpass-elastic-generic-${var.random_name}"
+  description = "userpass-elastic-generic description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "userpass"
+  }
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  elastic_logging {
+    generic {
+      host  = "example.com"
+      port  = 9200
+      path  = "/var/log/elasticsearch/"
+      index = "my-index"
+      type  = "my-type"
+      credentials = cpln_secret.userpass-elastic-generic.self_link
+    }
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingCloudWatch returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingCloudWatch(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque" {
+  name        = "tf-opaque-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  cloud_watch_logging {
+    region         = "us-east-1"
+    retention_days = 1
+    group_name     = "demo-group-name"
+    stream_name    = "demo-stream-name"
+
+    extract_fields  = {
+      log_level = "$.level"
+    }
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingFluentd returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingFluentd(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_org_logging" "%s" {
+
+  fluentd_logging {
+    host = "example.com"
+    port = 24224
+  }
+}
+`, c.ResourceName)
+}
+
+// HclLoggingStackdriver returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingStackdriver(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque" {
+  name        = "tf-opaque-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  stackdriver_logging {
+    location = "us-east4"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingSyslog returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingSyslog(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_org_logging" "%s" {
+
+  syslog_logging {
+    host     = "syslog.example.com"
+    port     = 443
+    mode     = "tcp"
+    format   = "rfc5424"
+    severity = 6
+  }
+}
+`, c.ResourceName)
+}
+
+// HclThreeUniqueLoggings returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclThreeUniqueLoggings(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "aws" {
+  name        = "tf-aws-${var.random_name}"
+  description = "aws description aws-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "aws"
+  }
+
+  aws {
+    secret_key = "AKIAIOSFODNN7EXAMPLE"
+    access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    role_arn   = "arn:awskey"
+  }
+}
+
+resource "cpln_secret" "opaque-coralogix" {
+  name        = "tf-opaque-random-coralogix-${var.random_name}"
+  description = "opaque description opaque-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog" {
+  name        = "tf-opaque-random-datadog-00-${var.random_name}"
+	description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog-1" {
+  name        = "tf-opaque-random-datadog-01-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test = "true"
+    secret_type = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  s3_logging {
+    bucket = "test-bucket"
+    region = "us-east1"
+    prefix = "/"
+
+    // AWS Secret Only
+    credentials = cpln_secret.aws.self_link
+  }
+
+  coralogix_logging {
+    cluster = "coralogix.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-coralogix.self_link
+
+    app       = "{workload}"
+    subsystem = "{org}"
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog.self_link
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog-1.self_link
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclTwoUniqueLoggings returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclTwoUniqueLoggings(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque-coralogix" {
+  name        = "tf-opaque-random-coralogix-${var.random_name}"
+  description = "opaque description opaque-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog" {
+  name        = "tf-opaque-random-datadog-00-${var.random_name}"
+	description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog-1" {
+  name        = "tf-opaque-random-datadog-01-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test = "true"
+    secret_type = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  coralogix_logging {
+    cluster = "coralogix.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-coralogix.self_link
+
+    app       = "{workload}"
+    subsystem = "{org}"
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog.self_link
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog-1.self_link
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+/*** Resource Test Case ***/
+
+// OrgLoggingResourceTestCase defines a specific resource test case.
+type OrgLoggingResourceTestCase struct {
+	ProviderTestCase
+	LogzioListenerHost string
 }

@@ -4,122 +4,168 @@ import (
 	"context"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func dataSourceLocation() *schema.Resource {
+// Ensure data source implements required interfaces.
+var (
+	_ datasource.DataSource              = &LocationDataSource{}
+	_ datasource.DataSourceWithConfigure = &LocationDataSource{}
+)
 
-	return &schema.Resource{
-		ReadContext: dataSourceLocationRead,
-		Schema:      client.LocationSchema(),
+/*** Data Source Configuration ***/
+
+// LocationDataSource is the data source implementation.
+type LocationDataSource struct {
+	EntityBase
+	Operations EntityOperations[LocationResourceModel, client.Location]
+}
+
+// NewLocationDataSource returns a new instance of the data source implementation.
+func NewLocationDataSource() datasource.DataSource {
+	return &LocationDataSource{}
+}
+
+// Metadata provides the data source type name.
+func (d *LocationDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = "cpln_location"
+}
+
+// Configure configures the data source before use.
+func (d *LocationDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	d.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	d.Operations = NewEntityOperations(d.client, &LocationResourceOperator{})
+}
+
+// Schema defines the schema for the data source.
+func (d *LocationDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "The unique identifier for this location.",
+				Computed:    true,
+			},
+			"cpln_id": schema.StringAttribute{
+				Description: "The ID, in GUID format, of the location.",
+				Computed:    true,
+			},
+			"name": schema.StringAttribute{
+				Description: "Name of the location.",
+				Required:    true,
+			},
+			"description": schema.StringAttribute{
+				Description: "Description of the location.",
+				Computed:    true,
+			},
+			"tags": schema.MapAttribute{
+				Description: "Key-value map of resource tags.",
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+			},
+			"self_link": schema.StringAttribute{
+				Description: "Full link to this resource. Can be referenced by other resources.",
+				Computed:    true,
+			},
+			"cloud_provider": schema.StringAttribute{
+				Description: "Cloud Provider of the location.",
+				Computed:    true,
+			},
+			"region": schema.StringAttribute{
+				Description: "Region of the location.",
+				Computed:    true,
+			},
+			"enabled": schema.BoolAttribute{
+				Description: "Indication if location is enabled.",
+				Computed:    true,
+			},
+			"geo": schema.ListNestedAttribute{
+				Description: "",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"lat": schema.Float32Attribute{
+							Description: "Latitude of the location.",
+							Computed:    true,
+						},
+						"lon": schema.Float32Attribute{
+							Description: "Longitude of the location.",
+							Computed:    true,
+						},
+						"country": schema.StringAttribute{
+							Description: "Country of the location.",
+							Computed:    true,
+						},
+						"state": schema.StringAttribute{
+							Description: "State of the location.",
+							Computed:    true,
+						},
+						"city": schema.StringAttribute{
+							Description: "City of the location.",
+							Computed:    true,
+						},
+						"continent": schema.StringAttribute{
+							Description: "Continent of the location.",
+							Computed:    true,
+						},
+					},
+				},
+			},
+			"ip_ranges": schema.SetAttribute{
+				Description: "A list of IP ranges of the location.",
+				ElementType: types.StringType,
+				Computed:    true,
+			},
+		},
 	}
 }
 
-func dataSourceLocationRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Read fetches the current state of the resource.
+func (d *LocationDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	// Declare variable to hold existing state
+	var state LocationResourceModel
 
-	c := m.(*client.Client)
+	// Populate state from request and capture diagnostics
+	resp.Diagnostics.Append(req.Config.Get(ctx, &state)...)
 
-	locationName := d.Get("name").(string)
+	// Abort if diagnostics errors occurred
+	if resp.Diagnostics.HasError() {
+		// Exit early on error
+		return
+	}
 
-	location, _, err := c.GetLocation(locationName)
+	// Create a new operator instance
+	operator := d.Operations.NewOperator(ctx, &resp.Diagnostics, state)
 
+	// Invoke API to read resource details
+	apiResp, code, err := operator.InvokeRead(state.Name.ValueString())
+
+	// Remove resource from state if not found
+	if code == 404 {
+		// Drop resource from Terraform state
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	// Handle API invocation errors
 	if err != nil {
-		return diag.FromErr(err)
+		// Report API error
+		resp.Diagnostics.AddError("API error", err.Error())
+
+		// Exit on API error
+		return
 	}
 
-	return setLocation(d, location)
-}
+	// Build new state from API response
+	newState := operator.MapResponseToState(apiResp, true)
 
-func setLocation(d *schema.ResourceData, location *client.Location) diag.Diagnostics {
-
-	if location == nil {
-		d.SetId("")
-		return nil
+	// Abort if diagnostics errors occurred
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	d.SetId(*location.Name)
-
-	if err := SetBase(d, location.Base); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("cloud_provider", location.Provider); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("region", location.Region); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("enabled", location.Spec.Enabled); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("geo", flattenLocationGeo(location.Status.Geo)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("ip_ranges", flattenIpRanges(location.Status.IpRanges)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := SetSelfLink(location.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
-}
-
-func flattenLocationGeo(geo *client.LocationGeo) []interface{} {
-	if geo == nil {
-		return nil
-	}
-
-	spec := make(map[string]interface{})
-
-	if geo.Lat != nil {
-		spec["lat"] = *geo.Lat
-	}
-
-	if geo.Lon != nil {
-		spec["lon"] = *geo.Lon
-	}
-
-	if geo.Country != nil {
-		spec["country"] = *geo.Country
-	}
-
-	if geo.State != nil {
-		spec["state"] = *geo.State
-	}
-
-	if geo.City != nil {
-		spec["city"] = *geo.City
-	}
-
-	if geo.Continent != nil {
-		spec["continent"] = *geo.Continent
-	}
-
-	return []interface{}{
-		spec,
-	}
-}
-
-func flattenIpRanges(ipRanges *[]string) []interface{} {
-
-	if len(*ipRanges) > 0 {
-
-		l := make([]interface{}, len(*ipRanges))
-
-		for i, ip := range *ipRanges {
-			l[i] = ip
-		}
-
-		return l
-	}
-
-	return make([]interface{}, 0)
+	// Persist updated state into Terraform
+	resp.Diagnostics.Append(resp.State.Set(ctx, &newState)...)
 }

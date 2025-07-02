@@ -1,0 +1,16 @@
+// build{NAME} constructs a {CLIENT_TYPE} from the given Terraform state.
+func ({OPERATOR_INSTANCE_NAME} *{OPERATOR_NAME}) build{NAME}(state types.List) *client.{CLIENT_TYPE} {
+  // Convert Terraform list into model blocks using generic helper
+  blocks, ok := BuildList[models.{MODEL}]({OPERATOR_INSTANCE_NAME}.Ctx, {OPERATOR_INSTANCE_NAME}.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+  if !ok {
+    return nil
+  }
+
+  // Take the first (and only) block
+  block := blocks[0]
+
+  // Construct and return the output
+  return &client.{CLIENT_TYPE}{}
+}

@@ -299,7 +299,7 @@ func (c *Client) UpdateOrg(org Org) (*Org, int, error) {
 		return nil, 0, err
 	}
 
-	req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/org/%s", c.HostURL, *org.Name), strings.NewReader(string(g)))
+	req, err := http.NewRequest(http.MethodPatch, fmt.Sprintf("%s/org/%s", c.HostURL, c.Org), strings.NewReader(string(g)))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -309,7 +309,7 @@ func (c *Client) UpdateOrg(org Org) (*Org, int, error) {
 		return nil, code, err
 	}
 
-	return c.GetSpecificOrg(*org.Name)
+	return c.GetSpecificOrg(c.Org)
 }
 
 // UpdateOrgLogging - Update an existing Org Logging

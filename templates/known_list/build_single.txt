@@ -1,0 +1,13 @@
+// build{NAME} constructs a {CLIENT_TYPE} from the given Terraform state.
+func ({OPERATOR_INSTANCE_NAME} *{OPERATOR_NAME}) build{NAME}(state []models.{MODEL}) *client.{CLIENT_TYPE} {
+  // Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+  // Take the first (and only) block
+  block := state[0]
+
+  // Construct and return the output
+  return &client.{CLIENT_TYPE}{}
+}

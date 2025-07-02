@@ -26,234 +26,201 @@ type Workload struct {
 type WorkloadSpec struct {
 	Type               *string                     `json:"type,omitempty"`
 	IdentityLink       *string                     `json:"identityLink,omitempty"`
-	Containers         *[]ContainerSpec            `json:"containers,omitempty"`
-	FirewallConfig     *FirewallSpec               `json:"firewallConfig,omitempty"`
-	DefaultOptions     *Options                    `json:"defaultOptions,omitempty"`
-	LocalOptions       *[]Options                  `json:"localOptions,omitempty"`
-	RolloutOptions     *RolloutOptions             `json:"rolloutOptions,omitempty"`
-	Job                *JobSpec                    `json:"job,omitempty"`
-	SecurityOptions    *SecurityOptions            `json:"securityOptions,omitempty"`
-	SupportDynamicTags *bool                       `json:"supportDynamicTags,omitempty"`
+	Containers         *[]WorkloadContainer        `json:"containers,omitempty"`
+	FirewallConfig     *WorkloadFirewall           `json:"firewallConfig,omitempty"`
+	DefaultOptions     *WorkloadOptions            `json:"defaultOptions,omitempty"`
+	LocalOptions       *[]WorkloadOptions          `json:"localOptions,omitempty"`
+	Job                *WorkloadJob                `json:"job,omitempty"`
 	Sidecar            *WorkloadSidecar            `json:"sidecar,omitempty"`
+	SupportDynamicTags *bool                       `json:"supportDynamicTags,omitempty"`
+	RolloutOptions     *WorkloadRolloutOptions     `json:"rolloutOptions,omitempty"`
+	SecurityOptions    *WorkloadSecurityOptions    `json:"securityOptions,omitempty"`
 	LoadBalancer       *WorkloadLoadBalancer       `json:"loadBalancer,omitempty"`
 	Extras             *any                        `json:"extras,omitempty"`
 	RequestRetryPolicy *WorkloadRequestRetryPolicy `json:"requestRetryPolicy,omitempty"`
 }
 
-// ContainerSpec - Workload Container Definition
-type ContainerSpec struct {
-	Name             *string          `json:"name,omitempty"`
-	Image            *string          `json:"image,omitempty"`
-	Port             *int             `json:"port,omitempty"`
-	Ports            *[]PortSpec      `json:"ports,omitempty"`
-	Memory           *string          `json:"memory,omitempty"`
-	ReadinessProbe   *HealthCheckSpec `json:"readinessProbe,omitempty"`
-	LivenessProbe    *HealthCheckSpec `json:"livenessProbe,omitempty"`
-	CPU              *string          `json:"cpu,omitempty"`
-	GPU              *GpuResource     `json:"gpu,omitempty"`
-	MinCPU           *string          `json:"minCpu,omitempty"`
-	MinMemory        *string          `json:"minMemory,omitempty"`
-	Env              *[]NameValue     `json:"env,omitempty"`
-	Args             *[]string        `json:"args,omitempty"`
-	Volumes          *[]VolumeSpec    `json:"volumes,omitempty"`
-	Metrics          *Metrics         `json:"metrics,omitempty"`
-	Command          *string          `json:"command,omitempty"`
-	InheritEnv       *bool            `json:"inheritEnv,omitempty"`
-	WorkingDirectory *string          `json:"workingDir,omitempty"`
-	LifeCycle        *LifeCycleSpec   `json:"lifecycle,omitempty"`
+// WorkloadContainer - Workload Container Definition
+type WorkloadContainer struct {
+	Name             *string                       `json:"name,omitempty"`
+	Image            *string                       `json:"image,omitempty"`
+	WorkingDirectory *string                       `json:"workingDir,omitempty"`
+	Metrics          *WorkloadContainerMetrics     `json:"metrics,omitempty"`
+	Port             *int                          `json:"port,omitempty"`
+	Ports            *[]WorkloadContainerPort      `json:"ports,omitempty"`
+	Memory           *string                       `json:"memory,omitempty"`
+	ReadinessProbe   *WorkloadHealthCheck          `json:"readinessProbe,omitempty"`
+	LivenessProbe    *WorkloadHealthCheck          `json:"livenessProbe,omitempty"`
+	CPU              *string                       `json:"cpu,omitempty"`
+	MinCPU           *string                       `json:"minCpu,omitempty"`
+	MinMemory        *string                       `json:"minMemory,omitempty"`
+	Env              *[]WorkloadContainerNameValue `json:"env,omitempty"`
+	GPU              *WorkloadContainerGpu         `json:"gpu,omitempty"`
+	InheritEnv       *bool                         `json:"inheritEnv,omitempty"`
+	Command          *string                       `json:"command,omitempty"`
+	Args             *[]string                     `json:"args,omitempty"`
+	LifeCycle        *WorkloadLifeCycle            `json:"lifecycle,omitempty"`
+	Volumes          *[]WorkloadContainerVolume    `json:"volumes,omitempty"`
 }
 
-// GPU - GPU Settings
-type GpuResource struct {
-	Nvidia *Nvidia    `json:"nvidia,omitempty"`
-	Custom *CustomGpu `json:"custom,omitempty"`
+type WorkloadContainerMetrics struct {
+	Path *string `json:"path,omitempty"`
+	Port *int    `json:"port,omitempty"`
 }
 
-type Nvidia struct {
+type WorkloadContainerPort struct {
+	Protocol *string `json:"protocol,omitempty"`
+	Number   *int    `json:"number,omitempty"`
+}
+
+// WorkloadHealthCheck - Health Check (used my readiness and liveness probes)
+type WorkloadHealthCheck struct {
+	Exec                *WorkloadExec                 `json:"exec,omitempty"`
+	GRPC                *WorkloadHealthCheckGrpc      `json:"grpc,omitempty"`
+	TCPSocket           *WorkloadHealthCheckTcpSocket `json:"tcpSocket,omitempty"`
+	HTTPGet             *WorkloadHealthCheckHttpGet   `json:"httpGet,omitempty"`
+	InitialDelaySeconds *int                          `json:"initialDelaySeconds,omitempty"`
+	PeriodSeconds       *int                          `json:"periodSeconds,omitempty"`
+	TimeoutSeconds      *int                          `json:"timeoutSeconds,omitempty"`
+	SuccessThreshold    *int                          `json:"successThreshold,omitempty"`
+	FailureThreshold    *int                          `json:"failureThreshold,omitempty"`
+}
+
+// WorkloadExec - WorkloadExec
+type WorkloadExec struct {
+	Command *[]string `json:"command,omitempty"`
+}
+
+type WorkloadHealthCheckGrpc struct {
+	Port *int `json:"port,omitempty"`
+}
+
+// WorkloadHealthCheckTcpSocket - WorkloadHealthCheckTcpSocket
+type WorkloadHealthCheckTcpSocket struct {
+	Port *int `json:"port,omitempty"`
+}
+
+// WorkloadHealthCheckHttpGet - WorkloadHealthCheckHttpGet
+type WorkloadHealthCheckHttpGet struct {
+	Path        *string                       `json:"path,omitempty"`
+	Port        *int                          `json:"port,omitempty"`
+	HttpHeaders *[]WorkloadContainerNameValue `json:"httpHeaders,omitempty"`
+	Scheme      *string                       `json:"scheme,omitempty"`
+}
+
+// WorkloadContainerNameValue - Name/Value Struct
+type WorkloadContainerNameValue struct {
+	Name  *string `json:"name,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
+type WorkloadContainerGpu struct {
+	Nvidia *WorkloadContainerGpuNvidia `json:"nvidia,omitempty"`
+	Custom *WorkloadContainerGpuCustom `json:"custom,omitempty"`
+}
+
+type WorkloadContainerGpuNvidia struct {
 	Model    *string `json:"model,omitempty"`
 	Quantity *int    `json:"quantity,omitempty"`
 }
 
-type CustomGpu struct {
+type WorkloadContainerGpuCustom struct {
 	Resource     *string `json:"resource,omitempty"`
 	RuntimeClass *string `json:"runtimeClass,omitempty"`
 	Quantity     *int    `json:"quantity,omitempty"`
 }
 
-// NameValue - Name/Value Struct
-type NameValue struct {
-	Name  *string `json:"name,omitempty"`
-	Value *string `json:"value,omitempty"`
+// LifeCycle
+type WorkloadLifeCycle struct {
+	PostStart *WorkloadLifeCycleSpec `json:"postStart,omitempty"`
+	PreStop   *WorkloadLifeCycleSpec `json:"preStop,omitempty"`
 }
 
-// PortSpec - Ports
-type PortSpec struct {
-	Protocol *string `json:"protocol,omitempty"`
-	Number   *int    `json:"number,omitempty"`
+// LifeCycle - Inner
+type WorkloadLifeCycleSpec struct {
+	Exec *WorkloadExec `json:"exec,omitempty"`
 }
 
-// Options - Options
-type Options struct {
-	AutoScaling    *AutoScaling `json:"autoscaling,omitempty"`
-	CapacityAI     *bool        `json:"capacityAI,omitempty"`
-	TimeoutSeconds *int         `json:"timeoutSeconds,omitempty"`
-	Debug          *bool        `json:"debug,omitempty"`
-	Suspend        *bool        `json:"suspend,omitempty"`
-	Location       *string      `json:"location,omitempty"`
-}
-
-// AutoScaling - Auto Scaling Options
-type AutoScaling struct {
-	Metric           *string         `json:"metric,omitempty"`
-	Multi            *[]MultiMetrics `json:"multi,omitempty"`
-	MetricPercentile *string         `json:"metricPercentile,omitempty"`
-	Target           *int            `json:"target,omitempty"`
-	MaxScale         *int            `json:"maxScale,omitempty"`
-	MinScale         *int            `json:"minScale,omitempty"`
-	MaxConcurrency   *int            `json:"maxConcurrency,omitempty"`
-	ScaleToZeroDelay *int            `json:"scaleToZeroDelay,omitempty"`
-}
-
-// MultiMetrics - Multi Metrics
-type MultiMetrics struct {
-	Metric *string `json:"metric,omitempty"`
-	Target *int    `json:"target,omitempty"`
-}
-
-// FirewallSpec - Firewall Config
-type FirewallSpec struct {
-	External *FirewallSpecExternal `json:"external,omitempty"`
-	Internal *FirewallSpecInternal `json:"internal,omitempty"`
-}
-
-// FirewallSpecExternal - Firewall Spec External
-type FirewallSpecExternal struct {
-	InboundAllowCIDR      *[]string                    `json:"inboundAllowCIDR,omitempty"`
-	InboundBlockedCIDR    *[]string                    `json:"inboundBlockedCIDR,omitempty"`
-	OutboundAllowCIDR     *[]string                    `json:"outboundAllowCIDR,omitempty"`
-	OutboundAllowHostname *[]string                    `json:"outboundAllowHostname,omitempty"`
-	OutboundAllowPort     *[]FirewallOutboundAllowPort `json:"outboundAllowPort,omitempty"`
-	OutboundBlockedCIDR   *[]string                    `json:"outboundBlockedCIDR,omitempty"`
-}
-
-type FirewallOutboundAllowPort struct {
-	Protocol *string `json:"protocol,omitempty"`
-	Number   *int    `json:"number,omitempty"`
-}
-
-// FirewallSpecInternal - Firewall Spec Internal
-type FirewallSpecInternal struct {
-	InboundAllowType     *string   `json:"inboundAllowType,omitempty"`
-	InboundAllowWorkload *[]string `json:"inboundAllowWorkload,omitempty"`
-}
-
-// WorkloadStatus - Workload Status
-type WorkloadStatus struct {
-	ParentID            *string                       `json:"parentId,omitempty"`
-	CanonicalEndpoint   *string                       `json:"canonicalEndpoint,omitempty"`
-	Endpoint            *string                       `json:"endpoint,omitempty"`
-	InternalName        *string                       `json:"internalName,omitempty"`
-	CurrentReplicaCount *int                          `json:"currentReplicaCount,omitempty"`
-	HealthCheck         *HealthCheckStatus            `json:"healthCheck,omitempty"`
-	ResolvedImages      *ResolvedImages               `json:"resolvedImages,omitempty"`
-	LoadBalancer        *[]WorkloadLoadBalancerStatus `json:"loadBalancer,omitempty"`
-}
-
-// HealthCheckStatus - Health Check Status
-type HealthCheckStatus struct {
-	Active      *bool   `json:"active,omitempty"`
-	Success     *bool   `json:"success,omitempty"`
-	Code        *int    `json:"code,omitempty"`
-	Message     *string `json:"message,omitempty"`
-	Failures    *int    `failures:"parentId,omitempty"`
-	Successes   *int    `successes:"parentId,omitempty"`
-	LastChecked *string `json:"lastChecked,omitempty"`
-}
-
-type ResolvedImages struct {
-	ResolvedForVersion *int             `json:"resolvedForVersion,omitempty"`
-	ResolvedAt         *string          `json:"resolvedAt,omitempty"`
-	Images             *[]ResolvedImage `json:"images,omitempty"`
-}
-
-type ResolvedImage struct {
-	Digest    *string                  `json:"digest,omitempty"`
-	Manifests *[]ResolvedImageManifest `json:"manifests,omitempty"`
-}
-
-type ResolvedImageManifest struct {
-	Image     *string             `json:"image,omitempty"`
-	MediaType *string             `json:"mediaType,omitempty"`
-	Digest    *string             `json:"digest,omitempty"`
-	Platform  *map[string]*string `json:"platform,omitempty"`
-}
-
-type WorkloadLoadBalancerStatus struct {
-	Origin *string `json:"origin,omitempty"`
-	Url    *string `json:"url,omitempty"`
-}
-
-// HealthCheckSpec - Health Check Spec (used my readiness and liveness probes)
-type HealthCheckSpec struct {
-	Exec                *Exec      `json:"exec,omitempty"`
-	GRPC                *GRPC      `json:"grpc,omitempty"`
-	TCPSocket           *TCPSocket `json:"tcpSocket,omitempty"`
-	HTTPGet             *HTTPGet   `json:"httpGet,omitempty"`
-	InitialDelaySeconds *int       `json:"initialDelaySeconds,omitempty"`
-	PeriodSeconds       *int       `json:"periodSeconds,omitempty"`
-	TimeoutSeconds      *int       `json:"timeoutSeconds,omitempty"`
-	SuccessThreshold    *int       `json:"successThreshold,omitempty"`
-	FailureThreshold    *int       `json:"failureThreshold,omitempty"`
-}
-
-// VolumeSpec - Volume Spec
-type VolumeSpec struct {
+// WorkloadContainerVolume - Volume Spec
+type WorkloadContainerVolume struct {
 	Uri            *string `json:"uri,omitempty"`
 	RecoveryPolicy *string `json:"recoveryPolicy,omitempty"`
 	Path           *string `json:"path,omitempty"`
 }
 
-// Metrics - Metrics
-type Metrics struct {
-	Path *string `json:"path,omitempty"`
-	Port *int    `json:"port,omitempty"`
+// WorkloadFirewall - Firewall Config
+type WorkloadFirewall struct {
+	External *WorkloadFirewallExternal `json:"external,omitempty"`
+	Internal *WorkloadFirewallInternal `json:"internal,omitempty"`
 }
 
-// Exec - Exec
-type Exec struct {
-	Command *[]string `json:"command,omitempty"`
+// WorkloadFirewallExternal
+type WorkloadFirewallExternal struct {
+	InboundAllowCidr      *[]string                            `json:"inboundAllowCIDR,omitempty"`
+	InboundBlockedCidr    *[]string                            `json:"inboundBlockedCIDR,omitempty"`
+	OutboundAllowHostname *[]string                            `json:"outboundAllowHostname,omitempty"`
+	OutboundAllowPort     *[]WorkloadFirewallOutboundAllowPort `json:"outboundAllowPort,omitempty"`
+	OutboundAllowCidr     *[]string                            `json:"outboundAllowCIDR,omitempty"`
+	OutboundBlockedCidr   *[]string                            `json:"outboundBlockedCIDR,omitempty"`
+	Http                  *WorkloadFirewallExternalHttp        `json:"http,omitempty"`
 }
 
-type GRPC struct {
-	Port *int `json:"port,omitempty"`
+type WorkloadFirewallOutboundAllowPort struct {
+	Protocol *string `json:"protocol,omitempty"`
+	Number   *int    `json:"number,omitempty"`
 }
 
-// TCPSocket - TCPSocket
-type TCPSocket struct {
-	Port *int `json:"port,omitempty"`
+type WorkloadFirewallExternalHttp struct {
+	InboundHeaderFilter *[]WorkloadFirewallExternalHttpHeaderFilter `json:"inboundHeaderFilter,omitempty"`
 }
 
-// HTTPGet - HTTPGet
-type HTTPGet struct {
-	Path        *string      `json:"path,omitempty"`
-	Port        *int         `json:"port,omitempty"`
-	HTTPHeaders *[]NameValue `json:"httpHeaders,omitempty"`
-	Scheme      *string      `json:"scheme,omitempty"`
+type WorkloadFirewallExternalHttpHeaderFilter struct {
+	Key           *string   `json:"key,omitempty"`
+	AllowedValues *[]string `json:"allowedValues,omitempty"`
+	BlockedValues *[]string `json:"blockedValues,omitempty"`
 }
 
-// LifeCycle
-type LifeCycleSpec struct {
-	PostStart *LifeCycleInner `json:"postStart,omitempty"`
-	PreStop   *LifeCycleInner `json:"preStop,omitempty"`
+// WorkloadFirewallInternal - Firewall Internal
+type WorkloadFirewallInternal struct {
+	InboundAllowType     *string   `json:"inboundAllowType,omitempty"`
+	InboundAllowWorkload *[]string `json:"inboundAllowWorkload,omitempty"`
 }
 
-// LifeCycle - Inner
-type LifeCycleInner struct {
-	Exec *Exec `json:"exec,omitempty"`
+// WorkloadOptions - WorkloadOptions
+type WorkloadOptions struct {
+	AutoScaling    *WorkloadOptionsAutoscaling `json:"autoscaling,omitempty"`
+	TimeoutSeconds *int                        `json:"timeoutSeconds,omitempty"`
+	CapacityAI     *bool                       `json:"capacityAI,omitempty"`
+	Debug          *bool                       `json:"debug,omitempty"`
+	Suspend        *bool                       `json:"suspend,omitempty"`
+	MultiZone      *WorkloadOptionsMultiZone   `json:"multiZone,omitempty"`
+	Location       *string                     `json:"location,omitempty"`
 }
 
-// JobSpec - Cronjob
-type JobSpec struct {
+// WorkloadOptionsAutoscaling - Auto Scaling Options
+type WorkloadOptionsAutoscaling struct {
+	Metric           *string                            `json:"metric,omitempty"`
+	Multi            *[]WorkloadOptionsAutoscalingMulti `json:"multi,omitempty"`
+	MetricPercentile *string                            `json:"metricPercentile,omitempty"`
+	Target           *int                               `json:"target,omitempty"`
+	MaxScale         *int                               `json:"maxScale,omitempty"`
+	MinScale         *int                               `json:"minScale,omitempty"`
+	MaxConcurrency   *int                               `json:"maxConcurrency,omitempty"`
+	ScaleToZeroDelay *int                               `json:"scaleToZeroDelay,omitempty"`
+}
+
+// WorkloadOptionsAutoscalingMulti - Multi Metrics
+type WorkloadOptionsAutoscalingMulti struct {
+	Metric *string `json:"metric,omitempty"`
+	Target *int    `json:"target,omitempty"`
+}
+
+type WorkloadOptionsMultiZone struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// WorkloadJob - Cronjob
+type WorkloadJob struct {
 	Schedule              *string `json:"schedule,omitempty"`
 	ConcurrencyPolicy     *string `json:"concurrencyPolicy,omitempty"` // Enum: [ Forbid, Replace ]
 	HistoryLimit          *int    `json:"historyLimit,omitempty"`
@@ -261,46 +228,37 @@ type JobSpec struct {
 	ActiveDeadlineSeconds *int    `json:"activeDeadlineSeconds,omitempty"`
 }
 
-// Rollout Options
-type RolloutOptions struct {
-	MinReadySeconds        *int    `json:"minReadySeconds,omitempty"`
-	MaxUnavailableReplicas *string `json:"maxUnavailableReplicas,omitempty"`
-	MaxSurgeReplicas       *string `json:"maxSurgeReplicas,omitempty"`
-	ScalingPolicy          *string `json:"scalingPolicy,omitempty"`
-}
-
-// Security Options
-type SecurityOptions struct {
-	FileSystemGroupID *int `json:"filesystemGroupId,omitempty"`
-}
-
-type GeoLocation struct {
-	Enabled *bool               `json:"enabled,omitempty"`
-	Headers *GeoLocationHeaders `json:"headers,omitempty"`
-}
-
-type GeoLocationHeaders struct {
-	Asn     *string `json:"asn,omitempty"`
-	City    *string `json:"city,omitempty"`
-	Country *string `json:"country,omitempty"`
-	Region  *string `json:"region,omitempty"`
-}
-
 // WorkloadSidecar - Workload Sidecar
 type WorkloadSidecar struct {
 	Envoy *any `json:"envoy,omitempty"`
 }
 
+// Rollout Options
+type WorkloadRolloutOptions struct {
+	MinReadySeconds               *int    `json:"minReadySeconds,omitempty"`
+	MaxUnavailableReplicas        *string `json:"maxUnavailableReplicas,omitempty"`
+	MaxSurgeReplicas              *string `json:"maxSurgeReplicas,omitempty"`
+	ScalingPolicy                 *string `json:"scalingPolicy,omitempty"`
+	TerminationGracePeriodSeconds *int    `json:"terminationGracePeriodSeconds,omitempty"`
+}
+
+// Security Options
+type WorkloadSecurityOptions struct {
+	FileSystemGroupId *int `json:"filesystemGroupId,omitempty"`
+}
+
 // WorkloadLoadBalancer - Workload Load Balancer
 type WorkloadLoadBalancer struct {
-	Direct      *WorkloadLoadBalancerDirect `json:"direct,omitempty"`
-	GeoLocation *GeoLocation                `json:"geoLocation,omitempty"`
+	Direct        *WorkloadLoadBalancerDirect      `json:"direct,omitempty"`
+	GeoLocation   *WorkloadLoadBalancerGeoLocation `json:"geoLocation,omitempty"`
+	ReplicaDirect *bool                            `json:"replicaDirect,omitempty"`
 }
 
 // WorkloadLoadBalancerDirect - Workload Load Balancer Direct
 type WorkloadLoadBalancerDirect struct {
 	Enabled *bool                             `json:"enabled,omitempty"`
 	Ports   *[]WorkloadLoadBalancerDirectPort `json:"ports,omitempty"`
+	IpSet   *string                           `json:"ipSet,omitempty"`
 }
 
 type WorkloadLoadBalancerDirectPort struct {
@@ -310,41 +268,68 @@ type WorkloadLoadBalancerDirectPort struct {
 	ContainerPort *int    `json:"containerPort,omitempty"`
 }
 
+type WorkloadLoadBalancerGeoLocation struct {
+	Enabled *bool                                   `json:"enabled,omitempty"`
+	Headers *WorkloadLoadBalancerGeoLocationHeaders `json:"headers,omitempty"`
+}
+
+type WorkloadLoadBalancerGeoLocationHeaders struct {
+	Asn     *string `json:"asn,omitempty"`
+	City    *string `json:"city,omitempty"`
+	Country *string `json:"country,omitempty"`
+	Region  *string `json:"region,omitempty"`
+}
+
 type WorkloadRequestRetryPolicy struct {
 	Attempts *int      `json:"attempts,omitempty"`
 	RetryOn  *[]string `json:"retryOn,omitempty"`
 }
 
-func (w Workload) RemoveEmptySlices() {
+// WorkloadStatus - Workload Status
+type WorkloadStatus struct {
+	ParentId            *string                       `json:"parentId,omitempty"`
+	CanonicalEndpoint   *string                       `json:"canonicalEndpoint,omitempty"`
+	Endpoint            *string                       `json:"endpoint,omitempty"`
+	InternalName        *string                       `json:"internalName,omitempty"`
+	HealthCheck         *WorkloadStatusHealthCheck    `json:"healthCheck,omitempty"`
+	CurrentReplicaCount *int                          `json:"currentReplicaCount,omitempty"`
+	ResolvedImages      *WorkloadStatusResolvedImages `json:"resolvedImages,omitempty"`
+	LoadBalancer        *[]WorkloadStatusLoadBalancer `json:"loadBalancer,omitempty"`
+}
 
-	if w.Spec.Containers != nil {
-		for _, c := range *w.Spec.Containers {
-			if c.Args == nil || len(*c.Args) < 1 {
-				c.Args = nil
-			}
-		}
-	}
+// WorkloadStatusHealthCheck - Health Check Status
+type WorkloadStatusHealthCheck struct {
+	Active      *bool   `json:"active,omitempty"`
+	Success     *bool   `json:"success,omitempty"`
+	Code        *int    `json:"code,omitempty"`
+	Message     *string `json:"message,omitempty"`
+	Failures    *int    `failures:"parentId,omitempty"`
+	Successes   *int    `successes:"parentId,omitempty"`
+	LastChecked *string `json:"lastChecked,omitempty"`
+}
 
-	if w.Spec.FirewallConfig != nil {
+type WorkloadStatusResolvedImages struct {
+	ResolvedForVersion *int                           `json:"resolvedForVersion,omitempty"`
+	ResolvedAt         *string                        `json:"resolvedAt,omitempty"`
+	ErrorMessages      *[]string                      `json:"errorMessages,omitempty"`
+	Images             *[]WorkloadStatusResolvedImage `json:"images,omitempty"`
+}
 
-		if w.Spec.FirewallConfig.External != nil {
-			if w.Spec.FirewallConfig.External.InboundAllowCIDR != nil && len(*w.Spec.FirewallConfig.External.InboundAllowCIDR) < 1 {
-				w.Spec.FirewallConfig.External.InboundAllowCIDR = nil
-			}
+type WorkloadStatusResolvedImage struct {
+	Digest    *string                                `json:"digest,omitempty"`
+	Manifests *[]WorkloadStatusResolvedImageManifest `json:"manifests,omitempty"`
+}
 
-			if w.Spec.FirewallConfig.External.OutboundAllowCIDR != nil && len(*w.Spec.FirewallConfig.External.OutboundAllowCIDR) < 1 {
-				w.Spec.FirewallConfig.External.OutboundAllowCIDR = nil
-			}
+type WorkloadStatusResolvedImageManifest struct {
+	Image     *string                 `json:"image,omitempty"`
+	MediaType *string                 `json:"mediaType,omitempty"`
+	Digest    *string                 `json:"digest,omitempty"`
+	Platform  *map[string]interface{} `json:"platform,omitempty"`
+}
 
-			if w.Spec.FirewallConfig.External.OutboundAllowHostname != nil && len(*w.Spec.FirewallConfig.External.OutboundAllowHostname) < 1 {
-				w.Spec.FirewallConfig.External.OutboundAllowHostname = nil
-			}
-		}
-
-		if w.Spec.FirewallConfig.Internal != nil && w.Spec.FirewallConfig.Internal.InboundAllowWorkload != nil && len(*w.Spec.FirewallConfig.Internal.InboundAllowWorkload) < 1 {
-			w.Spec.FirewallConfig.Internal.InboundAllowWorkload = nil
-		}
-	}
+type WorkloadStatusLoadBalancer struct {
+	Origin *string `json:"origin,omitempty"`
+	Url    *string `json:"url,omitempty"`
 }
 
 // GetWorkloads - Get Workloads by GVC name

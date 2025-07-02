@@ -23,6 +23,9 @@ for additional details.
 
 - **description** (String) Description of the Cloud Account.
 - **tags** (Map of String) Key-value map of resource tags.
+
+~> **Note** Only one of the cloud providers listed below can be included in a resource. Create resources for each additional cloud provider.
+
 - **aws** (Block List, Max: 1) ([see below](#nestedblock--aws)).
 - **azure** (Block List, Max: 1) ([see below](#nestedblock--azure)).
 - **gcp** (Block List, Max: 1) ([see below](#nestedblock--gcp)).
@@ -74,7 +77,6 @@ The following attributes are exported:
 ```terraform
 # AWS Cloud Account
 resource "cpln_cloud_account" "aws" {
-
   name        = "cloud-account-aws"
   description = "AWS cloud account"
 
@@ -90,7 +92,6 @@ resource "cpln_cloud_account" "aws" {
 
 # Azure Cloud Account
 resource "cpln_cloud_account" "azure" {
-
   name        = "cloud-account-azure"
   description = "Azure cloud account"
 
@@ -107,7 +108,6 @@ resource "cpln_cloud_account" "azure" {
 
 # GCP Cloud Account
 resource "cpln_cloud_account" "gcp" {
-
   name        = "cloud-account-gcp"
   description = "GCP cloud account"
 
@@ -132,7 +132,6 @@ output "cloud_account_gcp_roles" {
 
 # NGS Cloud Account
 resource "cpln_cloud_account" "ngs" {
-
   name        = "cloud-account-ngs"
   description = "NGS cloud account "
 

@@ -18,23 +18,12 @@ Manages an org's [Policy](https://docs.controlplane.com/reference/policy).
 
 - **description** (String) Description of the Policy.
 - **tags** (Map of String) Key-value map of resource tags.
-- **target_kind** (String) The kind of resource to target (e.g., gvc, serviceaccount, etc.).
 - **gvc** (String) The GVC for `identity`, `workload` and `volumeset` target kinds only.
-
-- **target** (String) Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.
+- **target_kind** (String) The kind of resource to target (e.g., gvc, serviceaccount, etc.).
 - **target_links** (List of String) List of the targets this policy will be applied to. Not used if `target` is set to `all`.
+- **target** (String) Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.
 - **target_query** (Block List, Max: 1) ([see below](#nestedblock--target_query)).
-
 - **binding** (Block Set, Max: 50) ([see below](#nestedblock--binding)).
-
-<a id="nestedblock--binding"></a>
-
-### `binding`
-
-Optional:
-
-- **permissions** (Set of String) List of permissions to allow.
-- **principal_links** (Set of String) List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `cpln_identity.IDENTITY_RESOURCE_NAME.self_link`, `serviceaccount/SERVICE_ACCOUNT_NAME`, `cpln_service_account.SERVICE_ACCOUNT_RESOURCE_NAME.self_link`, `cpln_gvc.GVC_RESOURCE_NAME.self_link`.
 
 <a id="nestedblock--target_query"></a>
 
@@ -63,11 +52,19 @@ Terms can only contain one of the following attributes: `property`, `rel`, `tag`
 Optional:
 
 - **op** (String) Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.
-
 - **property** (String) Property to use for query evaluation.
 - **rel** (String) Rel to use use for query evaluation.
 - **tag** (String) Tag key to use for query evaluation.
 - **value** (String) Testing value for query evaluation.
+
+<a id="nestedblock--binding"></a>
+
+### `binding`
+
+Optional:
+
+- **permissions** (Set of String) List of permissions to allow.
+- **principal_links** (Set of String) List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `cpln_identity.IDENTITY_RESOURCE_NAME.self_link`, `serviceaccount/SERVICE_ACCOUNT_NAME`, `cpln_service_account.SERVICE_ACCOUNT_RESOURCE_NAME.self_link`, `cpln_gvc.GVC_RESOURCE_NAME.self_link`.
 
 ## Outputs
 

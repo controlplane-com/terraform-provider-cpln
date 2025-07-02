@@ -33,6 +33,7 @@ Used in conjunction with a Domain.
 - **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.
 - **host_regex** (String) A regex to match the host header. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configure for wildcard support. Contact your account manager for details.
 - **headers** (Block List, Max: 1) ([see below](#nestedblock--headers))
+- **replica** (Number) The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.
 
 <a id="nestedblock--headers"></a>
 
@@ -72,7 +73,7 @@ resource "cpln_domain" "apex" {
   spec {
     ports {
       tls { }
-      }
+    }
   }
 }
 
@@ -126,21 +127,21 @@ resource "cpln_domain" "subdomain" {
 resource "cpln_domain_route" "first-route" {
 
   // The first route depends on the domain being created first
-  depends_on  = [cpln_domain.subdomain]
+  depends_on = [cpln_domain.subdomain]
 
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
-  prefix = "/example-1"
+  prefix         = "/example-1"
   replace_prefix = "/replace_example"
-  host_prefix = "www.example.com"
-  workload_link = "LINK_TO_WORKLOAD"
-  port = 80
+  host_prefix    = "www.example.com"
+  workload_link  = "LINK_TO_WORKLOAD"
+  port           = 80
 
   headers {
     request {
       set = {
-        Host = "example.com"
+        Host           = "example.com"
         "Content-Type" = "application/json"
       }
     }
@@ -150,21 +151,21 @@ resource "cpln_domain_route" "first-route" {
 resource "cpln_domain_route" "second-route" {
 
   // The second route depends on the first route
-  depends_on  = [cpln_domain_route.first-route]
+  depends_on = [cpln_domain_route.first-route]
 
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
-  prefix = "/example-2"
+  prefix         = "/example-2"
   replace_prefix = "/"
-  host_prefix = "www.foo.com"
-  workload_link = "LINK_TO_WORKLOAD"
-  port = 80
+  host_prefix    = "www.foo.com"
+  workload_link  = "LINK_TO_WORKLOAD"
+  port           = 80
 
   headers {
     request {
       set = {
-        Host = "example.com"
+        Host           = "example.com"
         "Content-Type" = "application/json"
       }
     }
@@ -186,7 +187,7 @@ resource "cpln_domain" "apex" {
   spec {
     ports {
       tls { }
-      }
+    }
   }
 }
 
@@ -240,21 +241,21 @@ resource "cpln_domain" "subdomain" {
 resource "cpln_domain_route" "first-route" {
 
   // The first route depends on the domain being created first
-  depends_on  = [cpln_domain.subdomain]
+  depends_on = [cpln_domain.subdomain]
 
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
-  prefix = "/example-1"
+  prefix         = "/example-1"
   replace_prefix = "/replace_example"
-  host_prefix = "www.example.com"
-  workload_link = "LINK_TO_WORKLOAD"
-  port = 80
+  host_prefix    = "www.example.com"
+  workload_link  = "LINK_TO_WORKLOAD"
+  port           = 80
 
   headers {
     request {
       set = {
-        Host = "example.com"
+        Host           = "example.com"
         "Content-Type" = "application/json"
       }
     }
@@ -264,21 +265,22 @@ resource "cpln_domain_route" "first-route" {
 resource "cpln_domain_route" "second-route" {
 
   // The second route depends on the first route
-  depends_on  = [cpln_domain_route.first-route]
+  depends_on = [cpln_domain_route.first-route]
 
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
-  prefix = "/example-2"
+  prefix         = "/example-2"
   replace_prefix = "/"
-  host_regex = "req"
-  workload_link = "LINK_TO_WORKLOAD"
-  port = 80
+  host_regex     = "req"
+  workload_link  = "LINK_TO_WORKLOAD"
+  port           = 80
+  replica        = 2 # Route to replica number 2
 
   headers {
     request {
       set = {
-        Host = "example.com"
+        Host           = "example.com"
         "Content-Type" = "application/json"
       }
     }
@@ -300,7 +302,7 @@ resource "cpln_domain" "apex" {
   spec {
     ports {
       tls { }
-      }
+    }
   }
 }
 

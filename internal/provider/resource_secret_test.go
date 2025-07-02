@@ -1,866 +1,1318 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
-	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
-	"github.com/go-test/deep"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func TestControlPlane_BuildSecretString(t *testing.T) {
+/*** Acceptance Test ***/
 
-	secretType := "gcp"
-	secretData := "gcp_secret_key"
-
-	secret := &client.Secret{}
-
-	if err := buildData(secretType, secretData, secret, false); err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-
-	expectedSecret := &client.Secret{
-		Type: &secretType,
-		Data: GetInterface(secretData),
-	}
-
-	if diff := deep.Equal(secret, expectedSecret); diff != nil {
-		t.Errorf("Secret String was not built correctly. Diff: %s", diff)
-	}
-}
-
-func TestControlPlane_BuildSecretMap(t *testing.T) {
-
-	secretType := "tls"
-
-	mapData := map[string]interface{}{
-		"cert": "1234",
-		"key":  "5678",
-	}
-
-	secretData := []interface{}{
-		mapData,
-	}
-
-	secret := &client.Secret{}
-
-	if err := buildData(secretType, secretData, secret, false); err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-
-	expectedSecret := &client.Secret{
-		Type: &secretType,
-		Data: GetInterface(mapData),
-	}
-
-	if diff := deep.Equal(secret, expectedSecret); diff != nil {
-		t.Errorf("Secret String was not built correctly. Diff: %s", diff)
-	}
-}
-
+// TestAccControlPlaneSecret_basic performs an acceptance test for the resource.
 func TestAccControlPlaneSecret_basic(t *testing.T) {
+	// Initialize the test
+	resourceTest := NewSecretResourceTest()
 
-	random := "secret" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
-
+	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t, "SECRET") },
-		Providers:    testAccProviders,
-		CheckDestroy: testAccCheckControlPlaneSecretCheckDestroy,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccControlPlaneSecret(random),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_secret.opaque", "name", "opaque-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.opaque", "description", "opaque description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.tls", "name", "tls-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.tls", "description", "tls description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.gcp", "name", "gcp-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.gcp", "description", "gcp description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.aws", "name", "aws-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.aws", "description", "aws description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.docker", "name", "docker-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.docker", "description", "docker description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.userpass", "name", "userpass-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.userpass", "description", "userpass description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.keypair", "name", "keypair-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.keypair", "description", "keypair description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.azure_sdk", "name", "azuresdk-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.azure_sdk", "description", "azuresdk description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.dictionary", "name", "dictionary-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random),
-					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random),
-				),
-			},
-			{
-				Config: testAccControlPlaneSecretUpdate(random),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("cpln_secret.opaque", "name", "opaque-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.opaque", "description", "opaque description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.tls", "name", "tls-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.tls", "description", "tls description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.gcp", "name", "gcp-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.gcp", "description", "gcp description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.aws", "name", "aws-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.aws", "description", "aws description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.docker", "name", "docker-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.docker", "description", "docker description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.userpass", "name", "userpass-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.userpass", "description", "userpass description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.keypair", "name", "keypair-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.keypair", "description", "keypair description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.azure_sdk", "name", "azuresdk-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.azure_sdk", "description", "azuresdk description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.dictionary", "name", "dictionary-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.dictionary", "description", "dictionary description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "name", "azureconnector-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.azure_connector", "description", "azureconnector description "+random+" updated"),
-					resource.TestCheckResourceAttr("cpln_secret.nats_account", "name", "natsaccount-"+random),
-					resource.TestCheckResourceAttr("cpln_secret.nats_account", "description", "natsaccount description "+random+" updated"),
-				),
-			},
-			// {
-			// 	Config: testAccControlPlaneSecretAzure(random),
-			// }, {
-			// 	Config: testAccControlPlaneSecretAzureToUserPass(random),
-			// },
-		},
+		PreCheck:                 func() { testAccPreCheck(t, "SECRET") },
+		ProtoV6ProviderFactories: GetProviderServer(),
+		CheckDestroy:             resourceTest.CheckDestroy,
+		Steps:                    resourceTest.InitializeSteps(),
 	})
 }
 
-func testAccControlPlaneSecret(random string) string {
+/*** Resource Test ***/
 
-	return fmt.Sprintf(`
-	variable "random" {
-		type = string
-		default = "%s"
-	}
-
-	variable "testcert" {
-		type = string
-		default = <<EOT
------BEGIN CERTIFICATE-----
-MIID+zCCAuOgAwIBAgIUEwBv3WQkP7dIiEIxyj+Wi1STz7QwDQYJKoZIhvcNAQEL
-BQAwgYwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRQwEgYDVQQH
-DAtMb3MgQW5nZWxlczENMAsGA1UECgwEQ1BMTjERMA8GA1UECwwIQ1BMTi1PUkcx
-EDAOBgNVBAMMB2NwbG4uaW8xHjAcBgkqhkiG9w0BCQEWD3N1cHBvcnRAY3Bsbi5p
-bzAeFw0yMDEwMTQxNzI4MDhaFw0zMDEwMTIxNzI4MDhaMIGMMQswCQYDVQQGEwJV
-UzETMBEGA1UECAwKQ2FsaWZvcm5pYTEUMBIGA1UEBwwLTG9zIEFuZ2VsZXMxDTAL
-BgNVBAoMBENQTE4xETAPBgNVBAsMCENQTE4tT1JHMRAwDgYDVQQDDAdjcGxuLmlv
-MR4wHAYJKoZIhvcNAQkBFg9zdXBwb3J0QGNwbG4uaW8wggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQDBzN2jRf9ouoF4XG0eUxcc4f1sP8vhW1fQXjun3cl0
-RsN4jRdOyTKWcls1yAxlOkwFod8d6HND9OvNrsl7U4iJIEcJL6vTqHY7jTGXQkd9
-yPONMpMXYE8Dsiqtk0deoOab7fafYcvq1iWnpvg157mJ/u9qdyU+1h8DncES30Fk
-PsG8TsIsjx94JkTJeMmEJxtws4dfuoCk88INbBHLjxBQgwTu0vgMxN34b5z+esHr
-aetDN2fqxSoTOeIlyFzeS+kwG3GK4I1hUQBiL2TeDrnEY6qP/ZoGuyyVnsT/6pHY
-/BTAcH3Rgeqose7mqBT+7zlxDfHYHceuNB/ljq0e1j69AgMBAAGjUzBRMB0GA1Ud
-DgQWBBRxncC/8RRio/S9Ly8tKFS7WnTcNTAfBgNVHSMEGDAWgBRxncC/8RRio/S9
-Ly8tKFS7WnTcNTAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAr
-sDZQj4K47fW6JkJbxlzZ1hd7IX6cQhI/DRIdTGR1u0kM1RtZoS0UtV5qsYV/g/S4
-ChuB/aIARyTWvHKDhcT3bRGHLnoZJ8pLlQh4nEfO07SRhyeNiO4qmWM9az0nP5qD
-wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
-5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
-YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
-u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
-EOT
-	}
-
-	variable "testcertprivate" {
-		type = string
-		default = <<EOT
------BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDBzN2jRf9ouoF4
-XG0eUxcc4f1sP8vhW1fQXjun3cl0RsN4jRdOyTKWcls1yAxlOkwFod8d6HND9OvN
-rsl7U4iJIEcJL6vTqHY7jTGXQkd9yPONMpMXYE8Dsiqtk0deoOab7fafYcvq1iWn
-pvg157mJ/u9qdyU+1h8DncES30FkPsG8TsIsjx94JkTJeMmEJxtws4dfuoCk88IN
-bBHLjxBQgwTu0vgMxN34b5z+esHraetDN2fqxSoTOeIlyFzeS+kwG3GK4I1hUQBi
-L2TeDrnEY6qP/ZoGuyyVnsT/6pHY/BTAcH3Rgeqose7mqBT+7zlxDfHYHceuNB/l
-jq0e1j69AgMBAAECggEAPGhrPZV4A2D/MlE9AhLMRYh7wd4w4tHiEWUOG0kank/g
-Zhc0iK5WQmbq31y34GXHhInsThpCs5AIYFh3HSXwjS2udsKRQKxmDjH4nzldp2uX
-3w9Aoiy29GP4wZoCyRBGUZxfH1cQhOazXgrBm6vbPZRldD4nMer0R+BIamWEsIYD
-YjDj1pT0noLUSeqoLmGxSQ4DNIBQVZB/T8ziMcEzl6bhprT0QrapJSyD2CtA8tH1
-Z8cyhmyE0CUvSkV4K2ecvVukWBJvrAYc6euPAnkS5LJrQotI5+3jJO2QawOlL6Uw
-rFWBpgBrCgbzquMRpDCQ/J9/GDYaZjim4YdonboBgQKBgQD7jx3CVnG4LDz198am
-spmPwKCW1ke6PhlG7zf3YR00xg9vPBYiy4obb1Jg6em1wr+iZ0dEt8fimeZXewBf
-LzlrR8T1Or0eLzfbn+GlLIKGKhn2pKB/i1iolkfIonchqXRk9WNx+PzjgUqiYWRC
-/1tH2BsODlVrzKL2lnbWKNIFdQKBgQDFOLedpMeYemLhrsU1TXGt1xTxAbWvOCyt
-vig/huyz4SQENXyu3ImPzxIxpTHxKhUaXo/qFXn0jhqnf0LfWI4nbQUbkivb5BPr
-KY9aj7XwwsY4MXW5C12Qi0lIwHOWCmfzvyS7TCMqnQb7sT4Mjmm4ydEbiI1TjlFJ
-D/RFxzcDKQKBgQCehPcJyZNrrWTU0sh5rz4ZWhdYNbuJXyxqiMBJwQa4hL6hJ8oD
-LyPeWe4daAmAIjLEUjSU1wK8hqKiKb54PLgAJH+20MbvyG14lm2Iul2d0dX+mIsT
-FGpQAjNF+Sr9KV1RaVi7L12ct5KidKDLn0KUKVgTKXEmtxNSNEq6dYqzKQKBgDI8
-zljzvnwSwNloIYgAYDK+FPGHU/Z8QrVHOQ1lmyn+8aO41DfeqZPeVW4b/GrII3QC
-HnqsWdJ32EZOXoRyFFPqq2BojY+Hu6MthPy2msvncYKi5q/qOz00nchQbaEMqYon
-aH3lWRfjxAGdFocwR7HwhrmSwR1FpWMNE1Yq9tJxAoGBANc0nZSy5ZlTiMWdRrTt
-gFc9N/jz8OL6qLrJtX2Axyv7Vv8H/gbDg4olLR+Io38M0S1WwEHsaIJLIvJ6msjl
-/LlseAW6oiO6jzhWEr0VQSLkuJn45hG/uy7t19SDuNR7W5NuEr0YbWd6fZEpR7RR
-S1hFKnRRcrVqA+HjWnZ//BGi
------END PRIVATE KEY-----
-EOT
-	}
-
-	variable "test-secret-key" {
-		type = string
-		default = <<EOT
------BEGIN RSA PRIVATE KEY-----
-Proc-Type: 4,ENCRYPTED
-DEK-Info: DES-EDE3-CBC,9A26BB15304B18E7
-
-ZdBgMExsvIJEsIFDMQ02xh4nDnhXEGUNu7LiWIZjn9WS6QB2jApyOFOBWmp0lK6L
-dIJ+Mb8wMeHtkiKS6ZbYeea8M29kwEejZRnKl1Wq0EFycdwbONtbcbjzF+tQGEBT
-gQQgkY7wjDWl8HwjFEA+NUuitzi6uI2xWlQpFdUrmqJAZCbxNFa0aM8nW6jnitvP
-616ps3HjLnWCjoyqS4hWxiWmt+VE3KruPnUVVV7bWlzc6jnoZcSaeqeaoQrNKguH
-te2iBIMdY/uldb7Ik2Kxr2+kBRmV4YNkp1EelNi/m39VcoUHJLk1jLldzuINhbi2
-IRqYZe4EEMSYdb3TkSosXa64Sz7jMBz5AxlA0n78FKlB9G5FAxaXcVYNQIlvzCbw
-uXPbQd/UYKUuEI1Yn8OmGBN5xcOdgWz8hfyxA2Hq1tmo1XN6snavGe7TKbZd70N+
-1yFbclB2T1z8fPcLwUZUxOl4g2DoMMHIzCSPaIe/otT8389k4H6hEulLis4lW0p3
-qopL5kdpxmSGgXsX6q6CUFb/0cw9HskNT3zbzKLx2MzjFCo93IB07UxPwkCD2kb1
-sLKMcpTC8a0vLaTVNYgDX7wW/YjBrCokaqk0z1whuN6iSReOtvmu5ybrq1Ksg8UQ
-yvCSScM/+muKi+gbEOskQs4Ph3ZLHqAX3/XYoyBcFnPNxVHTIa5Dcju6h5gl1/uY
-6tkRsHDr0Lzy8pd6jjf/ApPf9ypCuxKUO1q8PzPg2E4bmEFxc8zOB2NLvfPgFrUR
-0Sbkapv/6x6nNRw75cu69c5we/atip6wst8J1MSU0fTqb6bZ3TF2pDyNEOkdkvoZ
-YZ0r3hUytdT0pImoDLKoyy17mtHLLApzHyIgmR3cqtSt07ncmC5lyEBcZBrQXMa8
-aZeOr8iUWQE/q+4BvoxeKsOD6ttKuFnrgl0rmMnYQsSyLJOPizrU4L1d1HMIKswm
-iW+Rg7xlWmQg95m8XEWTjAb3tuNz/tGXC7Qa88HvC7YfyG69yM61oPsT83YnxcBT
-C/X67lSFTYguFa3HgDZpjGq7Hc/Q7nhaoqNMEs01O6jbcmrue8IIa2FH1tTwPN0W
-D7JefjCQjEghue2mjc0fovOGe9A9jvWf+gJHF3vRtFa67uQiQxge9zUzpHyVNpOj
-Ve0y0HvibNTd6TSCArctJpIcwpjO3MTT5LBJ1p/8v4b4+knEKD2c69jumNbKGbWr
-Wjq39M/MGNUO5SbZMO3gFCt6fgtXkOktH9pJ9iOQpYKgl7QTe2qQygfWkIm0EZRN
-6EaQdNNKgENWicpKyKQ4BxoY1LYAHFHJ95VisLf3KmmOF5MwajADZQT/yth3gvht
-xx21b9iudcgq/CRccSvfIPIWZKi6oaqNIXK+E3DQd40TUopLsBWzacTZn9maSZtW
-RyAY1TkRn1qDR2soyhBcihrX5PZ83jnOlM3XTdfF1784g8zB9ooDnK7mUKueH1W3
-hWFADMUF7uaBbo5EZ9sE+dFPzWPJLhu2j67a1iHmByqEvFY64lzq7VwwU/GE8JdA
-85oEkhg1ZEPJp3OYTQfPI/CC/2fc93Exf6wmaXuss8AHehuGcKQniOZmFOKOBprv
------END RSA PRIVATE KEY-----
-EOT
-	}
-
-	variable "test-public-key" {
-		type = string
-		default = <<EOT
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwrVyExI0uvRmwCAKFHiv
-baAcPMcKJDa6f6TtaVo2p8jyfEhVwDTmR3FUrDDZAjh0Q8G/Up8Ob3+IJafNymCO
-BhUKou+8ie7guqsbU9JrT0Zos1k/pd0aVfnAR0EpW3es/7fdkWUszU0uweeEj22m
-XMlLplnqqoYOGAhuNMqGsZwBr36Bxq9EeB2O79QsAFDNkPVg7xIaYKn32j69o0Zr
-ryYI8xqOYYy5Dw6CX+++YYLYiR/PkLYJTVAsxXeqyltCfb3Iv7vN5HrfoYBhndr3
-NxBPkcIJZeh3Z+QzfJ5U+bB5fP/aOsEk5bPbtLzylj2KnOOM/ZxXJtOcu0xtJLd3
-XwIDAQAB
------END PUBLIC KEY-----
-EOT
-	}
-
-	resource "cpln_secret" "aws" {
-		name = "aws-${var.random}"
-		description = "aws description ${var.random}" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "aws"
-		} 
-		
-		aws {
-			secret_key = "AKIAIOSFODNN7EXAMPLE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey"
-			external_id = "ExampleExternalID-2024-02-09-abc123XYZ"
-		}
-	}
-
-	resource "cpln_secret" "azure_sdk" {
-		name = "azuresdk-${var.random}"
-		description = "azuresdk description ${var.random}" 
-			
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "azure-sdk"
-		} 
-	
-		azure_sdk = "    {\"subscriptionId\":   \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
-	}
-
-	resource "cpln_secret" "docker" {
-		name = "docker-${var.random}"
-		description = "docker description ${var.random}" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "docker"
-		} 
-			
-		docker = "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}  }  }"
-	}
-
-	resource "cpln_secret" "ecr" {
-		name = "ecr-${var.random}"
-		description = "ecr description ${var.random}" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "ecr"
-		} 
-		
-		ecr {
-			secret_key = "AKIAIOSFODNN7EXAMPLE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-			role_arn = "arn:awskey"
-			external_id = "ExampleExternalID-2024-02-09-abc123XYZ"
-
-			repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"]
-		}
-	}
-
-	resource "cpln_secret" "dictionary" {
-		name = "dictionary-${var.random}"
-		description = "dictionary description ${var.random}" 
-						
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "dictionary"
-		} 
-				
-		dictionary = {
-			key01 = "value-01"
-			key02 = "value-02"
-		}	
-	}
-
-	resource "cpln_secret" "gcp" {
-		name = "gcp-${var.random}"
-		description = "gcp description ${var.random}" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "gcp"
-		} 
-		
-		gcp = "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
-	}
-
-	resource "cpln_secret" "keypair" {
-			
-		name = "keypair-${var.random}"
-		description = "keypair description ${var.random}" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "keypair"
-			}
-			
-		keypair {
-			secret_key = var.test-secret-key	
-			public_key = var.test-public-key
-			passphrase = "cpln"
-		}
-	}
-
-	resource "cpln_secret" "opaque" {
-			name = "opaque-${var.random}"
-			description = "opaque description ${var.random}" 
-			
-			tags = {
-				terraform_generated = "true"
-				acceptance_test = "true"
-				secret_type = "opaque"
-			}
-	
-			opaque {
-				payload = "opaque_secret_payload"
-				encoding = "plain"
-			}
-		}
-
-
-	resource "cpln_secret" "tls" {
-		name = "tls-${var.random}"
-		description = "tls description ${var.random}" 
-		
-		tags = { 
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "tls"
-		} 
-
-		tls {
-			key = var.testcertprivate
-			cert = var.testcert
-			chain = var.testcert 
-		}
-	}
-
-	resource "cpln_secret" "userpass" {
-		name = "userpass-${var.random}"
-		description = "userpass description ${var.random}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "userpass"
-		}
-
-		userpass {
-			username = "cpln_username"
-			password = "cpln_password"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_secret" "azure_connector" {
-		name = "azureconnector-${var.random}"
-		description = "azureconnector description ${var.random}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "azure-connector"
-		}
-
-		azure_connector {
-			url  = "https://example.azurewebsites.net/api/iam-broker"
-			code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
-		}
-	}
-
-	resource "cpln_secret" "nats_account" {
-		name = "natsaccount-${var.random}"
-		description = "natsaccount description ${var.random}" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "nats-account"
-		}
-
-		nats_account {
-			account_id  = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
-			private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
-		}
-	}	
-	`, random)
+// SecretResourceTest defines the necessary functionality to test the resource.
+type SecretResourceTest struct {
+	Cases *[]SecretResourceTestCase
 }
 
-func testAccControlPlaneSecretUpdate(random string) string {
+// NewSecretResourceTest creates a SecretResourceTest with initialized test cases for all supported secret types.
+func NewSecretResourceTest() SecretResourceTest {
+	// Create a resource test instance
+	resourceTest := SecretResourceTest{}
 
-	return fmt.Sprintf(`
-	variable "random" {
-		type = string
-		default = "%s"
+	// Initialize the test cases to cover all secret types
+	cases := []SecretResourceTestCase{
+		resourceTest.NewOpaqueScenario(),
+		resourceTest.NewTlsScenario(),
+		resourceTest.NewGcpScenario(),
+		resourceTest.NewAwsScenario(),
+		resourceTest.NewEcrScenario(),
+		resourceTest.NewDockerScenario(),
+		resourceTest.NewUserpassScenario(),
+		resourceTest.NewKeypairScenario(),
+		resourceTest.NewDictionaryScenario(),
+		resourceTest.NewAzureSdkScenario(),
+		resourceTest.NewAzureConnectorScenario(),
+		resourceTest.NewNatsAccountScenario(),
 	}
 
-	variable "testcert" {
-		type = string
-		default = <<EOT
------BEGIN CERTIFICATE-----
-MIID+zCCAuOgAwIBAgIUEwBv3WQkP7dIiEIxyj+Wi1STz7QwDQYJKoZIhvcNAQEL
-BQAwgYwxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRQwEgYDVQQH
-DAtMb3MgQW5nZWxlczENMAsGA1UECgwEQ1BMTjERMA8GA1UECwwIQ1BMTi1PUkcx
-EDAOBgNVBAMMB2NwbG4uaW8xHjAcBgkqhkiG9w0BCQEWD3N1cHBvcnRAY3Bsbi5p
-bzAeFw0yMDEwMTQxNzI4MDhaFw0zMDEwMTIxNzI4MDhaMIGMMQswCQYDVQQGEwJV
-UzETMBEGA1UECAwKQ2FsaWZvcm5pYTEUMBIGA1UEBwwLTG9zIEFuZ2VsZXMxDTAL
-BgNVBAoMBENQTE4xETAPBgNVBAsMCENQTE4tT1JHMRAwDgYDVQQDDAdjcGxuLmlv
-MR4wHAYJKoZIhvcNAQkBFg9zdXBwb3J0QGNwbG4uaW8wggEiMA0GCSqGSIb3DQEB
-AQUAA4IBDwAwggEKAoIBAQDBzN2jRf9ouoF4XG0eUxcc4f1sP8vhW1fQXjun3cl0
-RsN4jRdOyTKWcls1yAxlOkwFod8d6HND9OvNrsl7U4iJIEcJL6vTqHY7jTGXQkd9
-yPONMpMXYE8Dsiqtk0deoOab7fafYcvq1iWnpvg157mJ/u9qdyU+1h8DncES30Fk
-PsG8TsIsjx94JkTJeMmEJxtws4dfuoCk88INbBHLjxBQgwTu0vgMxN34b5z+esHr
-aetDN2fqxSoTOeIlyFzeS+kwG3GK4I1hUQBiL2TeDrnEY6qP/ZoGuyyVnsT/6pHY
-/BTAcH3Rgeqose7mqBT+7zlxDfHYHceuNB/ljq0e1j69AgMBAAGjUzBRMB0GA1Ud
-DgQWBBRxncC/8RRio/S9Ly8tKFS7WnTcNTAfBgNVHSMEGDAWgBRxncC/8RRio/S9
-Ly8tKFS7WnTcNTAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAr
-sDZQj4K47fW6JkJbxlzZ1hd7IX6cQhI/DRIdTGR1u0kM1RtZoS0UtV5qsYV/g/S4
-ChuB/aIARyTWvHKDhcT3bRGHLnoZJ8pLlQh4nEfO07SRhyeNiO4qmWM9az0nP5qD
-wAXpLpmYIairzAgY7QXbk5wXbTrXli3mz14VaNoqN4s7iyLtHn5TGAXc12aMwo7M
-5yn/RGxoWQoJqSQKc9nf909cR81AVCdG1dFcp7u8Ud1pTtlmiU9ZJ/YOXDCT/1hZ
-YxoeotDBBOIao3Ym/3351somMoQ7Lz6hRWvG0WhDIsCXvth4XSxRkZFXgjWNuhdD
-u2ZCis/EwXsqRJPkIPnL
------END CERTIFICATE-----		
-EOT
-	}
+	// Set the cases for the resource test
+	resourceTest.Cases = &cases
 
-	variable "testcertprivate" {
-		type = string
-		default = <<EOT
------BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDBzN2jRf9ouoF4
-XG0eUxcc4f1sP8vhW1fQXjun3cl0RsN4jRdOyTKWcls1yAxlOkwFod8d6HND9OvN
-rsl7U4iJIEcJL6vTqHY7jTGXQkd9yPONMpMXYE8Dsiqtk0deoOab7fafYcvq1iWn
-pvg157mJ/u9qdyU+1h8DncES30FkPsG8TsIsjx94JkTJeMmEJxtws4dfuoCk88IN
-bBHLjxBQgwTu0vgMxN34b5z+esHraetDN2fqxSoTOeIlyFzeS+kwG3GK4I1hUQBi
-L2TeDrnEY6qP/ZoGuyyVnsT/6pHY/BTAcH3Rgeqose7mqBT+7zlxDfHYHceuNB/l
-jq0e1j69AgMBAAECggEAPGhrPZV4A2D/MlE9AhLMRYh7wd4w4tHiEWUOG0kank/g
-Zhc0iK5WQmbq31y34GXHhInsThpCs5AIYFh3HSXwjS2udsKRQKxmDjH4nzldp2uX
-3w9Aoiy29GP4wZoCyRBGUZxfH1cQhOazXgrBm6vbPZRldD4nMer0R+BIamWEsIYD
-YjDj1pT0noLUSeqoLmGxSQ4DNIBQVZB/T8ziMcEzl6bhprT0QrapJSyD2CtA8tH1
-Z8cyhmyE0CUvSkV4K2ecvVukWBJvrAYc6euPAnkS5LJrQotI5+3jJO2QawOlL6Uw
-rFWBpgBrCgbzquMRpDCQ/J9/GDYaZjim4YdonboBgQKBgQD7jx3CVnG4LDz198am
-spmPwKCW1ke6PhlG7zf3YR00xg9vPBYiy4obb1Jg6em1wr+iZ0dEt8fimeZXewBf
-LzlrR8T1Or0eLzfbn+GlLIKGKhn2pKB/i1iolkfIonchqXRk9WNx+PzjgUqiYWRC
-/1tH2BsODlVrzKL2lnbWKNIFdQKBgQDFOLedpMeYemLhrsU1TXGt1xTxAbWvOCyt
-vig/huyz4SQENXyu3ImPzxIxpTHxKhUaXo/qFXn0jhqnf0LfWI4nbQUbkivb5BPr
-KY9aj7XwwsY4MXW5C12Qi0lIwHOWCmfzvyS7TCMqnQb7sT4Mjmm4ydEbiI1TjlFJ
-D/RFxzcDKQKBgQCehPcJyZNrrWTU0sh5rz4ZWhdYNbuJXyxqiMBJwQa4hL6hJ8oD
-LyPeWe4daAmAIjLEUjSU1wK8hqKiKb54PLgAJH+20MbvyG14lm2Iul2d0dX+mIsT
-FGpQAjNF+Sr9KV1RaVi7L12ct5KidKDLn0KUKVgTKXEmtxNSNEq6dYqzKQKBgDI8
-zljzvnwSwNloIYgAYDK+FPGHU/Z8QrVHOQ1lmyn+8aO41DfeqZPeVW4b/GrII3QC
-HnqsWdJ32EZOXoRyFFPqq2BojY+Hu6MthPy2msvncYKi5q/qOz00nchQbaEMqYon
-aH3lWRfjxAGdFocwR7HwhrmSwR1FpWMNE1Yq9tJxAoGBANc0nZSy5ZlTiMWdRrTt
-gFc9N/jz8OL6qLrJtX2Axyv7Vv8H/gbDg4olLR+Io38M0S1WwEHsaIJLIvJ6msjl
-/LlseAW6oiO6jzhWEr0VQSLkuJn45hG/uy7t19SDuNR7W5NuEr0YbWd6fZEpR7RR
-S1hFKnRRcrVqA+HjWnZ//BGi
------END PRIVATE KEY-----
-EOT
-	}
-
-	variable "test-secret-key" {
-		type = string
-		default = <<EOT
------BEGIN RSA PRIVATE KEY-----
-Proc-Type: 4,ENCRYPTED
-DEK-Info: DES-EDE3-CBC,9A26BB15304B18E7
-
-ZdBgMExsvIJEsIFDMQ02xh4nDnhXEGUNu7LiWIZjn9WS6QB2jApyOFOBWmp0lK6L
-dIJ+Mb8wMeHtkiKS6ZbYeea8M29kwEejZRnKl1Wq0EFycdwbONtbcbjzF+tQGEBT
-gQQgkY7wjDWl8HwjFEA+NUuitzi6uI2xWlQpFdUrmqJAZCbxNFa0aM8nW6jnitvP
-616ps3HjLnWCjoyqS4hWxiWmt+VE3KruPnUVVV7bWlzc6jnoZcSaeqeaoQrNKguH
-te2iBIMdY/uldb7Ik2Kxr2+kBRmV4YNkp1EelNi/m39VcoUHJLk1jLldzuINhbi2
-IRqYZe4EEMSYdb3TkSosXa64Sz7jMBz5AxlA0n78FKlB9G5FAxaXcVYNQIlvzCbw
-uXPbQd/UYKUuEI1Yn8OmGBN5xcOdgWz8hfyxA2Hq1tmo1XN6snavGe7TKbZd70N+
-1yFbclB2T1z8fPcLwUZUxOl4g2DoMMHIzCSPaIe/otT8389k4H6hEulLis4lW0p3
-qopL5kdpxmSGgXsX6q6CUFb/0cw9HskNT3zbzKLx2MzjFCo93IB07UxPwkCD2kb1
-sLKMcpTC8a0vLaTVNYgDX7wW/YjBrCokaqk0z1whuN6iSReOtvmu5ybrq1Ksg8UQ
-yvCSScM/+muKi+gbEOskQs4Ph3ZLHqAX3/XYoyBcFnPNxVHTIa5Dcju6h5gl1/uY
-6tkRsHDr0Lzy8pd6jjf/ApPf9ypCuxKUO1q8PzPg2E4bmEFxc8zOB2NLvfPgFrUR
-0Sbkapv/6x6nNRw75cu69c5we/atip6wst8J1MSU0fTqb6bZ3TF2pDyNEOkdkvoZ
-YZ0r3hUytdT0pImoDLKoyy17mtHLLApzHyIgmR3cqtSt07ncmC5lyEBcZBrQXMa8
-aZeOr8iUWQE/q+4BvoxeKsOD6ttKuFnrgl0rmMnYQsSyLJOPizrU4L1d1HMIKswm
-iW+Rg7xlWmQg95m8XEWTjAb3tuNz/tGXC7Qa88HvC7YfyG69yM61oPsT83YnxcBT
-C/X67lSFTYguFa3HgDZpjGq7Hc/Q7nhaoqNMEs01O6jbcmrue8IIa2FH1tTwPN0W
-D7JefjCQjEghue2mjc0fovOGe9A9jvWf+gJHF3vRtFa67uQiQxge9zUzpHyVNpOj
-Ve0y0HvibNTd6TSCArctJpIcwpjO3MTT5LBJ1p/8v4b4+knEKD2c69jumNbKGbWr
-Wjq39M/MGNUO5SbZMO3gFCt6fgtXkOktH9pJ9iOQpYKgl7QTe2qQygfWkIm0EZRN
-6EaQdNNKgENWicpKyKQ4BxoY1LYAHFHJ95VisLf3KmmOF5MwajADZQT/yth3gvht
-xx21b9iudcgq/CRccSvfIPIWZKi6oaqNIXK+E3DQd40TUopLsBWzacTZn9maSZtW
-RyAY1TkRn1qDR2soyhBcihrX5PZ83jnOlM3XTdfF1784g8zB9ooDnK7mUKueH1W3
-hWFADMUF7uaBbo5EZ9sE+dFPzWPJLhu2j67a1iHmByqEvFY64lzq7VwwU/GE8JdA
-85oEkhg1ZEPJp3OYTQfPI/CC/2fc93Exf6wmaXuss8AHehuGcKQniOZmFOKOBprv
------END RSA PRIVATE KEY-----
-EOT
-	}
-
-	variable "test-public-key" {
-		type = string
-		default = <<EOT
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwrVyExI0uvRmwCAKFHiv
-baAcPMcKJDa6f6TtaVo2p8jyfEhVwDTmR3FUrDDZAjh0Q8G/Up8Ob3+IJafNymCO
-BhUKou+8ie7guqsbU9JrT0Zos1k/pd0aVfnAR0EpW3es/7fdkWUszU0uweeEj22m
-XMlLplnqqoYOGAhuNMqGsZwBr36Bxq9EeB2O79QsAFDNkPVg7xIaYKn32j69o0Zr
-ryYI8xqOYYy5Dw6CX+++YYLYiR/PkLYJTVAsxXeqyltCfb3Iv7vN5HrfoYBhndr3
-NxBPkcIJZeh3Z+QzfJ5U+bB5fP/aOsEk5bPbtLzylj2KnOOM/ZxXJtOcu0xtJLd3
-XwIDAQAB
------END PUBLIC KEY-----
-EOT
-	}
-
-	resource "cpln_secret" "aws" {
-		name = "aws-${var.random}"
-		description = "aws description ${var.random} updated" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "aws"
-			update = "true"
-		} 
-		
-		aws {
-			secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
-			role_arn = "arn:awskeyupdate"
-			external_id = "ExampleExternalID-2024-02-09-abc123XYZ-update"
-		}
-	}
-
-	resource "cpln_secret" "azure_sdk" {
-		name = "azuresdk-${var.random}"
-		description = "azuresdk description ${var.random} updated" 
-			
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "azure-sdk"
-			update = "true"
-		}
-	
-		azure_sdk = "{\"subscriptionId\": \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\", \"tenantId\": \"292f5674-c8b0-488b-9ff8-6d30d77f38d9\", \"clientId\": \"649846ce-d862-49d5-a5eb-7d5aad90f54e\", \"clientSecret\": \"cplnupdate\"}"
-	}
-
-	resource "cpln_secret" "docker" {
-		name = "docker-${var.random}"
-		description = "docker description ${var.random} updated" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "docker"
-			update = "true"
-		} 
-			
-		docker = "{\"auths\":{\"your-registry-server-update\":{\"username\":\"your-name-update\",\"password\":\"your-pword-update\",\"email\":\"your-email-update\",\"auth\":\"<Secret>\"}  }  }"
-	}
-
-	resource "cpln_secret" "ecr" {
-		name = "ecr-${var.random}"
-		description = "ecr description ${var.random} updated" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "ecr"
-			update = "true"
-		} 
-		
-		ecr {
-			secret_key = "AKIAIOSFODNN7EXAMPLEUPDATE"
-			access_key = "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
-			role_arn = "arn:awskeyupdate"
-			external_id = "ExampleExternalID-2024-02-09-abc123XYZ-update"
-
-			repos = ["915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test-update", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test-update", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test-new"]
-		}
-	}
-
-	resource "cpln_secret" "dictionary" {
-		name = "dictionary-${var.random}"
-		description = "dictionary description ${var.random} updated" 
-						
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "dictionary"
-			update = "true"
-		} 
-				
-		dictionary = {
-			key01 = "value-01"
-			key02update = "value-02-update"
-			key03 = "value-03"
-		}	
-	}
-
-	resource "cpln_secret" "gcp" {
-		name = "gcp-${var.random}"
-		description = "gcp description ${var.random} updated" 
-				
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "gcp"
-			update = "true"
-		} 
-		
-		gcp = "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345-update\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
-	}
-
-	resource "cpln_secret" "keypair" {
-			
-		name = "keypair-${var.random}"
-		description = "keypair description ${var.random} updated" 
-					
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "keypair"
-			update = "true"
-		}
-			
-		keypair {
-			secret_key = var.test-secret-key	
-			public_key = var.test-public-key
-			passphrase = "cpln"
-		}
-	}
-
-	resource "cpln_secret" "opaque" {
-		name = "opaque-${var.random}"
-		description = "opaque description ${var.random} updated" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "opaque"
-			update = "true"
-		}
-
-		opaque {
-			payload  = "opaque_secret_payload_update"
-			encoding = "plain"
-		}
-	}
-
-
-	resource "cpln_secret" "tls" {
-		name = "tls-${var.random}"
-		description = "tls description ${var.random} updated" 
-		
-		tags = { 
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "tls"
-			update = "true"
-		} 
-
-		tls {
-			key = var.testcertprivate
-			cert = var.testcert
-			chain = var.testcert 
-		}
-	}
-
-	resource "cpln_secret" "userpass" {
-		name = "userpass-${var.random}"
-		description = "userpass description ${var.random} updated" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "userpass"
-			update = "true"
-		}
-
-		userpass {
-			username = "cpln_username_update"
-			password = "cpln_password_update"
-			encoding = "plain"
-		}
-	}
-
-	resource "cpln_secret" "azure_connector" {
-		name = "azureconnector-${var.random}"
-		description = "azureconnector description ${var.random} updated" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "azure-connector"
-			update = "true"
-		}
-
-		azure_connector {
-			url  = "https://example.azurewebsites.net/api/iam-broker-update"
-			code = "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNUPDATE=="
-		}
-	}
-
-	resource "cpln_secret" "nats_account" {
-		name = "natsaccount-${var.random}"
-		description = "natsaccount description ${var.random} updated" 
-		
-		tags = {
-			terraform_generated = "true"
-			acceptance_test = "true"
-			secret_type = "nats-account"
-			update = "true"
-		}
-
-		nats_account {
-			account_id  = "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
-			private_key = "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
-		}
-	}	
-	`, random)
+	// Return the resource test
+	return resourceTest
 }
 
-// func testAccControlPlaneSecretAzure(random string) string {
+// InitializeSteps defines the ordered test steps for creating, updating, importing, and reverting secret resources.
+func (srt *SecretResourceTest) InitializeSteps() []resource.TestStep {
+	// Build combined HCL configs for initial state
+	initialConfig := srt.CollectHcl(func(s SecretResourceTestCase) string { return s.InitialHCL })
 
-// 	return fmt.Sprintf(`
-// 	variable "random" {
-// 		type = string
-// 		default = "%s"
-// 	}
+	// Build combined HCL configs for updated state
+	updateConfig := srt.CollectHcl(func(s SecretResourceTestCase) string { return s.UpdateHCL })
 
-// 	resource "cpln_secret" "azure_sdk" {
-// 		name = "azuresdk${var.random}"
-// 		description = "azuresdk description ${var.random}"
+	// Collect all test check functions for initial verification
+	initialChecks := srt.CollectChecks(func(s SecretResourceTestCase) []resource.TestCheckFunc { return s.InitialChecks })
 
-// 		tags = {
-// 			terraform_generated = "true"
-// 			acceptance_test = "true"
-// 			secret_type = "azure-sdk"
-// 		}
+	// Collect all test check functions for updated verification
+	updateChecks := srt.CollectChecks(func(s SecretResourceTestCase) []resource.TestCheckFunc { return s.UpdateChecks })
 
-// 		azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
-// 	}
-// 	`, random)
-// }
+	// Build import steps for each scenario
+	importSteps := make([]resource.TestStep, len(*srt.Cases))
+	for i, c := range *srt.Cases {
+		// Create an import test step for the current case
+		importSteps[i] = resource.TestStep{
+			ResourceName: c.Scenario.ResourceAddress,
+			ImportState:  true,
+		}
+	}
 
-// func testAccControlPlaneSecretAzureToUserPass(random string) string {
+	// Declare the full set of test steps
+	var steps []resource.TestStep
 
-// 	return fmt.Sprintf(`
-// 	variable "random" {
-// 		type = string
-// 		default = "%s"
-// 	}
+	// Add step to create the resource and validate initial state
+	steps = append(steps, resource.TestStep{
+		Config: initialConfig,
+		Check:  resource.ComposeAggregateTestCheckFunc(initialChecks...),
+	})
 
-// 	resource "cpln_secret" "azure_sdk" {
-// 		name = "azuresdk${var.random}"
-// 		description = "azuresdk description ${var.random}"
+	// Add import steps to validate import functionality
+	steps = append(steps, importSteps...)
 
-// 		tags = {
-// 			terraform_generated = "true"
-// 			acceptance_test = "true"
-// 			secret_type = "azure-sdk"
-// 		}
+	// Add step to update the resource and validate updated state
+	steps = append(steps, resource.TestStep{
+		Config: updateConfig,
+		Check:  resource.ComposeAggregateTestCheckFunc(updateChecks...),
+	})
 
-// 		// azure_sdk = "{\"subscriptionId\":\"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
+	// Add step to revert the resource to its initial state
+	steps = append(steps, resource.TestStep{
+		Config: initialConfig,
+		Check:  resource.ComposeAggregateTestCheckFunc(initialChecks...),
+	})
 
-// 		userpass {
-// 			username = "cpln_username"
-// 			password = "cpln_password"
-// 			encoding = "plain"
-// 		}
+	// Return the full sequence of test steps
+	return steps
+}
 
-// 	}
-// 	`, random)
-// }
+// CollectHcl concatenates HCL blocks from all scenarios.
+func (srt *SecretResourceTest) CollectHcl(hclFunc func(SecretResourceTestCase) string) string {
+	// Initialize a slice to store HCL blocks
+	parts := []string{}
 
-func testAccCheckControlPlaneSecretCheckDestroy(s *terraform.State) error {
+	// Iterate over the test cases and generate HCL for each
+	for _, c := range *srt.Cases {
+		// Append the HCL generated from the current case
+		parts = append(parts, hclFunc(c))
+	}
 
+	// Join all HCL blocks with double newline separator and return the result
+	return strings.Join(parts, "\n\n")
+}
+
+// CollectChecks flattens all TestCheckFuncs.
+func (srt *SecretResourceTest) CollectChecks(checksFunc func(SecretResourceTestCase) []resource.TestCheckFunc) []resource.TestCheckFunc {
+	// Initialize a slice to collect all test check functions
+	var checks []resource.TestCheckFunc
+
+	// Iterate over the test cases and extract checks from each
+	for _, c := range *srt.Cases {
+		// Append all checks from the current case to the result slice
+		checks = append(checks, checksFunc(c)...)
+	}
+
+	// Return the full list of test check functions
+	return checks
+}
+
+// CheckDestroy verifies that all resources have been destroyed.
+func (srt *SecretResourceTest) CheckDestroy(s *terraform.State) error {
+	// Log the start of the destroy check with the count of resources in the root module
+	tflog.Info(TestLoggerContext, fmt.Sprintf("Starting CheckDestroy for cpln_secret resources. Total resources: %d", len(s.RootModule().Resources)))
+
+	// If no resources are present in the Terraform state, log and return early
 	if len(s.RootModule().Resources) == 0 {
-		return fmt.Errorf("Error In CheckDestroy. No Resources To Verify")
+		return errors.New("CheckDestroy error: no resources found in the state to verify")
 	}
 
-	c := testAccProvider.Meta().(*client.Client)
-
+	// Iterate through each resource in the state
 	for _, rs := range s.RootModule().Resources {
+		// Log the resource type being checked
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking resource type: %s", rs.Type))
 
+		// Continue only if the resource is as expected
 		if rs.Type != "cpln_secret" {
 			continue
 		}
 
+		// Retrieve the name for the current resource
 		secretName := rs.Primary.ID
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of secret with name: %s", secretName))
 
-		secret, _, _ := c.GetSecret(secretName)
+		// Use the TestProvider client to check if the API resource still exists in the data service
+		secret, code, err := TestProvider.client.GetSecret(secretName)
+
+		// If a 404 status code is returned, it indicates the API resource was deleted
+		if code == 404 {
+			continue
+		}
+
+		// If an error occurs during the request, return an error
+		if err != nil {
+			return fmt.Errorf("error occurred while checking if secret %s exists: %w", secretName, err)
+		}
+
+		// If the API resource is found, return an error indicating it still exists
 		if secret != nil {
-			return fmt.Errorf("Secret still exists. Name: %s", *secret.Name)
+			return fmt.Errorf("CheckDestroy failed: secret %s still exists in the system", *secret.Name)
 		}
 	}
 
+	// Log successful completion of the destroy check
+	tflog.Info(TestLoggerContext, "All cpln_secret resources have been successfully destroyed")
 	return nil
+}
+
+// Test Cases //
+
+// NewOpaqueScenario creates a test case for opaque secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewOpaqueScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-opaque-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	payload := "opaque_secret_payload"
+	encoding := "plain"
+
+	// Define the updated config
+	payloadUpdate := "b3BhcXVlX3NlY3JldF9wYXlsb2FkX3VwZGF0ZQ=="
+	encodingUpdate := "base64"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.opaque",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "opaque description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.OpaqueRequiredOnly(payload),
+		UpdateHCL:  scenario.OpaqueUpdateWithOptionals(payloadUpdate, encodingUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("opaque", []map[string]interface{}{
+				{
+					"payload":  payload,
+					"encoding": encoding,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("opaque", []map[string]interface{}{
+				{
+					"payload":  payloadUpdate,
+					"encoding": encodingUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewTlsScenario creates a test case for TLS secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewTlsScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-tls-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	privateKey := MustLoadTestData("private_key.pem")
+	certificate := MustLoadTestData("certificate.pem")
+
+	// Define the updated config
+	privateKeyUpdate := MustLoadTestData("private_key_update.pem")
+	certificateUpdate := MustLoadTestData("certificate_update.pem")
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.tls",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "tls description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.TlsRequiredOnly(privateKey, certificate),
+		UpdateHCL:  scenario.TlsUpdateWithOptionals(privateKeyUpdate, certificateUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("tls", []map[string]interface{}{
+				{
+					"key":  privateKey,
+					"cert": certificate,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("tls", []map[string]interface{}{
+				{
+					"key":   privateKeyUpdate,
+					"cert":  certificateUpdate,
+					"chain": certificateUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewGcpScenario creates a test case for GCP secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewGcpScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-gcp-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	data := "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
+
+	// Define the updated config
+	dataUpdate := "{   \"type\":   \"gcp\",\"project_id\":\"cpln12345-update\",\"private_key_id\":\"pvt_key\",\"private_key\":\"key\",\"client_email\":\"support@cpln.io\",\"client_id\":\"12744\",\"auth_uri\":\"cloud.google.com\",\"token_uri\":\"token.cloud.google.com\",\"auth_provider_x509_cert_url\":\"cert.google.com\",\"client_x509_cert_url\":\"cert.google.com\"}"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.gcp",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "gcp description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.GcpRequiredOnly(data),
+		UpdateHCL:  scenario.GcpUpdateWithOptionals(dataUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			resource.TestCheckResourceAttr(scenario.ResourceAddress, "gcp", data),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			resource.TestCheckResourceAttr(scenario.ResourceAddress, "gcp", dataUpdate),
+		},
+	}
+}
+
+// NewAwsScenario creates a test case for AWS secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewAwsScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-aws-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	secretKey := "AKIAIOSFODNN7EXAMPLE"
+	accessKey := "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+
+	// Define the updated config
+	secretKeyUpdate := "AKIAIOSFODNN7EXAMPLEUPDATE"
+	accessKeyUpdate := "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
+	roleArnUpdate := "arn:awskeyupdate"
+	externalIdUpdate := "ExampleExternalID-2024-02-09-abc123XYZ-update"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.aws",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "aws description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.AwsRequiredOnly(secretKey, accessKey),
+		UpdateHCL:  scenario.AwsUpdateWithOptionals(secretKeyUpdate, accessKeyUpdate, roleArnUpdate, externalIdUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("aws", []map[string]interface{}{
+				{
+					"secret_key": secretKey,
+					"access_key": accessKey,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("aws", []map[string]interface{}{
+				{
+					"secret_key":  secretKeyUpdate,
+					"access_key":  accessKeyUpdate,
+					"role_arn":    roleArnUpdate,
+					"external_id": externalIdUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewEcrScenario creates a test case for ECR secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewEcrScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-ecr-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	secretKey := "AKIAIOSFODNN7EXAMPLE"
+	accessKey := "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+	repos := []string{"915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test"}
+
+	// Define the updated config
+	secretKeyUpdate := "AKIAIOSFODNN7EXAMPLEUPDATE"
+	accessKeyUpdate := "AKIAwJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEYUPDATE"
+	roleArnUpdate := "arn:awskeyupdate"
+	externalIdUpdate := "ExampleExternalID-2024-02-09-abc123XYZ-update"
+	reposUpdate := []string{"915716931765.dkr.ecr.us-west-2.amazonaws.com/env-test-update", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test-update", "015716931765.dkr.ecr.us-west-2.amazonaws.com/cpln-test-new"}
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.ecr",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "ecr description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.EcrRequiredOnly(secretKey, accessKey, repos),
+		UpdateHCL:  scenario.EcrUpdateWithOptionals(secretKeyUpdate, accessKeyUpdate, roleArnUpdate, externalIdUpdate, reposUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("ecr", []map[string]interface{}{
+				{
+					"secret_key": secretKey,
+					"access_key": accessKey,
+					"repos":      repos,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("ecr", []map[string]interface{}{
+				{
+					"secret_key":  secretKeyUpdate,
+					"access_key":  accessKeyUpdate,
+					"role_arn":    roleArnUpdate,
+					"external_id": externalIdUpdate,
+					"repos":       reposUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewDockerScenario creates a test case for Docker secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewDockerScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-docker-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	data := "{\"auths\":{\"your-registry-server\":{\"username\":\"your-name\",\"password\":\"your-pword\",\"email\":\"your-email\",\"auth\":\"<Secret>\"}  }  }"
+
+	// Define the updated config
+	dataUpdate := "{\"auths\":{\"your-registry-server-update\":{\"username\":\"your-name-update\",\"password\":\"your-pword-update\",\"email\":\"your-email-update\",\"auth\":\"<Secret>\"}  }  }"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.docker",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "docker description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.DockerRequiredOnly(data),
+		UpdateHCL:  scenario.DockerUpdateWithOptionals(dataUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			resource.TestCheckResourceAttr(scenario.ResourceAddress, "docker", data),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			resource.TestCheckResourceAttr(scenario.ResourceAddress, "docker", dataUpdate),
+		},
+	}
+}
+
+// NewUserpassScenario creates a test case for UserPass secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewUserpassScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-userpass-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	username := "cpln_username"
+	password := "cpln_password"
+	encoding := "plain"
+
+	// Define the updated config
+	usernameUpdate := "cpln_username_update"
+	passwordUpdate := "cpln_password_update"
+	encodingUpdate := "base64"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.userpass",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "userpass description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.UserpassRequiredOnly(username, password),
+		UpdateHCL:  scenario.UserpassUpdateWithOptionals(usernameUpdate, passwordUpdate, encodingUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("userpass", []map[string]interface{}{
+				{
+					"username": username,
+					"password": password,
+					"encoding": encoding,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("userpass", []map[string]interface{}{
+				{
+					"username": usernameUpdate,
+					"password": passwordUpdate,
+					"encoding": encodingUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewKeypairScenario creates a test case for KeyPair secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewKeypairScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-keypair-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	secretKey := MustLoadTestData("secret_key.pem")
+
+	// Define the updated config
+	secretKeyUpdate := MustLoadTestData("secret_key_update.pem")
+	publicKeyUpdate := MustLoadTestData("public_key.pem")
+	passphraseUpdate := "cpln"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.keypair",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "keypair description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.KeypairRequiredOnly(secretKey),
+		UpdateHCL:  scenario.KeypairUpdateWithOptionals(secretKeyUpdate, publicKeyUpdate, passphraseUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("keypair", []map[string]interface{}{
+				{
+					"secret_key": secretKey,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("keypair", []map[string]interface{}{
+				{
+					"secret_key": secretKeyUpdate,
+					"public_key": publicKeyUpdate,
+					"passphrase": passphraseUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewDictionaryScenario creates a test case for Dictionary secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewDictionaryScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-dictionary-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	dictionary := map[string]interface{}{
+		"key01": "value-01",
+		"key02": "value-02",
+	}
+
+	// Define the updated config
+	dictionaryUpdate := map[string]interface{}{
+		"key01":       "value-01",
+		"key02update": "value-02-update",
+		"key03":       "value-03",
+	}
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.dictionary",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "dictionary description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.DictionaryRequiredOnly(dictionary),
+		UpdateHCL:  scenario.DictionaryUpdateWithOptionals(dictionaryUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckMapAttr("dictionary", ConvertMapToStringMap(dictionary)),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckMapAttr("dictionary", ConvertMapToStringMap(dictionaryUpdate)),
+		},
+	}
+}
+
+// NewAzureSdkScenario creates a test case for AzureSdk secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewAzureSdkScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-azure-sdk-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	data := "{     \"subscriptionId\":   \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\",\"tenantId\":\"292f5674-c8b0-488b-9ff8-6d30d77f38d9\",\"clientId\":\"649846ce-d862-49d5-a5eb-7d5aad90f54e\",\"clientSecret\":\"cpln\"}"
+
+	// Define the updated config
+	dataUpdate := "{\"subscriptionId\": \"2cd8674e-4f89-4a1f-b420-7a1361b46ef7\", \"tenantId\": \"292f5674-c8b0-488b-9ff8-6d30d77f38d9\", \"clientId\": \"649846ce-d862-49d5-a5eb-7d5aad90f54e\", \"clientSecret\": \"cplnupdate\"}"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.azure-sdk",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "azure-sdk description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.AzureSdkRequiredOnly(data),
+		UpdateHCL:  scenario.AzureSdkUpdateWithOptionals(dataUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			resource.TestCheckResourceAttr(scenario.ResourceAddress, "azure_sdk", data),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			resource.TestCheckResourceAttr(scenario.ResourceAddress, "azure_sdk", dataUpdate),
+		},
+	}
+}
+
+// NewAzureConnectorScenario creates a test case for AzureConnector secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewAzureConnectorScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-azure-connector-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	url := "https://example.azurewebsites.net/api/iam-broker"
+	code := "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGNYzM3QA=="
+
+	// Define the updated config
+	urlUpdate := "https://example.azurewebsites.net/api/iam-broker-update"
+	codeUpdate := "iH0wQjWdAai3oE1C7XrC3t1BBaD7N7foapAylbMaR7HXOmGUPDATE=="
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.azure-connector",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "azure-connector description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.AzureConnectorRequiredOnly(url, code),
+		UpdateHCL:  scenario.AzureConnectorUpdateWithOptionals(urlUpdate, codeUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("azure_connector", []map[string]interface{}{
+				{
+					"url":  url,
+					"code": code,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("azure_connector", []map[string]interface{}{
+				{
+					"url":  urlUpdate,
+					"code": codeUpdate,
+				},
+			}),
+		},
+	}
+}
+
+// NewNatsAccountScenario creates a test case for NatsAccount secret type with initial and updated configurations.
+func (srt *SecretResourceTest) NewNatsAccountScenario() SecretResourceTestCase {
+	// Generate a unique name for the secret resource
+	name := fmt.Sprintf("secret-nats-account-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
+
+	// Define the initial config
+	accountId := "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+	privateKey := "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+
+	// Define the updated config
+	accountIdUpdate := "AB7JJPKAYKNQOKRKIOS5UCCLALTUAAXCC7FR2QGC4V5UFCAKW4EBIFVZ"
+	privateKeyUpdate := "SAABRA7OGVHKARDQLUQ6THIABW5PMOHJVPSOPTWZRP4WD5LPVOLGTU6ONQ"
+
+	// Create the secret test scenario with metadata and descriptions
+	scenario := SecretResourceTestScenario{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "secret",
+			ResourceAddress:   "cpln_secret.nats-account",
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "nats-account description updated",
+		},
+	}
+
+	// Return the complete test case for the opaque secret
+	return SecretResourceTestCase{
+		Scenario:   scenario,
+		InitialHCL: scenario.NatsAccountRequiredOnly(accountId, privateKey),
+		UpdateHCL:  scenario.NatsAccountUpdateWithOptionals(accountIdUpdate, privateKeyUpdate),
+		InitialChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.Description, "0"),
+			scenario.TestCheckNestedBlocks("nats_account", []map[string]interface{}{
+				{
+					"account_id":  accountId,
+					"private_key": privateKey,
+				},
+			}),
+		},
+		UpdateChecks: []resource.TestCheckFunc{
+			scenario.Exists(),
+			scenario.GetDefaultChecks(scenario.DescriptionUpdate, "3"),
+			scenario.TestCheckNestedBlocks("nats_account", []map[string]interface{}{
+				{
+					"account_id":  accountIdUpdate,
+					"private_key": privateKeyUpdate,
+				},
+			}),
+		},
+	}
+}
+
+/*** Resource Test Case ***/
+
+// SecretResourceTestScenario defines a specific resource test case.
+type SecretResourceTestCase struct {
+	Scenario      SecretResourceTestScenario
+	InitialHCL    string
+	UpdateHCL     string
+	InitialChecks []resource.TestCheckFunc
+	UpdateChecks  []resource.TestCheckFunc
+}
+
+/*** Resource Test Scenario ***/
+
+// SecretResourceTestScenario defines a specific resource test scenario.
+type SecretResourceTestScenario struct {
+	ProviderTestCase
+}
+
+// Exists verifies that a specified resource exist within the Terraform state and in the data service.
+func (srts *SecretResourceTestScenario) Exists() resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// Log the start of the existence check with the resource count
+		tflog.Info(TestLoggerContext, fmt.Sprintf("Checking existence of secret: %s. Total resources: %d", srts.Name, len(s.RootModule().Resources)))
+
+		// Retrieve the resource from the Terraform state
+		rs, ok := s.RootModule().Resources[srts.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource not found in state: %s", srts.ResourceAddress)
+		}
+
+		// Ensure the resource ID matches the expected API resource name
+		if rs.Primary.ID != srts.Name {
+			return fmt.Errorf("resource ID %s does not match expected secret name %s", rs.Primary.ID, srts.Name)
+		}
+
+		// Retrieve the API resource from the external system using the provider client
+		remoteSecret, _, err := TestProvider.client.GetSecret(srts.Name)
+		if err != nil {
+			return fmt.Errorf("error retrieving secret from external system: %w", err)
+		}
+
+		// Verify the API resource name from the external system matches the expected resource name
+		if *remoteSecret.Name != srts.Name {
+			return fmt.Errorf("mismatch in secret name: expected %s, got %s", srts.Name, *remoteSecret.Name)
+		}
+
+		// Log successful verification of API resource existence
+		tflog.Info(TestLoggerContext, fmt.Sprintf("secret %s verified successfully in both state and external system.", srts.Name))
+		return nil
+	}
+}
+
+// Configs //
+
+// OpaqueRequiredOnly returns a minimal HCL block for an opaque secret using only required fields.
+func (srts *SecretResourceTestScenario) OpaqueRequiredOnly(payload string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "opaque" {
+  name = "%s"
+
+  opaque {
+    payload  = "%s"
+  }
+}
+`, srts.Name, payload)
+}
+
+// OpaqueUpdateWithOptionals returns an HCL block for an opaque secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) OpaqueUpdateWithOptionals(payload string, encoding string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "opaque" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "%s"
+    encoding = "%s"
+  }
+}
+`, srts.Name, srts.DescriptionUpdate, payload, encoding)
+}
+
+// TlsRequiredOnly returns a minimal HCL block for a TLS secret using only required fields.
+func (srts *SecretResourceTestScenario) TlsRequiredOnly(key string, cert string) string {
+	return fmt.Sprintf(`
+variable "testcertprivate" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+variable "testcert" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+resource "cpln_secret" "tls" {
+  name = "%s"
+
+  tls {
+    key   = chomp(var.testcertprivate)
+    cert  = chomp(var.testcert)
+  }
+}
+`, key, cert, srts.Name)
+}
+
+// TlsUpdateWithOptionals returns an HCL block for a TLS secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) TlsUpdateWithOptionals(key string, cert string) string {
+	return fmt.Sprintf(`
+variable "testcertprivate" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+variable "testcert" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+resource "cpln_secret" "tls" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "tls"
+  }
+
+  tls {
+    key   = chomp(var.testcertprivate)
+    cert  = chomp(var.testcert)
+    chain = chomp(var.testcert)
+  }
+}
+`, key, cert, srts.Name, srts.DescriptionUpdate)
+}
+
+// GcpRequiredOnly returns a minimal HCL block for a GCP secret using only required fields.
+func (srts *SecretResourceTestScenario) GcpRequiredOnly(data string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "gcp" {
+  name = "%s"
+  gcp  = trimspace(<<EOT
+%s
+EOT
+  )
+}
+`, srts.Name, data)
+}
+
+// GcpUpdateWithOptionals returns an HCL block for a GCP secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) GcpUpdateWithOptionals(data string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "gcp" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "gcp"
+  }
+
+  gcp = trimspace(<<EOT
+%s
+EOT
+  )
+}
+`, srts.Name, srts.DescriptionUpdate, data)
+}
+
+// AwsRequiredOnly returns a minimal HCL block for a AWS secret using only required fields.
+func (srts *SecretResourceTestScenario) AwsRequiredOnly(secretKey string, accessKey string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "aws" {
+  name = "%s"
+
+  aws {
+    secret_key  = "%s"
+    access_key  = "%s"
+  }
+}
+`, srts.Name, secretKey, accessKey)
+}
+
+// AwsUpdateWithOptionals returns an HCL block for a AWS secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) AwsUpdateWithOptionals(secretKey string, accessKey string, roleArn string, externalId string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "aws" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "aws"
+  }
+	
+  aws {
+    secret_key  = "%s"
+    access_key  = "%s"
+    role_arn    = "%s"
+    external_id = "%s"
+  }
+}
+`, srts.Name, srts.DescriptionUpdate, secretKey, accessKey, roleArn, externalId)
+}
+
+// EcrRequiredOnly returns a minimal HCL block for a ECR secret using only required fields.
+func (srts *SecretResourceTestScenario) EcrRequiredOnly(secretKey string, accessKey string, repos []string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "ecr" {
+  name   = "%s"
+
+  ecr {
+    secret_key  = "%s"
+    access_key  = "%s"
+    repos       = %s
+  }
+}
+`, srts.Name, secretKey, accessKey, StringSliceToString(repos))
+}
+
+// EcrUpdateWithOptionals returns an HCL block for a ECR secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) EcrUpdateWithOptionals(secretKey string, accessKey string, roleArn string, externalId string, repos []string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "ecr" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "ecr"
+	}
+
+  ecr {
+    secret_key  = "%s"
+    access_key  = "%s"
+    role_arn    = "%s"
+    external_id = "%s"
+    repos       = %s
+	}
+}
+`, srts.Name, srts.DescriptionUpdate, secretKey, accessKey, roleArn, externalId, StringSliceToString(repos))
+}
+
+// DockerRequiredOnly returns a minimal HCL block for a Docker secret using only required fields.
+func (srts *SecretResourceTestScenario) DockerRequiredOnly(data string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "docker" {
+  name   = "%s"
+  docker = trimspace(<<EOT
+%s
+EOT
+  )
+}
+`, srts.Name, data)
+}
+
+// DockerUpdateWithOptionals returns an HCL block for a Docker secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) DockerUpdateWithOptionals(data string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "docker" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "docker"
+  }
+
+  docker = trimspace(<<EOT
+%s
+EOT
+  )
+}
+`, srts.Name, srts.DescriptionUpdate, data)
+}
+
+// UserpassRequiredOnly returns a minimal HCL block for a UserPass secret using only required fields.
+func (srts *SecretResourceTestScenario) UserpassRequiredOnly(username string, password string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "userpass" {
+  name = "%s"
+
+  userpass {
+    username = "%s"
+    password = "%s"
+  }
+}
+`, srts.Name, username, password)
+}
+
+// UserpassUpdateWithOptionals returns an HCL block for a UserPass secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) UserpassUpdateWithOptionals(username string, password string, encoding string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "userpass" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "userpass"
+  }
+
+  userpass {
+    username = "%s"
+    password = "%s"
+    encoding = "%s"
+  }
+}
+`, srts.Name, srts.DescriptionUpdate, username, password, encoding)
+}
+
+// KeypairRequiredOnly returns a minimal HCL block for a KeyPair secret using only required fields.
+func (srts *SecretResourceTestScenario) KeypairRequiredOnly(data string) string {
+	return fmt.Sprintf(`
+variable "test-secret-key" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+resource "cpln_secret" "keypair" {
+  name = "%s"
+
+  keypair {
+    secret_key = chomp(var.test-secret-key)
+  }
+}
+`, data, srts.Name)
+}
+
+// KeypairUpdateWithOptionals returns an HCL block for a UserPass secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) KeypairUpdateWithOptionals(secretKey string, publicKey string, passphrase string) string {
+	return fmt.Sprintf(`
+variable "test-secret-key" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+variable "test-public-key" {
+  type = string
+  default = <<EOT
+%s
+EOT
+}
+
+resource "cpln_secret" "keypair" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "keypair"
+  }
+
+  keypair {
+    secret_key = chomp(var.test-secret-key)
+    public_key = chomp(var.test-public-key)
+    passphrase = "%s"
+  }
+}
+`, secretKey, publicKey, srts.Name, srts.DescriptionUpdate, passphrase)
+}
+
+// DictionaryRequiredOnly returns a minimal HCL block for a Dictionary secret using only required fields.
+func (srts *SecretResourceTestScenario) DictionaryRequiredOnly(dictionary map[string]interface{}) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "dictionary" {
+  name   = "%s"
+
+  dictionary = %s
+}
+`, srts.Name, MapToHCL(dictionary, 2))
+}
+
+// DictionaryUpdateWithOptionals returns an HCL block for a Dictionary secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) DictionaryUpdateWithOptionals(dictionary map[string]interface{}) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "dictionary" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "dictionary"
+  }
+
+  dictionary = %s
+}
+`, srts.Name, srts.DescriptionUpdate, MapToHCL(dictionary, 2))
+}
+
+// AzureSdkRequiredOnly returns a minimal HCL block for a AzureSdk secret using only required fields.
+func (srts *SecretResourceTestScenario) AzureSdkRequiredOnly(data string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "azure-sdk" {
+  name      = "%s"
+  azure_sdk = trimspace(<<EOT
+%s
+EOT
+  )
+}
+`, srts.Name, data)
+}
+
+// AzureSdkUpdateWithOptionals returns an HCL block for a AzureSdk secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) AzureSdkUpdateWithOptionals(data string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "azure-sdk" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "azure-sdk"
+  }
+
+  azure_sdk = trimspace(<<EOT
+%s
+EOT
+  )
+}
+`, srts.Name, srts.DescriptionUpdate, data)
+}
+
+// AzureConnectorRequiredOnly returns a minimal HCL block for a AzureConnector secret using only required fields.
+func (srts *SecretResourceTestScenario) AzureConnectorRequiredOnly(url string, code string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "azure-connector" {
+  name = "%s"
+
+  azure_connector {
+    url  = "%s"
+    code = "%s"
+  }
+}
+`, srts.Name, url, code)
+}
+
+// AzureConnectorUpdateWithOptionals returns an HCL block for a AzureConnector secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) AzureConnectorUpdateWithOptionals(url string, code string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "azure-connector" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "azure-connector"
+  }
+
+  azure_connector {
+    url  = "%s"
+    code = "%s"
+  }
+}
+`, srts.Name, srts.DescriptionUpdate, url, code)
+}
+
+// NatsAccountRequiredOnly returns a minimal HCL block for a NatsAccount secret using only required fields.
+func (srts *SecretResourceTestScenario) NatsAccountRequiredOnly(accountId string, privateKey string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "nats-account" {
+  name = "%s"
+
+  nats_account {
+    account_id  = "%s"
+    private_key = "%s"
+  }
+}
+`, srts.Name, accountId, privateKey)
+}
+
+// NatsAccountUpdateWithOptionals returns an HCL block for a NatsAccount secret including optional fields like description and tags.
+func (srts *SecretResourceTestScenario) NatsAccountUpdateWithOptionals(accountId string, privateKey string) string {
+	return fmt.Sprintf(`
+resource "cpln_secret" "nats-account" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "nats-account"
+  }
+
+  nats_account {
+    account_id  = "%s"
+    private_key = "%s"
+  }
+}
+`, srts.Name, srts.DescriptionUpdate, accountId, privateKey)
 }

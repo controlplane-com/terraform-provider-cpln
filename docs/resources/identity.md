@@ -20,12 +20,11 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 - **description** (String) Description of the Identity.
 - **tags** (Map of String) Key-value map of resource tags.
 - **aws_access_policy** (Block List, Max: 1) ([see below](#nestedblock--aws_access_policy)).
-- **azure_access_policy** (Block List, Max: 1) ([see below](#nestedblock--azure_access_policy)).
 - **gcp_access_policy** (Block List, Max: 1) ([see below](#nestedblock--gcp_access_policy)).
+- **azure_access_policy** (Block List, Max: 1) ([see below](#nestedblock--azure_access_policy)).
 - **ngs_access_policy** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy)).
-
 - **network_resource** (Block List) ([see below](#nestedblock--network_resource)).
-- **native_network_resource** (Block List) ([see below](#nestedblock--native_network_resource)
+- **native_network_resource** (Block List) ([see below](#nestedblock--native_network_resource)).
 
 <a id="nestedblock--aws_access_policy"></a>
 
@@ -37,31 +36,19 @@ Required:
 
 Optional:
 
+- **trust_policy** (Block List, Max: 1) ([see below](#nestedblock--aws_access_policy.trust_policy)).
+
 ~> **Note** AWS Identity can either contain an existing `role_name` or multiple `policy_refs`.
 
 - **policy_refs** (List of String) List of policies.
 - **role_name** (String) Role name.
 
-<a id="nestedblock--azure_access_policy"></a>
+<a id="nestedblock--aws_access_policy.trust_policy"></a>
 
-### `azure_access_policy`
+### `aws_access_policy.trust_policy`
 
-Required:
-
-- **cloud_account_link** (String) Full link to referenced cloud account.
-
-Optional:
-
-- **role_assignment** (Block List) ([see below](#nestedblock--azure_access_policy--role_assignment)).
-
-<a id="nestedblock--azure_access_policy--role_assignment"></a>
-
-### `azure_access_policy.role_assignment`
-
-Optional:
-
-- **roles** (List of String) List of assigned roles.
-- **scope** (String) Scope of roles.
+- **version** (String) Version of the policy. Default: `2012-10-17`.
+- **statement** (List of Map of String) List of statements.
 
 <a id="nestedblock--gcp_access_policy"></a>
 
@@ -87,6 +74,27 @@ Optional:
 
 - **resource** (String) Name of resource for binding.
 - **roles** (List of String) List of allowed roles.
+
+<a id="nestedblock--azure_access_policy"></a>
+
+### `azure_access_policy`
+
+Required:
+
+- **cloud_account_link** (String) Full link to referenced cloud account.
+
+Optional:
+
+- **role_assignment** (Block List) ([see below](#nestedblock--azure_access_policy--role_assignment)).
+
+<a id="nestedblock--azure_access_policy--role_assignment"></a>
+
+### `azure_access_policy.role_assignment`
+
+Optional:
+
+- **scope** (String) Scope of roles.
+- **roles** (List of String) List of assigned roles.
 
 <a id="nestedblock--ngs_access_policy"></a>
 
@@ -140,10 +148,9 @@ Required:
 
 Optional:
 
+- **ips** (Set of String) List of IP addresses.
 - **fqdn** (String) Fully qualified domain name.
 - **resolver_ip** (String) Resolver IP.
-- **ips** (Set of String) List of IP addresses.
-
 - **ports** (Set of Number) Ports to expose.
 
 <a id="nestedblock--native_network_resource"></a>

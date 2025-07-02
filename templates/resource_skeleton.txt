@@ -1,0 +1,130 @@
+package cpln
+
+import (
+	"context"
+
+	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+)
+
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &{RESOURCE_NAME}Resource{}
+	_ resource.ResourceWithImportState = &{RESOURCE_NAME}Resource{}
+)
+
+/*** Resource Model ***/
+
+// {RESOURCE_NAME}ResourceModel holds the Terraform state for the resource.
+type {RESOURCE_NAME}ResourceModel struct {
+	ResourceBaseModel
+}
+
+/*** Resource Configuration ***/
+
+// {RESOURCE_NAME}Resource is the resource implementation.
+type {RESOURCE_NAME}Resource struct {
+	ResourceBase
+	Operations ResourceOperations[{RESOURCE_NAME}Resource, {RESOURCE_NAME}ResourceModel, client.{API_OBJECT_NAME}]
+}
+
+// New{RESOURCE_NAME}Resource returns a new instance of the resource implementation.
+func New{RESOURCE_NAME}Resource() resource.Resource {
+	return &{RESOURCE_NAME}Resource{}
+}
+
+// Configure configures the resource before use.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	{RESOURCE_INSTANCE_NAME}.ResourceBaseConfigure(ctx, req, resp)
+	{RESOURCE_INSTANCE_NAME}.Operations = NewResourceOperations(*{RESOURCE_INSTANCE_NAME}, &{RESOURCE_NAME}ResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_{RESOURCE_TYPE_NAME}"
+}
+
+// Schema defines the schema for the resource.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: {RESOURCE_INSTANCE_NAME}.ResourceBaseAttributes("{RESOURCE_STRING_NAME}"),
+	}
+}
+
+// Create creates the resource.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, {RESOURCE_INSTANCE_NAME}.Operations)
+}
+
+// Read fetches the current state of the resource.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, {RESOURCE_INSTANCE_NAME}.Operations)
+}
+
+// Update modifies the resource.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, {RESOURCE_INSTANCE_NAME}.Operations)
+}
+
+// Delete removes the resource.
+func ({RESOURCE_INSTANCE_NAME} *{RESOURCE_NAME}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, {RESOURCE_INSTANCE_NAME}.Operations)
+}
+
+/*** Resource Operator ***/
+
+// {RESOURCE_NAME}ResourceOperator is the operator for managing the state.
+type {RESOURCE_NAME}ResourceOperator struct {
+	ResourceOperator[{RESOURCE_NAME}Resource, {RESOURCE_NAME}ResourceModel]
+}
+
+// NewAPIRequest creates a request payload from a state model.
+func ({RESOURCE_INSTANCE_NAME}o *{RESOURCE_NAME}ResourceOperator) NewAPIRequest(isUpdate bool) client.{API_OBJECT_NAME} {
+	// Initialize a new request payload
+	requestPayload := client.{API_OBJECT_NAME}{}
+
+	// Populate Base fields from state
+	{RESOURCE_INSTANCE_NAME}o.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Return constructed request payload
+	return requestPayload
+}
+
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func ({RESOURCE_INSTANCE_NAME}o *{RESOURCE_NAME}ResourceOperator) MapResponseToState(apiResp *client.{API_OBJECT_NAME}, isCreate bool) {RESOURCE_NAME}ResourceModel {
+	// Initialize empty state model
+	state := {RESOURCE_NAME}ResourceModel{}
+
+	// Populate common fields from base resource data
+	state.From(apiResp.Base)
+
+	// Return completed state model
+	return state
+}
+
+// InvokeCreate invokes the Create API to create a new resource.
+func ({RESOURCE_INSTANCE_NAME}o *{RESOURCE_NAME}ResourceOperator) InvokeCreate(req client.{API_OBJECT_NAME}) (*client.{API_OBJECT_NAME}, int, error) {
+	return {RESOURCE_INSTANCE_NAME}o.Client.Create{API_OBJECT_NAME}(req)
+}
+
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func ({RESOURCE_INSTANCE_NAME}o *{RESOURCE_NAME}ResourceOperator) InvokeRead(name string) (*client.{API_OBJECT_NAME}, int, error) {
+	return {RESOURCE_INSTANCE_NAME}o.Client.Get{API_OBJECT_NAME}(name)
+}
+
+// InvokeUpdate invokes the Update API to update an existing resource.
+func ({RESOURCE_INSTANCE_NAME}o *{RESOURCE_NAME}ResourceOperator) InvokeUpdate(req client.{API_OBJECT_NAME}) (*client.{API_OBJECT_NAME}, int, error) {
+	return {RESOURCE_INSTANCE_NAME}o.Client.Update{API_OBJECT_NAME}(req)
+}
+
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func ({RESOURCE_INSTANCE_NAME}o *{RESOURCE_NAME}ResourceOperator) InvokeDelete(name string) error {
+	return {RESOURCE_INSTANCE_NAME}o.Client.Delete{API_OBJECT_NAME}(name)
+}

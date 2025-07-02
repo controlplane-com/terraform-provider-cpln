@@ -1,777 +1,1117 @@
 package cpln
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/secret"
+	modifiers "github.com/controlplane-com/terraform-provider-cpln/internal/provider/modifiers"
+	validators "github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-var secretDataObjectsNames = []string{
+// secretAttributeNames conatins all the data attribute names defined by the secret resource.
+var secretAttributeNames = []string{
 	"aws", "azure_connector", "azure_sdk", "docker", "dictionary", "ecr",
 	"gcp", "keypair", "opaque", "tls", "userpass", "nats_account",
 }
 
-func resourceSecret() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceSecretCreate,
-		ReadContext:   resourceSecretRead,
-		UpdateContext: resourceSecretUpdate,
-		DeleteContext: resourceSecretDelete,
-		Schema:        secretSchema(true),
-		Importer:      &schema.ResourceImporter{},
-	}
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &SecretResource{}
+	_ resource.ResourceWithImportState = &SecretResource{}
+)
+
+/*** Resource Model ***/
+
+// SecretResourceModel holds the Terraform state for the resource.
+type SecretResourceModel struct {
+	EntityBaseModel
+	Opaque           []models.OpaqueModel         `tfsdk:"opaque"`
+	TLS              []models.TlsModel            `tfsdk:"tls"`
+	GCP              types.String                 `tfsdk:"gcp"`
+	AWS              []models.AwsModel            `tfsdk:"aws"`
+	ECR              []models.EcrModel            `tfsdk:"ecr"`
+	Docker           types.String                 `tfsdk:"docker"`
+	UsernamePassword []models.UserpassModel       `tfsdk:"userpass"`
+	KeyPair          []models.KeyPairModel        `tfsdk:"keypair"`
+	Dictionary       types.Map                    `tfsdk:"dictionary"`
+	DictionaryAsEnvs types.Map                    `tfsdk:"dictionary_as_envs"`
+	AzureSdk         types.String                 `tfsdk:"azure_sdk"`
+	AzureConnector   []models.AzureConnectorModel `tfsdk:"azure_connector"`
+	NatsAccount      []models.NatsAccountModel    `tfsdk:"nats_account"`
+	SecretLink       types.String                 `tfsdk:"secret_link"`
 }
 
-func secretSchema(expectExactlyOneOf bool) map[string]*schema.Schema {
-	exactlyOneOf := []string{}
+/*** Resource Configuration ***/
 
-	if expectExactlyOneOf {
-		exactlyOneOf = secretDataObjectsNames
-	}
+// SecretResource is the resource implementation.
+type SecretResource struct {
+	EntityBase
+	Operations EntityOperations[SecretResourceModel, client.Secret]
+}
 
-	return map[string]*schema.Schema{
-		"cpln_id": {
-			Type:        schema.TypeString,
-			Description: "The ID, in GUID format, of the Secret.",
-			Computed:    true,
-		},
-		"name": {
-			Type:         schema.TypeString,
-			Description:  "Name of the secret.",
-			ForceNew:     true,
-			Required:     true,
-			ValidateFunc: NameValidator,
-		},
-		"description": {
-			Type:             schema.TypeString,
-			Description:      "Description of the Secret.",
-			Optional:         true,
-			ValidateFunc:     DescriptionValidator,
-			DiffSuppressFunc: DiffSuppressDescription,
-		},
-		"tags": {
-			Type:        schema.TypeMap,
-			Description: "Key-value map of resource tags.",
-			Optional:    true,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-			ValidateFunc: TagValidator,
-		},
-		"self_link": {
-			Type:        schema.TypeString,
-			Description: "Full link to this resource. Can be referenced by other resources.",
-			Computed:    true,
-		},
-		"dictionary": {
-			Type:         schema.TypeMap,
-			Description:  "List of unique key-value pairs. [Reference Page](https://docs.controlplane.com/reference/secret#dictionary).",
-			Optional:     true,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Schema{
-				Type: schema.TypeString,
-			},
-		},
-		"dictionary_as_envs": {
-			Type:        schema.TypeMap,
-			Description: "If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.",
-			Computed:    true,
-		},
-		"opaque": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#opaque).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"payload": {
-						Type:        schema.TypeString,
-						Description: "Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.",
-						Required:    true,
-						Sensitive:   true,
-					},
-					"encoding": {
-						Type:         schema.TypeString,
-						Description:  "Available encodings: `plain`, `base64`. Default: `plain`.",
-						Optional:     true,
-						Default:      "plain",
-						ValidateFunc: EncodingValidator,
-					},
+// NewSecretResource returns a new instance of the resource implementation.
+func NewSecretResource() resource.Resource {
+	return &SecretResource{}
+}
+
+// Configure configures the resource before use.
+func (sr *SecretResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	sr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	sr.Operations = NewEntityOperations(sr.client, NewSecretResourceOperator())
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (sr *SecretResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (sr *SecretResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_secret"
+}
+
+// Schema defines the schema for the resource.
+func (sr *SecretResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(sr.EntityBaseAttributes("secret"), map[string]schema.Attribute{
+			"gcp": schema.StringAttribute{
+				MarkdownDescription: "JSON string containing the GCP secret. [Reference Page](https://docs.controlplane.com/reference/secret#gcp)",
+				Optional:            true,
+				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					modifiers.SuppressDiffOnEqualJSON{},
 				},
 			},
-		},
-		"tls": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#tls).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"key": {
-						Type:        schema.TypeString,
-						Description: "Private Certificate.",
-						Required:    true,
-						Sensitive:   true,
-					},
-					"cert": {
-						Type:        schema.TypeString,
-						Description: "Public Certificate.",
-						Required:    true,
-					},
-					"chain": {
-						Type:        schema.TypeString,
-						Description: "Chain Certificate.",
-						Optional:    true,
-						Default:     "",
-					},
+			"docker": schema.StringAttribute{
+				MarkdownDescription: "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#docker).",
+				Optional:            true,
+				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					modifiers.SuppressDiffOnEqualJSON{},
 				},
 			},
-		},
-		"gcp": {
-			Type:             schema.TypeString,
-			Description:      "JSON string containing the GCP secret. [Reference Page](https://docs.controlplane.com/reference/secret#gcp)",
-			Optional:         true,
-			Sensitive:        true,
-			ExactlyOneOf:     exactlyOneOf,
-			DiffSuppressFunc: diffSuppressJSON,
-		},
-		"aws": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#aws).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"secret_key": {
-						Type:        schema.TypeString,
-						Description: "Secret Key provided by AWS.",
-						Required:    true,
-						Sensitive:   true,
-					},
-					"access_key": {
-						Type:         schema.TypeString,
-						Description:  "Access Key provided by AWS.",
-						Required:     true,
-						Sensitive:    true,
-						ValidateFunc: AwsAccessKeyValidator,
-					},
-					"role_arn": {
-						Type:         schema.TypeString,
-						Description:  "Role ARN provided by AWS.",
-						Optional:     true,
-						Default:      "",
-						ValidateFunc: AwsRoleArnValidator,
-					},
-					"external_id": {
-						Type:        schema.TypeString,
-						Description: "AWS IAM Role External ID.",
-						Optional:    true,
-					},
+			"dictionary": schema.MapAttribute{
+				MarkdownDescription: "List of unique key-value pairs. [Reference Page](https://docs.controlplane.com/reference/secret#dictionary).",
+				ElementType:         types.StringType,
+				Optional:            true,
+			},
+			"dictionary_as_envs": schema.MapAttribute{
+				MarkdownDescription: "If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.",
+				ElementType:         types.StringType,
+				Computed:            true,
+			},
+			"azure_sdk": schema.StringAttribute{
+				MarkdownDescription: "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#azure).",
+				Optional:            true,
+				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					modifiers.SuppressDiffOnEqualJSON{},
 				},
 			},
-		},
-		"ecr": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#ecr)",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"secret_key": {
-						Type:        schema.TypeString,
-						Description: "Secret Key provided by AWS.",
-						Required:    true,
-						Sensitive:   true,
-					},
-					"access_key": {
-						Type:         schema.TypeString,
-						Description:  "Access Key provided by AWS.",
-						Required:     true,
-						ValidateFunc: AwsAccessKeyValidator,
-					},
-					"role_arn": {
-						Type:         schema.TypeString,
-						Description:  "Role ARN provided by AWS.",
-						Optional:     true,
-						Default:      "",
-						ValidateFunc: AwsRoleArnValidator,
-					},
-					"external_id": {
-						Type:        schema.TypeString,
-						Description: "AWS IAM Role External ID. Used when setting up cross-account access to your ECR repositories.",
-						Optional:    true,
-					},
-					"repos": {
-						Type:        schema.TypeSet,
-						Description: "List of ECR repositories.",
-						Required:    true,
-						Elem: &schema.Schema{
-							MinItems: 1,
-							MaxItems: 20,
-							Type:     schema.TypeString,
+			"secret_link": schema.StringAttribute{
+				Description: "Output used when linking a secret to an environment variable or volume.",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+		}),
+		Blocks: map[string]schema.Block{
+			"opaque": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#opaque).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"payload": schema.StringAttribute{
+							Description: "Plain text or base64 encoded string. Use `encoding` attribute to specify encoding.",
+							Required:    true,
+							Sensitive:   true,
+						},
+						"encoding": schema.StringAttribute{
+							Description: "Available encodings: `plain`, `base64`. Default: `plain`.",
+							Optional:    true,
+							Computed:    true,
+							Default:     stringdefault.StaticString("plain"),
+							Validators: []validator.String{
+								stringvalidator.OneOf("plain", "base64"),
+							},
 						},
 					},
 				},
-			},
-		},
-		"docker": {
-			Type:             schema.TypeString,
-			Description:      "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#docker).",
-			Optional:         true,
-			Sensitive:        true,
-			ExactlyOneOf:     exactlyOneOf,
-			DiffSuppressFunc: diffSuppressJSON,
-		},
-		"userpass": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#username).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"username": {
-						Type:         schema.TypeString,
-						Description:  "Username.",
-						Required:     true,
-						ValidateFunc: EmptyValidator,
-					},
-					"password": {
-						Type:         schema.TypeString,
-						Description:  "Password.",
-						Required:     true,
-						Sensitive:    true,
-						ValidateFunc: EmptyValidator,
-					},
-					"encoding": {
-						Type:         schema.TypeString,
-						Description:  "Available encodings: `plain`, `base64`. Default: `plain`.",
-						Optional:     true,
-						Default:      "plain",
-						ValidateFunc: EncodingValidator,
-					},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
 			},
-		},
-		"keypair": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#keypair).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"secret_key": {
-						Type:        schema.TypeString,
-						Description: "Secret/Private Key.",
-						Required:    true,
-						Sensitive:   true,
-					},
-					"public_key": {
-						Type:        schema.TypeString,
-						Description: "Public Key.",
-						Optional:    true,
-						Default:     "",
-					},
-					"passphrase": {
-						Type:        schema.TypeString,
-						Description: "Passphrase for private key.",
-						Optional:    true,
-						Sensitive:   true,
-						Default:     "",
+			"tls": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#tls).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"key": schema.StringAttribute{
+							Description: "Private Certificate.",
+							Required:    true,
+							Sensitive:   true,
+						},
+						"cert": schema.StringAttribute{
+							Description: "Public Certificate.",
+							Required:    true,
+						},
+						"chain": schema.StringAttribute{
+							Description: "Chain Certificate.",
+							Optional:    true,
+						},
 					},
 				},
-			},
-		},
-		"azure_sdk": {
-			Type:             schema.TypeString,
-			Description:      "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#azure).",
-			Optional:         true,
-			Sensitive:        true,
-			ExactlyOneOf:     exactlyOneOf,
-			DiffSuppressFunc: diffSuppressJSON,
-		},
-		"azure_connector": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#azure-connector).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"url": {
-						Type:        schema.TypeString,
-						Description: "Deployment URL.",
-						Required:    true,
-						Sensitive:   true,
-					},
-					"code": {
-						Type:        schema.TypeString,
-						Description: "Code/Key to authenticate to deployment URL.",
-						Required:    true,
-						Sensitive:   true,
-					},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
 				},
 			},
-		},
-		"nats_account": {
-			Type:         schema.TypeList,
-			Description:  "[Reference Page](https://docs.controlplane.com/reference/secret#nats-account).",
-			Optional:     true,
-			MaxItems:     1,
-			ExactlyOneOf: exactlyOneOf,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
-					"account_id": {
-						Type:        schema.TypeString,
-						Description: "Account ID.",
-						Required:    true,
-					},
-					"private_key": {
-						Type:        schema.TypeString,
-						Description: "Private Key.",
-						Required:    true,
-						Sensitive:   true,
+			"aws": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#aws).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"access_key": schema.StringAttribute{
+							Description: "Access Key provided by AWS.",
+							Required:    true,
+							Sensitive:   true,
+							Validators: []validator.String{
+								validators.NewPrefixStringValidator("AKIA", "AWS Access Key"),
+							},
+						},
+						"secret_key": schema.StringAttribute{
+							Description: "Secret Key provided by AWS.",
+							Required:    true,
+							Sensitive:   true,
+						},
+						"role_arn": schema.StringAttribute{
+							Description: "Role ARN provided by AWS.",
+							Optional:    true,
+							Computed:    true,
+							Validators: []validator.String{
+								validators.NewPrefixStringValidator("arn:", "AWS Role ARN"),
+							},
+						},
+						"external_id": schema.StringAttribute{
+							Description: "AWS IAM Role External ID.",
+							Optional:    true,
+						},
 					},
 				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
-		},
-		"secret_link": {
-			Type:        schema.TypeString,
-			Description: "Output used when linking a secret to an environment variable or volume.",
-			Computed:    true,
+			"ecr": schema.ListNestedBlock{
+				MarkdownDescription: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"access_key": schema.StringAttribute{
+							Description: "Access Key provided by AWS.",
+							Required:    true,
+							Sensitive:   true,
+							Validators: []validator.String{
+								validators.NewPrefixStringValidator("AKIA", "AWS Access Key"),
+							},
+						},
+						"secret_key": schema.StringAttribute{
+							Description: "Secret Key provided by AWS.",
+							Required:    true,
+							Sensitive:   true,
+						},
+						"role_arn": schema.StringAttribute{
+							Description: "Role ARN provided by AWS.",
+							Optional:    true,
+							Computed:    true,
+							Validators: []validator.String{
+								validators.NewPrefixStringValidator("arn:", "AWS Role ARN"),
+							},
+						},
+						"external_id": schema.StringAttribute{
+							Description: "AWS IAM Role External ID. Used when setting up cross-account access to your ECR repositories.",
+							Optional:    true,
+						},
+						"repos": schema.SetAttribute{
+							Description: "List of ECR repositories.",
+							ElementType: types.StringType,
+							Required:    true,
+							Validators: []validator.Set{
+								setvalidator.SizeAtLeast(1),
+								setvalidator.SizeAtMost(20),
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"userpass": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#username).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"username": schema.StringAttribute{
+							Description: "Username.",
+							Required:    true,
+							Validators: []validator.String{
+								stringvalidator.LengthAtLeast(1),
+							},
+						},
+						"password": schema.StringAttribute{
+							Description: "Password.",
+							Required:    true,
+							Sensitive:   true,
+							Validators: []validator.String{
+								stringvalidator.LengthAtLeast(1),
+							},
+						},
+						"encoding": schema.StringAttribute{
+							Description: "Available encodings: `plain`, `base64`. Default: `plain`.",
+							Optional:    true,
+							Computed:    true,
+							Default:     stringdefault.StaticString("plain"),
+							Validators: []validator.String{
+								stringvalidator.OneOf("plain", "base64"),
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"keypair": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#keypair).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"secret_key": schema.StringAttribute{
+							Description: "Secret/Private Key.",
+							Required:    true,
+							Sensitive:   true,
+						},
+						"public_key": schema.StringAttribute{
+							Description: "Public Key.",
+							Optional:    true,
+						},
+						"passphrase": schema.StringAttribute{
+							Description: "Passphrase for private key.",
+							Optional:    true,
+							Sensitive:   true,
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"azure_connector": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#azure-connector).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"url": schema.StringAttribute{
+							Description: "Deployment URL.",
+							Required:    true,
+							Sensitive:   true,
+						},
+						"code": schema.StringAttribute{
+							Description: "Code/Key to authenticate to deployment URL.",
+							Required:    true,
+							Sensitive:   true,
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"nats_account": schema.ListNestedBlock{
+				MarkdownDescription: "[Reference Page](https://docs.controlplane.com/reference/secret#nats-account).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"account_id": schema.StringAttribute{
+							Description: "Account ID.",
+							Required:    true,
+						},
+						"private_key": schema.StringAttribute{
+							Description: "Private Key.",
+							Required:    true,
+							Sensitive:   true,
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
 		},
 	}
 }
 
-func diffSuppressJSON(k, old, new string, d *schema.ResourceData) bool {
+// ConfigValidators enforces mutual exclusivity between attributes.
+func (mr *SecretResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	expressions := []path.Expression{}
 
-	if old != "" && new != "" {
-
-		bo, _ := json.Marshal(json.RawMessage(old))
-		bn, _ := json.Marshal(json.RawMessage(new))
-
-		return bytes.Equal(bo, bn)
+	// Iterate over each secret attribute and append to the expressions slice
+	for _, attributeName := range secretAttributeNames {
+		expressions = append(expressions, path.MatchRoot(attributeName))
 	}
 
-	return old == new
+	return []resource.ConfigValidator{
+		resourcevalidator.ExactlyOneOf(expressions...),
+	}
 }
 
-func resourceSecretCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	secret := client.Secret{}
-	secret.Name = GetString(d.Get("name"))
-	secret.Description = DescriptionHelper(*secret.Name, d.Get("description").(string))
-	secret.Tags = GetStringMap(d.Get("tags"))
-
-	if secret.Type = getSecretType(d); secret.Type == nil {
-		return diag.FromErr(fmt.Errorf("unable to extract secret type"))
-	}
-
-	sType := *secret.Type
-	data := d.Get(sType)
-
-	if err := buildData(*secret.Type, data, &secret, false); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if *secret.Type == "azure_sdk" {
-		*secret.Type = "azure-sdk"
-	}
-
-	if *secret.Type == "azure_connector" {
-		*secret.Type = "azure-connector"
-	}
-
-	if *secret.Type == "nats_account" {
-		*secret.Type = "nats-account"
-	}
-
-	c := m.(*client.Client)
-	newSecret, code, err := c.CreateSecret(secret)
-
-	if code == 409 {
-		return ResourceExistsHelper()
-	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setSecret(d, newSecret)
+// Create creates the resource.
+func (sr *SecretResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, sr.Operations)
 }
 
-func getSecretType(d *schema.ResourceData) *string {
-
-	for _, s := range secretDataObjectsNames {
-		if _, v := d.GetOk(s); v {
-			return &s
-		}
-	}
-
-	return nil
+// Read fetches the current state of the resource.
+func (sr *SecretResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, sr.Operations)
 }
 
-func buildData(secretType string, data interface{}, secret *client.Secret, update bool) error {
+// Update modifies the resource.
+func (sr *SecretResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, sr.Operations)
+}
 
-	var dataToSet *interface{}
-	secret.Type = &secretType
+// Delete removes the resource.
+func (sr *SecretResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, sr.Operations)
+}
 
-	dataType := "unknown"
-	dType := data
+/*** Resource Operator ***/
 
-	switch data.(type) {
-	case string:
-		dataType = "string"
-	case []interface{}:
-		dataType = "interface"
-	case map[string]interface{}:
-		{
-			dataType = "interface"
+// SecretResourceOperator is the operator for managing the state.
+type SecretResourceOperator struct {
+	EntityOperator[SecretResourceModel]
+	DataBuilders map[string]func(SecretResourceModel) *interface{}
+}
 
-			dType = []interface{}{
-				data,
+// NewSecretResourceOperator initializes the operator with per-type data builders.
+func NewSecretResourceOperator() *SecretResourceOperator {
+	// Instantiate operator instance
+	op := &SecretResourceOperator{}
+
+	// Assign data builders map with functions for each secret type
+	op.DataBuilders = map[string]func(SecretResourceModel) *interface{}{
+		// Handler for opaque secret type
+		"opaque": func(s SecretResourceModel) *interface{} {
+			// Build opaque secret data payload
+			if m := op.buildOpaque(s.Opaque); m != nil {
+				// Wrap opaque data in interface pointer
+				return GetInterface(*m)
 			}
-		}
-	}
 
-	if dataType == "string" && (secretType == "gcp" || secretType == "docker" || secretType == "azure_sdk") {
-
-		dataString := dType.(string)
-		dataToSet = GetInterface(dataString)
-
-	} else if dataType == "interface" {
-
-		dataArray := dType.([]interface{})
-
-		if len(dataArray) == 1 {
-
-			if secretType == "aws" || secretType == "ecr" || secretType == "keypair" || secretType == "tls" || secretType == "nats_account" {
-
-				secretData := dataArray[0].(map[string]interface{})
-				dataMap := make(map[string]interface{})
-
-				if secretType == "aws" || secretType == "ecr" {
-
-					dataMap["secretKey"] = secretData["secret_key"]
-					dataMap["accessKey"] = secretData["access_key"]
-
-					if secretData["role_arn"] != nil && secretData["role_arn"] != "" {
-						dataMap["roleArn"] = secretData["role_arn"]
-					}
-
-					if secretData["external_id"] != nil && secretData["external_id"] != "" {
-						dataMap["externalId"] = secretData["external_id"]
-					}
-				}
-
-				if secretType == "ecr" {
-
-					repos := []string{}
-
-					for _, value := range secretData["repos"].(*schema.Set).List() {
-						repos = append(repos, value.(string))
-					}
-
-					if len(repos) > 0 {
-						dataMap["repos"] = repos
-					}
-				}
-
-				if secretType == "keypair" {
-
-					dataMap["secretKey"] = secretData["secret_key"]
-
-					if secretData["public_key"] != nil && secretData["public_key"] != "" {
-						dataMap["publicKey"] = secretData["public_key"]
-					}
-
-					if secretData["passphrase"] != nil && secretData["passphrase"] != "" {
-						dataMap["passphrase"] = secretData["passphrase"]
-					}
-				}
-
-				if secretType == "tls" {
-
-					dataMap["key"] = secretData["key"]
-
-					if secretData["cert"] != nil && secretData["cert"] != "" {
-						dataMap["cert"] = secretData["cert"]
-					}
-
-					if secretData["chain"] != nil && secretData["chain"] != "" {
-						dataMap["chain"] = secretData["chain"]
-					}
-				}
-
-				if secretType == "nats_account" {
-					dataMap["accountId"] = secretData["account_id"]
-					dataMap["privateKey"] = secretData["private_key"]
-				}
-
-				output := []interface{}{
-					dataMap,
-				}
-
-				dataToSet = &output[0]
-
-			} else {
-
-				sData := make(map[string]interface{})
-
-				for k, v := range dataArray[0].(map[string]interface{}) {
-					if v != "" {
-						sData[k] = v
-					}
-				}
-
-				dataToSet = GetInterface(sData)
+			// Return nil when Opaque data is not defined
+			return nil
+		},
+		// Handler for tls secret type
+		"tls": func(s SecretResourceModel) *interface{} {
+			// Build TLS secret data payload
+			if m := op.buildTls(s.TLS); m != nil {
+				// Wrap TLS data in interface pointer
+				return GetInterface(*m)
 			}
-		}
+
+			// Return nil when TLS data is not defined
+			return nil
+		},
+		// Handler for gcp secret type
+		"gcp": func(s SecretResourceModel) *interface{} {
+			// Build string representation of GCP field
+			if data := GetInterface(BuildString(s.GCP)); data != nil {
+				// Return GCP data when valid
+				return data
+			}
+
+			// Return nil when GCP data is not defined
+			return nil
+		},
+		// Handler for aws secret type
+		"aws": func(s SecretResourceModel) *interface{} {
+			// Build AWS secret data payload
+			if m := op.buildAws(s.AWS); m != nil {
+				// Wrap AWS data in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when AWS data is not defined
+			return nil
+		},
+		// Handler for ecr secret type
+		"ecr": func(s SecretResourceModel) *interface{} {
+			// Build ECR secret data payload
+			if m := op.buildEcr(s.ECR); m != nil {
+				// Wrap ECR data in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when ECR data is not defined
+			return nil
+		},
+		// Handler for docker secret type
+		"docker": func(s SecretResourceModel) *interface{} {
+			// Build string representation of Docker field
+			if data := GetInterface(BuildString(s.Docker)); data != nil {
+				// Return Docker data when valid
+				return data
+			}
+
+			// Return nil when Docker data is not defined
+			return nil
+		},
+		// Handler for userpass secret type
+		"userpass": func(s SecretResourceModel) *interface{} {
+			// Build username/password secret data payload
+			if m := op.buildUserpass(s.UsernamePassword); m != nil {
+				// Wrap username/password data in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when username/password data is not defined
+			return nil
+		},
+		// Handler for keypair secret type
+		"keypair": func(s SecretResourceModel) *interface{} {
+			// Build keypair secret data payload
+			if m := op.buildKeypair(s.KeyPair); m != nil {
+				// Wrap keypair data in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when keypair data is not defined
+			return nil
+		},
+		// Handler for dictionary secret type
+		"dictionary": func(s SecretResourceModel) *interface{} {
+			// Build map string from Dictionary field
+			if m := op.BuildMapString(s.Dictionary); m != nil {
+				// Wrap map string in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when Dictionary data is not defined
+			return nil
+		},
+		// Handler for azure-sdk secret type
+		"azure-sdk": func(s SecretResourceModel) *interface{} {
+			// Build string representation of AzureSdk field
+			if data := GetInterface(BuildString(s.AzureSdk)); data != nil {
+				// Return AzureSdk data when valid
+				return data
+			}
+
+			// Return nil when AzureSdk data is not defined
+			return nil
+		},
+		// Handler for azure-connector secret type
+		"azure-connector": func(s SecretResourceModel) *interface{} {
+			// Build azure-connector secret data payload
+			if m := op.buildAzureConnector(s.AzureConnector); m != nil {
+				// Wrap azure-connector data in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when azure-connector data is not defined
+			return nil
+		},
+		// Handler for nats-account secret type
+		"nats-account": func(s SecretResourceModel) *interface{} {
+			// Build nats-account secret data payload
+			if m := op.buildNatsAccount(s.NatsAccount); m != nil {
+				// Wrap nats-account data in interface pointer
+				return GetInterface(*m)
+			}
+
+			// Return nil when nats-account data is not defined
+			return nil
+		},
 	}
 
-	if dataToSet == nil {
-		return fmt.Errorf("invalid secret input or data type. Secret type: %s", secretType)
-	}
+	// Return initialized operator instance
+	return op
+}
 
-	if update {
-		secret.DataReplace = dataToSet
+// NewAPIRequest creates a request payload from a state model.
+func (sro *SecretResourceOperator) NewAPIRequest(isUpdate bool) client.Secret {
+	// Initialize a new request payload
+	requestPayload := client.Secret{}
+
+	// Populate Base fields from state
+	sro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Get secret type
+	secretType := sro.buildType(sro.Plan)
+
+	// Set specific attributes
+	requestPayload.Type = secretType
+
+	// Build the secret data
+	data := sro.buildData(sro.Plan, *secretType)
+
+	// Determine whether we should replace data or not
+	if isUpdate {
+		requestPayload.DataReplace = data
 	} else {
-		secret.Data = dataToSet
+		requestPayload.Data = data
 	}
 
-	return nil
+	// Return constructed request payload
+	return requestPayload
 }
 
-func resourceSecretRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func (sro *SecretResourceOperator) MapResponseToState(apiResp *client.Secret, isCreate bool) SecretResourceModel {
+	// Initialize empty state model
+	state := SecretResourceModel{}
 
-	c := m.(*client.Client)
-	secret, code, err := c.GetSecret(d.Id())
+	// Populate common fields from base resource data
+	state.From(apiResp.Base)
 
-	if code == 404 {
-		d.SetId("")
-		return nil
+	// Set specific attributes
+	state.SecretLink = types.StringValue(fmt.Sprintf("cpln://secret/%s", *apiResp.Name))
+
+	// Initialize the attributes within the state
+	state.Opaque = nil
+	state.TLS = nil
+	state.GCP = types.StringNull()
+	state.AWS = nil
+	state.ECR = nil
+	state.Docker = types.StringNull()
+	state.UsernamePassword = nil
+	state.KeyPair = nil
+	state.Dictionary = types.MapNull(types.StringType)
+	state.DictionaryAsEnvs = types.MapNull(types.StringType)
+	state.AzureSdk = types.StringNull()
+	state.AzureConnector = nil
+	state.NatsAccount = nil
+
+	// Handle secret data if present
+	if apiResp.Data != nil {
+		data := *apiResp.Data
+		switch *apiResp.Type {
+		case "opaque":
+			// Flatten opaque secret payload
+			state.Opaque = sro.flattenOpaque(data.(map[string]interface{}))
+
+		case "tls":
+			// Flatten TLS secret payload
+			state.TLS = sro.flattenTls(data.(map[string]interface{}))
+
+		case "gcp":
+			// Flatten GCP secret payload
+			state.GCP = PreserveJSONFormatting(data, sro.Plan.GCP)
+
+		case "aws":
+			// Flatten AWS secret payload
+			state.AWS = sro.flattenAws(data.(map[string]interface{}))
+
+		case "ecr":
+			// Flatten ECR secret payload
+			state.ECR = sro.flattenEcr(data.(map[string]interface{}))
+
+		case "docker":
+			// Flatten Docker secret payload
+			state.Docker = PreserveJSONFormatting(data, sro.Plan.Docker)
+
+		case "userpass":
+			// Flatten username/password secret payload
+			state.UsernamePassword = sro.flattenUserpass(data.(map[string]interface{}))
+
+		case "keypair":
+			// Flatten keypair secret payload
+			state.KeyPair = sro.flattenKeyPair(data.(map[string]interface{}))
+
+		case "dictionary":
+			// Flatten map string for dictionary payload
+			dataMap := data.(map[string]interface{})
+			state.Dictionary = FlattenMapString(&dataMap)
+
+			// Build environment variables for dictionary entries
+			dictAsEnvs := make(map[string]interface{})
+			for key := range dataMap {
+				dictAsEnvs[key] = fmt.Sprintf("cpln://secret/%s.%s", *apiResp.Name, key)
+			}
+			state.DictionaryAsEnvs = FlattenMapString(&dictAsEnvs)
+
+		case "azure-sdk":
+			// Set Azure SDK secret value
+			state.AzureSdk = PreserveJSONFormatting(data, sro.Plan.AzureSdk)
+
+		case "azure-connector":
+			// Flatten Azure connector secret payload
+			state.AzureConnector = sro.flattenAzureConnector(data.(map[string]interface{}))
+
+		case "nats-account":
+			// Flatten NATS account secret payload
+			state.NatsAccount = sro.flattenNatsAccount(data.(map[string]interface{}))
+		}
 	}
 
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setSecret(d, secret)
+	// Return completed state model
+	return state
 }
 
-func resourceSecretUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	if d.HasChanges("description", "tags", "opaque", "tls", "gcp", "aws", "docker", "userpass", "keypair", "azure_sdk", "dictionary", "ecr", "azure_connector", "nats_account") {
-
-		secretToUpdate := client.Secret{}
-		secretToUpdate.Name = GetString(d.Get("name"))
-		secretToUpdate.Description = DescriptionHelper(*secretToUpdate.Name, d.Get("description").(string))
-		secretToUpdate.Tags = GetTagChanges(d)
-
-		changedSecret := []string{}
-
-		if d.HasChange("aws") {
-			changedSecret = append(changedSecret, "aws")
-		}
-
-		if d.HasChange("azure_connector") {
-			changedSecret = append(changedSecret, "azure_connector")
-		}
-
-		if d.HasChange("azure_sdk") {
-			changedSecret = append(changedSecret, "azure_sdk")
-		}
-
-		if d.HasChange("docker") {
-			changedSecret = append(changedSecret, "docker")
-		}
-
-		if d.HasChange("dictionary") {
-			changedSecret = append(changedSecret, "dictionary")
-		}
-
-		if d.HasChange("ecr") {
-			changedSecret = append(changedSecret, "ecr")
-		}
-
-		if d.HasChange("gcp") {
-			changedSecret = append(changedSecret, "gcp")
-		}
-
-		if d.HasChange("keypair") {
-			changedSecret = append(changedSecret, "keypair")
-		}
-
-		if d.HasChange("opaque") {
-			changedSecret = append(changedSecret, "opaque")
-		}
-
-		if d.HasChange("tls") {
-			changedSecret = append(changedSecret, "tls")
-		}
-
-		if d.HasChange("userpass") {
-			changedSecret = append(changedSecret, "userpass")
-		}
-
-		if d.HasChange("nats_account") {
-			changedSecret = append(changedSecret, "nats_account")
-		}
-
-		if len(changedSecret) == 1 {
-
-			s := changedSecret[0]
-
-			data := d.Get(s)
-
-			secretToUpdate.Type = GetString(s)
-
-			if err := buildData(*secretToUpdate.Type, data, &secretToUpdate, true); err != nil {
-				return diag.FromErr(err)
-			}
-		}
-
-		c := m.(*client.Client)
-		updatedSecret, _, err := c.UpdateSecret(secretToUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setSecret(d, updatedSecret)
-	}
-
-	return nil
+// InvokeCreate invokes the Create API to create a new resource.
+func (sro *SecretResourceOperator) InvokeCreate(req client.Secret) (*client.Secret, int, error) {
+	return sro.Client.CreateSecret(req)
 }
 
-func setSecret(d *schema.ResourceData, secret *client.Secret) diag.Diagnostics {
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (sro *SecretResourceOperator) InvokeRead(name string) (*client.Secret, int, error) {
+	return sro.Client.GetSecret(name)
+}
 
-	if secret == nil {
-		d.SetId("")
-		return nil
-	}
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (sro *SecretResourceOperator) InvokeUpdate(req client.Secret) (*client.Secret, int, error) {
+	return sro.Client.UpdateSecret(req)
+}
 
-	d.SetId(*secret.Name)
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (sro *SecretResourceOperator) InvokeDelete(name string) error {
+	return sro.Client.DeleteSecret(name)
+}
 
-	if err := d.Set("secret_link", "cpln://secret/"+*secret.Name); err != nil {
-		return diag.FromErr(err)
-	}
+// Builders //
 
-	if err := SetBase(d, secret.Base); err != nil {
-		return diag.FromErr(err)
-	}
+// buildType determines the secret type based on which attribute is set in the state.
+func (op *SecretResourceOperator) buildType(state SecretResourceModel) *string {
+	// Use reflection to examine the fields of the state model
+	v := reflect.ValueOf(state)
+	t := v.Type()
 
-	if *secret.Type == "azure-sdk" {
-		*secret.Type = "azure_sdk"
-	}
+	// Iterate over the list of known secret attribute names
+	for _, attrName := range secretAttributeNames {
+		// Iterate over the struct fields of the state model
+		for i := range t.NumField() {
+			field := t.Field(i)
 
-	if *secret.Type == "azure-connector" {
-		*secret.Type = "azure_connector"
-	}
-
-	if *secret.Type == "nats-account" {
-		*secret.Type = "nats_account"
-	}
-
-	if err := d.Set("dictionary_as_envs", nil); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if secret.Data != nil {
-
-		data := *secret.Data
-
-		if *secret.Type == "gcp" || *secret.Type == "docker" || *secret.Type == "azure_sdk" {
-
-			if err := d.Set(*secret.Type, data.(string)); err != nil {
-				return diag.FromErr(err)
-			}
-		} else if *secret.Type == "dictionary" {
-
-			secretData := data.(map[string]interface{})
-
-			if err := d.Set(*secret.Type, secretData); err != nil {
-				return diag.FromErr(err)
+			// Skip if the field's tfsdk tag doesn't match the current attribute name
+			if field.Tag.Get("tfsdk") != attrName {
+				continue
 			}
 
-			dict_as_envs := make(map[string]string)
-			for key := range secretData {
-				dict_as_envs[key] = fmt.Sprintf("cpln://secret/%s.%s", *secret.Name, key)
-			}
+			// Retrieve the field's value
+			fv := v.Field(i)
+			set := false
 
-			if err := d.Set("dictionary_as_envs", dict_as_envs); err != nil {
-				return diag.FromErr(err)
-			}
-		} else {
-
-			setData := make([]interface{}, 1)
-			bData := make(map[string]interface{})
-
-			if *secret.Type == "aws" || *secret.Type == "ecr" || *secret.Type == "keypair" || *secret.Type == "nats_account" {
-
-				secretData := data.(map[string]interface{})
-
-				if *secret.Type == "aws" || *secret.Type == "ecr" {
-
-					bData["secret_key"] = secretData["secretKey"]
-					bData["access_key"] = secretData["accessKey"]
-					bData["role_arn"] = secretData["roleArn"]
-					bData["external_id"] = secretData["externalId"]
-
-					if *secret.Type == "ecr" {
-						bData["repos"] = secretData["repos"]
-					}
+			// Check if the field is a slice and is non-empty
+			if fv.Kind() == reflect.Slice {
+				if fv.Len() > 0 {
+					set = true
 				}
-
-				if *secret.Type == "keypair" {
-					bData["secret_key"] = secretData["secretKey"]
-					bData["public_key"] = secretData["publicKey"]
-					bData["passphrase"] = secretData["passphrase"]
-				}
-
-				if *secret.Type == "nats_account" {
-					bData["account_id"] = secretData["accountId"]
-					bData["private_key"] = secretData["privateKey"]
-				}
-
-				setData[0] = bData
-
 			} else {
-				setData[0] = secret.Data
+				// For other types that implement attr.Value, check if the value is defined
+				if val, ok := fv.Interface().(attr.Value); ok && !val.IsNull() && !val.IsUnknown() {
+					set = true
+				}
 			}
 
-			if err := d.Set(*secret.Type, setData); err != nil {
-				return diag.FromErr(err)
+			// If the attribute is set, convert underscores to hyphens and return the type name
+			if set {
+				typeName := strings.ReplaceAll(attrName, "_", "-")
+				return &typeName
 			}
+
+			// Exit the inner loop once the relevant field is found
+			break
 		}
 	}
 
-	if err := SetSelfLink(secret.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
+	// Return nil if no matching attribute is set
 	return nil
 }
 
-func resourceSecretDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	c := m.(*client.Client)
-	err := c.DeleteSecret(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
+// BuildData constructs the secret data payload or reports an error if invalid.
+func (op *SecretResourceOperator) buildData(state SecretResourceModel, secretType string) *interface{} {
+	// Check if a data builder is registered for the secret type
+	if builder, ok := op.DataBuilders[secretType]; ok {
+		// Invoke the builder function to assemble the payload
+		if data := builder(state); data != nil {
+			// Return the built data when successful
+			return data
+		}
 	}
 
-	d.SetId("")
+	// Report an error when no valid data could be produced
+	op.Diags.AddError("Invalid Secret Data", fmt.Sprintf("invalid input for secret type %q", secretType))
 
+	// Indicate failure by returning nil
 	return nil
+}
+
+// buildOpaque constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildOpaque(state []models.OpaqueModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &map[string]interface{}{
+		"payload":  BuildString(block.Payload),
+		"encoding": BuildString(block.Encoding),
+	}
+}
+
+// buildTls constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildTls(state []models.TlsModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct the output
+	output := map[string]interface{}{
+		"key":  BuildString(block.Key),
+		"cert": BuildString(block.Cert),
+	}
+
+	// Set chain if specified
+	if chain := BuildString(block.Chain); chain != nil {
+		output["chain"] = chain
+	}
+
+	// Return the output
+	return &output
+}
+
+// buildAws constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildAws(state []models.AwsModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct the output
+	output := map[string]interface{}{
+		"accessKey": BuildString(block.AccessKey),
+		"secretKey": BuildString(block.SecretKey),
+	}
+
+	// Set roleArn if specified
+	if roleArn := BuildString(block.RoleArn); roleArn != nil {
+		output["roleArn"] = roleArn
+	}
+
+	// Set externalId if specified
+	if externalId := BuildString(block.ExternalId); externalId != nil {
+		output["externalId"] = externalId
+	}
+
+	// Return the output
+	return &output
+}
+
+// buildEcr constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildEcr(state []models.EcrModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct the output
+	output := map[string]interface{}{
+		"accessKey": BuildString(block.AccessKey),
+		"secretKey": BuildString(block.SecretKey),
+		"repos":     sro.BuildSetString(block.Repos),
+	}
+
+	// Set roleArn if specified
+	if roleArn := BuildString(block.RoleArn); roleArn != nil {
+		output["roleArn"] = roleArn
+	}
+
+	// Set externalId if specified
+	if externalId := BuildString(block.ExternalId); externalId != nil {
+		output["externalId"] = externalId
+	}
+
+	// Return the output
+	return &output
+}
+
+// buildUserpass constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildUserpass(state []models.UserpassModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &map[string]interface{}{
+		"username": BuildString(block.Username),
+		"password": BuildString(block.Password),
+		"encoding": BuildString(block.Encoding),
+	}
+}
+
+// buildKeypair constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildKeypair(state []models.KeyPairModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct the output
+	output := map[string]interface{}{
+		"secretKey": BuildString(block.SecretKey),
+	}
+
+	// Set the publicKey if specified
+	if publicKey := BuildString(block.PublicKey); publicKey != nil {
+		output["publicKey"] = publicKey
+	}
+
+	// Set the passphrase if specified
+	if passphrase := BuildString(block.Passphrase); passphrase != nil {
+		output["passphrase"] = passphrase
+	}
+
+	// Return the output
+	return &output
+}
+
+// buildAzureConnector constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildAzureConnector(state []models.AzureConnectorModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &map[string]interface{}{
+		"url":  BuildString(block.Url),
+		"code": BuildString(block.Code),
+	}
+}
+
+// buildNatsAccount constructs a map from the given Terraform state.
+func (sro *SecretResourceOperator) buildNatsAccount(state []models.NatsAccountModel) *map[string]interface{} {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &map[string]interface{}{
+		"accountId":  BuildString(block.AccountId),
+		"privateKey": BuildString(block.PrivateKey),
+	}
+}
+
+// Flatteners //
+
+// flattenOpaque transforms *interface{} into a []models.OpaqueModel.
+func (sro *SecretResourceOperator) flattenOpaque(input map[string]interface{}) []models.OpaqueModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.OpaqueModel{
+		Payload:  types.StringValue(input["payload"].(string)),
+		Encoding: types.StringValue(input["encoding"].(string)),
+	}
+
+	// Return a slice containing the single block
+	return []models.OpaqueModel{block}
+}
+
+// flattenTls transforms *interface{} into a []models.TlsModel.
+func (sro *SecretResourceOperator) flattenTls(input map[string]interface{}) []models.TlsModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TlsModel{
+		Key:  types.StringValue(input["key"].(string)),
+		Cert: types.StringValue(input["cert"].(string)),
+	}
+
+	// Set chain if specified
+	if chain, ok := input["chain"]; ok {
+		block.Chain = types.StringValue(chain.(string))
+	}
+
+	// Return a slice containing the single block
+	return []models.TlsModel{block}
+}
+
+// flattenAws transforms *interface{} into a []models.AwsModel.
+func (sro *SecretResourceOperator) flattenAws(input map[string]interface{}) []models.AwsModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AwsModel{
+		AccessKey: types.StringValue(input["accessKey"].(string)),
+		SecretKey: types.StringValue(input["secretKey"].(string)),
+	}
+
+	// Set roleArn if specified
+	if roleArn, ok := input["roleArn"]; ok {
+		block.RoleArn = types.StringValue(roleArn.(string))
+	}
+
+	// Set externalId if specified
+	if externalId, ok := input["externalId"]; ok {
+		block.ExternalId = types.StringValue(externalId.(string))
+	}
+
+	// Return a slice containing the single block
+	return []models.AwsModel{block}
+}
+
+// flattenEcr transforms *interface{} into a []models.EcrModel.
+func (sro *SecretResourceOperator) flattenEcr(input map[string]interface{}) []models.EcrModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	repos := ToStringSlice(input["repos"].([]interface{}))
+
+	// Build a single block
+	block := models.EcrModel{
+		AccessKey: types.StringValue(input["accessKey"].(string)),
+		SecretKey: types.StringValue(input["secretKey"].(string)),
+		Repos:     FlattenSetString(&repos),
+	}
+
+	// Set roleArn if specified
+	if roleArn, ok := input["roleArn"]; ok {
+		block.RoleArn = types.StringValue(roleArn.(string))
+	}
+
+	// Set externalId if specified
+	if externalId, ok := input["externalId"]; ok {
+		block.ExternalId = types.StringValue(externalId.(string))
+	}
+
+	// Return a slice containing the single block
+	return []models.EcrModel{block}
+}
+
+// flattenUserpass transforms *interface{} into a []models.UserpassModel.
+func (sro *SecretResourceOperator) flattenUserpass(input map[string]interface{}) []models.UserpassModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.UserpassModel{
+		Username: types.StringValue(input["username"].(string)),
+		Password: types.StringValue(input["password"].(string)),
+		Encoding: types.StringValue(input["encoding"].(string)),
+	}
+
+	// Return a slice containing the single block
+	return []models.UserpassModel{block}
+}
+
+// flattenKeyPair transforms *interface{} into a []models.KeyPairModel.
+func (sro *SecretResourceOperator) flattenKeyPair(input map[string]interface{}) []models.KeyPairModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.KeyPairModel{
+		SecretKey: types.StringValue(input["secretKey"].(string)),
+	}
+
+	// Set publicKey if specified
+	if publicKey, ok := input["publicKey"]; ok {
+		block.PublicKey = types.StringValue(publicKey.(string))
+	}
+
+	// Set passphrase if specified
+	if passphrase, ok := input["passphrase"]; ok {
+		block.Passphrase = types.StringValue(passphrase.(string))
+	}
+
+	// Return a slice containing the single block
+	return []models.KeyPairModel{block}
+}
+
+// flattenAzureConnector transforms *interface{} into a []models.AzureConnectorModel.
+func (sro *SecretResourceOperator) flattenAzureConnector(input map[string]interface{}) []models.AzureConnectorModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AzureConnectorModel{
+		Url:  types.StringValue(input["url"].(string)),
+		Code: types.StringValue(input["code"].(string)),
+	}
+
+	// Return a slice containing the single block
+	return []models.AzureConnectorModel{block}
+}
+
+// flattenNatsAccount transforms *interface{} into a []models.NatsAccountModel.
+func (sro *SecretResourceOperator) flattenNatsAccount(input map[string]interface{}) []models.NatsAccountModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.NatsAccountModel{
+		AccountId:  types.StringValue(input["accountId"].(string)),
+		PrivateKey: types.StringValue(input["privateKey"].(string)),
+	}
+
+	// Return a slice containing the single block
+	return []models.NatsAccountModel{block}
 }

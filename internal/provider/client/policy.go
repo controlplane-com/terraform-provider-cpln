@@ -1,7 +1,6 @@
 package cpln
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -9,7 +8,7 @@ import (
 type Policy struct {
 	Base
 	TargetKind  *string    `json:"targetKind,omitempty"`
-	TargetLinks *[]string  `json:"targetLinks"`
+	TargetLinks *[]string  `json:"targetLinks,omitempty"`
 	TargetQuery *Query     `json:"targetQuery,omitempty"`
 	Target      *string    `json:"target,omitempty"`
 	Origin      *string    `json:"origin,omitempty"`
@@ -20,32 +19,13 @@ type Policy struct {
 type PolicyUpdate struct {
 	Base
 	TargetKind  *string    `json:"targetKind,omitempty"`
-	TargetLinks *[]string  `json:"targetLinks"`
+	TargetLinks *[]string  `json:"targetLinks,omitempty"`
 	TargetQuery *Query     `json:"targetQuery"`
 	Target      *string    `json:"target"`
 	Origin      *string    `json:"origin,omitempty"`
 	Bindings    *[]Binding `json:"bindings"`
 }
 
-func (p Policy) MarshalJSON() ([]byte, error) {
-
-	type localPolicy Policy
-
-	if p.Update && (p.Target == nil || *p.Target == "") {
-		return json.Marshal(PolicyUpdate{
-			Base:        p.Base,
-			TargetKind:  p.TargetKind,
-			TargetLinks: p.TargetLinks,
-			TargetQuery: p.TargetQuery,
-			Target:      p.Target,
-			Origin:      p.Origin,
-			Bindings:    p.Bindings,
-		})
-	}
-	return json.Marshal(localPolicy(p))
-}
-
-// Binding - Binding
 type Binding struct {
 	Permissions    *[]string `json:"permissions,omitempty"`
 	PrincipalLinks *[]string `json:"principalLinks,omitempty"`
@@ -75,7 +55,7 @@ func (c *Client) CreatePolicy(policy Policy) (*Policy, int, error) {
 }
 
 // UpdatePolicy - Update an Policy
-func (c *Client) UpdatePolicy(policy Policy) (*Policy, int, error) {
+func (c *Client) UpdatePolicy(policy PolicyUpdate) (*Policy, int, error) {
 
 	code, err := c.UpdateResource(fmt.Sprintf("policy/%s", *policy.Name), policy)
 	if err != nil {

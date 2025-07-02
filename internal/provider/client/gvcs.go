@@ -24,18 +24,18 @@ type Gvc struct {
 
 // GvcSpec - GVC Spec
 type GvcSpec struct {
-	StaticPlacement      *StaticPlacement `json:"staticPlacement,omitempty"`
-	PullSecretLinks      *[]string        `json:"pullSecretLinks,omitempty"`
-	Domain               *string          `json:"domain,omitempty"`
-	EndpointNamingFormat *string          `json:"endpointNamingFormat,omitempty"`
-	Tracing              *Tracing         `json:"tracing,omitempty"`
-	Sidecar              *GvcSidecar      `json:"sidecar,omitempty"`
-	Env                  *[]NameValue     `json:"env,omitempty"`
-	LoadBalancer         *LoadBalancer    `json:"loadBalancer,omitempty"`
+	StaticPlacement      *GvcStaticPlacement           `json:"staticPlacement,omitempty"`
+	PullSecretLinks      *[]string                     `json:"pullSecretLinks,omitempty"`
+	Domain               *string                       `json:"domain,omitempty"`
+	EndpointNamingFormat *string                       `json:"endpointNamingFormat,omitempty"`
+	Tracing              *Tracing                      `json:"tracing,omitempty"`
+	Sidecar              *GvcSidecar                   `json:"sidecar,omitempty"`
+	Env                  *[]WorkloadContainerNameValue `json:"env,omitempty"`
+	LoadBalancer         *GvcLoadBalancer              `json:"loadBalancer,omitempty"`
 }
 
-// StaticPlacement - Static Placement
-type StaticPlacement struct {
+// GvcStaticPlacement - Static Placement
+type GvcStaticPlacement struct {
 	LocationLinks *[]string `json:"locationLinks,omitempty"`
 	LocationQuery *Query    `json:"locationQuery,omitempty"`
 }
@@ -45,19 +45,24 @@ type GvcSidecar struct {
 	Envoy *any `json:"envoy,omitempty"`
 }
 
-// LoadBalancer - Load Balancer
-type LoadBalancer struct {
-	Dedicated      *bool     `json:"dedicated,omitempty"`
-	TrustedProxies *int      `json:"trustedProxies,omitempty"`
-	Redirect       *Redirect `json:"redirect,omitempty"`
-	IpSet          *string   `json:"ipSet,omitempty"`
+// GvcLoadBalancer - Load Balancer
+type GvcLoadBalancer struct {
+	Dedicated      *bool                     `json:"dedicated,omitempty"`
+	MultiZone      *GvcLoadBalancerMultiZone `json:"multiZone,omitempty"`
+	TrustedProxies *int                      `json:"trustedProxies,omitempty"`
+	Redirect       *GvcLoadBalancerRedirect  `json:"redirect,omitempty"`
+	IpSet          *string                   `json:"ipSet,omitempty"`
 }
 
-type Redirect struct {
-	Class *RedirectClass `json:"class,omitempty"`
+type GvcLoadBalancerMultiZone struct {
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
-type RedirectClass struct {
+type GvcLoadBalancerRedirect struct {
+	Class *GvcLoadBalancerRedirectClass `json:"class,omitempty"`
+}
+
+type GvcLoadBalancerRedirectClass struct {
 	Status5XX *string `json:"status5xx,omitempty"`
 	Status401 *string `json:"status401,omitempty"`
 }

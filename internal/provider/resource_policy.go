@@ -3,462 +3,587 @@ package cpln
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/policy"
+	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func resourcePolicy() *schema.Resource {
+// Ensure resource implements required interfaces.
+var (
+	_ resource.Resource                = &PolicyResource{}
+	_ resource.ResourceWithImportState = &PolicyResource{}
+)
 
-	return &schema.Resource{
-		CreateContext: resourcePolicyCreate,
-		ReadContext:   resourcePolicyRead,
-		UpdateContext: resourcePolicyUpdate,
-		DeleteContext: resourcePolicyDelete,
-		Schema: map[string]*schema.Schema{
-			"cpln_id": {
-				Type:        schema.TypeString,
-				Description: "The ID, in GUID format, of the Policy.",
-				Computed:    true,
-			},
-			"name": {
-				Type:         schema.TypeString,
-				Description:  "Name of the Policy.",
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: NameValidator,
-			},
-			"description": {
-				Type:             schema.TypeString,
-				Description:      "Description of the Policy.",
-				Optional:         true,
-				ValidateFunc:     DescriptionValidator,
-				DiffSuppressFunc: DiffSuppressDescription,
-			},
-			"tags": {
-				Type:         schema.TypeMap,
-				Description:  "Key-value map of resource tags.",
-				Optional:     true,
-				Elem:         StringSchema(),
-				ValidateFunc: TagValidator,
-			},
-			"self_link": {
-				Type:        schema.TypeString,
-				Description: "Full link to this resource. Can be referenced by other resources.",
-				Computed:    true,
-			},
-			"target_kind": {
-				Type:        schema.TypeString,
-				Description: "The kind of resource to target (e.g., gvc, serviceaccount, etc.).",
-				ForceNew:    true,
-				Required:    true,
-				// ValidateFunc: KindValidator,
-			},
-			"gvc": {
-				Type:        schema.TypeString,
+/*** Resource Model ***/
+
+// PolicyResourceModel holds the Terraform state for the resource.
+type PolicyResourceModel struct {
+	EntityBaseModel
+	TargetKind  types.String          `tfsdk:"target_kind"`
+	Gvc         types.String          `tfsdk:"gvc"`
+	TargetLinks types.Set             `tfsdk:"target_links"`
+	TargetQuery types.List            `tfsdk:"target_query"`
+	Target      types.String          `tfsdk:"target"`
+	Origin      types.String          `tfsdk:"origin"`
+	Binding     []models.BindingModel `tfsdk:"binding"`
+}
+
+/*** Resource Configuration ***/
+
+// PolicyResource is the resource implementation.
+type PolicyResource struct {
+	EntityBase
+	Operations EntityOperations[PolicyResourceModel, client.Policy]
+}
+
+// NewPolicyResource returns a new instance of the resource implementation.
+func NewPolicyResource() resource.Resource {
+	return &PolicyResource{}
+}
+
+// Configure configures the resource before use.
+func (pr *PolicyResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	pr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
+	pr.Operations = NewEntityOperations(pr.client, &PolicyResourceOperator{})
+}
+
+// ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
+func (pr *PolicyResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// Metadata provides the resource type name.
+func (pr *PolicyResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "cpln_policy"
+}
+
+// Schema defines the schema for the resource.
+func (pr *PolicyResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: MergeAttributes(pr.EntityBaseAttributes("Policy"), map[string]schema.Attribute{
+			"gvc": schema.StringAttribute{
 				Description: "The GVC for `identity`, `workload` and `volumeset` target kinds only.",
 				Optional:    true,
-				Default:     "",
-			},
-			"target_links": {
-				Type:        schema.TypeSet,
-				Description: "List of the targets this policy will be applied to. Not used if `target` is set to `all`.",
-				Optional:    true,
-				MaxItems:    200,
-				Elem:        StringSchema(),
-			},
-			"target_query": {
-				Type:        schema.TypeList,
-				Description: "A defined set of criteria or conditions used to identify the target entities or resources to which the policy applies.",
-				Optional:    true,
-				MaxItems:    1,
-				Elem:        QuerySchemaResource(),
-			},
-			"target": {
-				Type:        schema.TypeString,
-				Description: "Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.",
-				Optional:    true,
-				ValidateFunc: func(val interface{}, key string) (warns []string, errs []error) {
-
-					v := val.(string)
-
-					if v != "" && v != "all" {
-						errs = append(errs, fmt.Errorf("%q must be set to 'all', got: %s", key, v))
-					}
-
-					return
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					validators.NameValidator{},
 				},
 			},
-			"origin": {
-				Type:        schema.TypeString,
+			"target_kind": schema.StringAttribute{
+				Description: "The kind of resource to target (e.g., gvc, serviceaccount, etc.).",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"target_links": schema.SetAttribute{
+				Description: "List of the targets this policy will be applied to. Not used if `target` is set to `all`.",
+				ElementType: types.StringType,
+				Optional:    true,
+				Validators: []validator.Set{
+					setvalidator.SizeAtMost(200),
+				},
+				PlanModifiers: []planmodifier.Set{
+					pr.RequiresReplaceOnRemoval(),
+				},
+			},
+			"target": schema.StringAttribute{
+				Description: "Set this value of this attribute to `all` if this policy should target all objects of the given target_kind. Otherwise, do not include the attribute.",
+				Optional:    true,
+				Validators: []validator.String{
+					stringvalidator.OneOf("all"),
+				},
+			},
+			"origin": schema.StringAttribute{
 				Description: "Origin of the Policy. Either `builtin` or `default`.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"binding": {
-				Type:        schema.TypeSet,
+		}),
+		Blocks: map[string]schema.Block{
+			"target_query": schema.ListNestedBlock{
+				Description:  "A defined set of criteria or conditions used to identify the target entities or resources to which the policy applies.",
+				NestedObject: pr.QuerySchema(),
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"binding": schema.ListNestedBlock{
 				Description: "The association between a target kind and the bound permissions to service principals.",
-				Optional:    true,
-				MaxItems:    50,
-				Elem:        BindingResource(),
-			},
-		},
-		Importer: &schema.ResourceImporter{},
-	}
-}
-
-func BindingResource() *schema.Resource {
-
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"permissions": {
-				Type:        schema.TypeSet,
-				Description: "List of permissions to allow.",
-				Required:    true,
-				Elem:        StringSchema(),
-			},
-			"principal_links": {
-				Type:        schema.TypeSet,
-				Description: "List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `gvc/GVC_NAME/identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`.",
-				Required:    true,
-				MinItems:    1,
-				MaxItems:    200,
-				Elem:        StringSchema(),
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"permissions": schema.SetAttribute{
+							Description: "List of permissions to allow.",
+							ElementType: types.StringType,
+							Required:    true,
+						},
+						"principal_links": schema.SetAttribute{
+							Description: "List of the principals this binding will be applied to. Principal links format: `group/GROUP_NAME`, `user/USER_EMAIL`, `gvc/GVC_NAME/identity/IDENTITY_NAME`, `serviceaccount/SERVICE_ACCOUNT_NAME`.",
+							ElementType: types.StringType,
+							Required:    true,
+							Validators: []validator.Set{
+								setvalidator.SizeAtLeast(1),
+								setvalidator.SizeAtMost(200),
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(50),
+				},
 			},
 		},
 	}
 }
 
-func resourcePolicyCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	policy := client.Policy{}
-	policy.Name = GetString(d.Get("name"))
-	policy.Description = GetString(d.Get("description"))
-	policy.Tags = GetStringMap(d.Get("tags"))
-	policy.TargetKind = GetString(d.Get("target_kind"))
-	policy.Target = GetString(d.Get("target"))
-
-	gvc := d.Get("gvc").(string)
-	targetLinks := d.Get("target_links")
-
-	if targetLinks != nil {
-		targetArray := targetLinks.(*schema.Set).List()
-
-		if (*policy.TargetKind == "identity" || *policy.TargetKind == "workload" || *policy.TargetKind == "volumeset") && gvc == "" && len(targetArray) > 0 {
-			return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", *policy.TargetKind))
-		}
+// ConfigValidators enforces mutual exclusivity between attributes.
+func (pr *PolicyResource) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	expressions := []path.Expression{
+		path.MatchRoot("target"),
+		path.MatchRoot("target_links"),
+		path.MatchRoot("target_query"),
 	}
 
-	c := m.(*client.Client)
-
-	buildTargetLinks(c.Org, gvc, *policy.TargetKind, d.Get("target_links"), &policy)
-	policy.TargetQuery = BuildQueryHelper(*policy.TargetKind, d.Get("target_query"))
-	buildBindings(c.Org, d.Get("binding"), &policy)
-
-	newPolicy, code, err := c.CreatePolicy(policy)
-
-	if code == 409 {
-		return ResourceExistsHelper()
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(expressions...),
 	}
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	return setPolicy(c.Org, gvc, d, newPolicy)
 }
 
-func resourcePolicyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Create creates the resource.
+func (pr *PolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	CreateGeneric(ctx, req, resp, pr.Operations)
+}
 
-	c := m.(*client.Client)
+// Read fetches the current state of the resource.
+func (pr *PolicyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	ReadGeneric(ctx, req, resp, pr.Operations)
+}
 
-	policy, code, err := c.GetPolicy(d.Id())
-	gvc := d.Get("gvc").(string)
+// Update modifies the resource.
+func (pr *PolicyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	UpdateGeneric(ctx, req, resp, pr.Operations)
+}
 
-	if code == 404 {
-		d.SetId("")
+// Delete removes the resource.
+func (pr *PolicyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	DeleteGeneric(ctx, req, resp, pr.Operations)
+}
+
+/*** Plan Modifiers ***/
+
+// RequiresReplaceOnRemoval returns a plan modifier that forces a replace if the prior state was non-empty and the new plan is null/empty.
+func (pr *PolicyResource) RequiresReplaceOnRemoval() planmodifier.Set {
+	return setplanmodifier.RequiresReplaceIf(
+		func(ctx context.Context,
+			req planmodifier.SetRequest,
+			resp *setplanmodifier.RequiresReplaceIfFuncResponse,
+		) {
+			// Extract the old values
+			old := BuildSetString(ctx, &resp.Diagnostics, req.StateValue)
+
+			// Skip if old is nil, there is nothing to do here
+			if old == nil {
+				return
+			}
+
+			// Extract the new values
+			new := BuildSetString(ctx, &resp.Diagnostics, req.PlanValue)
+
+			// Just in case the user wants to set target_links to null, we don't allow them
+			if new == nil {
+				resp.RequiresReplace = true
+			}
+		},
+		"Recreate when removing existing target_links",
+		"If this attribute previously had items, removing them will recreate the resource.",
+	)
+}
+
+/*** Resource Operator ***/
+
+// PolicyResourceOperator is the operator for managing the state.
+type PolicyResourceOperator struct {
+	EntityOperator[PolicyResourceModel]
+}
+
+// NewAPIRequest creates a request payload from a state model.
+func (pro *PolicyResourceOperator) NewAPIRequest(isUpdate bool) client.Policy {
+	// Initialize a new request payload
+	requestPayload := client.Policy{}
+
+	// Populate Base fields from state
+	pro.Plan.Fill(&requestPayload.Base, isUpdate)
+
+	// Extract the target kind from the plan
+	targetKind := BuildString(pro.Plan.TargetKind)
+
+	// Set specific attributes
+	requestPayload.TargetKind = targetKind
+	requestPayload.TargetLinks = pro.buildTargetLinks(pro.Plan.TargetLinks, *targetKind, BuildString(pro.Plan.Gvc))
+	requestPayload.TargetQuery = pro.BuildQuery(pro.Plan.TargetQuery)
+	requestPayload.Target = BuildString(pro.Plan.Target)
+	requestPayload.Bindings = pro.buildBinding(pro.Plan.Binding)
+
+	// Return constructed request payload
+	return requestPayload
+}
+
+// MapResponseToState constructs the Terraform state model from the API response payload.
+func (pro *PolicyResourceOperator) MapResponseToState(apiResp *client.Policy, isCreate bool) PolicyResourceModel {
+	// Initialize empty state model
+	state := PolicyResourceModel{}
+
+	// Populate common fields from base resource data
+	state.From(apiResp.Base)
+
+	// Attempt to extract the GVC from the plan
+	if pro.Plan.Gvc.IsNull() || pro.Plan.Gvc.IsUnknown() {
+		state.Gvc = types.StringNull()
+	} else {
+		state.Gvc = pro.Plan.Gvc
+	}
+
+	// Set specific attributes
+	state.TargetKind = types.StringPointerValue(apiResp.TargetKind)
+	state.TargetLinks = pro.flattenTargetLinks(apiResp.TargetLinks, pro.Plan.TargetLinks)
+	state.TargetQuery = pro.FlattenQuery(apiResp.TargetQuery)
+	state.Target = types.StringPointerValue(apiResp.Target)
+	state.Origin = types.StringPointerValue(apiResp.Origin)
+	state.Binding = pro.flattenBinding(apiResp.Bindings)
+
+	// Return completed state model
+	return state
+}
+
+// InvokeCreate invokes the Create API to create a new resource.
+func (pro *PolicyResourceOperator) InvokeCreate(req client.Policy) (*client.Policy, int, error) {
+	return pro.Client.CreatePolicy(req)
+}
+
+// InvokeRead invokes the Get API to retrieve an existing resource by name.
+func (pro *PolicyResourceOperator) InvokeRead(name string) (*client.Policy, int, error) {
+	return pro.Client.GetPolicy(name)
+}
+
+// InvokeUpdate invokes the Update API to update an existing resource.
+func (pro *PolicyResourceOperator) InvokeUpdate(req client.Policy) (*client.Policy, int, error) {
+	return pro.Client.UpdatePolicy(client.PolicyUpdate{
+		Base:        req.Base,
+		TargetKind:  req.TargetKind,
+		TargetLinks: req.TargetLinks,
+		TargetQuery: req.TargetQuery,
+		Target:      req.Target,
+		Bindings:    req.Bindings,
+	})
+}
+
+// InvokeDelete invokes the Delete API to delete a resource by name.
+func (pro *PolicyResourceOperator) InvokeDelete(name string) error {
+	return pro.Client.DeletePolicy(name)
+}
+
+// Builders //
+
+// buildTargetLinks constructs full API links for each target based on user input and GVC context.
+func (pro *PolicyResourceOperator) buildTargetLinks(state types.Set, kind string, gvc *string) *[]string {
+	// Initialize the output slice
+	output := []string{}
+
+	// Build the planned target links
+	targetLinks := pro.BuildSetString(state)
+
+	// Return nil if the planned target links is nil
+	if targetLinks == nil {
 		return nil
 	}
 
-	if err != nil {
-		return diag.FromErr(err)
+	// Iterate over each target link and process it
+	for _, targetLink := range *targetLinks {
+		// Typically, the target link that is specified by the user is just the name of the resource or but it could also be a full link
+		// So, if the target link is a full path, use it as is
+		if strings.HasPrefix(targetLink, "/org/") {
+			output = append(output, targetLink)
+			continue
+		}
+
+		// Otherwise, construct the self link from the specified target link resource name
+		finalTargetLink := fmt.Sprintf("/org/%s/%s/%s", pro.Client.Org, kind, targetLink)
+
+		// If the target kind is a GVC scoped resource then let's modify the final target link
+		if gvc != nil && IsGvcScopedResource(kind) {
+			finalTargetLink = fmt.Sprintf("/org/%s/gvc/%s/%s/%s", pro.Client.Org, *gvc, kind, targetLink)
+		}
+
+		// Add the final target link to the output
+		output = append(output, finalTargetLink)
 	}
 
-	return setPolicy(c.Org, gvc, d, policy)
+	// Return the constructed output
+	return &output
 }
 
-func setPolicy(org, gvc string, d *schema.ResourceData, policy *client.Policy) diag.Diagnostics {
+// buildBinding constructs a []client.Binding from the given Terraform state.
+func (pro *PolicyResourceOperator) buildBinding(state []models.BindingModel) *[]client.Binding {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return &[]client.Binding{}
+	}
 
-	if policy == nil {
-		d.SetId("")
+	// Prepare the output slice
+	output := []client.Binding{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Binding{
+			Permissions:    pro.BuildSetString(block.Permissions),
+			PrincipalLinks: pro.buildPrincipalLinks(block.PrincipalLinks),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildPrincipalLinks constructs a []string from the given Terraform state.
+func (pro *PolicyResourceOperator) buildPrincipalLinks(state types.Set) *[]string {
+	// Build the string slice
+	p := pro.BuildSetString(state)
+
+	// Return nil if the slice is nil
+	if p == nil {
 		return nil
 	}
 
-	d.SetId(*policy.Name)
+	// Build the org link prefix string
+	orgPrefix := fmt.Sprintf(`/org/%s`, pro.Client.Org)
 
-	if err := SetBase(d, policy.Base); err != nil {
-		return diag.FromErr(err)
-	}
+	// Prepare the output slice
+	output := []string{}
 
-	if err := d.Set("target_kind", policy.TargetKind); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("gvc", gvc); err != nil {
-		return diag.FromErr(err)
-	}
-
-	targetLinks := flattenTargetLinks(policy.TargetLinks)
-
-	if err := d.Set("target_links", targetLinks); err != nil {
-		return diag.FromErr(err)
-	}
-
-	targetQuery, err := FlattenQueryHelper(policy.TargetQuery)
-
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("target_query", targetQuery); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("target", policy.Target); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("origin", policy.Origin); err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Find principal links already with org prefix
-	linksAlreadyWithOrgPrefix := map[string]interface{}{}
-
-	if d.Get("binding") != nil {
-		for _, binding := range d.Get("binding").(*schema.Set).List() {
-
-			b := binding.(map[string]interface{})
-
-			for _, pl := range b["principal_links"].(*schema.Set).List() {
-
-				principal := pl.(string)
-				orgPrefix := fmt.Sprintf(`/org/%s`, org)
-
-				if strings.HasPrefix(principal, orgPrefix) {
-					linksAlreadyWithOrgPrefix[principal] = nil
-				}
-			}
+	// Iterate over each block and construct an output item
+	for _, item := range *p {
+		// Only add org prefix if it was not provided by the user
+		if !strings.HasPrefix(item, orgPrefix) {
+			item = fmt.Sprintf("%s/%s", orgPrefix, item)
 		}
+
+		// Add the principal link to the output
+		output = append(output, item)
 	}
 
-	bindings := flattenBindings(org, policy.Bindings, linksAlreadyWithOrgPrefix)
-
-	if err := d.Set("binding", bindings); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := SetSelfLink(policy.Links, d); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return nil
+	// Return a pointer to the output
+	return &output
 }
 
-func resourcePolicyUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Flatteners //
 
-	if d.HasChanges("description", "tags", "target_links", "target_query", "target", "binding") {
-
-		c := m.(*client.Client)
-
-		gvc := d.Get("gvc").(string)
-		targetKind := d.Get("target_kind").(string)
-		targetLinks := d.Get("target_links")
-
-		if targetLinks != nil {
-			targetArray := targetLinks.(*schema.Set).List()
-			if (targetKind == "identity" || targetKind == "workload" || targetKind == "volumeset") && gvc == "" && len(targetArray) > 0 {
-				return diag.FromErr(fmt.Errorf("target kind of '%s' requires the 'gvc' property", targetKind))
-			}
-		}
-
-		policyToUpdate := client.Policy{}
-		policyToUpdate.Update = true
-		policyToUpdate.Name = GetString(d.Get("name"))
-		policyToUpdate.Description = GetDescriptionString(d.Get("description"), *policyToUpdate.Name)
-		policyToUpdate.Tags = GetTagChanges(d)
-
-		policyToUpdate.Target = GetString(d.Get("target"))
-		policyToUpdate.TargetQuery = BuildQueryHelper("user", d.Get("target_query"))
-		buildTargetLinks(c.Org, gvc, targetKind, d.Get("target_links"), &policyToUpdate)
-		buildBindings(c.Org, d.Get("binding"), &policyToUpdate)
-
-		updatedPolicy, _, err := c.UpdatePolicy(policyToUpdate)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		return setPolicy(c.Org, gvc, d, updatedPolicy)
+// flattenTargetLinks converts API returned links into a Terraform set, preserving full paths when user originally specified them.
+func (pro *PolicyResourceOperator) flattenTargetLinks(input *[]string, state types.Set) types.Set {
+	// Return a null set if input list is nil
+	if input == nil {
+		return types.SetNull(types.StringType)
 	}
 
-	return nil
-}
+	// Retrieve the user's original planned links from the Terraform state
+	plannedLinks := pro.BuildSetString(state)
 
-func buildTargetLinks(org, gvc, kind string, targets interface{}, policy *client.Policy) {
+	// Initialize a set for full path links
+	fullPathSet := make(map[string]struct{})
 
-	targetLinks := []string{}
-
-	if targets != nil {
-
-		targetArray := targets.(*schema.Set)
-
-		for _, t := range targetArray.List() {
-
-			if kind == "identity" || kind == "workload" || kind == "volumeset" {
-				targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/gvc/%s/%s/%s", org, gvc, kind, t))
-			} else {
-				targetLinks = append(targetLinks, fmt.Sprintf("/org/%s/%s/%s", org, kind, t))
+	// Categorize each planned link by full path if necessary
+	if plannedLinks != nil {
+		for _, plannedLink := range *plannedLinks {
+			if strings.HasPrefix(plannedLink, "/org/") {
+				fullPathSet[plannedLink] = struct{}{}
 			}
 		}
 	}
 
-	policy.TargetLinks = &targetLinks
-}
+	// Prepare output slice with capacity matching number of API links
+	output := make([]string, 0, len(*input))
 
-func buildBindings(org string, bindings interface{}, policy *client.Policy) {
-
-	bindingsArray := []client.Binding{}
-
-	if bindings != nil {
-
-		bSet := bindings.(*schema.Set)
-
-		bArray := bSet.List()
-
-		for _, binding := range bArray {
-
-			permissions := []string{}
-			principalLinks := []string{}
-
-			b := binding.(map[string]interface{})
-
-			pArray := b["permissions"].(*schema.Set)
-			plArray := b["principal_links"].(*schema.Set)
-
-			for _, p := range pArray.List() {
-				permissions = append(permissions, p.(string))
-			}
-
-			for _, b := range plArray.List() {
-
-				principal := b.(string)
-				orgPrefix := fmt.Sprintf(`/org/%s`, org)
-
-				// Only add org prefix if it was not provided by the user
-				if !strings.HasPrefix(principal, orgPrefix) {
-					principal = fmt.Sprintf(`%s/%s`, orgPrefix, principal)
-				}
-
-				principalLinks = append(principalLinks, principal)
-			}
-
-			if len(permissions) > 0 || len(principalLinks) > 0 {
-
-				localBinding := client.Binding{}
-
-				if len(permissions) > 0 {
-					localBinding.Permissions = &permissions
-				}
-
-				if len(principalLinks) > 0 {
-					localBinding.PrincipalLinks = &principalLinks
-				}
-
-				bindingsArray = append(bindingsArray, localBinding)
-			}
+	// Process each link returned by the API
+	for _, apiLink := range *input {
+		// Preserve full path if user originally specified it
+		if _, ok := fullPathSet[apiLink]; ok {
+			output = append(output, apiLink)
+			continue
 		}
+
+		// Otherwise strip the link to its resource name
+		output = append(output, apiLink[strings.LastIndexAny(apiLink, "/")+1:])
 	}
 
-	policy.Bindings = &bindingsArray
+	// Convert the processed links into a Terraform set
+	return FlattenSetString(&output)
 }
 
-func flattenTargetLinks(targetLinks *[]string) []interface{} {
-
-	if targetLinks == nil || len(*targetLinks) < 1 {
+// flattenBinding transforms *[]client.Binding into a []models.BindingModel.
+func (pro *PolicyResourceOperator) flattenBinding(input *[]client.Binding) []models.BindingModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
 		return nil
 	}
 
-	output := []interface{}{}
+	// Define the blocks slice
+	var blocks []models.BindingModel
 
-	for _, m := range *targetLinks {
-		output = append(output, m[strings.LastIndexAny(m, "/")+1:])
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Find the matching planned binding
+		plannedPrincipalLinks := pro.findMatchingPlannedPrincipalLinks(item)
+
+		// Construct a block
+		block := models.BindingModel{
+			Permissions:    FlattenSetString(item.Permissions),
+			PrincipalLinks: pro.flattenPrincipalLinks(item.PrincipalLinks, plannedPrincipalLinks),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
 	}
 
-	return output
+	// Return the successfully accumulated blocks
+	return blocks
 }
 
-func flattenBindings(org string, bindings *[]client.Binding, linksAlreadyWithOrgPrefix map[string]interface{}) []interface{} {
-
-	if bindings == nil || len(*bindings) < 1 {
-		return nil
+// flattenPrincipalLinks transforms *[]string into a types.Set.
+func (pro *PolicyResourceOperator) flattenPrincipalLinks(input *[]string, plannedLinks *[]string) types.Set {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null set
+		return types.SetNull(types.StringType)
 	}
 
-	flatBindings := []interface{}{}
+	// Build the org link prefix string
+	orgPrefix := fmt.Sprintf(`/org/%s/`, pro.Client.Org)
 
-	for _, binding := range *bindings {
+	// Initialize a set for full path links
+	fullPathPrincipalLinks := make(map[string]struct{})
 
-		b := make(map[string]interface{})
-
-		permissions := []interface{}{}
-
-		for _, p := range *binding.Permissions {
-			permissions = append(permissions, p)
-		}
-
-		if len(permissions) > 0 {
-			b["permissions"] = permissions
-		}
-
-		principalLinks := []interface{}{}
-
-		for _, p := range *binding.PrincipalLinks {
-
-			principal := p
-			_, hasOrgPrefix := linksAlreadyWithOrgPrefix[p]
-
-			// Only modify a principal link that the user hasn't explictly provided with an org prefix
-			if !hasOrgPrefix {
-				principal = strings.TrimPrefix(p, fmt.Sprintf(`/org/%s/`, org))
+	// Categorize each planned link by full path if necessary
+	if plannedLinks != nil {
+		for _, plannedLink := range *plannedLinks {
+			if strings.HasPrefix(plannedLink, orgPrefix) {
+				fullPathPrincipalLinks[plannedLink] = struct{}{}
 			}
-
-			principalLinks = append(principalLinks, principal)
-		}
-
-		if len(principalLinks) > 0 {
-			b["principal_links"] = principalLinks
-		}
-
-		if len(permissions) > 0 || len(principalLinks) > 0 {
-			flatBindings = append(flatBindings, b)
 		}
 	}
 
-	return flatBindings
+	// Define the items slice
+	var result []string
+
+	// Iterate over the slice and construct the blocks
+	for _, l := range *input {
+		// Preserve full path if user originally specified it
+		if _, ok := fullPathPrincipalLinks[l]; ok {
+			result = append(result, l)
+			continue
+		}
+
+		// Remove the org link prefix from the principal link and add it to the result
+		result = append(result, strings.TrimPrefix(l, orgPrefix))
+	}
+
+	// Return the successfully accumulated blocks
+	return FlattenSetString(&result)
 }
 
-func resourcePolicyDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+// Helpers //
 
-	// log.Printf("[INFO] Method: resourcePolicyDelete")
-
-	c := m.(*client.Client)
-	err := c.DeletePolicy(d.Id())
-	if err != nil {
-		return diag.FromErr(err)
+// findMatchingPlannedPrincipalLinks returns the pointer to the planned principal links slice
+func (pro *PolicyResourceOperator) findMatchingPlannedPrincipalLinks(input client.Binding) *[]string {
+	// Extract input permissions slice (or empty if nil)
+	var inPerms []string
+	if input.Permissions != nil {
+		inPerms = *input.Permissions
 	}
 
-	d.SetId("")
+	// Extract input principal-links length
+	inLinksLen := 0
+	if input.PrincipalLinks != nil {
+		inLinksLen = len(*input.PrincipalLinks)
+	}
 
+	// Sort the input permissions for reliable comparison
+	sort.Strings(inPerms)
+
+	// Scan through each planned binding
+	for _, pb := range pro.Plan.Binding {
+		// Pull out the planned permissions into a []string
+		pbPerms := pro.BuildSetString(pb.Permissions)
+
+		// Skip this one if extraction failed
+		if pbPerms == nil {
+			continue
+		}
+
+		// Quick length check
+		if len(*pbPerms) != len(inPerms) {
+			continue
+		}
+
+		// Sort planned perms and compare element-by-element
+		sort.Strings(*pbPerms)
+
+		// Assume that there is a match until proven otherwise
+		match := true
+
+		// Iterate over permissions and compare
+		for i := range *pbPerms {
+			if (*pbPerms)[i] != inPerms[i] {
+				match = false
+				break
+			}
+		}
+
+		// If there is no match, then skip this binding and move on
+		if !match {
+			continue
+		}
+
+		// Now extract planned principal-links and compare lengths
+		pbLinks := pro.BuildSetString(pb.PrincipalLinks)
+
+		// Skip this one if extraction failed
+		if pbLinks == nil {
+			continue
+		}
+
+		// Quick length check
+		if len(*pbLinks) != inLinksLen {
+			continue
+		}
+
+		// Both criteria match: this is our planned binding
+		return pbLinks
+	}
+
+	// Return nil for the binding that was not found
 	return nil
 }
