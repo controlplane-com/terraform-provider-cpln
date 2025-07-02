@@ -1,3 +1,14 @@
+## 1.2.0
+- Migrate to the Terraform Plugin Framework.
+- Add docker, kubelet, kernel and events to the logs addon in `cpln_mk8s` resource.
+- Add azure provider to `cpln_mk8s` resource.
+- Allow for giving a full target link in `cpln_policy` resource.
+- Allow for using capacity AI in cron workloads.
+- Attempt to delete resource again after receiving 409.
+- Do not retry on 429 if the message contains "Quota".
+- Use endpoint from profile if user didn't specify an endpoint.
+- Fix some bugs.
+
 ## 1.1.48
 - Fix org import with empty `saml only`.
 - Fix empty IP Set issue in GVC load balancer.
