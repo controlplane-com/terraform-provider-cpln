@@ -1,3 +1,6 @@
+## 1.2.1
+- Add `cpln_mk8s_kubeconfig` resource back.
+
 ## 1.2.0
 - Migrate to the Terraform Plugin Framework.
 - Add docker, kubelet, kernel and events to the logs addon in `cpln_mk8s` resource.
