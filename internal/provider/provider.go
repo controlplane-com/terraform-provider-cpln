@@ -167,6 +167,7 @@ func (p *CplnProvider) Resources(_ context.Context) []func() resource.Resource {
 		NewIpSetResource,
 		NewLocationResource,
 		NewMk8sResource,
+		NewMk8sKubeconfigResource,
 		NewOrgLoggingResource,
 		NewOrgTracingResource,
 		NewOrgResource,
