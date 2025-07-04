@@ -1,3 +1,6 @@
+## 1.2.2
+- Fix an env flatten bug that caused a panic on nil value.
+
 ## 1.2.1
 - Add `cpln_mk8s_kubeconfig` resource back.
 
