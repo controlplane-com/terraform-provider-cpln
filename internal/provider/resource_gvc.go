@@ -590,7 +590,21 @@ func (gro *GvcResourceOperator) flattenEnv(input *[]client.WorkloadContainerName
 
 	// Populate native map from NameValue entries
 	for _, item := range *input {
-		envMap[*item.Name] = *item.Value
+		// Skip this record just in case the name was nil
+		if item.Name == nil {
+			continue
+		}
+
+		// Dereference the record name
+		key := *item.Name
+
+		// Initialize with a nil value
+		envMap[key] = nil
+
+		// If the value is not nil, update the map key
+		if item.Value != nil {
+			envMap[key] = *item.Value
+		}
 	}
 
 	// Convert native map to Terraform types.Map

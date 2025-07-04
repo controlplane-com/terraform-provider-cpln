@@ -2858,8 +2858,21 @@ func (wro *WorkloadResourceOperator) flattenNameValue(input *[]client.WorkloadCo
 
 	// Iterate over each block and map the name to its value
 	for _, item := range *input {
-		// Map header name to its value
-		output[*item.Name] = *item.Value
+		// Skip this record just in case the name was nil
+		if item.Name == nil {
+			continue
+		}
+
+		// Dereference the record name
+		key := *item.Name
+
+		// Initialize with a nil value
+		output[key] = nil
+
+		// If the value is not nil, update the output key
+		if item.Value != nil {
+			output[key] = *item.Value
+		}
 	}
 
 	// Return the constructed output slice
