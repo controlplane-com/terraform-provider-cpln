@@ -118,7 +118,7 @@ func (aro *AgentResourceOperator) MapResponseToState(agent *client.Agent, isCrea
 	state := AgentResourceModel{}
 
 	// On create operation, include bootstrap config as user_data
-	if isCreate {
+	if isCreate && agent.Status != nil && agent.Status.BootstrapConfig != nil {
 		// Convert BootstrapConfig to JSON string
 		userData, err := json.Marshal(agent.Status.BootstrapConfig)
 		if err != nil {
@@ -129,6 +129,8 @@ func (aro *AgentResourceOperator) MapResponseToState(agent *client.Agent, isCrea
 
 		// Set user_data attribute in state
 		state.UserData = types.StringValue(string(userData))
+	} else {
+		state.UserData = aro.Plan.UserData // :D
 	}
 
 	// Populate common fields from base resource data

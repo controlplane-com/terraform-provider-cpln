@@ -65,11 +65,6 @@ func StringPointerFromInterface(input interface{}) *string {
 	// Assert that the input is a string
 	strValue := input.(string)
 
-	// Trim whitespace and return nil if resulting string is empty
-	if strings.TrimSpace(strValue) == "" {
-		return nil
-	}
-
 	// Return pointer to the validated string value
 	return &strValue
 }

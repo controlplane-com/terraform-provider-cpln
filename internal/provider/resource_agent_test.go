@@ -3,6 +3,7 @@ package cpln
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
@@ -40,6 +41,7 @@ func TestAccControlPlaneAgent_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "name", name),
 					resource.TestCheckResourceAttr(resourceName, "description", name),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "0"),
+					resource.TestCheckResourceAttrWith(resourceName, "user_data", testAccControlPlaneAgentValidateUserData),
 					resource.TestCheckResourceAttr(resourceName, "self_link", GetSelfLink(OrgName, "agent", name)),
 					testAccCheckControlPlaneAgentExists(resourceName, name, &testAgent),
 				),
@@ -58,6 +60,7 @@ func TestAccControlPlaneAgent_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", description),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "2"),
 					resource.TestCheckResourceAttr(resourceName, "self_link", GetSelfLink(OrgName, "agent", name)),
+					resource.TestCheckResourceAttrWith(resourceName, "user_data", testAccControlPlaneAgentValidateUserData),
 				),
 			},
 			{
@@ -68,6 +71,7 @@ func TestAccControlPlaneAgent_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "tags.new_tag", "true"),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "3"),
 					resource.TestCheckResourceAttr(resourceName, "self_link", GetSelfLink(OrgName, "agent", name)),
+					resource.TestCheckResourceAttrWith(resourceName, "user_data", testAccControlPlaneAgentValidateUserData),
 				),
 			},
 			{
@@ -77,6 +81,7 @@ func TestAccControlPlaneAgent_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", updateDescription),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "2"),
 					resource.TestCheckResourceAttr(resourceName, "self_link", GetSelfLink(OrgName, "agent", name)),
+					resource.TestCheckResourceAttrWith(resourceName, "user_data", testAccControlPlaneAgentValidateUserData),
 				),
 			},
 			{
@@ -87,6 +92,7 @@ func TestAccControlPlaneAgent_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", name),
 					resource.TestCheckResourceAttr(resourceName, "tags.%", "0"),
 					resource.TestCheckResourceAttr(resourceName, "self_link", GetSelfLink(OrgName, "agent", name)),
+					resource.TestCheckResourceAttrWith(resourceName, "user_data", testAccControlPlaneAgentValidateUserData),
 				),
 			},
 			// Delete testing automatically occurs in TestCase
@@ -177,6 +183,20 @@ func testAccCheckControlPlaneAgentExists(resourceName string, agentName string, 
 		tflog.Info(TestLoggerContext, fmt.Sprintf("Agent %s verified successfully in both state and external system.", agentName))
 		return nil
 	}
+}
+
+// testAccControlPlaneAgentValidateUserData checks that the attribute value contains a non and valid user data.
+func testAccControlPlaneAgentValidateUserData(v string) error {
+	// Ensure both required substrings are present.
+	if !strings.Contains(v, "registrationToken") || !strings.Contains(v, "agentLink") {
+		return fmt.Errorf(
+			"attribute value must contain both 'registrationToken' and 'agentLink'; got %q",
+			v,
+		)
+	}
+
+	// If we got here, then the user data is valid
+	return nil
 }
 
 /*** Configs ***/

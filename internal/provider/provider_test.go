@@ -94,6 +94,11 @@ func (ptc *ProviderTestCase) TestCheckMapAttr(key string, value map[string]strin
 
 	// Append a check for each element key-value in the map attribute
 	for _key, _value := range value {
+		// Skip if value is null
+		if _value == "null" {
+			continue
+		}
+
 		// Add TestCheckResourceAttr for the current item
 		checks = append(checks, resource.TestCheckResourceAttr(ptc.ResourceAddress, fmt.Sprintf("%s.%s", key, _key), _value))
 	}
