@@ -316,6 +316,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate1TestStep(initialCase Prov
 						"env-name-01": "env-value-01",
 						"env-name-02": "env-value-02",
 						"env-name-03": "env-value-03",
+						"env-name-04": "",
 					},
 					"inherit_env": "true",
 					"command":     "override-command",
@@ -458,6 +459,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate2TestStep(initialCase Prov
 						"env-name-01": "env-value-01",
 						"env-name-02": "env-value-02",
 						"env-name-03": "env-value-03",
+						"env-name-04": "null",
 					},
 					"inherit_env": "true",
 					"command":     "override-command",
@@ -651,6 +653,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 						"env-name-01": "env-value-01",
 						"env-name-02": "env-value-02",
 						"env-name-03": "env-value-03",
+						"env-name-04": "",
 					},
 					"inherit_env": "true",
 					"command":     "override-command",
@@ -899,6 +902,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 						"env-name-01": "env-value-01",
 						"env-name-02": "env-value-02",
 						"env-name-03": "env-value-03",
+						"env-name-04": "env-value-04",
 					},
 					"inherit_env": "true",
 					"command":     "override-command",
@@ -2157,6 +2161,7 @@ resource "cpln_workload" "%s" {
       env-name-01 = "env-value-01"
       env-name-02 = "env-value-02"
       env-name-03 = "env-value-03"
+      env-name-04 = ""
     }
 
     inherit_env = true
@@ -2265,6 +2270,7 @@ resource "cpln_workload" "%s" {
       env-name-01 = "env-value-01"
       env-name-02 = "env-value-02"
       env-name-03 = "env-value-03"
+      env-name-04 = null
     }
 
     inherit_env = true
@@ -2442,6 +2448,7 @@ resource "cpln_workload" "%s" {
       env-name-01 = "env-value-01"
       env-name-02 = "env-value-02"
       env-name-03 = "env-value-03"
+      env-name-04 = ""
     }
 
     inherit_env = true
@@ -2677,6 +2684,7 @@ resource "cpln_workload" "%s" {
       env-name-01 = "env-value-01"
       env-name-02 = "env-value-02"
       env-name-03 = "env-value-03"
+      env-name-04 = "env-value-04"
     }
 
     inherit_env = true
