@@ -1,3 +1,7 @@
+## 1.2.3
+- Force user_data in cpln_agent to persist it value set at creation.
+- Fix nil dereference issue with empty/null environment variables in cpln_workload.
+
 ## 1.2.2
 - Fix an env flatten bug that caused a panic on nil value.
 
