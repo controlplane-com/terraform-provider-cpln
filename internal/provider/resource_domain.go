@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"fmt"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
@@ -366,11 +367,61 @@ func (dro *DomainResourceOperator) NewAPIRequest(isUpdate bool) client.Domain {
 	// Populate Base fields from state
 	dro.Plan.Fill(&requestPayload.Base, isUpdate)
 
+	// Build the domain spec struct
+	var spec *client.DomainSpec = dro.buildSpec(dro.Plan.Spec)
+
 	// Set specific attributes
 	if isUpdate {
-		requestPayload.SpecReplace = dro.buildSpec(dro.Plan.Spec)
+		requestPayload.SpecReplace = spec
+
+		// Fetch the domain to inspect its routes
+		domain, _, err := dro.InvokeRead(dro.Plan.Name.ValueString())
+
+		// Handle error
+		if err != nil {
+			dro.Diags.AddError("Unable to Fetch Domain", fmt.Sprintf("Unable to fetch domain during update, details: %v", err))
+			return requestPayload
+		}
+
+		// Inspect the routes of the domain ports only if ports is set
+		if spec != nil && spec.Ports != nil && domain.Spec != nil && domain.Spec.Ports != nil {
+			// Initialize a map to hold copies of routes keyed by port number
+			routeMap := make(map[int][]client.DomainRoute, len(*domain.Spec.Ports))
+
+			// Iterate over each port in the domain spec
+			for _, port := range *domain.Spec.Ports {
+				// Skip ports without any routes or without port number
+				if port.Number == nil || port.Routes == nil || len(*port.Routes) == 0 {
+					continue
+				}
+
+				// Dereference the Routes pointer to get original slice
+				source := *port.Routes
+
+				// Create a new slice to hold deep-copied routes
+				destination := make([]client.DomainRoute, len(source))
+
+				// Copy routes to avoid aliasing original slice
+				copy(destination, source)
+
+				// Store the copied routes in the map under the port number
+				routeMap[*port.Number] = destination
+			}
+
+			// Iterate over ports in the new spec
+			for i := range *spec.Ports {
+				// Get pointer to the current port in the new spec
+				up := &(*spec.Ports)[i]
+
+				// Set routes to this port if routes exist in the map for this port number
+				if routes, ok := routeMap[*up.Number]; ok {
+					// Assign the copied routes back to the updated port
+					up.Routes = &routes
+				}
+			}
+		}
 	} else {
-		requestPayload.Spec = dro.buildSpec(dro.Plan.Spec)
+		requestPayload.Spec = spec
 	}
 
 	// Return the request payload object

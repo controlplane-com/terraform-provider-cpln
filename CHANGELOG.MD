@@ -1,3 +1,7 @@
+## 1.2.4
+- Move the replace plan modifier from replace_prefix to regex attribute in cpln_domain_route.
+- Fix domain routes removal upon update.
+
 ## 1.2.3
 - Force user_data in cpln_agent to persist it value set at creation.
 - Fix nil dereference issue with empty/null environment variables in cpln_workload.
