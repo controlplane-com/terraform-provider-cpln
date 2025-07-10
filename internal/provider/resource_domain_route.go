@@ -229,14 +229,14 @@ func (drr *DomainRouteResource) Schema(ctx context.Context, req resource.SchemaR
 			"replace_prefix": schema.StringAttribute{
 				Description: "A path prefix can be configured to be replaced when forwarding the request to the Workload.",
 				Optional:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"regex": schema.StringAttribute{
 				Description: "Used to match URI paths. Uses the google re2 regex syntax.",
 				Optional:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"workload_link": schema.StringAttribute{
 				Description: "The link of the workload to map the prefix to.",
