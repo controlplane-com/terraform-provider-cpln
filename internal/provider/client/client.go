@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	constants "github.com/controlplane-com/terraform-provider-cpln/internal/provider/constants"
 )
 
 // DefaultClientEndpoint is the default data service endpoint.
@@ -17,15 +19,16 @@ var DefaultClientEndpoint string = "https://api.cpln.io"
 
 // Client - Simple API Client
 type Client struct {
-	HostURL      string
-	Org          string
-	HTTPClient   *http.Client
-	Token        string
-	RefreshToken string
+	HostURL         string
+	Org             string
+	HTTPClient      *http.Client
+	Token           string
+	RefreshToken    string
+	ProviderVersion string
 }
 
 // NewClient instantiates a new API Client with optional token refresh
-func NewClient(org, host, profile, token, refreshToken *string) (*Client, error) {
+func NewClient(org, host, profile, token, refreshToken *string, providerVersion string) (*Client, error) {
 	// If host is nil, attempt to extact the host from the CLI profile, will fall back to default if extraction failed
 	if host == nil {
 		host = ExtractHostFromProfile(profile)
@@ -43,6 +46,8 @@ func NewClient(org, host, profile, token, refreshToken *string) (*Client, error)
 		Token: *token,
 		// Initialize the refresh token
 		RefreshToken: *refreshToken,
+		// Set the provider version
+		ProviderVersion: providerVersion,
 	}
 
 	// Check if a refresh token was provided
@@ -533,7 +538,8 @@ func (c *Client) ForceCreatedByTerraformTag(resource interface{}, isUpdate bool)
 
 		// Add a new key-value pair to the Tags map
 		tags := tagsField.Interface().(*map[string]interface{})
-		(*tags)["cpln/managedByTerraform"] = "true"
+		(*tags)[constants.ManagedByTerraformTagKey] = "true"
+		(*tags)[constants.TerraformVersionTagKey] = c.ProviderVersion
 	}
 }
 
