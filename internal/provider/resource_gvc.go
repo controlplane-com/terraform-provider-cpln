@@ -244,8 +244,30 @@ func (gr *GvcResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 func (gr *GvcResource) RequiresReplace() planmodifier.String {
 	return stringplanmodifier.RequiresReplaceIf(
 		func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
-			// Short circuit when the entire resource is being destroyed (plan root is null)
+			// Build human friendly strings for old and new values
+			oldStr := StringifyStringValue(req.StateValue)
+			newStr := StringifyStringValue(req.PlanValue)
+
+			// Capture the attribute path for the error message
+			attrPath := req.Path.String()
+
+			// Skip if it is an endpoint naming format change from null to default
+			if attrPath == "endpoint_naming_format" && strings.EqualFold(oldStr, "<null>") && strings.EqualFold(newStr, "default") {
+				return
+			}
+
+			// Whole resource removed from config
+			if req.Config.Raw.IsNull() {
+				return
+			}
+
+			// Whole resource plan is null when running destroy
 			if req.Plan.Raw.IsNull() {
+				return
+			}
+
+			// Skip when either old or new value is unknown to avoid blocking on computed/plan-time unknowns
+			if req.StateValue.IsUnknown() || req.PlanValue.IsUnknown() {
 				return
 			}
 
@@ -282,17 +304,7 @@ func (gr *GvcResource) RequiresReplace() planmodifier.String {
 				return
 			}
 
-			// Deny replacement when the opt-in tag is missing or not true
-			resp.RequiresReplace = false
-
-			// Build human friendly strings for old and new values
-			oldStr := StringifyStringValue(req.StateValue)
-			newStr := StringifyStringValue(req.PlanValue)
-
-			// Capture the attribute path for the error message
-			attrPath := req.Path.String()
-
-			// Emit a blocking error explaining how to allow the replacement
+			// Deny replacement and emit a blocking error explaining how to allow the replacement
 			resp.Diagnostics.AddError(
 				"GVC replacement blocked to avoid downtime and cascading deletes",
 				fmt.Sprintf(
