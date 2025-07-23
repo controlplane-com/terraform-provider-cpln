@@ -24,6 +24,7 @@ import (
 var (
 	_ resource.Resource                = &DomainResource{}
 	_ resource.ResourceWithImportState = &DomainResource{}
+	_ resource.ResourceWithModifyPlan  = &DomainResource{}
 )
 
 /*** Resource Model ***/
@@ -52,6 +53,42 @@ func NewDomainResource() resource.Resource {
 func (dr *DomainResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	dr.EntityBaseConfigure(ctx, req.ProviderData, &resp.Diagnostics)
 	dr.Operations = NewEntityOperations(dr.client, &DomainResourceOperator{})
+}
+
+// ModifyPlan handles plan modifications.
+func (r *DomainResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// If no existing state or plan provided, skip further processing
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+
+	// Declare domain resource models for state and plan
+	var st, pl DomainResourceModel
+
+	// Populate models from stored state
+	resp.Diagnostics.Append(req.State.Get(ctx, &st)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &pl)...)
+
+	// Exit if retrieving state or plan resulted in error
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Skip if either current or planned spec is null or unknown
+	if st.Spec.IsNull() || st.Spec.IsUnknown() || pl.Spec.IsNull() || pl.Spec.IsUnknown() {
+		return
+	}
+
+	// Skip warning if spec unchanged between state and plan
+	if st.Spec.Equal(pl.Spec) {
+		return
+	}
+
+	// Warn about temporary outage caused by domain changes
+	resp.Diagnostics.AddWarning(
+		"Updating domain will cause a temporary outage",
+		"Changing the domain triggers DNS/TLS (and possibly cert) updates. Expect brief downtime until propagation completes.",
+	)
 }
 
 // ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
