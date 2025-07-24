@@ -1,3 +1,11 @@
+## 1.2.5
+
+- Inject a tag that represents the current provider version.
+- Prevent GVC replacement unless cpln/terraformReplace tag is set to true.
+- Show a warning when updating domain spec.
+- Add a donwtime warning on workload rename.
+- Fix endpoint_naming_format requires replace after migration to `1.2.x`.
+
 ## 1.2.4
 - Move the replace plan modifier from replace_prefix to regex attribute in cpln_domain_route.
 - Fix domain routes removal upon update.
