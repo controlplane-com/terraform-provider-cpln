@@ -57,7 +57,9 @@ type GvcResource struct {
 
 // NewGvcResource returns a new instance of the resource implementation.
 func NewGvcResource() resource.Resource {
-	return &GvcResource{}
+	resource := GvcResource{}
+	resource.EntityBase.RequiresReplace = resource.RequiresReplace
+	return &resource
 }
 
 // Configure configures the resource before use.
@@ -107,7 +109,7 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+					gr.RequiresReplace(),
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Validators: []validator.String{
@@ -234,6 +236,86 @@ func (gr *GvcResource) Update(ctx context.Context, req resource.UpdateRequest, r
 // Delete removes the resource.
 func (gr *GvcResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	DeleteGeneric(ctx, req, resp, gr.Operations)
+}
+
+/*** Plan Modifiers ***/
+
+// RequiresReplace returns a plan modifier that blocks GVC replacement unless the configuration contains the tag `cpln/terraformReplace = "true"`.
+func (gr *GvcResource) RequiresReplace() planmodifier.String {
+	return stringplanmodifier.RequiresReplaceIf(
+		func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+			// Build human friendly strings for old and new values
+			oldStr := StringifyStringValue(req.StateValue)
+			newStr := StringifyStringValue(req.PlanValue)
+
+			// Capture the attribute path for the error message
+			attrPath := req.Path.String()
+
+			// Skip if it is an endpoint naming format change from null to default
+			if attrPath == "endpoint_naming_format" && strings.EqualFold(oldStr, "<null>") && strings.EqualFold(newStr, "default") {
+				return
+			}
+
+			// Whole resource removed from config
+			if req.Config.Raw.IsNull() {
+				return
+			}
+
+			// Whole resource plan is null when running destroy
+			if req.Plan.Raw.IsNull() {
+				return
+			}
+
+			// Skip when either old or new value is unknown to avoid blocking on computed/plan-time unknowns
+			if req.StateValue.IsUnknown() || req.PlanValue.IsUnknown() {
+				return
+			}
+
+			// Skip logic if the tracked attribute did not change between state and plan
+			if req.StateValue.Equal(req.PlanValue) {
+				return
+			}
+
+			// Declare a holder for the tags attribute
+			var tags types.Map
+
+			// Read the tags attribute from configuration (not state) so we see user intent
+			resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("tags"), &tags)...)
+
+			// Abort early if fetching the tags produced diagnostics
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			// Declare a native Go map to make key lookups ergonomic
+			var m map[string]string
+
+			// Convert the Terraform types.Map into a Go map
+			resp.Diagnostics.Append(tags.ElementsAs(ctx, &m, false)...)
+
+			// Abort early if conversion produced diagnostics
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			// Allow replacement when the user explicitly opted in with the tag
+			if strings.EqualFold(m["cpln/terraformReplace"], "true") {
+				resp.RequiresReplace = true
+				return
+			}
+
+			// Deny replacement and emit a blocking error explaining how to allow the replacement
+			resp.Diagnostics.AddError(
+				"GVC replacement blocked to avoid downtime and cascading deletes",
+				fmt.Sprintf(
+					"Replacing a GVC deletes it and then recreates it, causing downtime. Deleting a GVC also deletes all workloads, identities, and volumesets associated with it. If those were created by Terraform, they will be recreated after the new GVC is created.\n\nChange detected:\n- %s:\n    old: %s\n    new: %s\n\nTo proceed, set the tag \"cpln/terraformReplace\" = \"true\" in the resource configuration",
+					attrPath, oldStr, newStr,
+				),
+			)
+		},
+		"Require an explicit opt-in tag to allow GVC replacement.",
+		"Blocks GVC replacement by default to prevent downtime and unintended cascading deletes. Replacing a GVC is a delete-and-recreate operation that removes associated workloads, identities, and volumesets. Terraform-managed dependents will be recreated after the new GVC exists. To opt in, add the tag `cpln/terraformReplace = \"true\"`.",
+	)
 }
 
 /*** Resource Operator ***/

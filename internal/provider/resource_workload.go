@@ -71,7 +71,9 @@ type WorkloadResource struct {
 
 // NewWorkloadResource returns a new instance of the resource implementation.
 func NewWorkloadResource() resource.Resource {
-	return &WorkloadResource{}
+	resource := WorkloadResource{}
+	resource.EntityBase.RequiresReplace = resource.NameRequiresReplace
+	return &resource
 }
 
 // Configure configures the resource before use.
@@ -1451,6 +1453,36 @@ func (wr *WorkloadResource) LocalOptionsSchema() schema.ListNestedBlock {
 
 	// Return the configured local options schema
 	return options
+}
+
+/*** Plan Modifiers ***/
+
+// NameRequiresReplace forces replace on workload name change and warns about downtime.
+func (wr *WorkloadResource) NameRequiresReplace() planmodifier.String {
+	return stringplanmodifier.RequiresReplaceIf(
+		func(ctx context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+			// Skip when values are null/unknown (create/destroy/unknown)
+			if req.StateValue.IsNull() || req.StateValue.IsUnknown() || req.PlanValue.IsNull() || req.PlanValue.IsUnknown() {
+				return
+			}
+
+			// Skip when the name is unchanged
+			if req.StateValue.ValueString() == req.PlanValue.ValueString() {
+				return
+			}
+
+			// Renaming destroys the old workload and creates a new one (downtime window)
+			resp.Diagnostics.AddWarning(
+				"Renaming a workload causes a temporary outage",
+				"Terraform will destroy the old workload and create a new one under the new name. Expect downtime until the replacement is running and healthy.",
+			)
+
+			// Tell Terraform this attr change requires replace
+			resp.RequiresReplace = true
+		},
+		"Require replace when `name` changes; warns about downtime.",
+		"Require replacement when the **name** attribute changes and emit a warning that the old workload is destroyed and a new one is created, causing a temporary outage until the new workload is running.",
+	)
 }
 
 /*** Shared Modifiers ***/

@@ -78,6 +78,7 @@ type EntityBase struct {
 	client                *client.Client
 	IsNameComputed        bool
 	IsDescriptionComputed bool
+	RequiresReplace       func() planmodifier.String
 }
 
 // Configure assigns the provider's client to the entity for API interactions.
@@ -168,13 +169,24 @@ func (r *EntityBase) NameSchema(entityName string) schema.StringAttribute {
 		nameValidators = append(nameValidators, validators.NameValidator{})
 	}
 
+	// Define a plan modifier for resource replacement
+	var requiresReplace planmodifier.String
+
+	// Use the RequiresReplace function to get the plan modifier if found
+	if r.RequiresReplace != nil {
+		requiresReplace = r.RequiresReplace()
+	} else {
+		// Default to a no-op plan modifier if not defined
+		requiresReplace = stringplanmodifier.RequiresReplace()
+	}
+
 	// Return a required StringAttribute with description, validators, and a replacement modifier
 	return schema.StringAttribute{
 		Description: description,
 		Required:    true,
 		Validators:  nameValidators,
 		PlanModifiers: []planmodifier.String{
-			stringplanmodifier.RequiresReplace(),
+			requiresReplace,
 			stringplanmodifier.UseStateForUnknown(),
 		},
 	}

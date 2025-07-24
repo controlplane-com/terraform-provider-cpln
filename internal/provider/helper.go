@@ -304,6 +304,22 @@ func CanonicalizeEnvoyJSON(envoyStr string) string {
 	return string(jsonOut)
 }
 
+// StringifyStringValue converts a types.String into a readable string representation
+func StringifyStringValue(v types.String) string {
+	// Return placeholder when the value is unknown
+	if v.IsUnknown() {
+		return "<unknown>"
+	}
+
+	// Return placeholder when the value is null
+	if v.IsNull() {
+		return "<null>"
+	}
+
+	// Return the actual string value when known and non-null
+	return v.ValueString()
+}
+
 // Builders //
 
 // BuildString converts a types.String to a pointer to string.
