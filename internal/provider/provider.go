@@ -117,7 +117,16 @@ func (p *CplnProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	}
 
 	// Create a new cpln client using the configuration values
-	c, err := client.NewClient(config.Org.ValueStringPointer(), config.Endpoint.ValueStringPointer(), config.Profile.ValueStringPointer(), config.Token.ValueStringPointer(), config.RefreshToken.ValueStringPointer())
+	c, err := client.NewClient(
+		config.Org.ValueStringPointer(),
+		config.Endpoint.ValueStringPointer(),
+		config.Profile.ValueStringPointer(),
+		config.Token.ValueStringPointer(),
+		config.RefreshToken.ValueStringPointer(),
+		p.version,
+	)
+
+	// Handle client initialization error
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to Create Cpln API Client",

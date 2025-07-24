@@ -1,6 +1,10 @@
 package cpln
 
-import "os"
+import (
+	"os"
+
+	constants "github.com/controlplane-com/terraform-provider-cpln/internal/provider/constants"
+)
 
 // OrgName retrieves the Control Plane organization name from the CPLN_ORG environment variable for use in tests
 var OrgName string = os.Getenv("CPLN_ORG")
@@ -16,7 +20,8 @@ var IgnoredTagPrefixes = []string{
 	"cpln/docker",
 	"cpln/gcp",
 	"cpln/tls",
-	"cpln/managedByTerraform",
+	constants.ManagedByTerraformTagKey,
+	constants.TerraformVersionTagKey,
 	"cpln/city",
 	"cpln/continent",
 	"cpln/country",
