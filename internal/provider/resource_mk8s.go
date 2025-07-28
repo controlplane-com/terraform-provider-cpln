@@ -1206,6 +1206,32 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								listvalidator.SizeAtMost(1),
 							},
 						},
+						"registry_mirror": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Blocks: map[string]schema.Block{
+									"mirror": schema.ListNestedBlock{
+										Description: "",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"registry": schema.StringAttribute{
+													Description: "",
+													Required:    true,
+												},
+												"mirrors": schema.SetAttribute{
+													Description: "",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
 						"nvidia": schema.ListNestedBlock{
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
@@ -2572,6 +2598,7 @@ func (mro *Mk8sResourceOperator) buildAddOns(state []models.AddOnsModel) *client
 		LocalPathStorage:      mro.buildAddOnConfig(block.LocalPathStorage),
 		Metrics:               mro.buildAddOnMetrics(block.Metrics),
 		Logs:                  mro.buildAddOnLogs(block.Logs),
+		RegistryMirror:        mro.buildAddOnRegistryMirror(block.RegistryMirror),
 		Nvidia:                mro.buildAddOnNvidia(block.Nvidia),
 		AwsEFS:                mro.buildAddOnAwsConfig(block.AwsEFS),
 		AwsECR:                mro.buildAddOnAwsConfig(block.AwsECR),
@@ -2672,6 +2699,48 @@ func (mro *Mk8sResourceOperator) buildAddOnLogs(state []models.AddOnsLogsModel) 
 		Kernel:            BuildBool(block.Kernel),
 		Events:            BuildBool(block.Events),
 	}
+}
+
+// buildAddOnRegistryMirror constructs a Mk8sRegistryMirrorAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnRegistryMirror(state []models.AddOnsRegistryMirror) *client.Mk8sRegistryMirrorAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sRegistryMirrorAddOnConfig{
+		Mirrors: mro.buildAddOnRegistryConfig(block.Mirrors),
+	}
+}
+
+// buildAddOnRegistryConfig constructs a []client.Mk8sAddOnRegistryConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state []models.AddOnsRegistryConfig) *[]client.Mk8sAddOnRegistryConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sAddOnRegistryConfig{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sAddOnRegistryConfig{
+			Registry: BuildString(block.Registry),
+			Mirrors:  mro.BuildSetString(block.Mirrors),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
 }
 
 // buildAddOnNvidia constructs a Mk8sNvidiaAddOnConfig from the given Terraform state.
@@ -3650,6 +3719,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) []m
 		LocalPathStorage:      mro.flattenAddOnConfig(input.LocalPathStorage),
 		Metrics:               mro.flattenAddOnMetrics(input.Metrics),
 		Logs:                  mro.flattenAddOnLogs(input.Logs),
+		RegistryMirror:        mro.flattenAddOnRegistryMirror(input.RegistryMirror),
 		Nvidia:                mro.flattenAddOnNvidia(input.Nvidia),
 		AwsEFS:                mro.flattenAddOnAwsConfig(input.AwsEFS),
 		AwsECR:                mro.flattenAddOnAwsConfig(input.AwsECR),
@@ -3750,6 +3820,49 @@ func (mro *Mk8sResourceOperator) flattenAddOnLogs(input *client.Mk8sLogsAddOnCon
 
 	// Return a slice containing the single block
 	return []models.AddOnsLogsModel{block}
+}
+
+// flattenAddOnRegistryMirror transforms *client.Mk8sRegistryMirrorAddOnConfig into a []models.AddOnsRegistryMirror.
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryMirror(input *client.Mk8sRegistryMirrorAddOnConfig) []models.AddOnsRegistryMirror {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsRegistryMirror{
+		Mirrors: mro.flattenAddOnRegistryConfig(input.Mirrors),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsRegistryMirror{block}
+}
+
+// flattenAddOnRegistryConfig transforms *[]client.Mk8sAddOnRegistryConfig into a []models.AddOnsRegistryConfig.
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8sAddOnRegistryConfig) []models.AddOnsRegistryConfig {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.AddOnsRegistryConfig
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.AddOnsRegistryConfig{
+			Registry: types.StringPointerValue(item.Registry),
+			Mirrors:  FlattenSetString(item.Mirrors),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
 }
 
 // flattenAddOnNvidia transforms *client.Mk8sNvidiaAddOnConfig into a []models.AddOnsNvidiaModel.

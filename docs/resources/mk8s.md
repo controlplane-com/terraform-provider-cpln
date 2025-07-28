@@ -681,6 +681,7 @@ Optional:
 - **local_path_storage** (Boolean)
 - **metrics** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics))
 - **logs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--logs))
+- **registry_mirror** (Block List, Max: 1) ([see below](#nestedblock--add_ons--registry_mirror))
 - **nvidia** (Block List, Max: 1) ([see below](#nestedblock--add_ons--nvidia))
 - **aws_efs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--efs))
 - **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--ecr))
@@ -736,6 +737,26 @@ Optional:
 - **kubelet** (Boolean)
 - **kernel** (Boolean)
 - **events** (Boolean)
+
+<a id="nestedblock--add_ons--registry_mirror"></a>
+
+### `add_ons.registry_mirror`
+
+Optional:
+
+- **mirror** (Block List) ([see below](#nestedblock--add_ons--registry_mirror--mirror))
+
+<a id="nestedblock--add_ons--registry_mirror--mirror"></a>
+
+### `add_ons.registry_mirror.mirror`
+
+Required:
+
+- **registry** (String)
+
+Optional:
+
+- **mirrors** (List of String)
 
 <a id="nestedblock--add_ons--nvidia"></a>
 
@@ -939,6 +960,18 @@ resource "cpln_mk8s" "generic" {
             exclude_namespaces  = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1068,6 +1101,18 @@ resource "cpln_mk8s" "hetzner" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces  = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -1205,6 +1250,18 @@ resource "cpln_mk8s" "aws" {
             exclude_namespaces  = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1325,6 +1382,18 @@ resource "cpln_mk8s" "linode" {
             exclude_namespaces = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1434,6 +1503,18 @@ resource "cpln_mk8s" "oblivus" {
             exclude_namespaces  = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1540,6 +1621,18 @@ resource "cpln_mk8s" "lambdalabs" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces  = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -1655,6 +1748,18 @@ resource "cpln_mk8s" "paperspace" {
             exclude_namespaces = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1742,6 +1847,18 @@ resource "cpln_mk8s" "ephemeral" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces  = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -1858,6 +1975,18 @@ resource "cpln_mk8s" "triton" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -2001,6 +2130,18 @@ resource "cpln_mk8s" "triton" {
             exclude_namespaces = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -2104,6 +2245,18 @@ resource "cpln_mk8s" "digital-ocean-provider" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {

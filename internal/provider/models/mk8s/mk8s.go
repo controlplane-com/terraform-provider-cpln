@@ -383,6 +383,7 @@ type AddOnsModel struct {
 	LocalPathStorage      types.Bool                        `tfsdk:"local_path_storage"`
 	Metrics               []AddOnsMetricsModel              `tfsdk:"metrics"`
 	Logs                  []AddOnsLogsModel                 `tfsdk:"logs"`
+	RegistryMirror        []AddOnsRegistryMirror            `tfsdk:"registry_mirror"`
 	Nvidia                []AddOnsNvidiaModel               `tfsdk:"nvidia"`
 	AwsEFS                []AddOnsHasRoleArnModel           `tfsdk:"aws_efs"`
 	AwsECR                []AddOnsHasRoleArnModel           `tfsdk:"aws_ecr"`
@@ -428,6 +429,19 @@ type AddOnsLogsModel struct {
 	Kubelet            types.Bool   `tfsdk:"kubelet"`
 	Kernel             types.Bool   `tfsdk:"kernel"`
 	Events             types.Bool   `tfsdk:"events"`
+}
+
+// Add Ons -> Registry Mirror //
+
+type AddOnsRegistryMirror struct {
+	Mirrors []AddOnsRegistryConfig `tfsdk:"mirror"`
+}
+
+// Add Ons -> Registry Mirror -> Mirrors //
+
+type AddOnsRegistryConfig struct {
+	Registry types.String `tfsdk:"registry"`
+	Mirrors  types.Set    `tfsdk:"mirrors"`
 }
 
 // Add Ons -> Nvidia //
