@@ -1323,11 +1323,11 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 					NestedObject: schema.NestedBlockObject{
 						Attributes: map[string]schema.Attribute{
 							"metric": schema.StringAttribute{
-								Description: "Valid values: `disabled`, `concurrency`, `cpu`, `memory`, `latency`, or `rps`.",
+								Description: "Valid values: `concurrency`, `cpu`, `memory`, `rps`, `latency`, `keda`, or `disabled`.",
 								Optional:    true,
 								Computed:    true,
 								Validators: []validator.String{
-									stringvalidator.OneOf("concurrency", "cpu", "memory", "rps", "latency", "disabled"),
+									stringvalidator.OneOf("concurrency", "cpu", "memory", "rps", "latency", "keda", "disabled"),
 								},
 							},
 							"metric_percentile": schema.StringAttribute{
@@ -1345,15 +1345,6 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 									int32validator.Between(1, 20000),
 								},
 							},
-							"max_scale": schema.Int32Attribute{
-								Description: "The maximum allowed number of replicas. Min: `0`. Default `5`.",
-								Optional:    true,
-								Computed:    true,
-								Default:     int32default.StaticInt32(5),
-								Validators: []validator.Int32{
-									int32validator.AtLeast(0),
-								},
-							},
 							"min_scale": schema.Int32Attribute{
 								Description: "The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.",
 								Optional:    true,
@@ -1363,13 +1354,13 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 									int32validator.AtLeast(0),
 								},
 							},
-							"max_concurrency": schema.Int32Attribute{
-								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.",
+							"max_scale": schema.Int32Attribute{
+								Description: "The maximum allowed number of replicas. Min: `0`. Default `5`.",
 								Optional:    true,
 								Computed:    true,
-								Default:     int32default.StaticInt32(0),
+								Default:     int32default.StaticInt32(5),
 								Validators: []validator.Int32{
-									int32validator.Between(0, 30000),
+									int32validator.AtLeast(0),
 								},
 							},
 							"scale_to_zero_delay": schema.Int32Attribute{
@@ -1379,6 +1370,15 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 								Default:     int32default.StaticInt32(300),
 								Validators: []validator.Int32{
 									int32validator.Between(30, 3600),
+								},
+							},
+							"max_concurrency": schema.Int32Attribute{
+								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.",
+								Optional:    true,
+								Computed:    true,
+								Default:     int32default.StaticInt32(0),
+								Validators: []validator.Int32{
+									int32validator.Between(0, 30000),
 								},
 							},
 						},
@@ -1402,6 +1402,86 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 											},
 										},
 									},
+								},
+							},
+							"keda": schema.ListNestedBlock{
+								Description: "KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling based on external metrics and triggers.",
+								NestedObject: schema.NestedBlockObject{
+									Blocks: map[string]schema.Block{
+										"trigger": schema.ListNestedBlock{
+											Description: "An array of KEDA triggers to be used for scaling workloads in this GVC. This is used to define how KEDA will scale workloads in the GVC based on external metrics or events. Each trigger type may have its own specific configuration options.",
+											NestedObject: schema.NestedBlockObject{
+												Attributes: map[string]schema.Attribute{
+													"type": schema.StringAttribute{
+														Description: `The type of KEDA trigger, e.g "prometheus", "aws-sqs", etc.`,
+														Required:    true,
+													},
+													"metadata": schema.MapAttribute{
+														Description: "The configuration parameters that the trigger requires.",
+														ElementType: types.StringType,
+														Optional:    true,
+													},
+													"name": schema.StringAttribute{
+														Description: "An optional name for the trigger. If not provided, a default name will be generated based on the trigger type.",
+														Optional:    true,
+													},
+													"use_cached_metrics": schema.BoolAttribute{
+														Description: "Enables caching of metric values during polling interval.",
+														Optional:    true,
+													},
+													"metric_type": schema.StringAttribute{
+														Description: "The type of metric to be used for scaling.",
+														Optional:    true,
+														Validators: []validator.String{
+															stringvalidator.OneOf("AverageValue", "Value", "Utilization"),
+														},
+													},
+												},
+											},
+										},
+										"advanced": schema.ListNestedBlock{
+											Description: "Advanced configuration options for KEDA.",
+											NestedObject: schema.NestedBlockObject{
+												Blocks: map[string]schema.Block{
+													"scaling_modifiers": schema.ListNestedBlock{
+														Description: "Scaling modifiers allow for fine-tuning the scaling behavior of KEDA.",
+														NestedObject: schema.NestedBlockObject{
+															Attributes: map[string]schema.Attribute{
+																"target": schema.StringAttribute{
+																	Description: "Defines new target value to scale on for the composed metric.",
+																	Optional:    true,
+																},
+																"activation_target": schema.StringAttribute{
+																	Description: "Defines the new activation target value to scale on for the composed metric.",
+																	Optional:    true,
+																},
+																"metric_type": schema.StringAttribute{
+																	Description: "Defines metric type used for this new composite-metric.",
+																	Optional:    true,
+																	Validators: []validator.String{
+																		stringvalidator.OneOf("AverageValue", "Value", "Utilization"),
+																	},
+																},
+																"formula": schema.StringAttribute{
+																	Description: "Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.",
+																	Optional:    true,
+																},
+															},
+														},
+														Validators: []validator.List{
+															listvalidator.SizeAtMost(1),
+														},
+													},
+												},
+											},
+											Validators: []validator.List{
+												listvalidator.SizeAtMost(1),
+											},
+										},
+									},
+								},
+								Validators: []validator.List{
+									listvalidator.SizeAtMost(1),
 								},
 							},
 						},
@@ -1489,15 +1569,15 @@ func (wr *WorkloadResource) NameRequiresReplace() planmodifier.String {
 
 // ModifyAutoscaling sets default values for metric and target if autoscaling is single-target and values are not provided.
 func (wr *WorkloadResource) ModifyAutoscaling(autoscaling *models.OptionsAutoscalingModel) {
-	// If there are no multi, then set target and metric
-	if len(autoscaling.Multi) == 0 {
+	// If there are no multi and no keda, then set target and metric
+	if len(autoscaling.Multi) == 0 && len(autoscaling.Keda) == 0 {
 		// Only modify if metric is not specified by the user
 		if autoscaling.Metric.IsNull() || autoscaling.Metric.IsUnknown() {
 			autoscaling.Metric = types.StringValue("concurrency")
 		}
 
 		// Only modify if target is not specified by the user
-		if autoscaling.Target.IsNull() || autoscaling.Target.IsUnknown() {
+		if (autoscaling.Target.IsNull() || autoscaling.Target.IsUnknown()) && autoscaling.Metric.ValueString() != "keda" {
 			autoscaling.Target = types.Int32Value(95)
 		}
 	}
@@ -1718,6 +1798,27 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 					basePath.AtName("capacity_ai"),
 					"Invalid Capacity AI for Workload With GPU",
 					"Capacity AI cannot be enabled for workloads with GPU. Please disable it",
+				)
+			}
+		}
+
+		// Handle keda metric
+		if len(asc.Keda) > 0 || (!asc.Metric.IsNull() && !asc.Metric.IsUnknown() && asc.Metric.ValueString() == "keda") {
+			// Keda is only supported in standard and stateful workloads
+			if workloadType != "standard" && workloadType != "stateful" {
+				wrv.Diags.AddAttributeError(
+					ascPath.AtName("keda"),
+					"KEDA Not Supported for Workload Type",
+					"KEDA is only supported for 'standard' and 'stateful' workload types. Please remove the 'keda' block.",
+				)
+			}
+
+			// Report error if target is set alongside keda metric strategy
+			if !asc.Target.IsNull() && !asc.Target.IsUnknown() {
+				wrv.Diags.AddAttributeError(
+					ascPath.AtName("target"),
+					"Target conflicts with Keda",
+					"'target' must not exist simultaneously with metric 'keda'",
 				)
 			}
 		}
@@ -2331,10 +2432,11 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscaling(state []models.Opti
 		Multi:            wro.buildOptionsAutoscalingMulti(block.Multi),
 		MetricPercentile: BuildString(block.MetricPercentile),
 		Target:           BuildInt(block.Target),
-		MaxScale:         BuildInt(block.MaxScale),
 		MinScale:         BuildInt(block.MinScale),
-		MaxConcurrency:   BuildInt(block.MaxConcurrency),
+		MaxScale:         BuildInt(block.MaxScale),
 		ScaleToZeroDelay: BuildInt(block.ScaleToZeroDelay),
+		MaxConcurrency:   BuildInt(block.MaxConcurrency),
+		Keda:             wro.buildOptionsAutoscalingKeda(block.Keda),
 	}
 }
 
@@ -2362,6 +2464,87 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingMulti(state []models
 
 	// Return a pointer to the output
 	return &output
+}
+
+// buildOptionsAutoscalingKeda constructs a WorkloadOptionsAutoscalingKeda from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKeda(state []models.OptionsAutoscalingKedaModel) *client.WorkloadOptionsAutoscalingKeda {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.WorkloadOptionsAutoscalingKeda{
+		Triggers: wro.buildOptionsAutoscalingKedaTrigger(block.Triggers),
+		Advanced: wro.buildOptionsAutoscalingKedaAdvanced(block.Advanced),
+	}
+}
+
+// buildOptionsAutoscalingKedaTrigger constructs a []client.WorkloadOptionsAutoscalingKedaTrigger from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state []models.OptionsAutoscalingKedaTriggerModel) *[]client.WorkloadOptionsAutoscalingKedaTrigger {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.WorkloadOptionsAutoscalingKedaTrigger{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.WorkloadOptionsAutoscalingKedaTrigger{
+			Type:             BuildString(block.Type),
+			Metadata:         wro.BuildMapString(block.Metadata),
+			Name:             BuildString(block.Name),
+			UseCachedMetrics: BuildBool(block.UseCachedMetrics),
+			MetricType:       BuildString(block.MetricType),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildOptionsAutoscalingKedaAdvanced constructs a WorkloadOptionsAutoscalingKedaAdvanced from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvanced(state []models.OptionsAutoscalingKedaAdvancedModel) *client.WorkloadOptionsAutoscalingKedaAdvanced {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.WorkloadOptionsAutoscalingKedaAdvanced{
+		ScalingModifiers: wro.buildOptionsAutoscalingKedaAdvancedScalingModifiers(block.ScalingModifiers),
+	}
+}
+
+// buildOptionsAutoscalingKedaAdvancedScalingModifiers constructs a WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvancedScalingModifiers(state []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel) *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers{
+		Target:           BuildString(block.Target),
+		ActivationTarget: BuildString(block.ActivationTarget),
+		MetricType:       BuildString(block.MetricType),
+		Formula:          BuildString(block.Formula),
+	}
 }
 
 // buildOptionsMultiZone constructs a WorkloadOptionsMultiZone from the given Terraform state.
@@ -3168,10 +3351,11 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscaling(input *client.Wor
 		Multi:            wro.flattenOptionsAutoscalingMulti(input.Multi),
 		MetricPercentile: types.StringPointerValue(input.MetricPercentile),
 		Target:           FlattenInt(input.Target),
-		MaxScale:         FlattenInt(input.MaxScale),
 		MinScale:         FlattenInt(input.MinScale),
-		MaxConcurrency:   FlattenInt(input.MaxConcurrency),
+		MaxScale:         FlattenInt(input.MaxScale),
 		ScaleToZeroDelay: FlattenInt(input.ScaleToZeroDelay),
+		MaxConcurrency:   FlattenInt(input.MaxConcurrency),
+		Keda:             wro.flattenOptionsAutoscalingKeda(input.Keda),
 	}
 
 	// Return a slice containing the single block
@@ -3203,6 +3387,88 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingMulti(input *[]cli
 
 	// Return the successfully accumulated blocks
 	return blocks
+}
+
+// flattenOptionsAutoscalingKeda transforms *client.WorkloadOptionsAutoscalingKeda into a []models.OptionsAutoscalingKedaModel.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKeda(input *client.WorkloadOptionsAutoscalingKeda) []models.OptionsAutoscalingKedaModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.OptionsAutoscalingKedaModel{
+		Triggers: wro.flattenOptionsAutoscalingKedaTrigger(input.Triggers),
+		Advanced: wro.flattenOptionsAutoscalingKedaAdvanced(input.Advanced),
+	}
+
+	// Return a slice containing the single block
+	return []models.OptionsAutoscalingKedaModel{block}
+}
+
+// flattenOptionsAutoscalingKedaTrigger transforms *[]client.WorkloadOptionsAutoscalingKedaTrigger into a []models.OptionsAutoscalingKedaTriggerModel.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTrigger(input *[]client.WorkloadOptionsAutoscalingKedaTrigger) []models.OptionsAutoscalingKedaTriggerModel {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.OptionsAutoscalingKedaTriggerModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.OptionsAutoscalingKedaTriggerModel{
+			Type:             types.StringPointerValue(item.Type),
+			Metadata:         FlattenMapString(item.Metadata),
+			Name:             types.StringPointerValue(item.Name),
+			UseCachedMetrics: types.BoolPointerValue(item.UseCachedMetrics),
+			MetricType:       types.StringPointerValue(item.MetricType),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
+}
+
+// flattenOptionsAutoscalingKedaAdvanced transforms *client.WorkloadOptionsAutoscalingKedaAdvanced into a []models.OptionsAutoscalingKedaAdvancedModel.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvanced(input *client.WorkloadOptionsAutoscalingKedaAdvanced) []models.OptionsAutoscalingKedaAdvancedModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.OptionsAutoscalingKedaAdvancedModel{
+		ScalingModifiers: wro.flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input.ScalingModifiers),
+	}
+
+	// Return a slice containing the single block
+	return []models.OptionsAutoscalingKedaAdvancedModel{block}
+}
+
+// flattenOptionsAutoscalingKedaAdvancedScalingModifiers transforms *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers into a []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers) []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{
+		Target:           types.StringPointerValue(input.Target),
+		ActivationTarget: types.StringPointerValue(input.ActivationTarget),
+		MetricType:       types.StringPointerValue(input.MetricType),
+		Formula:          types.StringPointerValue(input.Formula),
+	}
+
+	// Return a slice containing the single block
+	return []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{block}
 }
 
 // flattenOptionsMultiZone transforms *client.WorkloadOptionsMultiZone into a []models.OptionsMultiZoneModel.
