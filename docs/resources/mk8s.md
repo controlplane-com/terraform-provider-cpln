@@ -501,9 +501,19 @@ Required:
 - **private_network_ids** (List of String) More private networks to join.
 - **metadata** (Map of String) Extra tags to attach to instances from a node pool.
 - **tags** (Map of String) Extra tags to attach to instances from a node pool.
+- **logging** (Block List, Max: 1) ([see below](#nestedblock--triton_provider--load_balancer--manual--logging))
 - **count** (Number)
 - **cns_internal_domain** (String)
 - **cns_public_domain** (String)
+
+<a id="nestedblock--triton_provider--load_balancer--manual--logging"></a>
+
+### `triton_provider.load_balancer.manual.logging`
+
+Optional:
+
+- **node_port** (Number)
+- **external_syslog** (String)
 
 <a id="nestedblock--triton_provider--node_pool"></a>
 
@@ -992,7 +1002,7 @@ resource "cpln_mk8s" "hetzner" {
                 effect = "NoSchedule"
             }
 
-            server_type    = "cx11"
+            server_type    = "cpx11"
             override_image = "debian-11"
             min_size 	   = 0
             max_size 	   = 0
@@ -1917,6 +1927,11 @@ resource "cpln_mk8s" "triton" {
                 tags = {
                     tag1 = "value1"
                     tag2 = "value2"
+                }
+
+                logging {
+                  node_port       = 32000
+                  external_syslog = "syslog.example.com:514"
                 }
             }
         }

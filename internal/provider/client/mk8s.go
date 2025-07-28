@@ -372,15 +372,21 @@ type Mk8sTritonLoadBalancer struct {
 }
 
 type Mk8sTritonManual struct {
-	PackageId         *string                 `json:"packageId,omitempty"`
-	ImageId           *string                 `json:"imageId,omitempty"`
-	PublicNetworkId   *string                 `json:"publicNetworkId,omitempty"`
-	PrivateNetworkIds *[]string               `json:"privateNetworkIds,omitempty"`
-	Metadata          *map[string]interface{} `json:"metadata,omitempty"`
-	Tags              *map[string]interface{} `json:"tags,omitempty"`
-	Count             *int                    `json:"count,omitempty"`
-	CnsInternalDomain *string                 `json:"cnsInternalDomain,omitempty"`
-	CnsPublicDomain   *string                 `json:"cnsPublicDomain,omitempty"`
+	PackageId         *string                  `json:"packageId,omitempty"`
+	ImageId           *string                  `json:"imageId,omitempty"`
+	PublicNetworkId   *string                  `json:"publicNetworkId,omitempty"`
+	PrivateNetworkIds *[]string                `json:"privateNetworkIds,omitempty"`
+	Metadata          *map[string]interface{}  `json:"metadata,omitempty"`
+	Tags              *map[string]interface{}  `json:"tags,omitempty"`
+	Logging           *Mk8sTritonManualLogging `json:"logging,omitempty"`
+	Count             *int                     `json:"count,omitempty"`
+	CnsInternalDomain *string                  `json:"cnsInternalDomain,omitempty"`
+	CnsPublicDomain   *string                  `json:"cnsPublicDomain,omitempty"`
+}
+
+type Mk8sTritonManualLogging struct {
+	NodePort       *int    `json:"nodePort,omitempty"`
+	ExternalSyslog *string `json:"externalSyslog,omitempty"`
 }
 
 type Mk8sTritonGateway struct{}

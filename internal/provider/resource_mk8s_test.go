@@ -577,7 +577,7 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 									"effect": "NoSchedule",
 								},
 							},
-							"server_type":    "cx11",
+							"server_type":    "cpx11",
 							"override_image": "debian-11",
 							"min_size":       "0",
 							"max_size":       "0",
@@ -1618,6 +1618,12 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 										"tag1": "value1",
 										"tag2": "value2",
 									},
+									"logging": []map[string]interface{}{
+										{
+											"node_port":       "32000",
+											"external_syslog": "syslog.example.com:514",
+										},
+									},
 								},
 							},
 						},
@@ -1938,7 +1944,7 @@ resource "cpln_mk8s" "%s" {
         effect = "NoSchedule"
       }
 
-      server_type    = "cx11"
+      server_type    = "cpx11"
       override_image = "debian-11"
       min_size       = 0
       max_size       = 0
@@ -2858,6 +2864,11 @@ resource "cpln_mk8s" "%s" {
           tag1 = "value1"
           tag2 = "value2"
         }
+
+				logging {
+				  node_port       = 32000
+				  external_syslog = "syslog.example.com:514"
+				}
       }
     }
 

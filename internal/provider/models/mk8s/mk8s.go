@@ -265,15 +265,23 @@ type TritonProviderLoadBalancerModel struct {
 // Triton Provider -> Load Balancer -> Manual //
 
 type TritonProviderLoadBalancerManualModel struct {
-	PackageId         types.String `tfsdk:"package_id"`
-	ImageId           types.String `tfsdk:"image_id"`
-	PublicNetworkId   types.String `tfsdk:"public_network_id"`
-	PrivateNetworkIds types.Set    `tfsdk:"private_network_ids"`
-	Metadata          types.Map    `tfsdk:"metadata"`
-	Tags              types.Map    `tfsdk:"tags"`
-	Count             types.Int32  `tfsdk:"count"`
-	CnsInternalDomain types.String `tfsdk:"cns_internal_domain"`
-	CnsPublicDomain   types.String `tfsdk:"cns_public_domain"`
+	PackageId         types.String                                   `tfsdk:"package_id"`
+	ImageId           types.String                                   `tfsdk:"image_id"`
+	PublicNetworkId   types.String                                   `tfsdk:"public_network_id"`
+	PrivateNetworkIds types.Set                                      `tfsdk:"private_network_ids"`
+	Metadata          types.Map                                      `tfsdk:"metadata"`
+	Tags              types.Map                                      `tfsdk:"tags"`
+	Logging           []TritonProviderLoadBalancerManualLoggingModel `tfsdk:"logging"`
+	Count             types.Int32                                    `tfsdk:"count"`
+	CnsInternalDomain types.String                                   `tfsdk:"cns_internal_domain"`
+	CnsPublicDomain   types.String                                   `tfsdk:"cns_public_domain"`
+}
+
+// Triton Provider -> Load Balancer -> Manual -> Logging //
+
+type TritonProviderLoadBalancerManualLoggingModel struct {
+	NodePort       types.Int32  `tfsdk:"node_port"`
+	ExternalSyslog types.String `tfsdk:"external_syslog"`
 }
 
 // Triton Provider -> Load Balancer -> Gateway //

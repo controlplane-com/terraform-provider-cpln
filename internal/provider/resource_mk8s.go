@@ -822,6 +822,29 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 													Required:    true,
 												},
 											},
+											Blocks: map[string]schema.Block{
+												"logging": schema.ListNestedBlock{
+													Description: "",
+													NestedObject: schema.NestedBlockObject{
+														Attributes: map[string]schema.Attribute{
+															"node_port": schema.Int32Attribute{
+																Description: "",
+																Optional:    true,
+																Validators: []validator.Int32{
+																	int32validator.Between(30000, 65535),
+																},
+															},
+															"external_syslog": schema.StringAttribute{
+																Description: "",
+																Optional:    true,
+															},
+														},
+													},
+													Validators: []validator.List{
+														listvalidator.SizeAtMost(1),
+													},
+												},
+											},
 											Validators: []validator.Object{
 												objectvalidator.ConflictsWith(
 													path.MatchRelative().AtParent().AtParent().AtName("gateway"),
@@ -2301,9 +2324,27 @@ func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerManual(state []m
 		PrivateNetworkIds: mro.BuildSetString(block.PrivateNetworkIds),
 		Metadata:          mro.BuildMapString(block.Metadata),
 		Tags:              mro.BuildMapString(block.Tags),
+		Logging:           mro.buildTritonProviderLoadBalancerManualLogging(block.Logging),
 		Count:             BuildInt(block.Count),
 		CnsInternalDomain: BuildString(block.CnsInternalDomain),
 		CnsPublicDomain:   BuildString(block.CnsPublicDomain),
+	}
+}
+
+// buildTritonProviderLoadBalancerManualLogging constructs a Mk8sTritonManualLogging from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerManualLogging(state []models.TritonProviderLoadBalancerManualLoggingModel) *client.Mk8sTritonManualLogging {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sTritonManualLogging{
+		NodePort:       BuildInt(block.NodePort),
+		ExternalSyslog: BuildString(block.ExternalSyslog),
 	}
 }
 
@@ -3358,6 +3399,7 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManual(input *
 		PrivateNetworkIds: FlattenSetString(input.PrivateNetworkIds),
 		Metadata:          FlattenMapString(input.Metadata),
 		Tags:              FlattenMapString(input.Tags),
+		Logging:           mro.flattenTritonProviderLoadBalancerManualLogging(input.Logging),
 		Count:             FlattenInt(input.Count),
 		CnsInternalDomain: types.StringPointerValue(input.CnsInternalDomain),
 		CnsPublicDomain:   types.StringPointerValue(input.CnsPublicDomain),
@@ -3365,6 +3407,23 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManual(input *
 
 	// Return a slice containing the single block
 	return []models.TritonProviderLoadBalancerManualModel{block}
+}
+
+// flattenTritonProviderLoadBalancerManualLogging transforms *client.Mk8sTritonManualLogging into a []models.TritonProviderLoadBalancerManualLoggingModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManualLogging(input *client.Mk8sTritonManualLogging) []models.TritonProviderLoadBalancerManualLoggingModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TritonProviderLoadBalancerManualLoggingModel{
+		NodePort:       FlattenInt(input.NodePort),
+		ExternalSyslog: types.StringPointerValue(input.ExternalSyslog),
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderLoadBalancerManualLoggingModel{block}
 }
 
 // flattenTritonProviderLoadBalancerGateway transforms *client.Mk8sTritonGateway into a []models.TritonProviderLoadBalancerGatewayModel.
