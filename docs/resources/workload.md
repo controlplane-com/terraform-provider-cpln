@@ -359,14 +359,15 @@ Optional:
 
 Optional:
 
-- **metric** (String) Valid values: `disabled`, `concurrency`, `cpu`, `memory`, `latency`, or `rps`.
+- **metric** (String) Valid values: `concurrency`, `cpu`, `memory`, `rps`, `latency`, `keda`, or `disabled`.
 - **multi** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--multi))
 - **metric_percentile** (String) For metrics represented as a distribution (e.g. latency) a percentile within the distribution must be chosen as the target.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
-- **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
-- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
+- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **keda** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda))
 
 <a id="nestedblock--options--autoscaling--multi"></a>
 
@@ -376,6 +377,55 @@ Optional:
 
 - **metric** (String) Valid values: `cpu` or `memory`.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
+
+<a id="nestedblock--options--autoscaling--keda"></a>
+
+### `options.autoscaling.keda`
+
+KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling based on external metrics and triggers.
+
+Optional:
+
+- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger))
+- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced))
+
+<a id="nestedblock--options--autoscaling--keda--trigger"></a>
+
+### `options.autoscaling.keda.trigger`
+
+An array of KEDA triggers to be used for scaling workloads in this GVC. This is used to define how KEDA will scale workloads in the GVC based on external metrics or events. Each trigger type may have its own specific configuration options.
+
+Required:
+
+- **type** (String) The type of KEDA trigger, e.g "prometheus", "aws-sqs", etc.
+
+Optional:
+
+- **metadata** (Map of String) The configuration parameters that the trigger requires.
+- **name** (String) An optional name for the trigger. If not provided, a default name will be generated based on the trigger type.
+- **use_cached_metrics** (String) Enables caching of metric values during polling interval.
+- **metric_type** (String) The type of metric to be used for scaling. Exactly One Of: ["AverageValue", "Value", "Utilization"].
+
+<a id="nestedblock--options--autoscaling--keda--advanced"></a>
+
+### `options.autoscaling.keda.advanced`
+
+Advanced configuration options for KEDA.
+
+Optional:
+
+- **scaling_modifiers** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced--scaling_modifiers))
+
+<a id="nestedblock--options--autoscaling--keda--advanced--scaling_modifiers"></a>
+
+### `options.autoscaling.keda.advanced.scaling_modifiers`
+
+Optional:
+
+- **target** (String) Defines new target value to scale on for the composed metric.
+- **activation_target** (String) Defines the new activation target value to scale on for the composed metric.
+- **metric_type** (String) Defines metric type used for this new composite-metric.
+- **formula** (String) Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.
 
 <a id="nestedblock--options--multi_zone"></a>
 
@@ -892,11 +942,47 @@ resource "cpln_workload" "new" {
     suspend         = false
 
     autoscaling {
-      metric          = "cpu"
+      metric          = "keda"
       target          = 60
       max_scale       = 3
       min_scale       = 2
       max_concurrency = 500
+
+      keda {
+        trigger {
+          type               = "cpu"
+          name               = "cpu-trigger-01"
+          use_cached_metrics = true
+          metric_type        = "Utilization"
+
+          metadata = {
+            type  = "Utilization"
+            value = "50"
+          }
+        }
+
+        trigger {
+          type               = "rabbitmq"
+          name               = "rabbitmq-trigger"
+          use_cached_metrics = false
+          metric_type        = "AverageValue"
+
+          metadata = {
+            host        = "amqp://user:pass@rabbitmq:5672/"
+            queueName   = "jobs"
+            queueLength = "30"
+          }
+        }
+
+        advanced {
+          scaling_modifiers {
+            target            = "5"
+            activation_target = "1"
+            metric_type       = "Value"
+            formula           = "m * 2"
+          }
+        }
+      }
     }
   }
 
@@ -1790,10 +1876,46 @@ resource "cpln_workload" "new" {
     suspend         = false
 
     autoscaling {
-      metric    = "cpu"
+      metric    = "keda"
       target    = 60
       max_scale = 3
       min_scale = 1
+
+      keda {
+        trigger {
+          type               = "cpu"
+          name               = "cpu-trigger-01"
+          use_cached_metrics = true
+          metric_type        = "Utilization"
+
+          metadata = {
+            type  = "Utilization"
+            value = "50"
+          }
+        }
+
+        trigger {
+          type               = "rabbitmq"
+          name               = "rabbitmq-trigger"
+          use_cached_metrics = false
+          metric_type        = "AverageValue"
+
+          metadata = {
+            host        = "amqp://user:pass@rabbitmq:5672/"
+            queueName   = "jobs"
+            queueLength = "30"
+          }
+        }
+
+        advanced {
+          scaling_modifiers {
+            target            = "5"
+            activation_target = "1"
+            metric_type       = "Value"
+            formula           = "m * 2"
+          }
+        }
+      }
     }
   }
 

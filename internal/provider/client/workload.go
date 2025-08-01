@@ -203,16 +203,41 @@ type WorkloadOptionsAutoscaling struct {
 	Multi            *[]WorkloadOptionsAutoscalingMulti `json:"multi,omitempty"`
 	MetricPercentile *string                            `json:"metricPercentile,omitempty"`
 	Target           *int                               `json:"target,omitempty"`
-	MaxScale         *int                               `json:"maxScale,omitempty"`
 	MinScale         *int                               `json:"minScale,omitempty"`
-	MaxConcurrency   *int                               `json:"maxConcurrency,omitempty"`
+	MaxScale         *int                               `json:"maxScale,omitempty"`
 	ScaleToZeroDelay *int                               `json:"scaleToZeroDelay,omitempty"`
+	MaxConcurrency   *int                               `json:"maxConcurrency,omitempty"`
+	Keda             *WorkloadOptionsAutoscalingKeda    `json:"keda,omitempty"`
 }
 
 // WorkloadOptionsAutoscalingMulti - Multi Metrics
 type WorkloadOptionsAutoscalingMulti struct {
 	Metric *string `json:"metric,omitempty"`
 	Target *int    `json:"target,omitempty"`
+}
+
+type WorkloadOptionsAutoscalingKeda struct {
+	Triggers *[]WorkloadOptionsAutoscalingKedaTrigger `json:"triggers,omitempty"`
+	Advanced *WorkloadOptionsAutoscalingKedaAdvanced  `json:"advanced,omitempty"`
+}
+
+type WorkloadOptionsAutoscalingKedaTrigger struct {
+	Type             *string                 `json:"type,omitempty"`
+	Metadata         *map[string]interface{} `json:"metadata,omitempty"`
+	Name             *string                 `json:"name,omitempty"`
+	UseCachedMetrics *bool                   `json:"useCachedMetrics,omitempty"`
+	MetricType       *string                 `json:"metricType,omitempty"`
+}
+
+type WorkloadOptionsAutoscalingKedaAdvanced struct {
+	ScalingModifiers *WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers `json:"scalingModifiers,omitempty"`
+}
+
+type WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers struct {
+	Target           *string `json:"target,omitempty"`
+	ActivationTarget *string `json:"activationTarget,omitempty"`
+	MetricType       *string `json:"metricType,omitempty"`
+	Formula          *string `json:"formula,omitempty"`
 }
 
 type WorkloadOptionsMultiZone struct {
