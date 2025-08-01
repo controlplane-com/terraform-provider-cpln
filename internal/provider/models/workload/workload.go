@@ -186,10 +186,11 @@ type OptionsAutoscalingModel struct {
 	Multi            []OptionsAutoscalingMultiModel `tfsdk:"multi"`
 	MetricPercentile types.String                   `tfsdk:"metric_percentile"`
 	Target           types.Int32                    `tfsdk:"target"`
-	MaxScale         types.Int32                    `tfsdk:"max_scale"`
 	MinScale         types.Int32                    `tfsdk:"min_scale"`
-	MaxConcurrency   types.Int32                    `tfsdk:"max_concurrency"`
+	MaxScale         types.Int32                    `tfsdk:"max_scale"`
 	ScaleToZeroDelay types.Int32                    `tfsdk:"scale_to_zero_delay"`
+	MaxConcurrency   types.Int32                    `tfsdk:"max_concurrency"`
+	Keda             []OptionsAutoscalingKedaModel  `tfsdk:"keda"`
 }
 
 // Options -> Autoscaling -> Multi //
@@ -197,6 +198,38 @@ type OptionsAutoscalingModel struct {
 type OptionsAutoscalingMultiModel struct {
 	Metric types.String `tfsdk:"metric"`
 	Target types.Int32  `tfsdk:"target"`
+}
+
+// Options -> Autoscaling -> Keda //
+
+type OptionsAutoscalingKedaModel struct {
+	Triggers []OptionsAutoscalingKedaTriggerModel  `tfsdk:"trigger"`
+	Advanced []OptionsAutoscalingKedaAdvancedModel `tfsdk:"advanced"`
+}
+
+// Options -> Autoscaling -> Keda -> Trigger //
+
+type OptionsAutoscalingKedaTriggerModel struct {
+	Type             types.String `tfsdk:"type"`
+	Metadata         types.Map    `tfsdk:"metadata"`
+	Name             types.String `tfsdk:"name"`
+	UseCachedMetrics types.Bool   `tfsdk:"use_cached_metrics"`
+	MetricType       types.String `tfsdk:"metric_type"`
+}
+
+// Options -> Autoscaling -> Keda -> Advanced //
+
+type OptionsAutoscalingKedaAdvancedModel struct {
+	ScalingModifiers []OptionsAutoscalingKedaAdvancedScalingModifiersModel `tfsdk:"scaling_modifiers"`
+}
+
+// Options -> Autoscaling -> Keda -> Advanced -> Scaling Modifier //
+
+type OptionsAutoscalingKedaAdvancedScalingModifiersModel struct {
+	Target           types.String `tfsdk:"target"`
+	ActivationTarget types.String `tfsdk:"activation_target"`
+	MetricType       types.String `tfsdk:"metric_type"`
+	Formula          types.String `tfsdk:"formula"`
 }
 
 // Options -> Muli Zone //
