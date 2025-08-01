@@ -265,15 +265,23 @@ type TritonProviderLoadBalancerModel struct {
 // Triton Provider -> Load Balancer -> Manual //
 
 type TritonProviderLoadBalancerManualModel struct {
-	PackageId         types.String `tfsdk:"package_id"`
-	ImageId           types.String `tfsdk:"image_id"`
-	PublicNetworkId   types.String `tfsdk:"public_network_id"`
-	PrivateNetworkIds types.Set    `tfsdk:"private_network_ids"`
-	Metadata          types.Map    `tfsdk:"metadata"`
-	Tags              types.Map    `tfsdk:"tags"`
-	Count             types.Int32  `tfsdk:"count"`
-	CnsInternalDomain types.String `tfsdk:"cns_internal_domain"`
-	CnsPublicDomain   types.String `tfsdk:"cns_public_domain"`
+	PackageId         types.String                                   `tfsdk:"package_id"`
+	ImageId           types.String                                   `tfsdk:"image_id"`
+	PublicNetworkId   types.String                                   `tfsdk:"public_network_id"`
+	PrivateNetworkIds types.Set                                      `tfsdk:"private_network_ids"`
+	Metadata          types.Map                                      `tfsdk:"metadata"`
+	Tags              types.Map                                      `tfsdk:"tags"`
+	Logging           []TritonProviderLoadBalancerManualLoggingModel `tfsdk:"logging"`
+	Count             types.Int32                                    `tfsdk:"count"`
+	CnsInternalDomain types.String                                   `tfsdk:"cns_internal_domain"`
+	CnsPublicDomain   types.String                                   `tfsdk:"cns_public_domain"`
+}
+
+// Triton Provider -> Load Balancer -> Manual -> Logging //
+
+type TritonProviderLoadBalancerManualLoggingModel struct {
+	NodePort       types.Int32  `tfsdk:"node_port"`
+	ExternalSyslog types.String `tfsdk:"external_syslog"`
 }
 
 // Triton Provider -> Load Balancer -> Gateway //
@@ -375,6 +383,7 @@ type AddOnsModel struct {
 	LocalPathStorage      types.Bool                        `tfsdk:"local_path_storage"`
 	Metrics               []AddOnsMetricsModel              `tfsdk:"metrics"`
 	Logs                  []AddOnsLogsModel                 `tfsdk:"logs"`
+	RegistryMirror        []AddOnsRegistryMirror            `tfsdk:"registry_mirror"`
 	Nvidia                []AddOnsNvidiaModel               `tfsdk:"nvidia"`
 	AwsEFS                []AddOnsHasRoleArnModel           `tfsdk:"aws_efs"`
 	AwsECR                []AddOnsHasRoleArnModel           `tfsdk:"aws_ecr"`
@@ -420,6 +429,19 @@ type AddOnsLogsModel struct {
 	Kubelet            types.Bool   `tfsdk:"kubelet"`
 	Kernel             types.Bool   `tfsdk:"kernel"`
 	Events             types.Bool   `tfsdk:"events"`
+}
+
+// Add Ons -> Registry Mirror //
+
+type AddOnsRegistryMirror struct {
+	Mirrors []AddOnsRegistryConfig `tfsdk:"mirror"`
+}
+
+// Add Ons -> Registry Mirror -> Mirrors //
+
+type AddOnsRegistryConfig struct {
+	Registry types.String `tfsdk:"registry"`
+	Mirrors  types.Set    `tfsdk:"mirrors"`
 }
 
 // Add Ons -> Nvidia //

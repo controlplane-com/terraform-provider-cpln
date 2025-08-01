@@ -501,9 +501,19 @@ Required:
 - **private_network_ids** (List of String) More private networks to join.
 - **metadata** (Map of String) Extra tags to attach to instances from a node pool.
 - **tags** (Map of String) Extra tags to attach to instances from a node pool.
+- **logging** (Block List, Max: 1) ([see below](#nestedblock--triton_provider--load_balancer--manual--logging))
 - **count** (Number)
 - **cns_internal_domain** (String)
 - **cns_public_domain** (String)
+
+<a id="nestedblock--triton_provider--load_balancer--manual--logging"></a>
+
+### `triton_provider.load_balancer.manual.logging`
+
+Optional:
+
+- **node_port** (Number)
+- **external_syslog** (String)
 
 <a id="nestedblock--triton_provider--node_pool"></a>
 
@@ -671,6 +681,7 @@ Optional:
 - **local_path_storage** (Boolean)
 - **metrics** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics))
 - **logs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--logs))
+- **registry_mirror** (Block List, Max: 1) ([see below](#nestedblock--add_ons--registry_mirror))
 - **nvidia** (Block List, Max: 1) ([see below](#nestedblock--add_ons--nvidia))
 - **aws_efs** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--efs))
 - **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--ecr))
@@ -726,6 +737,26 @@ Optional:
 - **kubelet** (Boolean)
 - **kernel** (Boolean)
 - **events** (Boolean)
+
+<a id="nestedblock--add_ons--registry_mirror"></a>
+
+### `add_ons.registry_mirror`
+
+Optional:
+
+- **mirror** (Block List) ([see below](#nestedblock--add_ons--registry_mirror--mirror))
+
+<a id="nestedblock--add_ons--registry_mirror--mirror"></a>
+
+### `add_ons.registry_mirror.mirror`
+
+Required:
+
+- **registry** (String)
+
+Optional:
+
+- **mirrors** (List of String)
 
 <a id="nestedblock--add_ons--nvidia"></a>
 
@@ -929,6 +960,18 @@ resource "cpln_mk8s" "generic" {
             exclude_namespaces  = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -992,7 +1035,7 @@ resource "cpln_mk8s" "hetzner" {
                 effect = "NoSchedule"
             }
 
-            server_type    = "cx11"
+            server_type    = "cpx11"
             override_image = "debian-11"
             min_size 	   = 0
             max_size 	   = 0
@@ -1058,6 +1101,18 @@ resource "cpln_mk8s" "hetzner" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces  = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -1195,6 +1250,18 @@ resource "cpln_mk8s" "aws" {
             exclude_namespaces  = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1315,6 +1382,18 @@ resource "cpln_mk8s" "linode" {
             exclude_namespaces = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1424,6 +1503,18 @@ resource "cpln_mk8s" "oblivus" {
             exclude_namespaces  = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1530,6 +1621,18 @@ resource "cpln_mk8s" "lambdalabs" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces  = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -1645,6 +1748,18 @@ resource "cpln_mk8s" "paperspace" {
             exclude_namespaces = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1732,6 +1847,18 @@ resource "cpln_mk8s" "ephemeral" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces  = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -1850,6 +1977,18 @@ resource "cpln_mk8s" "triton" {
             exclude_namespaces = "^elastic"
         }
 
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
         nvidia {
             taint_gpu_nodes = true
         }
@@ -1918,6 +2057,11 @@ resource "cpln_mk8s" "triton" {
                     tag1 = "value1"
                     tag2 = "value2"
                 }
+
+                logging {
+                  node_port       = 32000
+                  external_syslog = "syslog.example.com:514"
+                }
             }
         }
 
@@ -1984,6 +2128,18 @@ resource "cpln_mk8s" "triton" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {
@@ -2089,6 +2245,18 @@ resource "cpln_mk8s" "digital-ocean-provider" {
             audit_enabled      = true
             include_namespaces = "^elastic"
             exclude_namespaces = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
         }
 
         nvidia {

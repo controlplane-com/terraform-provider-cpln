@@ -822,6 +822,29 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 													Required:    true,
 												},
 											},
+											Blocks: map[string]schema.Block{
+												"logging": schema.ListNestedBlock{
+													Description: "",
+													NestedObject: schema.NestedBlockObject{
+														Attributes: map[string]schema.Attribute{
+															"node_port": schema.Int32Attribute{
+																Description: "",
+																Optional:    true,
+																Validators: []validator.Int32{
+																	int32validator.Between(30000, 65535),
+																},
+															},
+															"external_syslog": schema.StringAttribute{
+																Description: "",
+																Optional:    true,
+															},
+														},
+													},
+													Validators: []validator.List{
+														listvalidator.SizeAtMost(1),
+													},
+												},
+											},
 											Validators: []validator.Object{
 												objectvalidator.ConflictsWith(
 													path.MatchRelative().AtParent().AtParent().AtName("gateway"),
@@ -1176,6 +1199,32 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 									"events": schema.BoolAttribute{
 										Description: "Collect K8S events from all namespaces.",
 										Optional:    true,
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
+							},
+						},
+						"registry_mirror": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Blocks: map[string]schema.Block{
+									"mirror": schema.ListNestedBlock{
+										Description: "",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"registry": schema.StringAttribute{
+													Description: "",
+													Required:    true,
+												},
+												"mirrors": schema.SetAttribute{
+													Description: "",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+											},
+										},
 									},
 								},
 							},
@@ -2301,9 +2350,27 @@ func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerManual(state []m
 		PrivateNetworkIds: mro.BuildSetString(block.PrivateNetworkIds),
 		Metadata:          mro.BuildMapString(block.Metadata),
 		Tags:              mro.BuildMapString(block.Tags),
+		Logging:           mro.buildTritonProviderLoadBalancerManualLogging(block.Logging),
 		Count:             BuildInt(block.Count),
 		CnsInternalDomain: BuildString(block.CnsInternalDomain),
 		CnsPublicDomain:   BuildString(block.CnsPublicDomain),
+	}
+}
+
+// buildTritonProviderLoadBalancerManualLogging constructs a Mk8sTritonManualLogging from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerManualLogging(state []models.TritonProviderLoadBalancerManualLoggingModel) *client.Mk8sTritonManualLogging {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sTritonManualLogging{
+		NodePort:       BuildInt(block.NodePort),
+		ExternalSyslog: BuildString(block.ExternalSyslog),
 	}
 }
 
@@ -2531,6 +2598,7 @@ func (mro *Mk8sResourceOperator) buildAddOns(state []models.AddOnsModel) *client
 		LocalPathStorage:      mro.buildAddOnConfig(block.LocalPathStorage),
 		Metrics:               mro.buildAddOnMetrics(block.Metrics),
 		Logs:                  mro.buildAddOnLogs(block.Logs),
+		RegistryMirror:        mro.buildAddOnRegistryMirror(block.RegistryMirror),
 		Nvidia:                mro.buildAddOnNvidia(block.Nvidia),
 		AwsEFS:                mro.buildAddOnAwsConfig(block.AwsEFS),
 		AwsECR:                mro.buildAddOnAwsConfig(block.AwsECR),
@@ -2631,6 +2699,48 @@ func (mro *Mk8sResourceOperator) buildAddOnLogs(state []models.AddOnsLogsModel) 
 		Kernel:            BuildBool(block.Kernel),
 		Events:            BuildBool(block.Events),
 	}
+}
+
+// buildAddOnRegistryMirror constructs a Mk8sRegistryMirrorAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnRegistryMirror(state []models.AddOnsRegistryMirror) *client.Mk8sRegistryMirrorAddOnConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.Mk8sRegistryMirrorAddOnConfig{
+		Mirrors: mro.buildAddOnRegistryConfig(block.Mirrors),
+	}
+}
+
+// buildAddOnRegistryConfig constructs a []client.Mk8sAddOnRegistryConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state []models.AddOnsRegistryConfig) *[]client.Mk8sAddOnRegistryConfig {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sAddOnRegistryConfig{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range state {
+		// Construct the item
+		item := client.Mk8sAddOnRegistryConfig{
+			Registry: BuildString(block.Registry),
+			Mirrors:  mro.BuildSetString(block.Mirrors),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
 }
 
 // buildAddOnNvidia constructs a Mk8sNvidiaAddOnConfig from the given Terraform state.
@@ -3358,6 +3468,7 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManual(input *
 		PrivateNetworkIds: FlattenSetString(input.PrivateNetworkIds),
 		Metadata:          FlattenMapString(input.Metadata),
 		Tags:              FlattenMapString(input.Tags),
+		Logging:           mro.flattenTritonProviderLoadBalancerManualLogging(input.Logging),
 		Count:             FlattenInt(input.Count),
 		CnsInternalDomain: types.StringPointerValue(input.CnsInternalDomain),
 		CnsPublicDomain:   types.StringPointerValue(input.CnsPublicDomain),
@@ -3365,6 +3476,23 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManual(input *
 
 	// Return a slice containing the single block
 	return []models.TritonProviderLoadBalancerManualModel{block}
+}
+
+// flattenTritonProviderLoadBalancerManualLogging transforms *client.Mk8sTritonManualLogging into a []models.TritonProviderLoadBalancerManualLoggingModel.
+func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManualLogging(input *client.Mk8sTritonManualLogging) []models.TritonProviderLoadBalancerManualLoggingModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.TritonProviderLoadBalancerManualLoggingModel{
+		NodePort:       FlattenInt(input.NodePort),
+		ExternalSyslog: types.StringPointerValue(input.ExternalSyslog),
+	}
+
+	// Return a slice containing the single block
+	return []models.TritonProviderLoadBalancerManualLoggingModel{block}
 }
 
 // flattenTritonProviderLoadBalancerGateway transforms *client.Mk8sTritonGateway into a []models.TritonProviderLoadBalancerGatewayModel.
@@ -3591,6 +3719,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) []m
 		LocalPathStorage:      mro.flattenAddOnConfig(input.LocalPathStorage),
 		Metrics:               mro.flattenAddOnMetrics(input.Metrics),
 		Logs:                  mro.flattenAddOnLogs(input.Logs),
+		RegistryMirror:        mro.flattenAddOnRegistryMirror(input.RegistryMirror),
 		Nvidia:                mro.flattenAddOnNvidia(input.Nvidia),
 		AwsEFS:                mro.flattenAddOnAwsConfig(input.AwsEFS),
 		AwsECR:                mro.flattenAddOnAwsConfig(input.AwsECR),
@@ -3691,6 +3820,49 @@ func (mro *Mk8sResourceOperator) flattenAddOnLogs(input *client.Mk8sLogsAddOnCon
 
 	// Return a slice containing the single block
 	return []models.AddOnsLogsModel{block}
+}
+
+// flattenAddOnRegistryMirror transforms *client.Mk8sRegistryMirrorAddOnConfig into a []models.AddOnsRegistryMirror.
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryMirror(input *client.Mk8sRegistryMirrorAddOnConfig) []models.AddOnsRegistryMirror {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.AddOnsRegistryMirror{
+		Mirrors: mro.flattenAddOnRegistryConfig(input.Mirrors),
+	}
+
+	// Return a slice containing the single block
+	return []models.AddOnsRegistryMirror{block}
+}
+
+// flattenAddOnRegistryConfig transforms *[]client.Mk8sAddOnRegistryConfig into a []models.AddOnsRegistryConfig.
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8sAddOnRegistryConfig) []models.AddOnsRegistryConfig {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return nil
+	}
+
+	// Define the blocks slice
+	var blocks []models.AddOnsRegistryConfig
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.AddOnsRegistryConfig{
+			Registry: types.StringPointerValue(item.Registry),
+			Mirrors:  FlattenSetString(item.Mirrors),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully accumulated blocks
+	return blocks
 }
 
 // flattenAddOnNvidia transforms *client.Mk8sNvidiaAddOnConfig into a []models.AddOnsNvidiaModel.

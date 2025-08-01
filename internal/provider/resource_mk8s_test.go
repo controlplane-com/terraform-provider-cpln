@@ -411,6 +411,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate1TestStep(initialCase Pro
 					"azure_workload_identity": []map[string]interface{}{{}},
 					"metrics":                 []map[string]interface{}{{}},
 					"logs":                    []map[string]interface{}{{}},
+					"registry_mirror":         []map[string]interface{}{{}},
 					"nvidia":                  []map[string]interface{}{{}},
 					"azure_acr": []map[string]interface{}{
 						{
@@ -506,6 +507,20 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 							"exclude_namespaces": "^elastic",
 						},
 					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
 					"nvidia": []map[string]interface{}{
 						{
 							"taint_gpu_nodes": "true",
@@ -577,7 +592,7 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 									"effect": "NoSchedule",
 								},
 							},
-							"server_type":    "cx11",
+							"server_type":    "cpx11",
 							"override_image": "debian-11",
 							"min_size":       "0",
 							"max_size":       "0",
@@ -646,6 +661,20 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 							"audit_enabled":      "true",
 							"include_namespaces": "^elastic",
 							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
 						},
 					},
 					"nvidia": []map[string]interface{}{
@@ -797,6 +826,20 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 							"exclude_namespaces": "^elastic",
 						},
 					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
 					"nvidia": []map[string]interface{}{
 						{
 							"taint_gpu_nodes": "true",
@@ -919,6 +962,20 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 							"audit_enabled":      "true",
 							"include_namespaces": "^elastic",
 							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
 						},
 					},
 					"nvidia": []map[string]interface{}{
@@ -1047,6 +1104,20 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 							"exclude_namespaces": "^elastic",
 						},
 					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
 					"nvidia": []map[string]interface{}{
 						{
 							"taint_gpu_nodes": "true",
@@ -1170,6 +1241,20 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 							"audit_enabled":      "true",
 							"include_namespaces": "^elastic",
 							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
 						},
 					},
 					"nvidia": []map[string]interface{}{
@@ -1302,6 +1387,20 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 							"exclude_namespaces": "^elastic",
 						},
 					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
 					"nvidia": []map[string]interface{}{
 						{
 							"taint_gpu_nodes": "true",
@@ -1403,6 +1502,20 @@ func (mrt *Mk8sResourceTest) BuildEphemeralProviderTestStep(resourceName string,
 							"audit_enabled":      "true",
 							"include_namespaces": "^elastic",
 							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
 						},
 					},
 					"nvidia": []map[string]interface{}{
@@ -1542,6 +1655,20 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 							"exclude_namespaces": "^elastic",
 						},
 					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
 					"nvidia": []map[string]interface{}{
 						{
 							"taint_gpu_nodes": "true",
@@ -1618,6 +1745,12 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 										"tag1": "value1",
 										"tag2": "value2",
 									},
+									"logging": []map[string]interface{}{
+										{
+											"node_port":       "32000",
+											"external_syslog": "syslog.example.com:514",
+										},
+									},
 								},
 							},
 						},
@@ -1689,6 +1822,20 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 							"audit_enabled":      "true",
 							"include_namespaces": "^elastic",
 							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
 						},
 					},
 					"nvidia": []map[string]interface{}{
@@ -1781,6 +1928,7 @@ resource "cpln_mk8s" "%s" {
     azure_workload_identity {}
     metrics {}
     logs {}
+    registry_mirror {}
     nvidia {}
 
     azure_acr {
@@ -1874,6 +2022,18 @@ resource "cpln_mk8s" "%s" {
       events             = true
     }
 
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
     nvidia {
       taint_gpu_nodes = true
     }
@@ -1938,7 +2098,7 @@ resource "cpln_mk8s" "%s" {
         effect = "NoSchedule"
       }
 
-      server_type    = "cx11"
+      server_type    = "cpx11"
       override_image = "debian-11"
       min_size       = 0
       max_size       = 0
@@ -2003,6 +2163,18 @@ resource "cpln_mk8s" "%s" {
       audit_enabled      = true
       include_namespaces = "^elastic"
       exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
     }
 
     nvidia {
@@ -2141,6 +2313,18 @@ resource "cpln_mk8s" "%s" {
       exclude_namespaces = "^elastic"
     }
 
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
     nvidia {
       taint_gpu_nodes = true
     }
@@ -2248,6 +2432,18 @@ resource "cpln_mk8s" "%s" {
       audit_enabled      = true
       include_namespaces = "^elastic"
       exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
     }
 
     nvidia {
@@ -2360,6 +2556,18 @@ resource "cpln_mk8s" "%s" {
       exclude_namespaces = "^elastic"
     }
 
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
     nvidia {
       taint_gpu_nodes = true
     }
@@ -2467,6 +2675,18 @@ resource "cpln_mk8s" "%s" {
       audit_enabled      = true
       include_namespaces = "^elastic"
       exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
     }
 
     nvidia {
@@ -2583,6 +2803,18 @@ resource "cpln_mk8s" "%s" {
       exclude_namespaces = "^elastic"
     }
 
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
     nvidia {
       taint_gpu_nodes = true
     }
@@ -2670,6 +2902,18 @@ resource "cpln_mk8s" "%s" {
       audit_enabled      = true
       include_namespaces = "^elastic"
       exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
     }
 
     nvidia {
@@ -2789,6 +3033,18 @@ resource "cpln_mk8s" "%s" {
       exclude_namespaces = "^elastic"
     }
 
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
     nvidia {
       taint_gpu_nodes = true
     }
@@ -2858,6 +3114,11 @@ resource "cpln_mk8s" "%s" {
           tag1 = "value1"
           tag2 = "value2"
         }
+
+				logging {
+				  node_port       = 32000
+				  external_syslog = "syslog.example.com:514"
+				}
       }
     }
 
@@ -2924,6 +3185,18 @@ resource "cpln_mk8s" "%s" {
       audit_enabled      = true
       include_namespaces = "^elastic"
       exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
     }
 
     nvidia {

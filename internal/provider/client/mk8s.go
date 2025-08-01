@@ -74,6 +74,7 @@ type Mk8sSpecAddOns struct {
 	LocalPathStorage      *Mk8sNonCustomizableAddonConfig       `json:"localPathStorage,omitempty"`
 	Metrics               *Mk8sMetricsAddOnConfig               `json:"metrics,omitempty"`
 	Logs                  *Mk8sLogsAddOnConfig                  `json:"logs,omitempty"`
+	RegistryMirror        *Mk8sRegistryMirrorAddOnConfig        `json:"registryMirror,omitempty"`
 	Nvidia                *Mk8sNvidiaAddOnConfig                `json:"nvidia,omitempty"`
 	AwsEFS                *Mk8sAwsAddOnConfig                   `json:"awsEFS,omitempty"`
 	AwsECR                *Mk8sAwsAddOnConfig                   `json:"awsECR,omitempty"`
@@ -372,15 +373,21 @@ type Mk8sTritonLoadBalancer struct {
 }
 
 type Mk8sTritonManual struct {
-	PackageId         *string                 `json:"packageId,omitempty"`
-	ImageId           *string                 `json:"imageId,omitempty"`
-	PublicNetworkId   *string                 `json:"publicNetworkId,omitempty"`
-	PrivateNetworkIds *[]string               `json:"privateNetworkIds,omitempty"`
-	Metadata          *map[string]interface{} `json:"metadata,omitempty"`
-	Tags              *map[string]interface{} `json:"tags,omitempty"`
-	Count             *int                    `json:"count,omitempty"`
-	CnsInternalDomain *string                 `json:"cnsInternalDomain,omitempty"`
-	CnsPublicDomain   *string                 `json:"cnsPublicDomain,omitempty"`
+	PackageId         *string                  `json:"packageId,omitempty"`
+	ImageId           *string                  `json:"imageId,omitempty"`
+	PublicNetworkId   *string                  `json:"publicNetworkId,omitempty"`
+	PrivateNetworkIds *[]string                `json:"privateNetworkIds,omitempty"`
+	Metadata          *map[string]interface{}  `json:"metadata,omitempty"`
+	Tags              *map[string]interface{}  `json:"tags,omitempty"`
+	Logging           *Mk8sTritonManualLogging `json:"logging,omitempty"`
+	Count             *int                     `json:"count,omitempty"`
+	CnsInternalDomain *string                  `json:"cnsInternalDomain,omitempty"`
+	CnsPublicDomain   *string                  `json:"cnsPublicDomain,omitempty"`
+}
+
+type Mk8sTritonManualLogging struct {
+	NodePort       *int    `json:"nodePort,omitempty"`
+	ExternalSyslog *string `json:"externalSyslog,omitempty"`
 }
 
 type Mk8sTritonGateway struct{}
@@ -430,6 +437,15 @@ type Mk8sLogsAddOnConfig struct {
 	Kubelet           *bool   `json:"kubelet,omitempty"`
 	Kernel            *bool   `json:"kernel,omitempty"`
 	Events            *bool   `json:"events,omitempty"`
+}
+
+type Mk8sRegistryMirrorAddOnConfig struct {
+	Mirrors *[]Mk8sAddOnRegistryConfig `json:"mirrors,omitempty"`
+}
+
+type Mk8sAddOnRegistryConfig struct {
+	Registry *string   `json:"registry,omitempty"`
+	Mirrors  *[]string `json:"mirrors,omitempty"`
 }
 
 type Mk8sNvidiaAddOnConfig struct {
