@@ -1,3 +1,9 @@
+## 1.2.6
+
+- Add logging to MK8s Triton Load Balancer.
+- Add registry_mirror to MK8s addons.
+- Replace slice fields with types.List to handle unknown-value decoding.
+
 ## 1.2.5
 
 - Inject a tag that represents the current provider version.
