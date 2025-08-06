@@ -43,22 +43,22 @@ var (
 // WorkloadResourceModel holds the Terraform state for the resource.
 type WorkloadResourceModel struct {
 	EntityBaseModel
-	Gvc                types.String                     `tfsdk:"gvc"`
-	Type               types.String                     `tfsdk:"type"`
-	IdentityLink       types.String                     `tfsdk:"identity_link"`
-	Containers         []models.ContainerModel          `tfsdk:"container"`
-	Firewall           []models.FirewallModel           `tfsdk:"firewall_spec"`
-	Options            []models.OptionsModel            `tfsdk:"options"`
-	LocalOptions       []models.LocalOptionsModel       `tfsdk:"local_options"`
-	Job                []models.JobModel                `tfsdk:"job"`
-	Sidecar            []models.SidecarModel            `tfsdk:"sidecar"`
-	SupportDynamicTags types.Bool                       `tfsdk:"support_dynamic_tags"`
-	RolloutOptions     []models.RolloutOptionsModel     `tfsdk:"rollout_options"`
-	SecurityOptions    []models.SecurityOptionsModel    `tfsdk:"security_options"`
-	LoadBalancer       []models.LoadBalancerModel       `tfsdk:"load_balancer"`
-	Extras             types.String                     `tfsdk:"extras"`
-	RequestRetryPolicy []models.RequestRetryPolicyModel `tfsdk:"request_retry_policy"`
-	Status             types.List                       `tfsdk:"status"`
+	Gvc                types.String `tfsdk:"gvc"`
+	Type               types.String `tfsdk:"type"`
+	IdentityLink       types.String `tfsdk:"identity_link"`
+	Containers         types.List   `tfsdk:"container"`
+	Firewall           types.List   `tfsdk:"firewall_spec"`
+	Options            types.List   `tfsdk:"options"`
+	LocalOptions       types.List   `tfsdk:"local_options"`
+	Job                types.List   `tfsdk:"job"`
+	Sidecar            types.List   `tfsdk:"sidecar"`
+	SupportDynamicTags types.Bool   `tfsdk:"support_dynamic_tags"`
+	RolloutOptions     types.List   `tfsdk:"rollout_options"`
+	SecurityOptions    types.List   `tfsdk:"security_options"`
+	LoadBalancer       types.List   `tfsdk:"load_balancer"`
+	Extras             types.String `tfsdk:"extras"`
+	RequestRetryPolicy types.List   `tfsdk:"request_retry_policy"`
+	Status             types.List   `tfsdk:"status"`
 }
 
 /*** Resource Configuration ***/
@@ -1034,32 +1034,65 @@ func (wr *WorkloadResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 		return
 	}
 
+	// Build planned options
+	options, ok := BuildList[models.OptionsModel](ctx, &resp.Diagnostics, plan.Options)
+
 	// Modify autoscaling in options if specified
-	if len(plan.Options) != 0 && len(plan.Options[0].Autoscaling) != 0 {
-		wr.ModifyAutoscaling(&plan.Options[0].Autoscaling[0])
+	if ok && len(options) != 0 {
+		// Build autoscaling from options
+		autoscaling, ok := BuildList[models.OptionsAutoscalingModel](ctx, &resp.Diagnostics, options[0].Autoscaling)
+
+		// Modify autoscaling in options if autoscaling is specified
+		if ok && len(autoscaling) != 0 {
+			wr.ModifyAutoscaling(ctx, &resp.Diagnostics, &autoscaling[0])
+		}
+
+		// Update the options with the modified plan
+		options[0].Autoscaling = FlattenList(ctx, &resp.Diagnostics, autoscaling)
 	}
 
+	// Update the plan with the modified options
+	plan.Options = FlattenList(ctx, &resp.Diagnostics, options)
+
+	// Build planned local options
+	localOptions, ok := BuildList[models.LocalOptionsModel](ctx, &resp.Diagnostics, plan.LocalOptions)
+
 	// Modify autoscaling in local options if specified
-	if len(plan.LocalOptions) != 0 {
+	if ok {
 		// Iterate over local options and modify autoscaling
-		for _, l := range plan.LocalOptions {
+		for i := range localOptions {
+			// Build autoscaling from local options
+			autoscaling, ok := BuildList[models.OptionsAutoscalingModel](ctx, &resp.Diagnostics, localOptions[i].Autoscaling)
+
 			// Skip if autoscaling is not specified
-			if len(l.Autoscaling) == 0 {
+			if !ok || len(autoscaling) == 0 {
 				continue
 			}
 
 			// Modify autoscaling for this local options block
-			wr.ModifyAutoscaling(&l.Autoscaling[0])
+			wr.ModifyAutoscaling(ctx, &resp.Diagnostics, &autoscaling[0])
+
+			// Update the local option with the modified plan
+			localOptions[i].Autoscaling = FlattenList(ctx, &resp.Diagnostics, autoscaling)
 		}
 	}
 
+	// Update the plan with the modified local options
+	plan.LocalOptions = FlattenList(ctx, &resp.Diagnostics, localOptions)
+
+	// Build planned containers
+	containers, ok := BuildList[models.ContainerModel](ctx, &resp.Diagnostics, plan.Containers)
+
 	// Modify containers if specified
-	if len(plan.Containers) != 0 {
+	if ok {
 		// Iterate over containers and modify each
-		for _, c := range plan.Containers {
-			wr.ModifyContainers(&c)
+		for i := range containers {
+			wr.ModifyContainers(ctx, &resp.Diagnostics, &containers[i])
 		}
 	}
+
+	// Update the plan with the modified containers
+	plan.Containers = FlattenList(ctx, &resp.Diagnostics, containers)
 
 	// Persist new plan into Terraform
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
@@ -1079,7 +1112,7 @@ func (wr *WorkloadResource) ValidateConfig(ctx context.Context, req resource.Val
 	}
 
 	// Initialize the validator
-	validator := WorkloadResourceValidator{Diags: &resp.Diagnostics, Plan: plan}
+	validator := WorkloadResourceValidator{Ctx: ctx, Diags: &resp.Diagnostics, Plan: plan}
 
 	// Call the validate method
 	validator.Validate()
@@ -1568,9 +1601,21 @@ func (wr *WorkloadResource) NameRequiresReplace() planmodifier.String {
 /*** Shared Modifiers ***/
 
 // ModifyAutoscaling sets default values for metric and target if autoscaling is single-target and values are not provided.
-func (wr *WorkloadResource) ModifyAutoscaling(autoscaling *models.OptionsAutoscalingModel) {
+func (wr *WorkloadResource) ModifyAutoscaling(ctx context.Context, diags *diag.Diagnostics, autoscaling *models.OptionsAutoscalingModel) {
+	// Build multi from autoscaling
+	multi, ok := BuildList[models.OptionsAutoscalingMultiModel](ctx, diags, autoscaling.Multi)
+
+	// A variable to declare whether multi is specified or not
+	isMultiSpecified := ok && len(multi) != 0
+
+	// Build keda from autoscaling
+	keda, ok := BuildList[models.OptionsAutoscalingKedaModel](ctx, diags, autoscaling.Keda)
+
+	// A variable to declare whether keda is specified or not
+	isKedaSpecified := ok && len(keda) != 0
+
 	// If there are no multi and no keda, then set target and metric
-	if len(autoscaling.Multi) == 0 && len(autoscaling.Keda) == 0 {
+	if !isMultiSpecified && !isKedaSpecified {
 		// Only modify if metric is not specified by the user
 		if autoscaling.Metric.IsNull() || autoscaling.Metric.IsUnknown() {
 			autoscaling.Metric = types.StringValue("concurrency")
@@ -1581,10 +1626,14 @@ func (wr *WorkloadResource) ModifyAutoscaling(autoscaling *models.OptionsAutosca
 			autoscaling.Target = types.Int32Value(95)
 		}
 	}
+
+	// Set multi and keda back to autoscaling
+	autoscaling.Multi = FlattenList(ctx, diags, multi)
+	autoscaling.Keda = FlattenList(ctx, diags, keda)
 }
 
 // ModifyContainers updates container health checks using the first available port if port is not explicitly set.
-func (wr *WorkloadResource) ModifyContainers(container *models.ContainerModel) {
+func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Diagnostics, container *models.ContainerModel) {
 	// Declare a variable to hold the port number
 	var firstPortNumber *int
 
@@ -1593,28 +1642,50 @@ func (wr *WorkloadResource) ModifyContainers(container *models.ContainerModel) {
 		firstPortNumber = BuildInt(container.Port)
 	}
 
+	// Build ports from container
+	ports, ok := BuildList[models.ContainerPortModel](ctx, diags, container.Ports)
+
 	// If the port number is still nil, extract the port number from the very first item of container ports
-	if len(container.Ports) != 0 {
-		firstPortNumber = BuildInt(container.Ports[0].Number)
+	if ok && len(ports) != 0 {
+		firstPortNumber = BuildInt(ports[0].Number)
 	}
+
+	// Build liveness probe from container
+	livenessProbe, ok := BuildList[models.ContainerHealthCheckModel](ctx, diags, container.LivenessProbe)
 
 	// Modify liveness probe if specified
-	if len(container.LivenessProbe) != 0 {
-		wr.ModifyHealthCheck(&container.LivenessProbe[0], firstPortNumber)
+	if ok && len(livenessProbe) != 0 {
+		wr.ModifyHealthCheck(ctx, diags, &livenessProbe[0], firstPortNumber)
 	}
 
+	// Build readiness probe from container
+	readinessProbe, ok := BuildList[models.ContainerHealthCheckModel](ctx, diags, container.ReadinessProbe)
+
 	// Modify readiness probe if specified
-	if len(container.ReadinessProbe) != 0 {
-		wr.ModifyHealthCheck(&container.ReadinessProbe[0], firstPortNumber)
+	if ok && len(readinessProbe) != 0 {
+		wr.ModifyHealthCheck(ctx, diags, &readinessProbe[0], firstPortNumber)
 	}
+
+	// Set ports back to container
+	container.Ports = FlattenList(ctx, diags, ports)
+
+	// Set probes back to container
+	container.LivenessProbe = FlattenList(ctx, diags, livenessProbe)
+	container.ReadinessProbe = FlattenList(ctx, diags, readinessProbe)
 }
 
 // ModifyHealthCheck sets a default port for the HTTP health check if not explicitly defined.
-func (wr *WorkloadResource) ModifyHealthCheck(healthCheck *models.ContainerHealthCheckModel, port *int) {
+func (wr *WorkloadResource) ModifyHealthCheck(ctx context.Context, diags *diag.Diagnostics, healthCheck *models.ContainerHealthCheckModel, port *int) {
+	// Build httpGet from health check
+	httpGet, ok := BuildList[models.ContainerHealthCheckHttpGetModel](ctx, diags, healthCheck.HttpGet)
+
 	// Modify the port of the httpGet health check if it hasn't been specified
-	if port != nil && len(healthCheck.HttpGet) != 0 && healthCheck.HttpGet[0].Port.IsUnknown() {
-		healthCheck.HttpGet[0].Port = types.Int32Value(int32(*port))
+	if port != nil && ok && len(httpGet) != 0 && httpGet[0].Port.IsUnknown() {
+		httpGet[0].Port = types.Int32Value(int32(*port))
 	}
+
+	// Set httpGet back to the health check probe
+	healthCheck.HttpGet = FlattenList(ctx, diags, httpGet)
 }
 
 /*** Shared Validators ***/
@@ -1634,6 +1705,7 @@ func (wr *WorkloadResource) GetCpuMemoryValidators(regexMessage string) []valida
 
 // WorkloadResourceValidator is used to validate the resource configuration.
 type WorkloadResourceValidator struct {
+	Ctx   context.Context
 	Diags *diag.Diagnostics
 	Plan  WorkloadResourceModel
 }
@@ -1643,8 +1715,11 @@ func (wrv *WorkloadResourceValidator) Validate() {
 	// Extract the workload type from the plan
 	workloadType := wrv.Plan.Type.ValueString()
 
+	// Build planned job
+	job, ok := BuildList[models.JobModel](wrv.Ctx, wrv.Diags, wrv.Plan.Job)
+
 	// Job must be defined for cron workloads
-	if workloadType == "cron" && len(wrv.Plan.Job) == 0 {
+	if workloadType == "cron" && ok && len(job) == 0 {
 		wrv.Diags.AddAttributeError(
 			path.Root("type"),
 			"Missing Cron Job Configuration",
@@ -1653,8 +1728,11 @@ func (wrv *WorkloadResourceValidator) Validate() {
 		return
 	}
 
+	// Build planned rollout options
+	rolloutOptions, ok := BuildList[models.RolloutOptionsModel](wrv.Ctx, wrv.Diags, wrv.Plan.RolloutOptions)
+
 	// Only standard and stateful workload can have rollout options
-	if workloadType != "standard" && workloadType != "stateful" && len(wrv.Plan.RolloutOptions) > 0 {
+	if workloadType != "standard" && workloadType != "stateful" && ok && len(rolloutOptions) > 0 {
 		wrv.Diags.AddAttributeError(
 			path.Root("type"),
 			"Invalid Rollout Options",
@@ -1667,54 +1745,86 @@ func (wrv *WorkloadResourceValidator) Validate() {
 	isUsingMinCpu := false
 	isUsingMinMemory := false
 
-	// Iterate over each container and validate it
-	for _, container := range wrv.Plan.Containers {
-		// Probes are not allowed for cron workloads
-		if workloadType == "cron" && (len(container.ReadinessProbe) > 0 || len(container.LivenessProbe) > 0) {
-			wrv.Diags.AddAttributeError(
-				path.Root("containers"),
-				"Invalid Probes for Cron Workload",
-				"Health checks are not supported for cron workloads. Remove 'readiness_probe' and 'liveness_probe' blocks.",
-			)
-			return
-		}
+	// Build planned containers
+	containers, ok := BuildList[models.ContainerModel](wrv.Ctx, wrv.Diags, wrv.Plan.Containers)
 
-		// Validate CPU and Memory values for workloads with GPU
-		if len(container.GpuNvidia) > 0 {
-			isUsingGpu = true
-			cpuAmount, cpuUnit := ParseValueAndUnit(container.Cpu.ValueString())
-			memoryAmount, memoryUnit := ParseValueAndUnit(container.Memory.ValueString())
+	// Validate containers if build was successful
+	if ok {
+		// Iterate over each container and validate it
+		for _, container := range containers {
+			// Build readiness probe from container
+			readinessProbe, ok := BuildList[models.ContainerHealthCheckModel](wrv.Ctx, wrv.Diags, container.ReadinessProbe)
 
-			// Check if CPU and Memory meet the minimum requirements for GPU workloads
-			if (cpuUnit == "" && cpuAmount < 2) ||
-				(cpuUnit == "m" && cpuAmount < 2000) ||
-				(memoryUnit == "Gi" && memoryAmount < 7) ||
-				(memoryUnit == "Mi" && memoryAmount < 7000) {
+			// A variable to declare whether readiness probe is specified or not
+			isReadinessProbeSpecified := ok && len(readinessProbe) != 0
+
+			// Build liveness probe from container
+			livenessProbe, ok := BuildList[models.ContainerHealthCheckModel](wrv.Ctx, wrv.Diags, container.LivenessProbe)
+
+			// A variable to declare whether readiness probe is specified or not
+			isLivenessProbeSpecified := ok && len(livenessProbe) != 0
+
+			// Probes are not allowed for cron workloads
+			if workloadType == "cron" && (isReadinessProbeSpecified || isLivenessProbeSpecified) {
 				wrv.Diags.AddAttributeError(
 					path.Root("containers"),
-					"Insufficient CPU or Memory",
-					"The GPU requires this container to have at least 2 CPU cores (or 2000m) and 7 Gi (or 7000 Mi) of RAM.",
+					"Invalid Probes for Cron Workload",
+					"Health checks are not supported for cron workloads. Remove 'readiness_probe' and 'liveness_probe' blocks.",
 				)
+				return
 			}
-		}
 
-		// Check if Min CPU is being used
-		if !container.MinCpu.IsNull() && !container.MinCpu.IsUnknown() {
-			isUsingMinCpu = true
-		}
+			// Build readiness probe from container
+			gpuNvidia, ok := BuildList[models.ContainerGpuNvidiaModel](wrv.Ctx, wrv.Diags, container.GpuNvidia)
 
-		// Check if Min Memory is being used
-		if !container.MinMemory.IsNull() && !container.MinMemory.IsUnknown() {
-			isUsingMinMemory = true
+			// Validate CPU and Memory values for workloads with GPU
+			if ok && len(gpuNvidia) > 0 {
+				isUsingGpu = true
+				cpuAmount, cpuUnit := ParseValueAndUnit(container.Cpu.ValueString())
+				memoryAmount, memoryUnit := ParseValueAndUnit(container.Memory.ValueString())
+
+				// Check if CPU and Memory meet the minimum requirements for GPU workloads
+				if (cpuUnit == "" && cpuAmount < 2) ||
+					(cpuUnit == "m" && cpuAmount < 2000) ||
+					(memoryUnit == "Gi" && memoryAmount < 7) ||
+					(memoryUnit == "Mi" && memoryAmount < 7000) {
+					wrv.Diags.AddAttributeError(
+						path.Root("containers"),
+						"Insufficient CPU or Memory",
+						"The GPU requires this container to have at least 2 CPU cores (or 2000m) and 7 Gi (or 7000 Mi) of RAM.",
+					)
+				}
+			}
+
+			// Check if Min CPU is being used
+			if !container.MinCpu.IsNull() && !container.MinCpu.IsUnknown() {
+				isUsingMinCpu = true
+			}
+
+			// Check if Min Memory is being used
+			if !container.MinMemory.IsNull() && !container.MinMemory.IsUnknown() {
+				isUsingMinMemory = true
+			}
 		}
 	}
 
-	// Validate Default Options
-	wrv.validateOptions(path.Root("options").AtListIndex(0), workloadType, wrv.Plan.Options, isUsingGpu, isUsingMinCpu, isUsingMinMemory)
+	// Build planned options
+	options, ok := BuildList[models.OptionsModel](wrv.Ctx, wrv.Diags, wrv.Plan.Options)
 
-	// Validate local options
-	for i, localOption := range wrv.Plan.LocalOptions {
-		wrv.validateOptions(path.Root("local_options").AtListIndex(i), workloadType, []models.OptionsModel{localOption.OptionsModel}, isUsingGpu, isUsingMinCpu, isUsingMinMemory)
+	// Validate Default Options if build was successful
+	if ok {
+		wrv.validateOptions(path.Root("options").AtListIndex(0), workloadType, options, isUsingGpu, isUsingMinCpu, isUsingMinMemory)
+	}
+
+	// Build planned local options
+	localOptions, ok := BuildList[models.LocalOptionsModel](wrv.Ctx, wrv.Diags, wrv.Plan.LocalOptions)
+
+	// Validate local options if build was successful
+	if ok {
+		// Iterate over local options and validate each
+		for i, localOption := range localOptions {
+			wrv.validateOptions(path.Root("local_options").AtListIndex(i), workloadType, []models.OptionsModel{localOption.OptionsModel}, isUsingGpu, isUsingMinCpu, isUsingMinMemory)
+		}
 	}
 }
 
@@ -1735,8 +1845,11 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 	// Select the first options model
 	opt := options[0]
 
+	// Build autoscaling from options
+	autoscaling, ok := BuildList[models.OptionsAutoscalingModel](wrv.Ctx, wrv.Diags, opt.Autoscaling)
+
 	// Return early if autoscaling configuration is absent
-	if len(opt.Autoscaling) == 0 {
+	if !ok || len(autoscaling) == 0 {
 		wrv.Diags.AddAttributeError(
 			basePath.AtName("autoscaling"),
 			"Autoscaling Block Is Required",
@@ -1746,7 +1859,7 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 	}
 
 	// Retrieve the first autoscaling configuration and its path
-	asc := opt.Autoscaling[0]
+	asc := autoscaling[0]
 	ascPath := basePath.AtName("autoscaling")
 
 	// Apply cron-specific validation rules
@@ -1769,8 +1882,11 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 			)
 		}
 	} else {
+		// Build multi from autoscaling
+		multi, ok := BuildList[models.OptionsAutoscalingMultiModel](wrv.Ctx, wrv.Diags, asc.Multi)
+
 		// Apply non-cron validation rules
-		if len(asc.Multi) > 0 {
+		if ok && len(multi) > 0 {
 			// Report error if metric is set alongside multiple metrics strategy
 			if !asc.Metric.IsNull() && !asc.Metric.IsUnknown() {
 				wrv.Diags.AddAttributeError(
@@ -1802,8 +1918,11 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 			}
 		}
 
+		// Build keda from autoscaling
+		keda, ok := BuildList[models.OptionsAutoscalingKedaModel](wrv.Ctx, wrv.Diags, asc.Keda)
+
 		// Handle keda metric
-		if len(asc.Keda) > 0 || (!asc.Metric.IsNull() && !asc.Metric.IsUnknown() && asc.Metric.ValueString() == "keda") {
+		if (ok && len(keda) > 0) || (!asc.Metric.IsNull() && !asc.Metric.IsUnknown() && asc.Metric.ValueString() == "keda") {
 			// Keda is only supported in standard and stateful workloads
 			if workloadType != "standard" && workloadType != "stateful" {
 				wrv.Diags.AddAttributeError(
@@ -1886,18 +2005,18 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 	if apiResp.Spec == nil {
 		state.Type = types.StringNull()
 		state.IdentityLink = types.StringNull()
-		state.Containers = nil
-		state.Firewall = nil
-		state.Options = nil
-		state.LocalOptions = nil
-		state.Job = nil
-		state.Sidecar = nil
+		state.Containers = types.ListNull(models.ContainerModel{}.AttributeTypes())
+		state.Firewall = types.ListNull(models.FirewallModel{}.AttributeTypes())
+		state.Options = types.ListNull(models.OptionsModel{}.AttributeTypes())
+		state.LocalOptions = types.ListNull(models.LocalOptionsModel{}.AttributeTypes())
+		state.Job = types.ListNull(models.JobModel{}.AttributeTypes())
+		state.Sidecar = types.ListNull(models.SidecarModel{}.AttributeTypes())
 		state.SupportDynamicTags = types.BoolNull()
-		state.RolloutOptions = nil
-		state.SecurityOptions = nil
-		state.LoadBalancer = nil
+		state.RolloutOptions = types.ListNull(models.RolloutOptionsModel{}.AttributeTypes())
+		state.SecurityOptions = types.ListNull(models.SecurityOptionsModel{}.AttributeTypes())
+		state.LoadBalancer = types.ListNull(models.LoadBalancerModel{}.AttributeTypes())
 		state.Extras = types.StringNull()
-		state.RequestRetryPolicy = nil
+		state.RequestRetryPolicy = types.ListNull(models.RequestRetryPolicyModel{}.AttributeTypes())
 	} else {
 		state.Type = types.StringPointerValue(apiResp.Spec.Type)
 		state.IdentityLink = types.StringPointerValue(apiResp.Spec.IdentityLink)
@@ -1942,9 +2061,12 @@ func (wro *WorkloadResourceOperator) InvokeDelete(name string) error {
 // Builders //
 
 // buildContainers constructs a []client.WorkloadContainer from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainers(state []models.ContainerModel) *[]client.WorkloadContainer {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainers(state types.List) *[]client.WorkloadContainer {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -1952,12 +2074,20 @@ func (wro *WorkloadResourceOperator) buildContainers(state []models.ContainerMod
 	output := []client.WorkloadContainer{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
+		// Build block ports
+		ports, ok := BuildList[models.ContainerPortModel](wro.Ctx, wro.Diags, block.Ports)
+
+		// Skip if ports are nil, this shouldn't happen but let's handle it anyway
+		if !block.Ports.IsNull() && !block.Ports.IsUnknown() && !ok {
+			continue
+		}
+
 		// Initialize a slice for container port models copying existing ports
-		blockPorts := make([]models.ContainerPortModel, len(block.Ports))
+		blockPorts := make([]models.ContainerPortModel, len(ports))
 
 		// Copy existing ports into the new slice
-		copy(blockPorts, block.Ports)
+		copy(blockPorts, ports)
 
 		// Append legacy port attribute if it is specified
 		if !block.Port.IsNull() && !block.Port.IsUnknown() {
@@ -1973,7 +2103,7 @@ func (wro *WorkloadResourceOperator) buildContainers(state []models.ContainerMod
 			Image:            BuildString(block.Image),
 			WorkingDirectory: BuildString(block.WorkingDirectory),
 			Metrics:          wro.buildContainerMetrics(block.Metrics),
-			Ports:            wro.buildContainerPort(blockPorts),
+			Ports:            wro.buildContainerPort(FlattenList(wro.Ctx, wro.Diags, blockPorts)),
 			Memory:           BuildString(block.Memory),
 			ReadinessProbe:   wro.buildHealthCheck(block.ReadinessProbe),
 			LivenessProbe:    wro.buildHealthCheck(block.LivenessProbe),
@@ -1998,14 +2128,17 @@ func (wro *WorkloadResourceOperator) buildContainers(state []models.ContainerMod
 }
 
 // buildContainerMetrics constructs a WorkloadContainerMetrics from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerMetrics(state []models.ContainerMetricsModel) *client.WorkloadContainerMetrics {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerMetrics(state types.List) *client.WorkloadContainerMetrics {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerMetricsModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadContainerMetrics{
@@ -2015,9 +2148,12 @@ func (wro *WorkloadResourceOperator) buildContainerMetrics(state []models.Contai
 }
 
 // buildContainerPort constructs a []client.WorkloadContainerPort from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerPort(state []models.ContainerPortModel) *[]client.WorkloadContainerPort {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerPort(state types.List) *[]client.WorkloadContainerPort {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerPortModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2025,7 +2161,7 @@ func (wro *WorkloadResourceOperator) buildContainerPort(state []models.Container
 	output := []client.WorkloadContainerPort{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadContainerPort{
 			Protocol: BuildString(block.Protocol),
@@ -2041,14 +2177,17 @@ func (wro *WorkloadResourceOperator) buildContainerPort(state []models.Container
 }
 
 // buildHealthCheck constructs a WorkloadHealthCheck from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildHealthCheck(state []models.ContainerHealthCheckModel) *client.WorkloadHealthCheck {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildHealthCheck(state types.List) *client.WorkloadHealthCheck {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerHealthCheckModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadHealthCheck{
@@ -2065,14 +2204,17 @@ func (wro *WorkloadResourceOperator) buildHealthCheck(state []models.ContainerHe
 }
 
 // buildExec constructs a WorkloadExec from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildExec(state []models.ContainerExecModel) *client.WorkloadExec {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildExec(state types.List) *client.WorkloadExec {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerExecModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadExec{
@@ -2081,14 +2223,17 @@ func (wro *WorkloadResourceOperator) buildExec(state []models.ContainerExecModel
 }
 
 // buildHealthCheckGrpc constructs a WorkloadHealthCheckGrpc from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildHealthCheckGrpc(state []models.ContainerHealthCheckGrpcModel) *client.WorkloadHealthCheckGrpc {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildHealthCheckGrpc(state types.List) *client.WorkloadHealthCheckGrpc {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerHealthCheckGrpcModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadHealthCheckGrpc{
@@ -2097,14 +2242,17 @@ func (wro *WorkloadResourceOperator) buildHealthCheckGrpc(state []models.Contain
 }
 
 // buildHealthCheckTcpSocket constructs a WorkloadHealthCheckTcpSocket from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildHealthCheckTcpSocket(state []models.ContainerHealthCheckTcpSocketModel) *client.WorkloadHealthCheckTcpSocket {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildHealthCheckTcpSocket(state types.List) *client.WorkloadHealthCheckTcpSocket {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerHealthCheckTcpSocketModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadHealthCheckTcpSocket{
@@ -2113,14 +2261,17 @@ func (wro *WorkloadResourceOperator) buildHealthCheckTcpSocket(state []models.Co
 }
 
 // buildHealthCheckHttpGet constructs a WorkloadHealthCheckHttpGet from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildHealthCheckHttpGet(state []models.ContainerHealthCheckHttpGetModel) *client.WorkloadHealthCheckHttpGet {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildHealthCheckHttpGet(state types.List) *client.WorkloadHealthCheckHttpGet {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerHealthCheckHttpGetModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadHealthCheckHttpGet{
@@ -2158,7 +2309,7 @@ func (wro *WorkloadResourceOperator) buildNameValue(state types.Map) *[]client.W
 }
 
 // buildContainerGpu constructs a WorkloadContainerGpu from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerGpu(nvidiaState []models.ContainerGpuNvidiaModel, customState []models.ContainerGpuCustomModel) *client.WorkloadContainerGpu {
+func (wro *WorkloadResourceOperator) buildContainerGpu(nvidiaState types.List, customState types.List) *client.WorkloadContainerGpu {
 	// Build the GPU models from the provided states
 	nvidia := wro.buildContainerGpuNvidia(nvidiaState)
 	custom := wro.buildContainerGpuCustom(customState)
@@ -2176,14 +2327,17 @@ func (wro *WorkloadResourceOperator) buildContainerGpu(nvidiaState []models.Cont
 }
 
 // buildContainerGpuNvidia constructs a WorkloadContainerGpuNvidia from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerGpuNvidia(state []models.ContainerGpuNvidiaModel) *client.WorkloadContainerGpuNvidia {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerGpuNvidia(state types.List) *client.WorkloadContainerGpuNvidia {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerGpuNvidiaModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadContainerGpuNvidia{
@@ -2193,14 +2347,17 @@ func (wro *WorkloadResourceOperator) buildContainerGpuNvidia(state []models.Cont
 }
 
 // buildContainerGpuCustom constructs a WorkloadContainerGpuCustom from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerGpuCustom(state []models.ContainerGpuCustomModel) *client.WorkloadContainerGpuCustom {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerGpuCustom(state types.List) *client.WorkloadContainerGpuCustom {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerGpuCustomModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadContainerGpuCustom{
@@ -2211,14 +2368,17 @@ func (wro *WorkloadResourceOperator) buildContainerGpuCustom(state []models.Cont
 }
 
 // buildContainerLifecycle constructs a WorkloadLifeCycle from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerLifecycle(state []models.ContainerLifecycleModel) *client.WorkloadLifeCycle {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerLifecycle(state types.List) *client.WorkloadLifeCycle {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerLifecycleModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadLifeCycle{
@@ -2228,14 +2388,17 @@ func (wro *WorkloadResourceOperator) buildContainerLifecycle(state []models.Cont
 }
 
 // buildContainerLifecycleSpec constructs a WorkloadLifeCycleSpec from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerLifecycleSpec(state []models.ContainerLifecycleSpecModel) *client.WorkloadLifeCycleSpec {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerLifecycleSpec(state types.List) *client.WorkloadLifeCycleSpec {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerLifecycleSpecModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadLifeCycleSpec{
@@ -2244,9 +2407,12 @@ func (wro *WorkloadResourceOperator) buildContainerLifecycleSpec(state []models.
 }
 
 // buildContainerVolume constructs a []client.WorkloadContainerVolume from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerVolume(state []models.ContainerVolumeModel) *[]client.WorkloadContainerVolume {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildContainerVolume(state types.List) *[]client.WorkloadContainerVolume {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerVolumeModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2254,7 +2420,7 @@ func (wro *WorkloadResourceOperator) buildContainerVolume(state []models.Contain
 	output := []client.WorkloadContainerVolume{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadContainerVolume{
 			Uri:            BuildString(block.Uri),
@@ -2271,14 +2437,17 @@ func (wro *WorkloadResourceOperator) buildContainerVolume(state []models.Contain
 }
 
 // buildFirewall constructs a WorkloadFirewall from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewall(state []models.FirewallModel) *client.WorkloadFirewall {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildFirewall(state types.List) *client.WorkloadFirewall {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.FirewallModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadFirewall{
@@ -2288,14 +2457,17 @@ func (wro *WorkloadResourceOperator) buildFirewall(state []models.FirewallModel)
 }
 
 // buildFirewallExternal constructs a WorkloadFirewallExternal from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallExternal(state []models.FirewallExternalModel) *client.WorkloadFirewallExternal {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildFirewallExternal(state types.List) *client.WorkloadFirewallExternal {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.FirewallExternalModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadFirewallExternal{
@@ -2310,9 +2482,12 @@ func (wro *WorkloadResourceOperator) buildFirewallExternal(state []models.Firewa
 }
 
 // buildFirewallExternalOutboundAllowPort constructs a []client.WorkloadFirewallOutboundAllowPort from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallExternalOutboundAllowPort(state []models.FirewallExternalOutboundAllowPortModel) *[]client.WorkloadFirewallOutboundAllowPort {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildFirewallExternalOutboundAllowPort(state types.List) *[]client.WorkloadFirewallOutboundAllowPort {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.FirewallExternalOutboundAllowPortModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2320,7 +2495,7 @@ func (wro *WorkloadResourceOperator) buildFirewallExternalOutboundAllowPort(stat
 	output := []client.WorkloadFirewallOutboundAllowPort{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadFirewallOutboundAllowPort{
 			Protocol: BuildString(block.Protocol),
@@ -2336,14 +2511,17 @@ func (wro *WorkloadResourceOperator) buildFirewallExternalOutboundAllowPort(stat
 }
 
 // buildFirewallExternalHttp constructs a WorkloadFirewallExternalHttp from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallExternalHttp(state []models.FirewallExternalHttpModel) *client.WorkloadFirewallExternalHttp {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildFirewallExternalHttp(state types.List) *client.WorkloadFirewallExternalHttp {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.FirewallExternalHttpModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadFirewallExternalHttp{
@@ -2352,9 +2530,12 @@ func (wro *WorkloadResourceOperator) buildFirewallExternalHttp(state []models.Fi
 }
 
 // buildFirewallExternalHttpHeaderFilter constructs a []client.WorkloadFirewallExternalHttpHeaderFilter from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallExternalHttpHeaderFilter(state []models.FirewallExternalHttpHeaderFilterModel) *[]client.WorkloadFirewallExternalHttpHeaderFilter {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildFirewallExternalHttpHeaderFilter(state types.List) *[]client.WorkloadFirewallExternalHttpHeaderFilter {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.FirewallExternalHttpHeaderFilterModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2362,7 +2543,7 @@ func (wro *WorkloadResourceOperator) buildFirewallExternalHttpHeaderFilter(state
 	output := []client.WorkloadFirewallExternalHttpHeaderFilter{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadFirewallExternalHttpHeaderFilter{
 			Key:           BuildString(block.Key),
@@ -2379,14 +2560,17 @@ func (wro *WorkloadResourceOperator) buildFirewallExternalHttpHeaderFilter(state
 }
 
 // buildFirewallInternal constructs a WorkloadFirewallInternal from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallInternal(state []models.FirewallInternalModel) *client.WorkloadFirewallInternal {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildFirewallInternal(state types.List) *client.WorkloadFirewallInternal {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.FirewallInternalModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadFirewallInternal{
@@ -2396,14 +2580,17 @@ func (wro *WorkloadResourceOperator) buildFirewallInternal(state []models.Firewa
 }
 
 // buildOptions constructs a WorkloadOptions from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptions(state []models.OptionsModel) *client.WorkloadOptions {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptions(state types.List) *client.WorkloadOptions {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadOptions{
@@ -2417,14 +2604,17 @@ func (wro *WorkloadResourceOperator) buildOptions(state []models.OptionsModel) *
 }
 
 // buildOptionsAutoscaling constructs a WorkloadOptionsAutoscaling from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsAutoscaling(state []models.OptionsAutoscalingModel) *client.WorkloadOptionsAutoscaling {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsAutoscaling(state types.List) *client.WorkloadOptionsAutoscaling {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadOptionsAutoscaling{
@@ -2441,9 +2631,12 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscaling(state []models.Opti
 }
 
 // buildOptionsAutoscalingMulti constructs a []client.WorkloadOptionsAutoscalingMulti from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsAutoscalingMulti(state []models.OptionsAutoscalingMultiModel) *[]client.WorkloadOptionsAutoscalingMulti {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingMulti(state types.List) *[]client.WorkloadOptionsAutoscalingMulti {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingMultiModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2451,7 +2644,7 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingMulti(state []models
 	output := []client.WorkloadOptionsAutoscalingMulti{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadOptionsAutoscalingMulti{
 			Metric: BuildString(block.Metric),
@@ -2467,14 +2660,17 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingMulti(state []models
 }
 
 // buildOptionsAutoscalingKeda constructs a WorkloadOptionsAutoscalingKeda from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKeda(state []models.OptionsAutoscalingKedaModel) *client.WorkloadOptionsAutoscalingKeda {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKeda(state types.List) *client.WorkloadOptionsAutoscalingKeda {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingKedaModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadOptionsAutoscalingKeda{
@@ -2484,9 +2680,12 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKeda(state []models.
 }
 
 // buildOptionsAutoscalingKedaTrigger constructs a []client.WorkloadOptionsAutoscalingKedaTrigger from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state []models.OptionsAutoscalingKedaTriggerModel) *[]client.WorkloadOptionsAutoscalingKedaTrigger {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state types.List) *[]client.WorkloadOptionsAutoscalingKedaTrigger {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingKedaTriggerModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2494,7 +2693,7 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state []
 	output := []client.WorkloadOptionsAutoscalingKedaTrigger{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadOptionsAutoscalingKedaTrigger{
 			Type:             BuildString(block.Type),
@@ -2513,14 +2712,17 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state []
 }
 
 // buildOptionsAutoscalingKedaAdvanced constructs a WorkloadOptionsAutoscalingKedaAdvanced from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvanced(state []models.OptionsAutoscalingKedaAdvancedModel) *client.WorkloadOptionsAutoscalingKedaAdvanced {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvanced(state types.List) *client.WorkloadOptionsAutoscalingKedaAdvanced {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingKedaAdvancedModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadOptionsAutoscalingKedaAdvanced{
@@ -2529,14 +2731,17 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvanced(state [
 }
 
 // buildOptionsAutoscalingKedaAdvancedScalingModifiers constructs a WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvancedScalingModifiers(state []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel) *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvancedScalingModifiers(state types.List) *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingKedaAdvancedScalingModifiersModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers{
@@ -2548,14 +2753,17 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvancedScalingM
 }
 
 // buildOptionsMultiZone constructs a WorkloadOptionsMultiZone from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildOptionsMultiZone(state []models.OptionsMultiZoneModel) *client.WorkloadOptionsMultiZone {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildOptionsMultiZone(state types.List) *client.WorkloadOptionsMultiZone {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsMultiZoneModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadOptionsMultiZone{
@@ -2564,9 +2772,12 @@ func (wro *WorkloadResourceOperator) buildOptionsMultiZone(state []models.Option
 }
 
 // buildLocalOptions constructs a []client.WorkloadOptions from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLocalOptions(state []models.LocalOptionsModel) *[]client.WorkloadOptions {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildLocalOptions(state types.List) *[]client.WorkloadOptions {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.LocalOptionsModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2574,9 +2785,9 @@ func (wro *WorkloadResourceOperator) buildLocalOptions(state []models.LocalOptio
 	output := []client.WorkloadOptions{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
-		item := wro.buildOptions([]models.OptionsModel{block.OptionsModel})
+		item := wro.buildOptions(FlattenList(wro.Ctx, wro.Diags, []models.OptionsModel{block.OptionsModel}))
 
 		// If the item is nil, skip it
 		if item == nil {
@@ -2602,14 +2813,17 @@ func (wro *WorkloadResourceOperator) buildLocalOptions(state []models.LocalOptio
 }
 
 // buildJob constructs a WorkloadJob from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildJob(state []models.JobModel) *client.WorkloadJob {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildJob(state types.List) *client.WorkloadJob {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.JobModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadJob{
@@ -2622,14 +2836,17 @@ func (wro *WorkloadResourceOperator) buildJob(state []models.JobModel) *client.W
 }
 
 // buildSidecar constructs a WorkloadSidecar from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildSidecar(state []models.SidecarModel) *client.WorkloadSidecar {
-	// Return nil if no sidecar configuration is provided
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildSidecar(state types.List) *client.WorkloadSidecar {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SidecarModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Select the first sidecar model
-	block := state[0]
+	block := blocks[0]
 
 	// Build JSON string for Envoy configuration
 	envoyJSON := BuildString(block.Envoy)
@@ -2655,14 +2872,17 @@ func (wro *WorkloadResourceOperator) buildSidecar(state []models.SidecarModel) *
 }
 
 // buildRolloutOptions constructs a WorkloadRolloutOptions from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildRolloutOptions(state []models.RolloutOptionsModel) *client.WorkloadRolloutOptions {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildRolloutOptions(state types.List) *client.WorkloadRolloutOptions {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.RolloutOptionsModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadRolloutOptions{
@@ -2675,14 +2895,17 @@ func (wro *WorkloadResourceOperator) buildRolloutOptions(state []models.RolloutO
 }
 
 // buildSecurityOptions constructs a WorkloadSecurityOptions from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildSecurityOptions(state []models.SecurityOptionsModel) *client.WorkloadSecurityOptions {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildSecurityOptions(state types.List) *client.WorkloadSecurityOptions {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SecurityOptionsModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadSecurityOptions{
@@ -2691,14 +2914,17 @@ func (wro *WorkloadResourceOperator) buildSecurityOptions(state []models.Securit
 }
 
 // buildLoadBalancer constructs a WorkloadLoadBalancer from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLoadBalancer(state []models.LoadBalancerModel) *client.WorkloadLoadBalancer {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildLoadBalancer(state types.List) *client.WorkloadLoadBalancer {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.LoadBalancerModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadLoadBalancer{
@@ -2709,14 +2935,17 @@ func (wro *WorkloadResourceOperator) buildLoadBalancer(state []models.LoadBalanc
 }
 
 // buildLoadBalancerDirect constructs a WorkloadLoadBalancerDirect from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLoadBalancerDirect(state []models.LoadBalancerDirectModel) *client.WorkloadLoadBalancerDirect {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildLoadBalancerDirect(state types.List) *client.WorkloadLoadBalancerDirect {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.LoadBalancerDirectModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadLoadBalancerDirect{
@@ -2727,9 +2956,12 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerDirect(state []models.Load
 }
 
 // buildLoadBalancerDirectPort constructs a []client.WorkloadLoadBalancerDirectPort from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLoadBalancerDirectPort(state []models.LoadBalancerDirectPortModel) *[]client.WorkloadLoadBalancerDirectPort {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildLoadBalancerDirectPort(state types.List) *[]client.WorkloadLoadBalancerDirectPort {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.LoadBalancerDirectPortModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
@@ -2737,7 +2969,7 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerDirectPort(state []models.
 	output := []client.WorkloadLoadBalancerDirectPort{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadLoadBalancerDirectPort{
 			ExternalPort:  BuildInt(block.ExternalPort),
@@ -2755,14 +2987,17 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerDirectPort(state []models.
 }
 
 // buildLoadBalancerGeoLocation constructs a WorkloadLoadBalancerGeoLocation from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocation(state []models.LoadBalancerGeoLocationModel) *client.WorkloadLoadBalancerGeoLocation {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocation(state types.List) *client.WorkloadLoadBalancerGeoLocation {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.LoadBalancerGeoLocationModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadLoadBalancerGeoLocation{
@@ -2772,14 +3007,17 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocation(state []models
 }
 
 // buildLoadBalancerGeoLocationHeaders constructs a WorkloadLoadBalancerGeoLocationHeaders from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocationHeaders(state []models.LoadBalancerGeoLocationHeadersModel) *client.WorkloadLoadBalancerGeoLocationHeaders {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocationHeaders(state types.List) *client.WorkloadLoadBalancerGeoLocationHeaders {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.LoadBalancerGeoLocationHeadersModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadLoadBalancerGeoLocationHeaders{
@@ -2814,14 +3052,17 @@ func (wro *WorkloadResourceOperator) buildExtras(state types.String) *interface{
 }
 
 // buildRequestRetryPolicy constructs a WorkloadRequestRetryPolicy from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildRequestRetryPolicy(state []models.RequestRetryPolicyModel) *client.WorkloadRequestRetryPolicy {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (wro *WorkloadResourceOperator) buildRequestRetryPolicy(state types.List) *client.WorkloadRequestRetryPolicy {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.RequestRetryPolicyModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.WorkloadRequestRetryPolicy{
@@ -2832,12 +3073,15 @@ func (wro *WorkloadResourceOperator) buildRequestRetryPolicy(state []models.Requ
 
 // Flatteners //
 
-// flattenContainers transforms *[]client.WorkloadContainer into a []models.ContainerModel.
-func (wro *WorkloadResourceOperator) flattenContainers(input *[]client.WorkloadContainer) []models.ContainerModel {
+// flattenContainers transforms *[]client.WorkloadContainer into a Terraform types.List.
+func (wro *WorkloadResourceOperator) flattenContainers(input *[]client.WorkloadContainer) types.List {
+	// Get attribute types
+	elementType := models.ContainerModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -2854,8 +3098,16 @@ func (wro *WorkloadResourceOperator) flattenContainers(input *[]client.WorkloadC
 		// Flag to indicate if a legacy port was found
 		var hasLegacy bool
 
+		// Build planned containers
+		plannedContainers, ok := BuildList[models.ContainerModel](wro.Ctx, wro.Diags, wro.Plan.Containers)
+
+		// Skip if build has failed
+		if !wro.Plan.Containers.IsNull() && !wro.Plan.Containers.IsUnknown() && !ok {
+			continue
+		}
+
 		// Iterate through plan containers to find matching container by name
-		for _, c := range wro.Plan.Containers {
+		for _, c := range plannedContainers {
 			// Check if this plan container corresponds to the current item
 			if c.Name.ValueString() == *item.Name {
 				// If a valid legacy port is set in the plan, capture it
@@ -2922,15 +3174,19 @@ func (wro *WorkloadResourceOperator) flattenContainers(input *[]client.WorkloadC
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenContainerMetrics transforms *client.WorkloadContainerMetrics into a []models.ContainerMetricsModel.
-func (wro *WorkloadResourceOperator) flattenContainerMetrics(input *client.WorkloadContainerMetrics) []models.ContainerMetricsModel {
+// flattenContainerMetrics transforms *client.WorkloadContainerMetrics into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerMetrics(input *client.WorkloadContainerMetrics) types.List {
+	// Get attribute types
+	elementType := models.ContainerMetricsModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -2939,16 +3195,19 @@ func (wro *WorkloadResourceOperator) flattenContainerMetrics(input *client.Workl
 		Path: types.StringPointerValue(input.Path),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerMetricsModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerMetricsModel{block})
 }
 
-// flattenContainerPort transforms *[]client.WorkloadContainerPort into a []models.ContainerPortModel.
-func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.WorkloadContainerPort) []models.ContainerPortModel {
+// flattenContainerPort transforms *[]client.WorkloadContainerPort into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.WorkloadContainerPort) types.List {
+	// Get attribute types
+	elementType := models.ContainerPortModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -2966,15 +3225,19 @@ func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.Worklo
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenHealthCheck transforms *client.WorkloadHealthCheck into a []models.ContainerHealthCheckModel.
-func (wro *WorkloadResourceOperator) flattenHealthCheck(input *client.WorkloadHealthCheck) []models.ContainerHealthCheckModel {
+// flattenHealthCheck transforms *client.WorkloadHealthCheck into a types.List.
+func (wro *WorkloadResourceOperator) flattenHealthCheck(input *client.WorkloadHealthCheck) types.List {
+	// Get attribute types
+	elementType := models.ContainerHealthCheckModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -2990,15 +3253,19 @@ func (wro *WorkloadResourceOperator) flattenHealthCheck(input *client.WorkloadHe
 		FailureThreshold:    FlattenInt(input.FailureThreshold),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerHealthCheckModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerHealthCheckModel{block})
 }
 
-// flattenExec transforms *client.WorkloadExec into a []models.ContainerExecModel.
-func (wro *WorkloadResourceOperator) flattenExec(input *client.WorkloadExec) []models.ContainerExecModel {
+// flattenExec transforms *client.WorkloadExec into a types.List.
+func (wro *WorkloadResourceOperator) flattenExec(input *client.WorkloadExec) types.List {
+	// Get attribute types
+	elementType := models.ContainerExecModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3006,15 +3273,19 @@ func (wro *WorkloadResourceOperator) flattenExec(input *client.WorkloadExec) []m
 		Command: FlattenSetString(input.Command),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerExecModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerExecModel{block})
 }
 
-// flattenHealthCheckGrpc transforms *client.WorkloadHealthCheckGrpc into a []models.ContainerHealthCheckGrpcModel.
-func (wro *WorkloadResourceOperator) flattenHealthCheckGrpc(input *client.WorkloadHealthCheckGrpc) []models.ContainerHealthCheckGrpcModel {
+// flattenHealthCheckGrpc transforms *client.WorkloadHealthCheckGrpc into a types.List.
+func (wro *WorkloadResourceOperator) flattenHealthCheckGrpc(input *client.WorkloadHealthCheckGrpc) types.List {
+	// Get attribute types
+	elementType := models.ContainerHealthCheckGrpcModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3022,15 +3293,19 @@ func (wro *WorkloadResourceOperator) flattenHealthCheckGrpc(input *client.Worklo
 		Port: FlattenInt(input.Port),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerHealthCheckGrpcModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerHealthCheckGrpcModel{block})
 }
 
-// flattenHealthCheckTcpSocket transforms *client.WorkloadHealthCheckTcpSocket into a []models.ContainerHealthCheckTcpSocketModel.
-func (wro *WorkloadResourceOperator) flattenHealthCheckTcpSocket(input *client.WorkloadHealthCheckTcpSocket) []models.ContainerHealthCheckTcpSocketModel {
+// flattenHealthCheckTcpSocket transforms *client.WorkloadHealthCheckTcpSocket into a types.List.
+func (wro *WorkloadResourceOperator) flattenHealthCheckTcpSocket(input *client.WorkloadHealthCheckTcpSocket) types.List {
+	// Get attribute types
+	elementType := models.ContainerHealthCheckTcpSocketModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3038,15 +3313,19 @@ func (wro *WorkloadResourceOperator) flattenHealthCheckTcpSocket(input *client.W
 		Port: FlattenInt(input.Port),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerHealthCheckTcpSocketModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerHealthCheckTcpSocketModel{block})
 }
 
-// flattenHealthCheckHttpGet transforms *client.WorkloadHealthCheckHttpGet into a []models.ContainerHealthCheckHttpGetModel.
-func (wro *WorkloadResourceOperator) flattenHealthCheckHttpGet(input *client.WorkloadHealthCheckHttpGet) []models.ContainerHealthCheckHttpGetModel {
+// flattenHealthCheckHttpGet transforms *client.WorkloadHealthCheckHttpGet into a types.List.
+func (wro *WorkloadResourceOperator) flattenHealthCheckHttpGet(input *client.WorkloadHealthCheckHttpGet) types.List {
+	// Get attribute types
+	elementType := models.ContainerHealthCheckHttpGetModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3057,8 +3336,8 @@ func (wro *WorkloadResourceOperator) flattenHealthCheckHttpGet(input *client.Wor
 		Scheme:      types.StringPointerValue(input.Scheme),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerHealthCheckHttpGetModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerHealthCheckHttpGetModel{block})
 }
 
 // flattenNameValue transforms *[]client.WorkloadContainerNameValue into a map[string]interface{}.
@@ -3094,11 +3373,15 @@ func (wro *WorkloadResourceOperator) flattenNameValue(input *[]client.WorkloadCo
 	return &output
 }
 
-// flattenContainerGpuNvidia transforms *client.WorkloadContainerGpu into a []models.ContainerGpuNvidiaModel.
-func (wro *WorkloadResourceOperator) flattenContainerGpuNvidia(input *client.WorkloadContainerGpu) []models.ContainerGpuNvidiaModel {
+// flattenContainerGpuNvidia transforms *client.WorkloadContainerGpu into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerGpuNvidia(input *client.WorkloadContainerGpu) types.List {
+	// Get attribute types
+	elementType := models.ContainerGpuNvidiaModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil || input.Nvidia == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3107,15 +3390,19 @@ func (wro *WorkloadResourceOperator) flattenContainerGpuNvidia(input *client.Wor
 		Quantity: FlattenInt(input.Nvidia.Quantity),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerGpuNvidiaModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerGpuNvidiaModel{block})
 }
 
-// flattenContainerGpuCustom transforms *client.WorkloadContainerGpu into a []models.ContainerGpuCustomModel.
-func (wro *WorkloadResourceOperator) flattenContainerGpuCustom(input *client.WorkloadContainerGpu) []models.ContainerGpuCustomModel {
+// flattenContainerGpuCustom transforms *client.WorkloadContainerGpu into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerGpuCustom(input *client.WorkloadContainerGpu) types.List {
+	// Get attribute types
+	elementType := models.ContainerGpuCustomModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil || input.Custom == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3125,15 +3412,19 @@ func (wro *WorkloadResourceOperator) flattenContainerGpuCustom(input *client.Wor
 		Quantity:     FlattenInt(input.Custom.Quantity),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerGpuCustomModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerGpuCustomModel{block})
 }
 
-// flattenContainerLifecycle transforms *client.WorkloadLifeCycle into a []models.ContainerLifecycleModel.
-func (wro *WorkloadResourceOperator) flattenContainerLifecycle(input *client.WorkloadLifeCycle) []models.ContainerLifecycleModel {
+// flattenContainerLifecycle transforms *client.WorkloadLifeCycle into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerLifecycle(input *client.WorkloadLifeCycle) types.List {
+	// Get attribute types
+	elementType := models.ContainerLifecycleModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3142,15 +3433,19 @@ func (wro *WorkloadResourceOperator) flattenContainerLifecycle(input *client.Wor
 		PreStop:   wro.flattenContainerLifecycleSpec(input.PreStop),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerLifecycleModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerLifecycleModel{block})
 }
 
-// flattenContainerLifecycleSpec transforms *client.WorkloadLifeCycleSpec into a []models.ContainerLifecycleSpecModel.
-func (wro *WorkloadResourceOperator) flattenContainerLifecycleSpec(input *client.WorkloadLifeCycleSpec) []models.ContainerLifecycleSpecModel {
+// flattenContainerLifecycleSpec transforms *client.WorkloadLifeCycleSpec into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerLifecycleSpec(input *client.WorkloadLifeCycleSpec) types.List {
+	// Get attribute types
+	elementType := models.ContainerLifecycleSpecModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3158,16 +3453,19 @@ func (wro *WorkloadResourceOperator) flattenContainerLifecycleSpec(input *client
 		Exec: wro.flattenExec(input.Exec),
 	}
 
-	// Return a slice containing the single block
-	return []models.ContainerLifecycleSpecModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerLifecycleSpecModel{block})
 }
 
-// flattenContainerVolume transforms *[]client.WorkloadContainerVolume into a []models.ContainerVolumeModel.
-func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.WorkloadContainerVolume) []models.ContainerVolumeModel {
+// flattenContainerVolume transforms *[]client.WorkloadContainerVolume into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.WorkloadContainerVolume) types.List {
+	// Get attribute types
+	elementType := models.ContainerVolumeModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3186,15 +3484,19 @@ func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.Work
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenFirewall transforms *client.WorkloadFirewall into a []models.FirewallModel.
-func (wro *WorkloadResourceOperator) flattenFirewall(input *client.WorkloadFirewall) []models.FirewallModel {
+// flattenFirewall transforms *client.WorkloadFirewall into a types.List.
+func (wro *WorkloadResourceOperator) flattenFirewall(input *client.WorkloadFirewall) types.List {
+	// Get attribute types
+	elementType := models.FirewallModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3203,15 +3505,19 @@ func (wro *WorkloadResourceOperator) flattenFirewall(input *client.WorkloadFirew
 		Internal: wro.flattenFirewallInternal(input.Internal),
 	}
 
-	// Return a slice containing the single block
-	return []models.FirewallModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.FirewallModel{block})
 }
 
-// flattenFirewallExternal transforms *client.WorkloadFirewallExternal into a []models.FirewallExternalModel.
-func (wro *WorkloadResourceOperator) flattenFirewallExternal(input *client.WorkloadFirewallExternal) []models.FirewallExternalModel {
+// flattenFirewallExternal transforms *client.WorkloadFirewallExternal into a types.List.
+func (wro *WorkloadResourceOperator) flattenFirewallExternal(input *client.WorkloadFirewallExternal) types.List {
+	// Get attribute types
+	elementType := models.FirewallExternalModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3225,16 +3531,19 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternal(input *client.Workl
 		Http:                  wro.flattenFirewallExternalHttp(input.Http),
 	}
 
-	// Return a slice containing the single block
-	return []models.FirewallExternalModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.FirewallExternalModel{block})
 }
 
-// flattenFirewallExternalOutboundAllowPort transforms *[]client.WorkloadFirewallOutboundAllowPort into a []models.FirewallExternalOutboundAllowPortModel.
-func (wro *WorkloadResourceOperator) flattenFirewallExternalOutboundAllowPort(input *[]client.WorkloadFirewallOutboundAllowPort) []models.FirewallExternalOutboundAllowPortModel {
+// flattenFirewallExternalOutboundAllowPort transforms *[]client.WorkloadFirewallOutboundAllowPort into a types.List.
+func (wro *WorkloadResourceOperator) flattenFirewallExternalOutboundAllowPort(input *[]client.WorkloadFirewallOutboundAllowPort) types.List {
+	// Get attribute types
+	elementType := models.FirewallExternalOutboundAllowPortModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3252,15 +3561,19 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternalOutboundAllowPort(in
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenFirewallExternalHttp transforms *client.WorkloadFirewallExternalHttp into a []models.FirewallExternalHttpModel.
-func (wro *WorkloadResourceOperator) flattenFirewallExternalHttp(input *client.WorkloadFirewallExternalHttp) []models.FirewallExternalHttpModel {
+// flattenFirewallExternalHttp transforms *client.WorkloadFirewallExternalHttp into a types.List.
+func (wro *WorkloadResourceOperator) flattenFirewallExternalHttp(input *client.WorkloadFirewallExternalHttp) types.List {
+	// Get attribute types
+	elementType := models.FirewallExternalHttpModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3268,16 +3581,19 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternalHttp(input *client.W
 		InboundHeaderFilter: wro.flattenFirewallExternalHttpHeaderFilter(input.InboundHeaderFilter),
 	}
 
-	// Return a slice containing the single block
-	return []models.FirewallExternalHttpModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.FirewallExternalHttpModel{block})
 }
 
-// flattenFirewallExternalHttpHeaderFilter transforms *[]client.WorkloadFirewallExternalHttpHeaderFilter into a []models.FirewallExternalHttpHeaderFilterModel.
-func (wro *WorkloadResourceOperator) flattenFirewallExternalHttpHeaderFilter(input *[]client.WorkloadFirewallExternalHttpHeaderFilter) []models.FirewallExternalHttpHeaderFilterModel {
+// flattenFirewallExternalHttpHeaderFilter transforms *[]client.WorkloadFirewallExternalHttpHeaderFilter into a types.List.
+func (wro *WorkloadResourceOperator) flattenFirewallExternalHttpHeaderFilter(input *[]client.WorkloadFirewallExternalHttpHeaderFilter) types.List {
+	// Get attribute types
+	elementType := models.FirewallExternalHttpHeaderFilterModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3296,15 +3612,19 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternalHttpHeaderFilter(inp
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenFirewallInternal transforms *client.WorkloadFirewallInternal into a []models.FirewallInternalModel.
-func (wro *WorkloadResourceOperator) flattenFirewallInternal(input *client.WorkloadFirewallInternal) []models.FirewallInternalModel {
+// flattenFirewallInternal transforms *client.WorkloadFirewallInternal into a types.List.
+func (wro *WorkloadResourceOperator) flattenFirewallInternal(input *client.WorkloadFirewallInternal) types.List {
+	// Get attribute types
+	elementType := models.FirewallInternalModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3313,15 +3633,19 @@ func (wro *WorkloadResourceOperator) flattenFirewallInternal(input *client.Workl
 		InboundAllowWorkload: FlattenSetString(input.InboundAllowWorkload),
 	}
 
-	// Return a slice containing the single block
-	return []models.FirewallInternalModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.FirewallInternalModel{block})
 }
 
-// flattenOptions transforms *client.WorkloadOptions into a []models.OptionsModel.
-func (wro *WorkloadResourceOperator) flattenOptions(input *client.WorkloadOptions) []models.OptionsModel {
+// flattenOptions transforms *client.WorkloadOptions into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptions(input *client.WorkloadOptions) types.List {
+	// Get attribute types
+	elementType := models.OptionsModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3334,15 +3658,19 @@ func (wro *WorkloadResourceOperator) flattenOptions(input *client.WorkloadOption
 		MultiZone:      wro.flattenOptionsMultiZone(input.MultiZone),
 	}
 
-	// Return a slice containing the single block
-	return []models.OptionsModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsModel{block})
 }
 
-// flattenOptionsAutoscaling transforms *client.WorkloadOptionsAutoscaling into a []models.OptionsAutoscalingModel.
-func (wro *WorkloadResourceOperator) flattenOptionsAutoscaling(input *client.WorkloadOptionsAutoscaling) []models.OptionsAutoscalingModel {
+// flattenOptionsAutoscaling transforms *client.WorkloadOptionsAutoscaling into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscaling(input *client.WorkloadOptionsAutoscaling) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3358,16 +3686,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscaling(input *client.Wor
 		Keda:             wro.flattenOptionsAutoscalingKeda(input.Keda),
 	}
 
-	// Return a slice containing the single block
-	return []models.OptionsAutoscalingModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingModel{block})
 }
 
-// flattenOptionsAutoscalingMulti transforms *[]client.WorkloadOptionsAutoscalingMulti into a []models.OptionsAutoscalingMultiModel.
-func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingMulti(input *[]client.WorkloadOptionsAutoscalingMulti) []models.OptionsAutoscalingMultiModel {
+// flattenOptionsAutoscalingMulti transforms *[]client.WorkloadOptionsAutoscalingMulti into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingMulti(input *[]client.WorkloadOptionsAutoscalingMulti) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingMultiModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3385,15 +3716,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingMulti(input *[]cli
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenOptionsAutoscalingKeda transforms *client.WorkloadOptionsAutoscalingKeda into a []models.OptionsAutoscalingKedaModel.
-func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKeda(input *client.WorkloadOptionsAutoscalingKeda) []models.OptionsAutoscalingKedaModel {
+// flattenOptionsAutoscalingKeda transforms *client.WorkloadOptionsAutoscalingKeda into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKeda(input *client.WorkloadOptionsAutoscalingKeda) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingKedaModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3402,16 +3737,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKeda(input *client
 		Advanced: wro.flattenOptionsAutoscalingKedaAdvanced(input.Advanced),
 	}
 
-	// Return a slice containing the single block
-	return []models.OptionsAutoscalingKedaModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaModel{block})
 }
 
-// flattenOptionsAutoscalingKedaTrigger transforms *[]client.WorkloadOptionsAutoscalingKedaTrigger into a []models.OptionsAutoscalingKedaTriggerModel.
-func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTrigger(input *[]client.WorkloadOptionsAutoscalingKedaTrigger) []models.OptionsAutoscalingKedaTriggerModel {
+// flattenOptionsAutoscalingKedaTrigger transforms *[]client.WorkloadOptionsAutoscalingKedaTrigger into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTrigger(input *[]client.WorkloadOptionsAutoscalingKedaTrigger) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingKedaTriggerModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3432,15 +3770,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTrigger(input 
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenOptionsAutoscalingKedaAdvanced transforms *client.WorkloadOptionsAutoscalingKedaAdvanced into a []models.OptionsAutoscalingKedaAdvancedModel.
-func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvanced(input *client.WorkloadOptionsAutoscalingKedaAdvanced) []models.OptionsAutoscalingKedaAdvancedModel {
+// flattenOptionsAutoscalingKedaAdvanced transforms *client.WorkloadOptionsAutoscalingKedaAdvanced into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvanced(input *client.WorkloadOptionsAutoscalingKedaAdvanced) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingKedaAdvancedModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3448,15 +3790,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvanced(input
 		ScalingModifiers: wro.flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input.ScalingModifiers),
 	}
 
-	// Return a slice containing the single block
-	return []models.OptionsAutoscalingKedaAdvancedModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaAdvancedModel{block})
 }
 
-// flattenOptionsAutoscalingKedaAdvancedScalingModifiers transforms *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers into a []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel.
-func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers) []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel {
+// flattenOptionsAutoscalingKedaAdvancedScalingModifiers transforms *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input *client.WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3467,15 +3813,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvancedScalin
 		Formula:          types.StringPointerValue(input.Formula),
 	}
 
-	// Return a slice containing the single block
-	return []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{block})
 }
 
-// flattenOptionsMultiZone transforms *client.WorkloadOptionsMultiZone into a []models.OptionsMultiZoneModel.
-func (wro *WorkloadResourceOperator) flattenOptionsMultiZone(input *client.WorkloadOptionsMultiZone) []models.OptionsMultiZoneModel {
+// flattenOptionsMultiZone transforms *client.WorkloadOptionsMultiZone into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsMultiZone(input *client.WorkloadOptionsMultiZone) types.List {
+	// Get attribute types
+	elementType := models.OptionsMultiZoneModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3483,16 +3833,19 @@ func (wro *WorkloadResourceOperator) flattenOptionsMultiZone(input *client.Workl
 		Enabled: types.BoolPointerValue(input.Enabled),
 	}
 
-	// Return a slice containing the single block
-	return []models.OptionsMultiZoneModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsMultiZoneModel{block})
 }
 
-// flattenLocalOptions transforms *[]client.WorkloadOptions into a []models.LocalOptionsModel.
-func (wro *WorkloadResourceOperator) flattenLocalOptions(input *[]client.WorkloadOptions) []models.LocalOptionsModel {
+// flattenLocalOptions transforms *[]client.WorkloadOptions into a types.List.
+func (wro *WorkloadResourceOperator) flattenLocalOptions(input *[]client.WorkloadOptions) types.List {
+	// Get attribute types
+	elementType := models.LocalOptionsModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3503,15 +3856,18 @@ func (wro *WorkloadResourceOperator) flattenLocalOptions(input *[]client.Workloa
 		// Construct a block
 		options := wro.flattenOptions(&item)
 
+		// Build options
+		optionsSlice, ok := BuildList[models.OptionsModel](wro.Ctx, wro.Diags, options)
+
 		// If the block is nil, skip it
-		if len(options) == 0 {
+		if !ok || len(optionsSlice) == 0 {
 			continue
 		}
 
 		// Construct the local options block
 		block := models.LocalOptionsModel{
 			Location:     types.StringNull(),
-			OptionsModel: options[0],
+			OptionsModel: optionsSlice[0],
 		}
 
 		// Flatten the location
@@ -3523,15 +3879,19 @@ func (wro *WorkloadResourceOperator) flattenLocalOptions(input *[]client.Workloa
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenJob transforms *client.WorkloadJob into a []models.JobModel.
-func (wro *WorkloadResourceOperator) flattenJob(input *client.WorkloadJob) []models.JobModel {
+// flattenJob transforms *client.WorkloadJob into a types.List.
+func (wro *WorkloadResourceOperator) flattenJob(input *client.WorkloadJob) types.List {
+	// Get attribute types
+	elementType := models.JobModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3543,15 +3903,19 @@ func (wro *WorkloadResourceOperator) flattenJob(input *client.WorkloadJob) []mod
 		ActiveDeadlineSeconds: FlattenInt(input.ActiveDeadlineSeconds),
 	}
 
-	// Return a slice containing the single block
-	return []models.JobModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.JobModel{block})
 }
 
-// flattenSidecar transforms *client.WorkloadSidecar into a []models.SidecarModel.
-func (wro *WorkloadResourceOperator) flattenSidecar(input *client.WorkloadSidecar) []models.SidecarModel {
-	// Return nil when no sidecar is present
+// flattenSidecar transforms *client.WorkloadSidecar into a types.List.
+func (wro *WorkloadResourceOperator) flattenSidecar(input *client.WorkloadSidecar) types.List {
+	// Get attribute types
+	elementType := models.SidecarModel{}.AttributeTypes()
+
+	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Initialize an empty SidecarModel block
@@ -3559,7 +3923,8 @@ func (wro *WorkloadResourceOperator) flattenSidecar(input *client.WorkloadSideca
 
 	// Return a slice with an empty block if Envoy config is missing
 	if input.Envoy == nil {
-		return []models.SidecarModel{block}
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Marshal the Envoy configuration back to JSON
@@ -3567,22 +3932,29 @@ func (wro *WorkloadResourceOperator) flattenSidecar(input *client.WorkloadSideca
 
 	// Handle any errors that occur during marshaling
 	if err != nil {
+		// Add an error
 		wro.Diags.AddError("Envoy Marshaling Error", fmt.Sprintf("error occurred during marshaling 'envoy' attribute. Error: %s", err.Error()))
-		return nil
+
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Assign the JSON string to the Envoy field on the block
 	block.Envoy = types.StringValue(string(jsonOut))
 
-	// Return a slice containing the populated block
-	return []models.SidecarModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.SidecarModel{block})
 }
 
-// flattenRolloutOptions transforms *client.WorkloadRolloutOptions into a []models.RolloutOptionsModel.
-func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.WorkloadRolloutOptions) []models.RolloutOptionsModel {
+// flattenRolloutOptions transforms *client.WorkloadRolloutOptions into a types.List.
+func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.WorkloadRolloutOptions) types.List {
+	// Get attribute types
+	elementType := models.RolloutOptionsModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3594,15 +3966,19 @@ func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.Workloa
 		TerminationGracePeriodSeconds: FlattenInt(input.TerminationGracePeriodSeconds),
 	}
 
-	// Return a slice containing the single block
-	return []models.RolloutOptionsModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.RolloutOptionsModel{block})
 }
 
-// flattenSecurityOptions transforms *client.WorkloadSecurityOptions into a []models.SecurityOptionsModel.
-func (wro *WorkloadResourceOperator) flattenSecurityOptions(input *client.WorkloadSecurityOptions) []models.SecurityOptionsModel {
+// flattenSecurityOptions transforms *client.WorkloadSecurityOptions into a types.List.
+func (wro *WorkloadResourceOperator) flattenSecurityOptions(input *client.WorkloadSecurityOptions) types.List {
+	// Get attribute types
+	elementType := models.SecurityOptionsModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3610,23 +3986,43 @@ func (wro *WorkloadResourceOperator) flattenSecurityOptions(input *client.Worklo
 		FileSystemGroupId: FlattenInt(input.FileSystemGroupId),
 	}
 
-	// Return a slice containing the single block
-	return []models.SecurityOptionsModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.SecurityOptionsModel{block})
 }
 
-// flattenLoadBalancer transforms *client.WorkloadLoadBalancer into a []models.LoadBalancerModel.
-func (wro *WorkloadResourceOperator) flattenLoadBalancer(state []models.LoadBalancerModel, input *client.WorkloadLoadBalancer) []models.LoadBalancerModel {
+// flattenLoadBalancer transforms *client.WorkloadLoadBalancer into a types.List.
+func (wro *WorkloadResourceOperator) flattenLoadBalancer(state types.List, input *client.WorkloadLoadBalancer) types.List {
+	// Get attribute types
+	elementType := models.LoadBalancerModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Initialize direct list from existing state
 	direct := []models.LoadBalancerDirectModel{}
 
+	// Build state
+	loadBalancer, ok := BuildList[models.LoadBalancerModel](wro.Ctx, wro.Diags, state)
+
+	// Skip if build was not successful
+	if !state.IsNull() && !state.IsUnknown() && !ok {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
 	// Preserve previous direct configuration if present
-	if len(state) > 0 {
-		direct = state[0].Direct
+	if len(loadBalancer) > 0 {
+		// Build direct from state
+		direct, ok = BuildList[models.LoadBalancerDirectModel](wro.Ctx, wro.Diags, loadBalancer[0].Direct)
+
+		// Skip if build was not successful
+		if !loadBalancer[0].Direct.IsNull() && !loadBalancer[0].Direct.IsUnknown() && !ok {
+			// Return a null list
+			return types.ListNull(elementType)
+		}
 	}
 
 	// Build a single block
@@ -3636,15 +4032,19 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancer(state []models.LoadBala
 		ReplicaDirect: types.BoolPointerValue(input.ReplicaDirect),
 	}
 
-	// Return a slice containing the single block
-	return []models.LoadBalancerModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerModel{block})
 }
 
-// flattenLoadBalancerDirect transforms *client.WorkloadLoadBalancerDirect into a []models.LoadBalancerDirectModel.
-func (wro *WorkloadResourceOperator) flattenLoadBalancerDirect(state []models.LoadBalancerDirectModel, input *client.WorkloadLoadBalancerDirect) []models.LoadBalancerDirectModel {
+// flattenLoadBalancerDirect transforms *client.WorkloadLoadBalancerDirect into a types.List.
+func (wro *WorkloadResourceOperator) flattenLoadBalancerDirect(state []models.LoadBalancerDirectModel, input *client.WorkloadLoadBalancerDirect) types.List {
+	// Get attribute types
+	elementType := models.LoadBalancerDirectModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Initialize the ipSetState to null
@@ -3662,16 +4062,19 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerDirect(state []models.Lo
 		IpSet:   wro.FlattenLoadBalancerIpSet(ipSetState, input.IpSet, wro.Client.Org),
 	}
 
-	// Return a slice containing the single block
-	return []models.LoadBalancerDirectModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerDirectModel{block})
 }
 
-// flattenLoadBalancerDirectPort transforms *[]client.WorkloadLoadBalancerDirectPort into a []models.LoadBalancerDirectPortModel.
-func (wro *WorkloadResourceOperator) flattenLoadBalancerDirectPort(input *[]client.WorkloadLoadBalancerDirectPort) []models.LoadBalancerDirectPortModel {
+// flattenLoadBalancerDirectPort transforms *[]client.WorkloadLoadBalancerDirectPort into a types.List.
+func (wro *WorkloadResourceOperator) flattenLoadBalancerDirectPort(input *[]client.WorkloadLoadBalancerDirectPort) types.List {
+	// Get attribute types
+	elementType := models.LoadBalancerDirectPortModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
 		// Return a null list
-		return nil
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3691,15 +4094,19 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerDirectPort(input *[]clie
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
-// flattenLoadBalancerGeoLocation transforms *client.WorkloadLoadBalancerGeoLocation into a []models.LoadBalancerGeoLocationModel.
-func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocation(input *client.WorkloadLoadBalancerGeoLocation) []models.LoadBalancerGeoLocationModel {
+// flattenLoadBalancerGeoLocation transforms *client.WorkloadLoadBalancerGeoLocation into a types.List.
+func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocation(input *client.WorkloadLoadBalancerGeoLocation) types.List {
+	// Get attribute types
+	elementType := models.LoadBalancerGeoLocationModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3708,15 +4115,19 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocation(input *clien
 		Headers: wro.flattenLoadBalancerGeoLocationHeaders(input.Headers),
 	}
 
-	// Return a slice containing the single block
-	return []models.LoadBalancerGeoLocationModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerGeoLocationModel{block})
 }
 
-// flattenLoadBalancerGeoLocationHeaders transforms *client.WorkloadLoadBalancerGeoLocationHeaders into a []models.LoadBalancerGeoLocationHeadersModel.
-func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocationHeaders(input *client.WorkloadLoadBalancerGeoLocationHeaders) []models.LoadBalancerGeoLocationHeadersModel {
+// flattenLoadBalancerGeoLocationHeaders transforms *client.WorkloadLoadBalancerGeoLocationHeaders into a types.List.
+func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocationHeaders(input *client.WorkloadLoadBalancerGeoLocationHeaders) types.List {
+	// Get attribute types
+	elementType := models.LoadBalancerGeoLocationHeadersModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3727,8 +4138,8 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocationHeaders(input
 		Region:  types.StringPointerValue(input.Region),
 	}
 
-	// Return a slice containing the single block
-	return []models.LoadBalancerGeoLocationHeadersModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerGeoLocationHeadersModel{block})
 }
 
 // FlattenExtras marshals extras into a JSON string or returns null when input is nil.
@@ -3750,11 +4161,15 @@ func (wro *WorkloadResourceOperator) flattenExtras(input *interface{}) types.Str
 	return types.StringValue(string(jsonOut))
 }
 
-// flattenRequestRetryPolicy transforms *client.WorkloadRequestRetryPolicy into a []models.RequestRetryPolicyModel.
-func (wro *WorkloadResourceOperator) flattenRequestRetryPolicy(input *client.WorkloadRequestRetryPolicy) []models.RequestRetryPolicyModel {
+// flattenRequestRetryPolicy transforms *client.WorkloadRequestRetryPolicy into a types.List.
+func (wro *WorkloadResourceOperator) flattenRequestRetryPolicy(input *client.WorkloadRequestRetryPolicy) types.List {
+	// Get attribute types
+	elementType := models.RequestRetryPolicyModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -3763,8 +4178,8 @@ func (wro *WorkloadResourceOperator) flattenRequestRetryPolicy(input *client.Wor
 		RetryOn:  FlattenSetString(input.RetryOn),
 	}
 
-	// Return a slice containing the single block
-	return []models.RequestRetryPolicyModel{block}
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.RequestRetryPolicyModel{block})
 }
 
 // flattenStatus transforms *client.WorkloadStatus into a Terraform types.List.

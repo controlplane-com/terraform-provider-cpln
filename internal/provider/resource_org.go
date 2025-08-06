@@ -34,13 +34,13 @@ var (
 // OrgResourceModel holds the Terraform state for the resource.
 type OrgResourceModel struct {
 	EntityBaseModel
-	AccountId             types.String                `tfsdk:"account_id"`
-	Invitees              types.Set                   `tfsdk:"invitees"`
-	SessionTimeoutSeconds types.Int32                 `tfsdk:"session_timeout_seconds"`
-	AuthConfig            []models.AuthConfigModel    `tfsdk:"auth_config"`
-	Observability         []models.ObservabilityModel `tfsdk:"observability"`
-	Security              []models.SecurityModel      `tfsdk:"security"`
-	Status                types.List                  `tfsdk:"status"`
+	AccountId             types.String `tfsdk:"account_id"`
+	Invitees              types.Set    `tfsdk:"invitees"`
+	SessionTimeoutSeconds types.Int32  `tfsdk:"session_timeout_seconds"`
+	AuthConfig            types.List   `tfsdk:"auth_config"`
+	Observability         types.List   `tfsdk:"observability"`
+	Security              types.List   `tfsdk:"security"`
+	Status                types.List   `tfsdk:"status"`
 }
 
 /*** Resource Configuration ***/
@@ -475,14 +475,17 @@ func (oro *OrgResourceOperator) InvokeDelete(name string) error {
 // Builders //
 
 // buildAuthConfig constructs a AuthConfig from the given Terraform state.
-func (oro *OrgResourceOperator) buildAuthConfig(state []models.AuthConfigModel) *client.AuthConfig {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (oro *OrgResourceOperator) buildAuthConfig(state types.List) *client.AuthConfig {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AuthConfigModel](oro.Ctx, oro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.AuthConfig{
@@ -492,14 +495,17 @@ func (oro *OrgResourceOperator) buildAuthConfig(state []models.AuthConfigModel) 
 }
 
 // buildObservability constructs a Observability from the given Terraform state.
-func (oro *OrgResourceOperator) buildObservability(state []models.ObservabilityModel) *client.Observability {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (oro *OrgResourceOperator) buildObservability(state types.List) *client.Observability {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ObservabilityModel](oro.Ctx, oro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.Observability{
@@ -511,14 +517,17 @@ func (oro *OrgResourceOperator) buildObservability(state []models.ObservabilityM
 }
 
 // buildSecurity constructs a OrgSecurity from the given Terraform state.
-func (oro *OrgResourceOperator) buildSecurity(state []models.SecurityModel) *client.OrgSecurity {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (oro *OrgResourceOperator) buildSecurity(state types.List) *client.OrgSecurity {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SecurityModel](oro.Ctx, oro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.OrgSecurity{
@@ -527,14 +536,17 @@ func (oro *OrgResourceOperator) buildSecurity(state []models.SecurityModel) *cli
 }
 
 // buildSecurityThreatDetection constructs a OrgThreatDetection from the given Terraform state.
-func (oro *OrgResourceOperator) buildSecurityThreatDetection(state []models.SecurityThreatDetectionModel) *client.OrgThreatDetection {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (oro *OrgResourceOperator) buildSecurityThreatDetection(state types.List) *client.OrgThreatDetection {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SecurityThreatDetectionModel](oro.Ctx, oro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.OrgThreatDetection{
@@ -545,14 +557,17 @@ func (oro *OrgResourceOperator) buildSecurityThreatDetection(state []models.Secu
 }
 
 // buildSecurityThreatDetectionSyslog constructs a OrgThreatDetectionSyslog from the given Terraform state.
-func (oro *OrgResourceOperator) buildSecurityThreatDetectionSyslog(state []models.SecurityThreatDetectionSyslogModel) *client.OrgThreatDetectionSyslog {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (oro *OrgResourceOperator) buildSecurityThreatDetectionSyslog(state types.List) *client.OrgThreatDetectionSyslog {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SecurityThreatDetectionSyslogModel](oro.Ctx, oro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
 		return nil
 	}
 
 	// Take the first (and only) block
-	block := state[0]
+	block := blocks[0]
 
 	// Construct and return the output
 	return &client.OrgThreatDetectionSyslog{
@@ -564,11 +579,15 @@ func (oro *OrgResourceOperator) buildSecurityThreatDetectionSyslog(state []model
 
 // Flatteners //
 
-// flattenAuthConfig transforms *client.AuthConfig into a []models.AuthConfigModel.
-func (oro *OrgResourceOperator) flattenAuthConfig(input *client.AuthConfig) []models.AuthConfigModel {
+// flattenAuthConfig transforms *client.AuthConfig into a types.List.
+func (oro *OrgResourceOperator) flattenAuthConfig(input *client.AuthConfig) types.List {
+	// Get attribute types
+	elementType := models.AuthConfigModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -577,15 +596,19 @@ func (oro *OrgResourceOperator) flattenAuthConfig(input *client.AuthConfig) []mo
 		SamlOnly:          types.BoolPointerValue(input.SamlOnly),
 	}
 
-	// Return a slice containing the single block
-	return []models.AuthConfigModel{block}
+	// Return the successfully created types.List
+	return FlattenList(oro.Ctx, oro.Diags, []models.AuthConfigModel{block})
 }
 
-// flattenObservability transforms *client.Observability into a []models.ObservabilityModel.
-func (oro *OrgResourceOperator) flattenObservability(input *client.Observability) []models.ObservabilityModel {
+// flattenObservability transforms *client.Observability into a types.List.
+func (oro *OrgResourceOperator) flattenObservability(input *client.Observability) types.List {
+	// Get attribute types
+	elementType := models.ObservabilityModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -596,15 +619,19 @@ func (oro *OrgResourceOperator) flattenObservability(input *client.Observability
 		DefaultAlertEmails:   FlattenSetString(input.DefaultAlertEmails),
 	}
 
-	// Return a slice containing the single block
-	return []models.ObservabilityModel{block}
+	// Return the successfully created types.List
+	return FlattenList(oro.Ctx, oro.Diags, []models.ObservabilityModel{block})
 }
 
-// flattenSecurity transforms *client.OrgSecurity into a []models.SecurityModel.
-func (oro *OrgResourceOperator) flattenSecurity(input *client.OrgSecurity) []models.SecurityModel {
+// flattenSecurity transforms *client.OrgSecurity into a types.List.
+func (oro *OrgResourceOperator) flattenSecurity(input *client.OrgSecurity) types.List {
+	// Get attribute types
+	elementType := models.SecurityModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -612,15 +639,19 @@ func (oro *OrgResourceOperator) flattenSecurity(input *client.OrgSecurity) []mod
 		ThreatDetection: oro.flattenSecurityThreatDetection(input.ThreatDetection),
 	}
 
-	// Return a slice containing the single block
-	return []models.SecurityModel{block}
+	// Return the successfully created types.List
+	return FlattenList(oro.Ctx, oro.Diags, []models.SecurityModel{block})
 }
 
-// flattenSecurityThreatDetection transforms *client.OrgThreatDetection into a []models.SecurityThreatDetectionModel.
-func (oro *OrgResourceOperator) flattenSecurityThreatDetection(input *client.OrgThreatDetection) []models.SecurityThreatDetectionModel {
+// flattenSecurityThreatDetection transforms *client.OrgThreatDetection into a types.List.
+func (oro *OrgResourceOperator) flattenSecurityThreatDetection(input *client.OrgThreatDetection) types.List {
+	// Get attribute types
+	elementType := models.SecurityThreatDetectionModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -630,15 +661,19 @@ func (oro *OrgResourceOperator) flattenSecurityThreatDetection(input *client.Org
 		Syslog:          oro.flattenSecurityThreatDetectionSyslog(input.Syslog),
 	}
 
-	// Return a slice containing the single block
-	return []models.SecurityThreatDetectionModel{block}
+	// Return the successfully created types.List
+	return FlattenList(oro.Ctx, oro.Diags, []models.SecurityThreatDetectionModel{block})
 }
 
-// flattenSecurityThreatDetectionSyslog transforms *client.OrgThreatDetectionSyslog into a []models.SecurityThreatDetectionSyslogModel.
-func (oro *OrgResourceOperator) flattenSecurityThreatDetectionSyslog(input *client.OrgThreatDetectionSyslog) []models.SecurityThreatDetectionSyslogModel {
+// flattenSecurityThreatDetectionSyslog transforms *client.OrgThreatDetectionSyslog into a types.List.
+func (oro *OrgResourceOperator) flattenSecurityThreatDetectionSyslog(input *client.OrgThreatDetectionSyslog) types.List {
+	// Get attribute types
+	elementType := models.SecurityThreatDetectionSyslogModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		return nil
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Build a single block
@@ -648,8 +683,8 @@ func (oro *OrgResourceOperator) flattenSecurityThreatDetectionSyslog(input *clie
 		Port:      FlattenInt(input.Port),
 	}
 
-	// Return a slice containing the single block
-	return []models.SecurityThreatDetectionSyslogModel{block}
+	// Return the successfully created types.List
+	return FlattenList(oro.Ctx, oro.Diags, []models.SecurityThreatDetectionSyslogModel{block})
 }
 
 // flattenStatus transforms *client.OrgStatus into a Terraform types.List.

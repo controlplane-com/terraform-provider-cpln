@@ -1,6 +1,8 @@
 package workload
 
 import (
+	"maps"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -8,26 +10,53 @@ import (
 // Container //
 
 type ContainerModel struct {
-	Name             types.String                `tfsdk:"name"`
-	Image            types.String                `tfsdk:"image"`
-	WorkingDirectory types.String                `tfsdk:"working_directory"`
-	Metrics          []ContainerMetricsModel     `tfsdk:"metrics"`
-	Port             types.Int32                 `tfsdk:"port"`
-	Ports            []ContainerPortModel        `tfsdk:"ports"`
-	Memory           types.String                `tfsdk:"memory"`
-	ReadinessProbe   []ContainerHealthCheckModel `tfsdk:"readiness_probe"`
-	LivenessProbe    []ContainerHealthCheckModel `tfsdk:"liveness_probe"`
-	Cpu              types.String                `tfsdk:"cpu"`
-	MinCpu           types.String                `tfsdk:"min_cpu"`
-	MinMemory        types.String                `tfsdk:"min_memory"`
-	Env              types.Map                   `tfsdk:"env"`
-	GpuNvidia        []ContainerGpuNvidiaModel   `tfsdk:"gpu_nvidia"`
-	GpuCustom        []ContainerGpuCustomModel   `tfsdk:"gpu_custom"`
-	InheritEnv       types.Bool                  `tfsdk:"inherit_env"`
-	Command          types.String                `tfsdk:"command"`
-	Args             types.Set                   `tfsdk:"args"`
-	Lifecycle        []ContainerLifecycleModel   `tfsdk:"lifecycle"`
-	Volumes          []ContainerVolumeModel      `tfsdk:"volume"`
+	Name             types.String `tfsdk:"name"`
+	Image            types.String `tfsdk:"image"`
+	WorkingDirectory types.String `tfsdk:"working_directory"`
+	Metrics          types.List   `tfsdk:"metrics"`
+	Port             types.Int32  `tfsdk:"port"`
+	Ports            types.List   `tfsdk:"ports"`
+	Memory           types.String `tfsdk:"memory"`
+	ReadinessProbe   types.List   `tfsdk:"readiness_probe"`
+	LivenessProbe    types.List   `tfsdk:"liveness_probe"`
+	Cpu              types.String `tfsdk:"cpu"`
+	MinCpu           types.String `tfsdk:"min_cpu"`
+	MinMemory        types.String `tfsdk:"min_memory"`
+	Env              types.Map    `tfsdk:"env"`
+	GpuNvidia        types.List   `tfsdk:"gpu_nvidia"`
+	GpuCustom        types.List   `tfsdk:"gpu_custom"`
+	InheritEnv       types.Bool   `tfsdk:"inherit_env"`
+	Command          types.String `tfsdk:"command"`
+	Args             types.Set    `tfsdk:"args"`
+	Lifecycle        types.List   `tfsdk:"lifecycle"`
+	Volumes          types.List   `tfsdk:"volume"`
+}
+
+func (c ContainerModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name":              types.StringType,
+			"image":             types.StringType,
+			"working_directory": types.StringType,
+			"metrics":           types.ListType{ElemType: ContainerMetricsModel{}.AttributeTypes()},
+			"port":              types.Int32Type,
+			"ports":             types.ListType{ElemType: ContainerPortModel{}.AttributeTypes()},
+			"memory":            types.StringType,
+			"readiness_probe":   types.ListType{ElemType: ContainerHealthCheckModel{}.AttributeTypes()},
+			"liveness_probe":    types.ListType{ElemType: ContainerHealthCheckModel{}.AttributeTypes()},
+			"cpu":               types.StringType,
+			"min_cpu":           types.StringType,
+			"min_memory":        types.StringType,
+			"env":               types.MapType{ElemType: types.StringType},
+			"gpu_nvidia":        types.ListType{ElemType: ContainerGpuNvidiaModel{}.AttributeTypes()},
+			"gpu_custom":        types.ListType{ElemType: ContainerGpuCustomModel{}.AttributeTypes()},
+			"inherit_env":       types.BoolType,
+			"command":           types.StringType,
+			"args":              types.SetType{ElemType: types.StringType},
+			"lifecycle":         types.ListType{ElemType: ContainerLifecycleModel{}.AttributeTypes()},
+			"volume":            types.ListType{ElemType: ContainerVolumeModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Container -> Metrics //
@@ -37,6 +66,15 @@ type ContainerMetricsModel struct {
 	Path types.String `tfsdk:"path"`
 }
 
+func (c ContainerMetricsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"port": types.Int32Type,
+			"path": types.StringType,
+		},
+	}
+}
+
 // Container -> Port //
 
 type ContainerPortModel struct {
@@ -44,18 +82,43 @@ type ContainerPortModel struct {
 	Number   types.Int32  `tfsdk:"number"`
 }
 
+func (c ContainerPortModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"protocol": types.StringType,
+			"number":   types.Int32Type,
+		},
+	}
+}
+
 // Container -> Health Check //
 
 type ContainerHealthCheckModel struct {
-	Exec                []ContainerExecModel                 `tfsdk:"exec"`
-	Grpc                []ContainerHealthCheckGrpcModel      `tfsdk:"grpc"`
-	TcpSocket           []ContainerHealthCheckTcpSocketModel `tfsdk:"tcp_socket"`
-	HttpGet             []ContainerHealthCheckHttpGetModel   `tfsdk:"http_get"`
-	InitialDelaySeconds types.Int32                          `tfsdk:"initial_delay_seconds"`
-	PeriodSeconds       types.Int32                          `tfsdk:"period_seconds"`
-	TimeoutSeconds      types.Int32                          `tfsdk:"timeout_seconds"`
-	SuccessThreshold    types.Int32                          `tfsdk:"success_threshold"`
-	FailureThreshold    types.Int32                          `tfsdk:"failure_threshold"`
+	Exec                types.List  `tfsdk:"exec"`
+	Grpc                types.List  `tfsdk:"grpc"`
+	TcpSocket           types.List  `tfsdk:"tcp_socket"`
+	HttpGet             types.List  `tfsdk:"http_get"`
+	InitialDelaySeconds types.Int32 `tfsdk:"initial_delay_seconds"`
+	PeriodSeconds       types.Int32 `tfsdk:"period_seconds"`
+	TimeoutSeconds      types.Int32 `tfsdk:"timeout_seconds"`
+	SuccessThreshold    types.Int32 `tfsdk:"success_threshold"`
+	FailureThreshold    types.Int32 `tfsdk:"failure_threshold"`
+}
+
+func (c ContainerHealthCheckModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"exec":                  types.ListType{ElemType: ContainerExecModel{}.AttributeTypes()},
+			"grpc":                  types.ListType{ElemType: ContainerHealthCheckGrpcModel{}.AttributeTypes()},
+			"tcp_socket":            types.ListType{ElemType: ContainerHealthCheckTcpSocketModel{}.AttributeTypes()},
+			"http_get":              types.ListType{ElemType: ContainerHealthCheckHttpGetModel{}.AttributeTypes()},
+			"initial_delay_seconds": types.Int32Type,
+			"period_seconds":        types.Int32Type,
+			"timeout_seconds":       types.Int32Type,
+			"success_threshold":     types.Int32Type,
+			"failure_threshold":     types.Int32Type,
+		},
+	}
 }
 
 // Container -> Health Check -> GRPC //
@@ -64,10 +127,26 @@ type ContainerHealthCheckGrpcModel struct {
 	Port types.Int32 `tfsdk:"port"`
 }
 
+func (c ContainerHealthCheckGrpcModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"port": types.Int32Type,
+		},
+	}
+}
+
 // Container -> Health Check -> TCP Socket //
 
 type ContainerHealthCheckTcpSocketModel struct {
 	Port types.Int32 `tfsdk:"port"`
+}
+
+func (c ContainerHealthCheckTcpSocketModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"port": types.Int32Type,
+		},
+	}
 }
 
 // Container -> Health Check -> HTTP Get //
@@ -79,11 +158,31 @@ type ContainerHealthCheckHttpGetModel struct {
 	Scheme      types.String `tfsdk:"scheme"`
 }
 
+func (c ContainerHealthCheckHttpGetModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"path":         types.StringType,
+			"port":         types.Int32Type,
+			"http_headers": types.MapType{ElemType: types.StringType},
+			"scheme":       types.StringType,
+		},
+	}
+}
+
 // Container -> GPU Nvidia //
 
 type ContainerGpuNvidiaModel struct {
 	Model    types.String `tfsdk:"model"`
 	Quantity types.Int32  `tfsdk:"quantity"`
+}
+
+func (c ContainerGpuNvidiaModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"model":    types.StringType,
+			"quantity": types.Int32Type,
+		},
+	}
 }
 
 // Container -> GPU Custom //
@@ -94,17 +193,44 @@ type ContainerGpuCustomModel struct {
 	Quantity     types.Int32  `tfsdk:"quantity"`
 }
 
+func (c ContainerGpuCustomModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"resource":      types.StringType,
+			"runtime_class": types.StringType,
+			"quantity":      types.Int32Type,
+		},
+	}
+}
+
 // Container -> Lifecycle //
 
 type ContainerLifecycleModel struct {
-	PostStart []ContainerLifecycleSpecModel `tfsdk:"post_start"`
-	PreStop   []ContainerLifecycleSpecModel `tfsdk:"pre_stop"`
+	PostStart types.List `tfsdk:"post_start"`
+	PreStop   types.List `tfsdk:"pre_stop"`
+}
+
+func (c ContainerLifecycleModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"post_start": types.ListType{ElemType: ContainerLifecycleSpecModel{}.AttributeTypes()},
+			"pre_stop":   types.ListType{ElemType: ContainerLifecycleSpecModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Container -> Lifecycle -> Spec //
 
 type ContainerLifecycleSpecModel struct {
-	Exec []ContainerExecModel `tfsdk:"exec"`
+	Exec types.List `tfsdk:"exec"`
+}
+
+func (c ContainerLifecycleSpecModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"exec": types.ListType{ElemType: ContainerExecModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Container -> Volume //
@@ -115,29 +241,70 @@ type ContainerVolumeModel struct {
 	Path           types.String `tfsdk:"path"`
 }
 
+func (c ContainerVolumeModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"uri":             types.StringType,
+			"recovery_policy": types.StringType,
+			"path":            types.StringType,
+		},
+	}
+}
+
 // Container -> Exec //
 
 type ContainerExecModel struct {
 	Command types.Set `tfsdk:"command"`
 }
 
+func (c ContainerExecModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"command": types.SetType{ElemType: types.StringType},
+		},
+	}
+}
+
 // Firewall //
 
 type FirewallModel struct {
-	External []FirewallExternalModel `tfsdk:"external"`
-	Internal []FirewallInternalModel `tfsdk:"internal"`
+	External types.List `tfsdk:"external"`
+	Internal types.List `tfsdk:"internal"`
+}
+
+func (f FirewallModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"external": types.ListType{ElemType: FirewallExternalModel{}.AttributeTypes()},
+			"internal": types.ListType{ElemType: FirewallInternalModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Firewall -> External //
 
 type FirewallExternalModel struct {
-	InboundAllowCidr      types.Set                                `tfsdk:"inbound_allow_cidr"`
-	InboundBlockedCidr    types.Set                                `tfsdk:"inbound_blocked_cidr"`
-	OutboundAllowHostname types.Set                                `tfsdk:"outbound_allow_hostname"`
-	OutboundAllowPort     []FirewallExternalOutboundAllowPortModel `tfsdk:"outbound_allow_port"`
-	OutboundAllowCidr     types.Set                                `tfsdk:"outbound_allow_cidr"`
-	OutboundBlockedCidr   types.Set                                `tfsdk:"outbound_blocked_cidr"`
-	Http                  []FirewallExternalHttpModel              `tfsdk:"http"`
+	InboundAllowCidr      types.Set  `tfsdk:"inbound_allow_cidr"`
+	InboundBlockedCidr    types.Set  `tfsdk:"inbound_blocked_cidr"`
+	OutboundAllowHostname types.Set  `tfsdk:"outbound_allow_hostname"`
+	OutboundAllowPort     types.List `tfsdk:"outbound_allow_port"`
+	OutboundAllowCidr     types.Set  `tfsdk:"outbound_allow_cidr"`
+	OutboundBlockedCidr   types.Set  `tfsdk:"outbound_blocked_cidr"`
+	Http                  types.List `tfsdk:"http"`
+}
+
+func (f FirewallExternalModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"inbound_allow_cidr":      types.SetType{ElemType: types.StringType},
+			"inbound_blocked_cidr":    types.SetType{ElemType: types.StringType},
+			"outbound_allow_hostname": types.SetType{ElemType: types.StringType},
+			"outbound_allow_port":     types.ListType{ElemType: FirewallExternalOutboundAllowPortModel{}.AttributeTypes()},
+			"outbound_allow_cidr":     types.SetType{ElemType: types.StringType},
+			"outbound_blocked_cidr":   types.SetType{ElemType: types.StringType},
+			"http":                    types.ListType{ElemType: FirewallExternalHttpModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Firewall -> External -> Outbound Allow Port //
@@ -147,10 +314,27 @@ type FirewallExternalOutboundAllowPortModel struct {
 	Number   types.Int32  `tfsdk:"number"`
 }
 
+func (f FirewallExternalOutboundAllowPortModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"protocol": types.StringType,
+			"number":   types.Int32Type,
+		},
+	}
+}
+
 // Firewall -> External -> HTTP //
 
 type FirewallExternalHttpModel struct {
-	InboundHeaderFilter []FirewallExternalHttpHeaderFilterModel `tfsdk:"inbound_header_filter"`
+	InboundHeaderFilter types.List `tfsdk:"inbound_header_filter"`
+}
+
+func (f FirewallExternalHttpModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"inbound_header_filter": types.ListType{ElemType: FirewallExternalHttpHeaderFilterModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Firewall -> External -> HTTP -> Header Filter //
@@ -161,6 +345,16 @@ type FirewallExternalHttpHeaderFilterModel struct {
 	BlockedValues types.Set    `tfsdk:"blocked_values"`
 }
 
+func (f FirewallExternalHttpHeaderFilterModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"key":            types.StringType,
+			"allowed_values": types.SetType{ElemType: types.StringType},
+			"blocked_values": types.SetType{ElemType: types.StringType},
+		},
+	}
+}
+
 // Firewall -> Internal //
 
 type FirewallInternalModel struct {
@@ -168,29 +362,67 @@ type FirewallInternalModel struct {
 	InboundAllowWorkload types.Set    `tfsdk:"inbound_allow_workload"`
 }
 
+func (f FirewallInternalModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"inbound_allow_type":     types.StringType,
+			"inbound_allow_workload": types.SetType{ElemType: types.StringType},
+		},
+	}
+}
+
 // Options //
 
 type OptionsModel struct {
-	Autoscaling    []OptionsAutoscalingModel `tfsdk:"autoscaling"`
-	TimeoutSeconds types.Int32               `tfsdk:"timeout_seconds"`
-	CapacityAI     types.Bool                `tfsdk:"capacity_ai"`
-	Debug          types.Bool                `tfsdk:"debug"`
-	Suspend        types.Bool                `tfsdk:"suspend"`
-	MultiZone      []OptionsMultiZoneModel   `tfsdk:"multi_zone"`
+	Autoscaling    types.List  `tfsdk:"autoscaling"`
+	TimeoutSeconds types.Int32 `tfsdk:"timeout_seconds"`
+	CapacityAI     types.Bool  `tfsdk:"capacity_ai"`
+	Debug          types.Bool  `tfsdk:"debug"`
+	Suspend        types.Bool  `tfsdk:"suspend"`
+	MultiZone      types.List  `tfsdk:"multi_zone"`
+}
+
+func (o OptionsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"autoscaling":     types.ListType{ElemType: OptionsAutoscalingModel{}.AttributeTypes()},
+			"timeout_seconds": types.Int32Type,
+			"capacity_ai":     types.BoolType,
+			"debug":           types.BoolType,
+			"suspend":         types.BoolType,
+			"multi_zone":      types.ListType{ElemType: OptionsMultiZoneModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Options -> Autoscaling //
 
 type OptionsAutoscalingModel struct {
-	Metric           types.String                   `tfsdk:"metric"`
-	Multi            []OptionsAutoscalingMultiModel `tfsdk:"multi"`
-	MetricPercentile types.String                   `tfsdk:"metric_percentile"`
-	Target           types.Int32                    `tfsdk:"target"`
-	MinScale         types.Int32                    `tfsdk:"min_scale"`
-	MaxScale         types.Int32                    `tfsdk:"max_scale"`
-	ScaleToZeroDelay types.Int32                    `tfsdk:"scale_to_zero_delay"`
-	MaxConcurrency   types.Int32                    `tfsdk:"max_concurrency"`
-	Keda             []OptionsAutoscalingKedaModel  `tfsdk:"keda"`
+	Metric           types.String `tfsdk:"metric"`
+	Multi            types.List   `tfsdk:"multi"`
+	MetricPercentile types.String `tfsdk:"metric_percentile"`
+	Target           types.Int32  `tfsdk:"target"`
+	MinScale         types.Int32  `tfsdk:"min_scale"`
+	MaxScale         types.Int32  `tfsdk:"max_scale"`
+	ScaleToZeroDelay types.Int32  `tfsdk:"scale_to_zero_delay"`
+	MaxConcurrency   types.Int32  `tfsdk:"max_concurrency"`
+	Keda             types.List   `tfsdk:"keda"`
+}
+
+func (o OptionsAutoscalingModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"metric":              types.StringType,
+			"multi":               types.ListType{ElemType: OptionsAutoscalingMultiModel{}.AttributeTypes()},
+			"metric_percentile":   types.StringType,
+			"target":              types.Int32Type,
+			"min_scale":           types.Int32Type,
+			"max_scale":           types.Int32Type,
+			"scale_to_zero_delay": types.Int32Type,
+			"max_concurrency":     types.Int32Type,
+			"keda":                types.ListType{ElemType: OptionsAutoscalingKedaModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Options -> Autoscaling -> Multi //
@@ -200,11 +432,29 @@ type OptionsAutoscalingMultiModel struct {
 	Target types.Int32  `tfsdk:"target"`
 }
 
+func (o OptionsAutoscalingMultiModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"metric": types.StringType,
+			"target": types.Int32Type,
+		},
+	}
+}
+
 // Options -> Autoscaling -> Keda //
 
 type OptionsAutoscalingKedaModel struct {
-	Triggers []OptionsAutoscalingKedaTriggerModel  `tfsdk:"trigger"`
-	Advanced []OptionsAutoscalingKedaAdvancedModel `tfsdk:"advanced"`
+	Triggers types.List `tfsdk:"trigger"`
+	Advanced types.List `tfsdk:"advanced"`
+}
+
+func (o OptionsAutoscalingKedaModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"trigger":  types.ListType{ElemType: OptionsAutoscalingKedaTriggerModel{}.AttributeTypes()},
+			"advanced": types.ListType{ElemType: OptionsAutoscalingKedaAdvancedModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Options -> Autoscaling -> Keda -> Trigger //
@@ -217,10 +467,30 @@ type OptionsAutoscalingKedaTriggerModel struct {
 	MetricType       types.String `tfsdk:"metric_type"`
 }
 
+func (o OptionsAutoscalingKedaTriggerModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"type":               types.StringType,
+			"metadata":           types.MapType{ElemType: types.StringType},
+			"name":               types.StringType,
+			"use_cached_metrics": types.BoolType,
+			"metric_type":        types.StringType,
+		},
+	}
+}
+
 // Options -> Autoscaling -> Keda -> Advanced //
 
 type OptionsAutoscalingKedaAdvancedModel struct {
-	ScalingModifiers []OptionsAutoscalingKedaAdvancedScalingModifiersModel `tfsdk:"scaling_modifiers"`
+	ScalingModifiers types.List `tfsdk:"scaling_modifiers"`
+}
+
+func (o OptionsAutoscalingKedaAdvancedModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"scaling_modifiers": types.ListType{ElemType: OptionsAutoscalingKedaAdvancedScalingModifiersModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Options -> Autoscaling -> Keda -> Advanced -> Scaling Modifier //
@@ -232,10 +502,29 @@ type OptionsAutoscalingKedaAdvancedScalingModifiersModel struct {
 	Formula          types.String `tfsdk:"formula"`
 }
 
+func (o OptionsAutoscalingKedaAdvancedScalingModifiersModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"target":            types.StringType,
+			"activation_target": types.StringType,
+			"metric_type":       types.StringType,
+			"formula":           types.StringType,
+		},
+	}
+}
+
 // Options -> Muli Zone //
 
 type OptionsMultiZoneModel struct {
 	Enabled types.Bool `tfsdk:"enabled"`
+}
+
+func (o OptionsMultiZoneModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"enabled": types.BoolType,
+		},
+	}
 }
 
 // Local Options //
@@ -243,6 +532,23 @@ type OptionsMultiZoneModel struct {
 type LocalOptionsModel struct {
 	OptionsModel
 	Location types.String `tfsdk:"location"`
+}
+
+func (o LocalOptionsModel) AttributeTypes() attr.Type {
+	// Get the attribute types from OptionsModel
+	base := OptionsModel{}.AttributeTypes().(types.ObjectType)
+
+	// Copy the map to avoid mutating the original
+	merged := map[string]attr.Type{}
+	maps.Copy(merged, base.AttrTypes)
+
+	// Add or override attributes
+	merged["location"] = types.StringType
+
+	// Return merged object type
+	return types.ObjectType{
+		AttrTypes: merged,
+	}
 }
 
 // Job //
@@ -255,10 +561,30 @@ type JobModel struct {
 	ActiveDeadlineSeconds types.Int32  `tfsdk:"active_deadline_seconds"`
 }
 
+func (j JobModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"schedule":                types.StringType,
+			"concurrency_policy":      types.StringType,
+			"history_limit":           types.Int32Type,
+			"restart_policy":          types.StringType,
+			"active_deadline_seconds": types.Int32Type,
+		},
+	}
+}
+
 // Sidecar //
 
 type SidecarModel struct {
 	Envoy types.String `tfsdk:"envoy"`
+}
+
+func (s SidecarModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"envoy": types.StringType,
+		},
+	}
 }
 
 // Rollout Options //
@@ -271,26 +597,66 @@ type RolloutOptionsModel struct {
 	TerminationGracePeriodSeconds types.Int32  `tfsdk:"termination_grace_period_seconds"`
 }
 
+func (r RolloutOptionsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_ready_seconds":                types.Int32Type,
+			"max_unavailable_replicas":         types.StringType,
+			"max_surge_replicas":               types.StringType,
+			"scaling_policy":                   types.StringType,
+			"termination_grace_period_seconds": types.Int32Type,
+		},
+	}
+}
+
 // Security Options //
 
 type SecurityOptionsModel struct {
 	FileSystemGroupId types.Int32 `tfsdk:"file_system_group_id"`
 }
 
+func (s SecurityOptionsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"file_system_group_id": types.Int32Type,
+		},
+	}
+}
+
 // Load Balancer //
 
 type LoadBalancerModel struct {
-	Direct        []LoadBalancerDirectModel      `tfsdk:"direct"`
-	GeoLocation   []LoadBalancerGeoLocationModel `tfsdk:"geo_location"`
-	ReplicaDirect types.Bool                     `tfsdk:"replica_direct"`
+	Direct        types.List `tfsdk:"direct"`
+	GeoLocation   types.List `tfsdk:"geo_location"`
+	ReplicaDirect types.Bool `tfsdk:"replica_direct"`
+}
+
+func (l LoadBalancerModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"direct":         types.ListType{ElemType: LoadBalancerDirectModel{}.AttributeTypes()},
+			"geo_location":   types.ListType{ElemType: LoadBalancerGeoLocationModel{}.AttributeTypes()},
+			"replica_direct": types.BoolType,
+		},
+	}
 }
 
 // Load Balancer -> Direct //
 
 type LoadBalancerDirectModel struct {
-	Enabled types.Bool                    `tfsdk:"enabled"`
-	Ports   []LoadBalancerDirectPortModel `tfsdk:"port"`
-	IpSet   types.String                  `tfsdk:"ipset"`
+	Enabled types.Bool   `tfsdk:"enabled"`
+	Ports   types.List   `tfsdk:"port"`
+	IpSet   types.String `tfsdk:"ipset"`
+}
+
+func (l LoadBalancerDirectModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"enabled": types.BoolType,
+			"port":    types.ListType{ElemType: LoadBalancerDirectPortModel{}.AttributeTypes()},
+			"ipset":   types.StringType,
+		},
+	}
 }
 
 // Load Balancer -> Direct -> Port //
@@ -302,11 +668,31 @@ type LoadBalancerDirectPortModel struct {
 	ContainerPort types.Int32  `tfsdk:"container_port"`
 }
 
+func (l LoadBalancerDirectPortModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"external_port":  types.Int32Type,
+			"protocol":       types.StringType,
+			"scheme":         types.StringType,
+			"container_port": types.Int32Type,
+		},
+	}
+}
+
 // Load Balancer -> Geo Location //
 
 type LoadBalancerGeoLocationModel struct {
-	Enabled types.Bool                            `tfsdk:"enabled"`
-	Headers []LoadBalancerGeoLocationHeadersModel `tfsdk:"headers"`
+	Enabled types.Bool `tfsdk:"enabled"`
+	Headers types.List `tfsdk:"headers"`
+}
+
+func (l LoadBalancerGeoLocationModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"enabled": types.BoolType,
+			"headers": types.ListType{ElemType: LoadBalancerGeoLocationHeadersModel{}.AttributeTypes()},
+		},
+	}
 }
 
 // Load Balancer -> Geo Location -> Headers //
@@ -318,11 +704,31 @@ type LoadBalancerGeoLocationHeadersModel struct {
 	Region  types.String `tfsdk:"region"`
 }
 
+func (l LoadBalancerGeoLocationHeadersModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"asn":     types.StringType,
+			"city":    types.StringType,
+			"country": types.StringType,
+			"region":  types.StringType,
+		},
+	}
+}
+
 // Request Retry On //
 
 type RequestRetryPolicyModel struct {
 	Attempts types.Int32 `tfsdk:"attempts"`
 	RetryOn  types.Set   `tfsdk:"retry_on"`
+}
+
+func (r RequestRetryPolicyModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"attempts": types.Int32Type,
+			"retry_on": types.SetType{ElemType: types.StringType},
+		},
+	}
 }
 
 // Status //
