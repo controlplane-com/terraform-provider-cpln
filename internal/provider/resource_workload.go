@@ -1356,11 +1356,13 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 					NestedObject: schema.NestedBlockObject{
 						Attributes: map[string]schema.Attribute{
 							"metric": schema.StringAttribute{
-								Description: "Valid values: `concurrency`, `cpu`, `memory`, `rps`, `latency`, `keda`, or `disabled`.",
+								// Description: "Valid values: `concurrency`, `cpu`, `memory`, `rps`, `latency`, `keda` or `disabled`.",
+								Description: "Valid values: `concurrency`, `cpu`, `memory`, `rps`, `latency` or `disabled`.",
 								Optional:    true,
 								Computed:    true,
 								Validators: []validator.String{
-									stringvalidator.OneOf("concurrency", "cpu", "memory", "rps", "latency", "keda", "disabled"),
+									// stringvalidator.OneOf("concurrency", "cpu", "memory", "rps", "latency", "keda", "disabled"),
+									stringvalidator.OneOf("concurrency", "cpu", "memory", "rps", "latency", "disabled"),
 								},
 							},
 							"metric_percentile": schema.StringAttribute{
@@ -1437,86 +1439,86 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 									},
 								},
 							},
-							"keda": schema.ListNestedBlock{
-								Description: "KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling based on external metrics and triggers.",
-								NestedObject: schema.NestedBlockObject{
-									Blocks: map[string]schema.Block{
-										"trigger": schema.ListNestedBlock{
-											Description: "An array of KEDA triggers to be used for scaling workloads in this GVC. This is used to define how KEDA will scale workloads in the GVC based on external metrics or events. Each trigger type may have its own specific configuration options.",
-											NestedObject: schema.NestedBlockObject{
-												Attributes: map[string]schema.Attribute{
-													"type": schema.StringAttribute{
-														Description: `The type of KEDA trigger, e.g "prometheus", "aws-sqs", etc.`,
-														Required:    true,
-													},
-													"metadata": schema.MapAttribute{
-														Description: "The configuration parameters that the trigger requires.",
-														ElementType: types.StringType,
-														Optional:    true,
-													},
-													"name": schema.StringAttribute{
-														Description: "An optional name for the trigger. If not provided, a default name will be generated based on the trigger type.",
-														Optional:    true,
-													},
-													"use_cached_metrics": schema.BoolAttribute{
-														Description: "Enables caching of metric values during polling interval.",
-														Optional:    true,
-													},
-													"metric_type": schema.StringAttribute{
-														Description: "The type of metric to be used for scaling.",
-														Optional:    true,
-														Validators: []validator.String{
-															stringvalidator.OneOf("AverageValue", "Value", "Utilization"),
-														},
-													},
-												},
-											},
-										},
-										"advanced": schema.ListNestedBlock{
-											Description: "Advanced configuration options for KEDA.",
-											NestedObject: schema.NestedBlockObject{
-												Blocks: map[string]schema.Block{
-													"scaling_modifiers": schema.ListNestedBlock{
-														Description: "Scaling modifiers allow for fine-tuning the scaling behavior of KEDA.",
-														NestedObject: schema.NestedBlockObject{
-															Attributes: map[string]schema.Attribute{
-																"target": schema.StringAttribute{
-																	Description: "Defines new target value to scale on for the composed metric.",
-																	Optional:    true,
-																},
-																"activation_target": schema.StringAttribute{
-																	Description: "Defines the new activation target value to scale on for the composed metric.",
-																	Optional:    true,
-																},
-																"metric_type": schema.StringAttribute{
-																	Description: "Defines metric type used for this new composite-metric.",
-																	Optional:    true,
-																	Validators: []validator.String{
-																		stringvalidator.OneOf("AverageValue", "Value", "Utilization"),
-																	},
-																},
-																"formula": schema.StringAttribute{
-																	Description: "Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.",
-																	Optional:    true,
-																},
-															},
-														},
-														Validators: []validator.List{
-															listvalidator.SizeAtMost(1),
-														},
-													},
-												},
-											},
-											Validators: []validator.List{
-												listvalidator.SizeAtMost(1),
-											},
-										},
-									},
-								},
-								Validators: []validator.List{
-									listvalidator.SizeAtMost(1),
-								},
-							},
+							// "keda": schema.ListNestedBlock{
+							// 	Description: "KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling based on external metrics and triggers.",
+							// 	NestedObject: schema.NestedBlockObject{
+							// 		Blocks: map[string]schema.Block{
+							// 			"trigger": schema.ListNestedBlock{
+							// 				Description: "An array of KEDA triggers to be used for scaling workloads in this GVC. This is used to define how KEDA will scale workloads in the GVC based on external metrics or events. Each trigger type may have its own specific configuration options.",
+							// 				NestedObject: schema.NestedBlockObject{
+							// 					Attributes: map[string]schema.Attribute{
+							// 						"type": schema.StringAttribute{
+							// 							Description: `The type of KEDA trigger, e.g "prometheus", "aws-sqs", etc.`,
+							// 							Required:    true,
+							// 						},
+							// 						"metadata": schema.MapAttribute{
+							// 							Description: "The configuration parameters that the trigger requires.",
+							// 							ElementType: types.StringType,
+							// 							Optional:    true,
+							// 						},
+							// 						"name": schema.StringAttribute{
+							// 							Description: "An optional name for the trigger. If not provided, a default name will be generated based on the trigger type.",
+							// 							Optional:    true,
+							// 						},
+							// 						"use_cached_metrics": schema.BoolAttribute{
+							// 							Description: "Enables caching of metric values during polling interval.",
+							// 							Optional:    true,
+							// 						},
+							// 						"metric_type": schema.StringAttribute{
+							// 							Description: "The type of metric to be used for scaling.",
+							// 							Optional:    true,
+							// 							Validators: []validator.String{
+							// 								stringvalidator.OneOf("AverageValue", "Value", "Utilization"),
+							// 							},
+							// 						},
+							// 					},
+							// 				},
+							// 			},
+							// 			"advanced": schema.ListNestedBlock{
+							// 				Description: "Advanced configuration options for KEDA.",
+							// 				NestedObject: schema.NestedBlockObject{
+							// 					Blocks: map[string]schema.Block{
+							// 						"scaling_modifiers": schema.ListNestedBlock{
+							// 							Description: "Scaling modifiers allow for fine-tuning the scaling behavior of KEDA.",
+							// 							NestedObject: schema.NestedBlockObject{
+							// 								Attributes: map[string]schema.Attribute{
+							// 									"target": schema.StringAttribute{
+							// 										Description: "Defines new target value to scale on for the composed metric.",
+							// 										Optional:    true,
+							// 									},
+							// 									"activation_target": schema.StringAttribute{
+							// 										Description: "Defines the new activation target value to scale on for the composed metric.",
+							// 										Optional:    true,
+							// 									},
+							// 									"metric_type": schema.StringAttribute{
+							// 										Description: "Defines metric type used for this new composite-metric.",
+							// 										Optional:    true,
+							// 										Validators: []validator.String{
+							// 											stringvalidator.OneOf("AverageValue", "Value", "Utilization"),
+							// 										},
+							// 									},
+							// 									"formula": schema.StringAttribute{
+							// 										Description: "Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.",
+							// 										Optional:    true,
+							// 									},
+							// 								},
+							// 							},
+							// 							Validators: []validator.List{
+							// 								listvalidator.SizeAtMost(1),
+							// 							},
+							// 						},
+							// 					},
+							// 				},
+							// 				Validators: []validator.List{
+							// 					listvalidator.SizeAtMost(1),
+							// 				},
+							// 			},
+							// 		},
+							// 	},
+							// 	Validators: []validator.List{
+							// 		listvalidator.SizeAtMost(1),
+							// 	},
+							// },
 						},
 					},
 					Validators: []validator.List{
@@ -1608,28 +1610,30 @@ func (wr *WorkloadResource) ModifyAutoscaling(ctx context.Context, diags *diag.D
 	// A variable to declare whether multi is specified or not
 	isMultiSpecified := ok && len(multi) != 0
 
-	// Build keda from autoscaling
-	keda, ok := BuildList[models.OptionsAutoscalingKedaModel](ctx, diags, autoscaling.Keda)
+	// // Build keda from autoscaling
+	// keda, ok := BuildList[models.OptionsAutoscalingKedaModel](ctx, diags, autoscaling.Keda)
 
-	// A variable to declare whether keda is specified or not
-	isKedaSpecified := ok && len(keda) != 0
+	// // A variable to declare whether keda is specified or not
+	// isKedaSpecified := ok && len(keda) != 0
 
 	// If there are no multi and no keda, then set target and metric
-	if !isMultiSpecified && !isKedaSpecified {
+	// if !isMultiSpecified && !isKedaSpecified {
+	if !isMultiSpecified {
 		// Only modify if metric is not specified by the user
 		if autoscaling.Metric.IsNull() || autoscaling.Metric.IsUnknown() {
 			autoscaling.Metric = types.StringValue("concurrency")
 		}
 
 		// Only modify if target is not specified by the user
-		if (autoscaling.Target.IsNull() || autoscaling.Target.IsUnknown()) && autoscaling.Metric.ValueString() != "keda" {
+		// if (autoscaling.Target.IsNull() || autoscaling.Target.IsUnknown()) && autoscaling.Metric.ValueString() != "keda" {
+		if autoscaling.Target.IsNull() || autoscaling.Target.IsUnknown() {
 			autoscaling.Target = types.Int32Value(95)
 		}
 	}
 
 	// Set multi and keda back to autoscaling
 	autoscaling.Multi = FlattenList(ctx, diags, multi)
-	autoscaling.Keda = FlattenList(ctx, diags, keda)
+	// autoscaling.Keda = FlattenList(ctx, diags, keda)
 }
 
 // ModifyContainers updates container health checks using the first available port if port is not explicitly set.
@@ -1918,29 +1922,29 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 			}
 		}
 
-		// Build keda from autoscaling
-		keda, ok := BuildList[models.OptionsAutoscalingKedaModel](wrv.Ctx, wrv.Diags, asc.Keda)
+		// // Build keda from autoscaling
+		// keda, ok := BuildList[models.OptionsAutoscalingKedaModel](wrv.Ctx, wrv.Diags, asc.Keda)
 
-		// Handle keda metric
-		if (ok && len(keda) > 0) || (!asc.Metric.IsNull() && !asc.Metric.IsUnknown() && asc.Metric.ValueString() == "keda") {
-			// Keda is only supported in standard and stateful workloads
-			if workloadType != "standard" && workloadType != "stateful" {
-				wrv.Diags.AddAttributeError(
-					ascPath.AtName("keda"),
-					"KEDA Not Supported for Workload Type",
-					"KEDA is only supported for 'standard' and 'stateful' workload types. Please remove the 'keda' block.",
-				)
-			}
+		// // Handle keda metric
+		// if (ok && len(keda) > 0) || (!asc.Metric.IsNull() && !asc.Metric.IsUnknown() && asc.Metric.ValueString() == "keda") {
+		// 	// Keda is only supported in standard and stateful workloads
+		// 	if workloadType != "standard" && workloadType != "stateful" {
+		// 		wrv.Diags.AddAttributeError(
+		// 			ascPath.AtName("keda"),
+		// 			"KEDA Not Supported for Workload Type",
+		// 			"KEDA is only supported for 'standard' and 'stateful' workload types. Please remove the 'keda' block.",
+		// 		)
+		// 	}
 
-			// Report error if target is set alongside keda metric strategy
-			if !asc.Target.IsNull() && !asc.Target.IsUnknown() {
-				wrv.Diags.AddAttributeError(
-					ascPath.AtName("target"),
-					"Target conflicts with Keda",
-					"'target' must not exist simultaneously with metric 'keda'",
-				)
-			}
-		}
+		// 	// Report error if target is set alongside keda metric strategy
+		// 	if !asc.Target.IsNull() && !asc.Target.IsUnknown() {
+		// 		wrv.Diags.AddAttributeError(
+		// 			ascPath.AtName("target"),
+		// 			"Target conflicts with Keda",
+		// 			"'target' must not exist simultaneously with metric 'keda'",
+		// 		)
+		// 	}
+		// }
 	}
 }
 
@@ -2626,7 +2630,7 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscaling(state types.List) *
 		MaxScale:         BuildInt(block.MaxScale),
 		ScaleToZeroDelay: BuildInt(block.ScaleToZeroDelay),
 		MaxConcurrency:   BuildInt(block.MaxConcurrency),
-		Keda:             wro.buildOptionsAutoscalingKeda(block.Keda),
+		// Keda:             wro.buildOptionsAutoscalingKeda(block.Keda),
 	}
 }
 
@@ -3683,7 +3687,7 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscaling(input *client.Wor
 		MaxScale:         FlattenInt(input.MaxScale),
 		ScaleToZeroDelay: FlattenInt(input.ScaleToZeroDelay),
 		MaxConcurrency:   FlattenInt(input.MaxConcurrency),
-		Keda:             wro.flattenOptionsAutoscalingKeda(input.Keda),
+		// Keda:             wro.flattenOptionsAutoscalingKeda(input.Keda),
 	}
 
 	// Return the successfully created types.List

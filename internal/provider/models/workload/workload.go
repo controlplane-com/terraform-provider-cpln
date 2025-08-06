@@ -406,7 +406,7 @@ type OptionsAutoscalingModel struct {
 	MaxScale         types.Int32  `tfsdk:"max_scale"`
 	ScaleToZeroDelay types.Int32  `tfsdk:"scale_to_zero_delay"`
 	MaxConcurrency   types.Int32  `tfsdk:"max_concurrency"`
-	Keda             types.List   `tfsdk:"keda"`
+	// Keda             types.List   `tfsdk:"keda"`
 }
 
 func (o OptionsAutoscalingModel) AttributeTypes() attr.Type {
@@ -420,7 +420,7 @@ func (o OptionsAutoscalingModel) AttributeTypes() attr.Type {
 			"max_scale":           types.Int32Type,
 			"scale_to_zero_delay": types.Int32Type,
 			"max_concurrency":     types.Int32Type,
-			"keda":                types.ListType{ElemType: OptionsAutoscalingKedaModel{}.AttributeTypes()},
+			// "keda":                types.ListType{ElemType: OptionsAutoscalingKedaModel{}.AttributeTypes()},
 		},
 	}
 }

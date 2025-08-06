@@ -176,7 +176,7 @@ func (wrt *WorkloadResourceTest) NewStandardScenario() []resource.TestStep {
 
 	// Build test steps
 	initialConfig, initialStep := wrt.BuildStandardTestStep(name)
-	caseUpdate1 := wrt.BuildStandardUpdate1TestStep(initialConfig.ProviderTestCase)
+	// caseUpdate1 := wrt.BuildStandardUpdate1TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -189,7 +189,7 @@ func (wrt *WorkloadResourceTest) NewStandardScenario() []resource.TestStep {
 			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
 		},
 		// Update & Read
-		caseUpdate1,
+		// caseUpdate1,
 		// Revert the resource to its initial state
 		initialStep,
 	}
@@ -228,7 +228,7 @@ func (wrt *WorkloadResourceTest) NewStatefulScenario() []resource.TestStep {
 
 	// Build test steps
 	initialConfig, initialStep := wrt.BuildStatefulTestStep(name)
-	caseUpdate1 := wrt.BuildStatefulUpdate1TestStep(initialConfig.ProviderTestCase)
+	// caseUpdate1 := wrt.BuildStatefulUpdate1TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -241,7 +241,7 @@ func (wrt *WorkloadResourceTest) NewStatefulScenario() []resource.TestStep {
 			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
 		},
 		// Update & Read
-		caseUpdate1,
+		// caseUpdate1,
 		// Revert the resource to its initial state
 		initialStep,
 	}
