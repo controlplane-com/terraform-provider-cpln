@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/identity"
@@ -13,13 +14,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -193,12 +192,11 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 								validators.LinkValidator{},
 							},
 						},
-						"scopes": schema.SetAttribute{
+						"scopes": schema.StringAttribute{
 							Description: "Comma delimited list of GCP scope URLs.",
-							ElementType: types.StringType,
 							Optional:    true,
 							Computed:    true,
-							Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{types.StringValue("https://www.googleapis.com/auth/cloud-platform")})),
+							Default:     stringdefault.StaticString("https://www.googleapis.com/auth/cloud-platform"),
 						},
 						"service_account": schema.StringAttribute{
 							Description: "Name of existing GCP service account.",
@@ -666,10 +664,32 @@ func (iro *IdentityResourceOperator) buildGcp(state types.List) *client.Identity
 	// Construct and return the output
 	return &client.IdentityGcp{
 		CloudAccountLink: BuildString(block.CloudAccountLink),
-		Scopes:           iro.BuildSetString(block.Scopes),
+		Scopes:           iro.buildGcpScopes(block.Scopes),
 		ServiceAccount:   BuildString(block.ServiceAccount),
 		Bindings:         iro.buildGcpBinding(block.Binding),
 	}
+}
+
+// buildGcpScopes constructs a *[]string slice from the given Terraform state.
+func (iro *IdentityResourceOperator) buildGcpScopes(state types.String) *[]string {
+	// Build the state string into a golang string
+	scopes := BuildString(state)
+
+	// If input is nil or empty, return nil
+	if scopes == nil {
+		return nil
+	}
+
+	// Split by comma
+	parts := strings.Split(*scopes, ",")
+
+	// Trim spaces from each part
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+
+	// Return the output
+	return &parts
 }
 
 // buildGcpBinding constructs a []client.IdentityGcpBinding from the given Terraform state.
@@ -1013,16 +1033,84 @@ func (iro *IdentityResourceOperator) flattenGcp(input *client.IdentityGcp) types
 		return types.ListNull(elementType)
 	}
 
+	// Declare a variable to hold planned scopes of the GCP block
+	var plannedScopes *string
+
+	// Build the planned GCP
+	plannedGcp, ok := BuildList[models.GcpAccessPolicyModel](iro.Ctx, iro.Diags, iro.Plan.GcpAccessPolicy)
+
+	// Extract the planned scopes from the planned GCP block
+	if ok && len(plannedGcp) != 0 {
+		plannedScopes = BuildString(plannedGcp[0].Scopes)
+	}
+
 	// Build a single block
 	block := models.GcpAccessPolicyModel{
 		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
-		Scopes:           FlattenSetString(input.Scopes),
+		Scopes:           iro.flattenGcpScopes(plannedScopes, input.Scopes),
 		ServiceAccount:   types.StringPointerValue(input.ServiceAccount),
 		Binding:          iro.flattenGcpBinding(input.Bindings),
 	}
 
 	// Return the successfully created types.List
 	return FlattenList(iro.Ctx, iro.Diags, []models.GcpAccessPolicyModel{block})
+}
+
+// FlattenGcpScopes converts a *[]string into a Terraform types.String, preserving comma+whitespace separators from a prior plan string when available; new items use "," with no spaces.
+func (iro *IdentityResourceOperator) flattenGcpScopes(state *string, input *[]string) types.String {
+	// Return null when the slice pointer is nil (attribute absent)
+	if input == nil {
+		return types.StringNull()
+	}
+
+	// Return empty string when the slice is present but has no elements
+	if len(*input) == 0 {
+		return types.StringValue("")
+	}
+
+	// Prepare a container for exact separators ("," plus any following whitespace)
+	var seps []string
+
+	// Extract separators only if we have a prior state string
+	if state != nil {
+		// Scan the state string for commas
+		for i := 0; i < len(*state); i++ {
+			// Check for a comma boundary
+			if (*state)[i] == ',' {
+				// Advance past any whitespace immediately after the comma
+				j := i + 1
+				for j < len(*state) && unicode.IsSpace(rune((*state)[j])) {
+					j++
+				}
+
+				// Capture the exact comma+whitespace sequence for reuse
+				seps = append(seps, (*state)[i:j])
+			}
+		}
+	}
+
+	// Use a strings.Builder for efficient concatenation
+	var b strings.Builder
+
+	// Write the first element as-is
+	b.WriteString((*input)[0])
+
+	// Append remaining elements, preserving separators when available
+	for i := 1; i < len(*input); i++ {
+		// Reuse the saved separator if one exists at this position
+		if i-1 < len(seps) {
+			b.WriteString(seps[i-1])
+		} else {
+			// Fallback to a plain comma with no spaces for new positions
+			b.WriteString(",")
+		}
+
+		// Write the current item
+		b.WriteString((*input)[i])
+	}
+
+	// Return the final Terraform string value
+	return types.StringValue(b.String())
 }
 
 // flattenGcpBinding transforms *[]client.IdentityGcpBinding into a Terraform types.List.
