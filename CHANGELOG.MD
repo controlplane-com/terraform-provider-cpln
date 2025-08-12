@@ -1,3 +1,7 @@
+## 1.2.7
+
+- Unbreak breaking change done to scopes in identity resource.
+
 ## 1.2.6
 
 - Add logging to MK8s Triton Load Balancer.

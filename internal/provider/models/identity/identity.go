@@ -45,7 +45,7 @@ func (a AwsAccessPolicyTrustPolicyModel) AttributeTypes() attr.Type {
 
 type GcpAccessPolicyModel struct {
 	CloudAccountLink types.String `tfsdk:"cloud_account_link"`
-	Scopes           types.Set    `tfsdk:"scopes"`
+	Scopes           types.String `tfsdk:"scopes"`
 	ServiceAccount   types.String `tfsdk:"service_account"`
 	Binding          types.List   `tfsdk:"binding"`
 }
@@ -54,7 +54,7 @@ func (g GcpAccessPolicyModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"cloud_account_link": types.StringType,
-			"scopes":             types.SetType{ElemType: types.StringType},
+			"scopes":             types.StringType,
 			"service_account":    types.StringType,
 			"binding":            types.ListType{ElemType: GcpAccessPolicyBindingModel{}.AttributeTypes()},
 		},

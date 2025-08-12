@@ -389,7 +389,7 @@ func (irt *IdentityResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCa
 			c.TestCheckNestedBlocks("gcp_access_policy", []map[string]interface{}{
 				{
 					"cloud_account_link": GetSelfLink(OrgName, "cloudaccount", fmt.Sprintf("tf-ca-gcp-%s", irt.RandomName)),
-					"scopes":             []string{"https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/cloud-suite"},
+					"scopes":             "https://www.googleapis.com/auth/cloud-platform, https://www.googleapis.com/auth/cloud-suite",
 					"service_account":    "cpln-tf@cpln-test.iam.gserviceaccount.com",
 				},
 			}),
@@ -664,7 +664,7 @@ resource "cpln_identity" "%s" {
 
   gcp_access_policy {
     cloud_account_link = cpln_cloud_account.gcp.self_link
-		scopes             = ["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/cloud-suite"]
+		scopes             = "https://www.googleapis.com/auth/cloud-platform, https://www.googleapis.com/auth/cloud-suite"
     service_account    = "cpln-tf@cpln-test.iam.gserviceaccount.com"
   }
 
