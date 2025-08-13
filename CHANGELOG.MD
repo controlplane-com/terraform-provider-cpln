@@ -1,3 +1,8 @@
+## 1.2.8
+
+- Use types.List for args instead of types.Set.
+- Fix Addon config with false values.
+
 ## 1.2.7
 
 - Unbreak breaking change done to scopes in identity resource.
