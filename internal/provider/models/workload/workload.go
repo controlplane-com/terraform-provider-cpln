@@ -27,7 +27,7 @@ type ContainerModel struct {
 	GpuCustom        types.List   `tfsdk:"gpu_custom"`
 	InheritEnv       types.Bool   `tfsdk:"inherit_env"`
 	Command          types.String `tfsdk:"command"`
-	Args             types.Set    `tfsdk:"args"`
+	Args             types.List   `tfsdk:"args"`
 	Lifecycle        types.List   `tfsdk:"lifecycle"`
 	Volumes          types.List   `tfsdk:"volume"`
 }
@@ -52,7 +52,7 @@ func (c ContainerModel) AttributeTypes() attr.Type {
 			"gpu_custom":        types.ListType{ElemType: ContainerGpuCustomModel{}.AttributeTypes()},
 			"inherit_env":       types.BoolType,
 			"command":           types.StringType,
-			"args":              types.SetType{ElemType: types.StringType},
+			"args":              types.ListType{ElemType: types.StringType},
 			"lifecycle":         types.ListType{ElemType: ContainerLifecycleModel{}.AttributeTypes()},
 			"volume":            types.ListType{ElemType: ContainerVolumeModel{}.AttributeTypes()},
 		},

@@ -400,7 +400,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								stringvalidator.LengthAtMost(256),
 							},
 						},
-						"args": schema.SetAttribute{
+						"args": schema.ListAttribute{
 							Description: "Command line arguments passed to the container at runtime. Replaces the CMD arguments of the running container. It is an ordered list.",
 							ElementType: types.StringType,
 							Optional:    true,
@@ -2118,7 +2118,7 @@ func (wro *WorkloadResourceOperator) buildContainers(state types.List) *[]client
 			GPU:              wro.buildContainerGpu(block.GpuNvidia, block.GpuCustom),
 			InheritEnv:       BuildBool(block.InheritEnv),
 			Command:          BuildString(block.Command),
-			Args:             wro.BuildSetString(block.Args),
+			Args:             wro.buildContainerArgs(block.Args),
 			LifeCycle:        wro.buildContainerLifecycle(block.Lifecycle),
 			Volumes:          wro.buildContainerVolume(block.Volumes),
 		}
@@ -2369,6 +2369,40 @@ func (wro *WorkloadResourceOperator) buildContainerGpuCustom(state types.List) *
 		RuntimeClass: BuildString(block.RuntimeClass),
 		Quantity:     BuildInt(block.Quantity),
 	}
+}
+
+// buildContainerArgs constructs a *[]string from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildContainerArgs(state types.List) *[]string {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[types.String](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []string{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Initialize the item with null value
+		var finalItem string = "null"
+
+		// Construct the item
+		item := BuildString(block)
+
+		// Dereference the value if the item is not nil
+		if item != nil {
+			finalItem = *item
+		}
+
+		// Add the item to the output slice
+		output = append(output, finalItem)
+	}
+
+	// Return a pointer to the output
+	return &output
 }
 
 // buildContainerLifecycle constructs a WorkloadLifeCycle from the given Terraform state.
@@ -3169,7 +3203,7 @@ func (wro *WorkloadResourceOperator) flattenContainers(input *[]client.WorkloadC
 			GpuCustom:        wro.flattenContainerGpuCustom(item.GPU),
 			InheritEnv:       types.BoolPointerValue(item.InheritEnv),
 			Command:          types.StringPointerValue(item.Command),
-			Args:             FlattenSetString(item.Args),
+			Args:             wro.flattenContainerArgs(item.Args),
 			Lifecycle:        wro.flattenContainerLifecycle(item.LifeCycle),
 			Volumes:          wro.flattenContainerVolume(item.Volumes),
 		}
@@ -3418,6 +3452,46 @@ func (wro *WorkloadResourceOperator) flattenContainerGpuCustom(input *client.Wor
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerGpuCustomModel{block})
+}
+
+// flattenContainerArgs transforms *[]string into a Terraform types.List.
+func (wro *WorkloadResourceOperator) flattenContainerArgs(input *[]string) types.List {
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(types.StringType)
+	}
+
+	// Define the blocks slice
+	var blocks []types.String
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := types.StringValue(item)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Guard clause for existing diagnostics errors or empty input
+	if wro.Diags.HasError() || len(blocks) == 0 {
+		return types.ListNull(types.StringType)
+	}
+
+	// Convert the slice of blocks into a Terraform list while collecting diagnostics
+	l, d := types.ListValueFrom(wro.Ctx, types.StringType, blocks)
+
+	// Merge any diagnostics from the conversion into the main diagnostics
+	wro.Diags.Append(d...)
+
+	// If the conversion produced errors, return a null list
+	if d.HasError() {
+		return types.ListNull(types.StringType)
+	}
+
+	// Return the successfully built list
+	return l
 }
 
 // flattenContainerLifecycle transforms *client.WorkloadLifeCycle into a types.List.
