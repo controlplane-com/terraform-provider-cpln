@@ -3976,12 +3976,29 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		return types.ListNull(elementType)
 	}
 
+	// Declare a variable to hold planned addon configs
+	var plannedDashboard *bool
+	var plannedAwsWorkloadIdentity *bool
+	var plannedLocalPathStorage *bool
+	var plannedSysbox *bool
+
+	// Build planned addons
+	plannedAddons, ok := BuildList[models.AddOnsModel](mro.Ctx, mro.Diags, mro.Plan.AddOns)
+
+	// Extract the planned addon configs from the planned addon block
+	if ok && len(plannedAddons) != 0 {
+		plannedDashboard = BuildBool(plannedAddons[0].Dashboard)
+		plannedAwsWorkloadIdentity = BuildBool(plannedAddons[0].AwsWorkloadIdentity)
+		plannedLocalPathStorage = BuildBool(plannedAddons[0].LocalPathStorage)
+		plannedSysbox = BuildBool(plannedAddons[0].Sysbox)
+	}
+
 	// Build a single block
 	block := models.AddOnsModel{
-		Dashboard:             mro.flattenAddOnConfig(input.Dashboard),
+		Dashboard:             mro.flattenAddOnConfig(plannedDashboard, input.Dashboard),
 		AzureWorkloadIdentity: mro.flattenAddOnAzureWorkloadIdentity(input.AzureWorkloadIdentity),
-		AwsWorkloadIdentity:   mro.flattenAddOnConfig(input.AwsWorkloadIdentity),
-		LocalPathStorage:      mro.flattenAddOnConfig(input.LocalPathStorage),
+		AwsWorkloadIdentity:   mro.flattenAddOnConfig(plannedAwsWorkloadIdentity, input.AwsWorkloadIdentity),
+		LocalPathStorage:      mro.flattenAddOnConfig(plannedLocalPathStorage, input.LocalPathStorage),
 		Metrics:               mro.flattenAddOnMetrics(input.Metrics),
 		Logs:                  mro.flattenAddOnLogs(input.Logs),
 		RegistryMirror:        mro.flattenAddOnRegistryMirror(input.RegistryMirror),
@@ -3990,7 +4007,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		AwsECR:                mro.flattenAddOnAwsConfig(input.AwsECR),
 		AwsELB:                mro.flattenAddOnAwsConfig(input.AwsELB),
 		AzureACR:              mro.flattenAddOnAzureAcr(input.AzureACR),
-		Sysbox:                mro.flattenAddOnConfig(input.Sysbox),
+		Sysbox:                mro.flattenAddOnConfig(plannedSysbox, input.Sysbox),
 	}
 
 	// Return the successfully created types.List
@@ -3998,9 +4015,15 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 }
 
 // flattenAddOnConfig returns a Terraform bool indicating whether the addon config is enabled.
-func (mro *Mk8sResourceOperator) flattenAddOnConfig(input *client.Mk8sNonCustomizableAddonConfig) types.Bool {
-	// If the input config is nil, the addon is disabled
+func (mro *Mk8sResourceOperator) flattenAddOnConfig(state *bool, input *client.Mk8sNonCustomizableAddonConfig) types.Bool {
+	// If the input config is nil, the addon is disabled, but it could be nil or false
 	if input == nil {
+		// Check if the user explicitly set this config
+		if state != nil {
+			return types.BoolValue(false)
+		}
+
+		// If we got here then the user never specified this config
 		return types.BoolNull()
 	}
 

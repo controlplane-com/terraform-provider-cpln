@@ -124,6 +124,7 @@ func (mrt *Mk8sResourceTest) NewMk8sGenericProviderScenario() []resource.TestSte
 	initialConfig, initialStep := mrt.BuildGenericProviderTestStep(resourceName, name)
 	caseUpdate1 := mrt.BuildGenericProviderUpdate1TestStep(initialConfig.ProviderTestCase)
 	caseUpdate2 := mrt.BuildGenericProviderUpdate2TestStep(initialConfig.ProviderTestCase)
+	caseUpdate3 := mrt.BuildGenericProviderUpdate3TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -137,6 +138,9 @@ func (mrt *Mk8sResourceTest) NewMk8sGenericProviderScenario() []resource.TestSte
 		// Update & Read
 		caseUpdate1,
 		caseUpdate2,
+		caseUpdate3,
+		caseUpdate2,
+		caseUpdate1,
 		// Revert the resource to its initial state
 		initialStep,
 	}
@@ -402,12 +406,62 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate1TestStep(initialCase Pro
 					},
 				},
 			}),
+			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{{}}),
+		),
+	}
+}
+
+// BuildGenericProviderUpdate1TestStep returns a test step for the update.
+func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := Mk8sResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: mrt.GenericProviderUpdate2Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
+			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
+				{
+					"source_cidr": "192.168.1.255",
+					"description": "hello world",
+				},
+			}),
+			c.TestCheckNestedBlocks("generic_provider", []map[string]interface{}{
+				{
+					"location": "aws-eu-central-1",
+					"networking": []map[string]interface{}{
+						{
+							"service_network": "10.43.0.0/16",
+							"pod_network":     "10.42.0.0/16",
+						},
+					},
+					"node_pool": []map[string]interface{}{
+						{
+							"name": "my-node-pool",
+							"labels": map[string]interface{}{
+								"hello": "world",
+							},
+							"taint": []map[string]interface{}{
+								{
+									"key":    "hello",
+									"value":  "world",
+									"effect": "NoSchedule",
+								},
+							},
+						},
+					},
+				},
+			}),
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
-					"dashboard":               "true",
-					"aws_workload_identity":   "true",
-					"local_path_storage":      "true",
-					"sysbox":                  "true",
+					"dashboard":               "false",
+					"aws_workload_identity":   "false",
+					"local_path_storage":      "false",
+					"sysbox":                  "false",
 					"azure_workload_identity": []map[string]interface{}{{}},
 					"metrics":                 []map[string]interface{}{{}},
 					"logs":                    []map[string]interface{}{{}},
@@ -425,7 +479,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate1TestStep(initialCase Pro
 }
 
 // BuildGenericProviderUpdate2TestStep returns a test step for the update.
-func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase ProviderTestCase) resource.TestStep {
 	// Create the test case with metadata and descriptions
 	c := Mk8sResourceTestCase{
 		ProviderTestCase: initialCase,
@@ -433,7 +487,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 
 	// Initialize and return the inital test step
 	return resource.TestStep{
-		Config: mrt.GenericProviderUpdate2Hcl(c),
+		Config: mrt.GenericProviderUpdate3Hcl(c),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
 			c.TestCheckResourceAttr("version", "1.28.4"),
@@ -1919,11 +1973,59 @@ resource "cpln_mk8s" "%s" {
     }
   }
 
+  add_ons {}
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+// GenericProviderUpdate1Hcl returns a test step for the update.
+func (mrt *Mk8sResourceTest) GenericProviderUpdate2Hcl(c Mk8sResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_mk8s" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    "cpln/ignore"       = "true"
+  }
+
+  version = "1.28.4"
+
+  firewall {
+    source_cidr = "192.168.1.255"
+    description = "hello world"
+  }
+
+  generic_provider {
+    location = "aws-eu-central-1"
+
+    networking {
+      service_network = "10.43.0.0/16"
+      pod_network 	  = "10.42.0.0/16"
+    }
+
+    node_pool {
+      name = "my-node-pool"
+
+      labels = {
+        hello = "world"
+      }
+
+      taint {
+        key    = "hello"
+        value  = "world"
+        effect = "NoSchedule"
+      }
+    }
+  }
+
   add_ons {
-    dashboard             = true
-    aws_workload_identity = true
-    local_path_storage    = true
-    sysbox                = true
+    dashboard             = false
+    aws_workload_identity = false
+    local_path_storage    = false
+    sysbox                = false
 
     azure_workload_identity {}
     metrics {}
@@ -1940,7 +2042,7 @@ resource "cpln_mk8s" "%s" {
 }
 
 // GenericProviderUpdate1Hcl returns a test step for the update.
-func (mrt *Mk8sResourceTest) GenericProviderUpdate2Hcl(c Mk8sResourceTestCase) string {
+func (mrt *Mk8sResourceTest) GenericProviderUpdate3Hcl(c Mk8sResourceTestCase) string {
 	return fmt.Sprintf(`
 resource "cpln_mk8s" "%s" {
   name        = "%s"
