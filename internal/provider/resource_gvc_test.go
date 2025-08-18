@@ -318,6 +318,11 @@ func (grt *GvcResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase, e
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("keda", []map[string]interface{}{
+				{
+					"enabled": "false",
+				},
+			}),
 		),
 	}
 }
@@ -419,6 +424,12 @@ func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, e
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("keda", []map[string]interface{}{
+				{
+					"enabled":       "true",
+					"identity_link": fmt.Sprintf("/org/%s/gvc/%s/identity/non-existant-identity", OrgName, c.Name),
+				},
+			}),
 		),
 	}
 }
@@ -518,6 +529,12 @@ func (grt *GvcResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase, e
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("keda", []map[string]interface{}{
+				{
+					"enabled":       "true",
+					"identity_link": fmt.Sprintf("/org/%s/gvc/%s/identity/non-existant-identity", OrgName, c.Name),
+				},
+			}),
 		),
 	}
 }
@@ -614,6 +631,12 @@ func (grt *GvcResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase, e
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("keda", []map[string]interface{}{
+				{
+					"enabled":       "true",
+					"identity_link": fmt.Sprintf("/org/%s/gvc/%s/identity/non-existant-identity", OrgName, c.Name),
+				},
+			}),
 		),
 	}
 }
@@ -669,6 +692,8 @@ resource "cpln_gvc" "%s" {
   sidecar {
     envoy = jsonencode(%s)
   }
+
+  keda {}
 }
 `, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),
 		MapToHCL(c.Env, 2), tracingBlock, c.Envoy,
@@ -720,10 +745,15 @@ resource "cpln_gvc" "%s" {
   sidecar {
     envoy = jsonencode(%s)
   }
+
+  keda {
+    enabled       = true
+    identity_link = "/org/%s/gvc/%s/identity/non-existant-identity"
+  }
 }
 `, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),
 		MapToHCL(c.Env, 2), tracingBlock, strconv.FormatBool(*c.LoadBalancer.Dedicated), *c.LoadBalancer.TrustedProxies, *c.LoadBalancer.IpSet,
-		strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled), *c.LoadBalancer.Redirect.Class.Status5XX, *c.LoadBalancer.Redirect.Class.Status401, c.Envoy,
+		strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled), *c.LoadBalancer.Redirect.Class.Status5XX, *c.LoadBalancer.Redirect.Class.Status401, c.Envoy, OrgName, c.Name,
 	)
 }
 

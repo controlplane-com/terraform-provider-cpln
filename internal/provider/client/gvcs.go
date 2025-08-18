@@ -32,6 +32,7 @@ type GvcSpec struct {
 	Sidecar              *GvcSidecar                   `json:"sidecar,omitempty"`
 	Env                  *[]WorkloadContainerNameValue `json:"env,omitempty"`
 	LoadBalancer         *GvcLoadBalancer              `json:"loadBalancer,omitempty"`
+	Keda                 *GvcKeda                      `json:"keda,omitempty"`
 }
 
 // GvcStaticPlacement - Static Placement
@@ -65,6 +66,11 @@ type GvcLoadBalancerRedirect struct {
 type GvcLoadBalancerRedirectClass struct {
 	Status5XX *string `json:"status5xx,omitempty"`
 	Status401 *string `json:"status401,omitempty"`
+}
+
+type GvcKeda struct {
+	Enabled      *bool   `json:"enabled,omitempty"`
+	IdentityLink *string `json:"identityLink,omitempty"`
 }
 
 // GetGvcs - Get All Gvcs

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -186,6 +187,28 @@ func (d *GvcDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 							},
 							Validators: []validator.List{
 								listvalidator.SizeAtMost(1),
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
+			"keda": schema.ListNestedBlock{
+				Description: "KEDA configuration for the GVC.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"enabled": schema.BoolAttribute{
+							Description: "Enable KEDA for this GVC. KEDA is a Kubernetes-based event-driven autoscaler that allows you to scale workloads based on external events. When enabled, a keda operator will be deployed in the GVC and workloads in the GVC can use KEDA to scale based on external metrics.",
+							Optional:    true,
+							Computed:    true,
+						},
+						"identity_link": schema.StringAttribute{
+							Description: "A link to an Identity resource that will be used for KEDA. This will allow the keda operator to access cloud and network resources.",
+							Optional:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
 							},
 						},
 					},
