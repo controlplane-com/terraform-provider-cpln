@@ -207,7 +207,7 @@ type WorkloadOptionsAutoscaling struct {
 	MaxScale         *int                               `json:"maxScale,omitempty"`
 	ScaleToZeroDelay *int                               `json:"scaleToZeroDelay,omitempty"`
 	MaxConcurrency   *int                               `json:"maxConcurrency,omitempty"`
-	// Keda             *WorkloadOptionsAutoscalingKeda    `json:"keda,omitempty"`
+	Keda             *WorkloadOptionsAutoscalingKeda    `json:"keda,omitempty"`
 }
 
 // WorkloadOptionsAutoscalingMulti - Multi Metrics
@@ -217,8 +217,11 @@ type WorkloadOptionsAutoscalingMulti struct {
 }
 
 type WorkloadOptionsAutoscalingKeda struct {
-	Triggers *[]WorkloadOptionsAutoscalingKedaTrigger `json:"triggers,omitempty"`
-	Advanced *WorkloadOptionsAutoscalingKedaAdvanced  `json:"advanced,omitempty"`
+	PollingInterval       *int                                     `json:"pollingInterval,omitempty"`
+	CooldownPeriod        *int                                     `json:"cooldownPeriod,omitempty"`
+	InitialCooldownPeriod *int                                     `json:"initialCooldownPeriod,omitempty"`
+	Triggers              *[]WorkloadOptionsAutoscalingKedaTrigger `json:"triggers,omitempty"`
+	Advanced              *WorkloadOptionsAutoscalingKedaAdvanced  `json:"advanced,omitempty"`
 }
 
 type WorkloadOptionsAutoscalingKedaTrigger struct {
