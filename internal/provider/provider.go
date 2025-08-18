@@ -130,7 +130,7 @@ func (p *CplnProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Failed to Create Cpln API Client",
-			"An error occurred while attempting to create the Cpln API c. "+
+			"An error occurred while attempting to create the Cpln API client. "+
 				"Please verify your configuration or try again. "+
 				"If the issue persists, consider reaching out to the provider's support team.\n\n"+
 				"Detailed Error: "+err.Error(),

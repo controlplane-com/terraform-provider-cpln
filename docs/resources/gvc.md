@@ -27,6 +27,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
 - **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
+- **keda** (Block List, Max: 1) ([see below](#nestedblock--keda)).
 
 ~> **Note** Only one of the tracing blocks can be defined.
 
@@ -107,6 +108,13 @@ Optional:
 
 - **status_5xx** (String) Specify the redirect url for any 500 level status code.
 - **status_401** (String) An optional url redirect for 401 responses. Supports envoy format strings to include request information. E.g. https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id
+
+<a id="nestedblock--keda"></a>
+
+### `keda`
+
+- **enabled** (Boolean) Enable KEDA for this GVC. KEDA is a Kubernetes-based event-driven autoscaler that allows you to scale workloads based on external events. When enabled, a keda operator will be deployed in the GVC and workloads in the GVC can use KEDA to scale based on external metrics.
+- **identity_link** (String) A link to an Identity resource that will be used for KEDA. This will allow the keda operator to access cloud and network resources.
 
 ## Outputs
 
@@ -198,6 +206,11 @@ resource "cpln_gvc" "example" {
         status_401 = "https://your-oauth-server/oauth2/authorize?return_to=%REQ(:path)%&client_id=your-client-id"
       }
     }
+  }
+
+  keda {
+    enabled       = true
+    identity_link = "/org/terraform-test-org/gvc/gvc-example/identity/non-existant-identity"
   }
 }
 

@@ -1,3 +1,7 @@
+## 1.2.9
+
+- Add KEDA to workload and GVC resources.
+
 ## 1.2.8
 
 - Use types.List for args instead of types.Set.

@@ -9,6 +9,7 @@ import (
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	commonmodels "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/common"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/gvc"
+	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -45,6 +46,7 @@ type GvcResourceModel struct {
 	ControlPlaneTracing  types.List   `tfsdk:"controlplane_tracing"`
 	Sidecar              types.List   `tfsdk:"sidecar"`
 	LoadBalancer         types.List   `tfsdk:"load_balancer"`
+	Keda                 types.List   `tfsdk:"keda"`
 }
 
 /*** Resource Configuration ***/
@@ -214,6 +216,29 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 					listvalidator.SizeAtMost(1),
 				},
 			},
+			"keda": schema.ListNestedBlock{
+				Description: "KEDA configuration for the GVC.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"enabled": schema.BoolAttribute{
+							Description: "Enable KEDA for this GVC. KEDA is a Kubernetes-based event-driven autoscaler that allows you to scale workloads based on external events. When enabled, a keda operator will be deployed in the GVC and workloads in the GVC can use KEDA to scale based on external metrics.",
+							Optional:    true,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
+						},
+						"identity_link": schema.StringAttribute{
+							Description: "A link to an Identity resource that will be used for KEDA. This will allow the keda operator to access cloud and network resources.",
+							Optional:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
+							},
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
 		},
 	}
 }
@@ -352,6 +377,7 @@ func (gro *GvcResourceOperator) NewAPIRequest(isUpdate bool) client.Gvc {
 	spec.Sidecar = gro.buildSidecar(gro.Plan.Sidecar)
 	spec.Env = gro.buildEnv(gro.Plan.Env)
 	spec.LoadBalancer = gro.buildLoadBalancer(gro.Plan.LoadBalancer)
+	spec.Keda = gro.buildKeda(gro.Plan.Keda)
 
 	// Return constructed request payload
 	return requestPayload
@@ -384,6 +410,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 		state.ControlPlaneTracing = cplnTracing
 		state.Sidecar = gro.flattenSidecar(gvc.Spec.Sidecar)
 		state.LoadBalancer = gro.flattenLoadBalancer(gro.Plan.LoadBalancer, gvc.Spec.LoadBalancer)
+		state.Keda = gro.flattenKeda(gvc.Spec.Keda)
 	} else {
 		state.Locations = types.SetNull(types.StringType)
 		state.PullSecrets = types.SetNull(types.StringType)
@@ -395,6 +422,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 		state.ControlPlaneTracing = types.ListNull(commonmodels.ControlPlaneTracingModel{}.AttributeTypes())
 		state.Sidecar = types.ListNull(models.SidecarModel{}.AttributeTypes())
 		state.LoadBalancer = types.ListNull(models.LoadBalancerModel{}.AttributeTypes())
+		state.Keda = types.ListNull(models.KedaModel{}.AttributeTypes())
 	}
 
 	// Return completed state model
@@ -617,6 +645,26 @@ func (gro *GvcResourceOperator) buildLoadBalancerRedirectClass(state types.List)
 	}
 }
 
+// buildKeda constructs a GvcKeda from the given Terraform state.
+func (gro *GvcResourceOperator) buildKeda(state types.List) *client.GvcKeda {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.KedaModel](gro.Ctx, gro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.GvcKeda{
+		Enabled:      BuildBool(block.Enabled),
+		IdentityLink: BuildString(block.IdentityLink),
+	}
+}
+
 // Flatteners //
 
 // flattenStaticPlacement transforms client.StaticPlacement into a Terraform types.List.
@@ -829,4 +877,25 @@ func (gro *GvcResourceOperator) flattenLoadBalancerRedirectClass(input *client.G
 
 	// Return the successfully created types.List
 	return FlattenList(gro.Ctx, gro.Diags, []models.LoadBalancerRedirectClassModel{block})
+}
+
+// flattenKeda transforms *client.GvcKeda into a Terraform types.List.
+func (gro *GvcResourceOperator) flattenKeda(input *client.GvcKeda) types.List {
+	// Get attribute types
+	elementType := models.KedaModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.KedaModel{
+		Enabled:      types.BoolPointerValue(input.Enabled),
+		IdentityLink: types.StringPointerValue(input.IdentityLink),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(gro.Ctx, gro.Diags, []models.KedaModel{block})
 }

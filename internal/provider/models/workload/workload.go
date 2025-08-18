@@ -406,7 +406,7 @@ type OptionsAutoscalingModel struct {
 	MaxScale         types.Int32  `tfsdk:"max_scale"`
 	ScaleToZeroDelay types.Int32  `tfsdk:"scale_to_zero_delay"`
 	MaxConcurrency   types.Int32  `tfsdk:"max_concurrency"`
-	// Keda             types.List   `tfsdk:"keda"`
+	Keda             types.List   `tfsdk:"keda"`
 }
 
 func (o OptionsAutoscalingModel) AttributeTypes() attr.Type {
@@ -420,7 +420,7 @@ func (o OptionsAutoscalingModel) AttributeTypes() attr.Type {
 			"max_scale":           types.Int32Type,
 			"scale_to_zero_delay": types.Int32Type,
 			"max_concurrency":     types.Int32Type,
-			// "keda":                types.ListType{ElemType: OptionsAutoscalingKedaModel{}.AttributeTypes()},
+			"keda":                types.ListType{ElemType: OptionsAutoscalingKedaModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -444,15 +444,21 @@ func (o OptionsAutoscalingMultiModel) AttributeTypes() attr.Type {
 // Options -> Autoscaling -> Keda //
 
 type OptionsAutoscalingKedaModel struct {
-	Triggers types.List `tfsdk:"trigger"`
-	Advanced types.List `tfsdk:"advanced"`
+	PollingInterval       types.Int32 `tfsdk:"polling_interval"`
+	CooldownPeriod        types.Int32 `tfsdk:"cooldown_period"`
+	InitialCooldownPeriod types.Int32 `tfsdk:"initial_cooldown_period"`
+	Triggers              types.List  `tfsdk:"trigger"`
+	Advanced              types.List  `tfsdk:"advanced"`
 }
 
 func (o OptionsAutoscalingKedaModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"trigger":  types.ListType{ElemType: OptionsAutoscalingKedaTriggerModel{}.AttributeTypes()},
-			"advanced": types.ListType{ElemType: OptionsAutoscalingKedaAdvancedModel{}.AttributeTypes()},
+			"polling_interval":        types.Int32Type,
+			"cooldown_period":         types.Int32Type,
+			"initial_cooldown_period": types.Int32Type,
+			"trigger":                 types.ListType{ElemType: OptionsAutoscalingKedaTriggerModel{}.AttributeTypes()},
+			"advanced":                types.ListType{ElemType: OptionsAutoscalingKedaAdvancedModel{}.AttributeTypes()},
 		},
 	}
 }

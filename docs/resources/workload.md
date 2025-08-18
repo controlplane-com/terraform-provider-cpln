@@ -386,6 +386,9 @@ KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling
 
 Optional:
 
+- **polling_interval** (Number) The interval in seconds at which KEDA will poll the external metrics to determine if scaling is required.
+- **cooldown_period** (Number) The cooldown period in seconds after scaling down to 0 replicas before KEDA will allow scaling up again.
+- **initial_cooldown_period** (Number) The initial cooldown period in seconds after scaling down to 0 replicas before KEDA will allow scaling up again.
 - **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger))
 - **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced))
 
@@ -1882,6 +1885,10 @@ resource "cpln_workload" "new" {
       min_scale = 1
 
       keda {
+        polling_interval        = 30
+        cooldown_period         = 60
+        initial_cooldown_period = 10
+
         trigger {
           type               = "cpu"
           name               = "cpu-trigger-01"
