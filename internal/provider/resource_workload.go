@@ -826,6 +826,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						"termination_grace_period_seconds": schema.Int32Attribute{
 							Description: "The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run.",
 							Optional:    true,
+							Computed:    true,
+							Default:     int32default.StaticInt32(90),
 							Validators: []validator.Int32{
 								int32validator.Between(0, 900),
 							},
@@ -1749,6 +1751,18 @@ func (wrv *WorkloadResourceValidator) Validate() {
 			"The 'job' block must be defined when the workload type is set to 'cron'.",
 		)
 		return
+	}
+
+	// Build planned rollout options
+	rolloutOptions, ok := BuildList[models.RolloutOptionsModel](wrv.Ctx, wrv.Diags, wrv.Plan.RolloutOptions)
+
+	// Any workload type can have max_unavailable_replicas except for stateful
+	if workloadType == "stateful" && ok && len(rolloutOptions) > 0 && !rolloutOptions[0].MaxUnavailableReplicas.IsNull() && !rolloutOptions[0].MaxUnavailableReplicas.IsUnknown() {
+		wrv.Diags.AddAttributeError(
+			path.Root("type"),
+			"Invalid Rollout Option for Stateful Workload",
+			"The 'max_unavailable_replicas' field is not supported for 'stateful' workload types. Remove this field or use a different workload type instead.",
+		)
 	}
 
 	// Initialize flags for GPU, Min CPU, and Min Memory usage
