@@ -1751,18 +1751,6 @@ func (wrv *WorkloadResourceValidator) Validate() {
 		return
 	}
 
-	// Build planned rollout options
-	rolloutOptions, ok := BuildList[models.RolloutOptionsModel](wrv.Ctx, wrv.Diags, wrv.Plan.RolloutOptions)
-
-	// Only standard and stateful workload can have rollout options
-	if workloadType != "standard" && workloadType != "stateful" && ok && len(rolloutOptions) > 0 {
-		wrv.Diags.AddAttributeError(
-			path.Root("type"),
-			"Invalid Rollout Options",
-			"The 'rollout_options' block can only be defined for 'standard' or 'stateful' workload types.",
-		)
-	}
-
 	// Initialize flags for GPU, Min CPU, and Min Memory usage
 	isUsingGpu := false
 	isUsingMinCpu := false
