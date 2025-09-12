@@ -99,9 +99,9 @@ Required:
 
 Optional:
 
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
-- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
-- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 10. Min: 0. Max: 600.
+- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 600.
+- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 600.
 - **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
 - **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
 
@@ -151,9 +151,9 @@ Optional:
 
 Optional:
 
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 0. Min: 0. Max: 120.
-- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 60.
-- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 60.
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 10. Min: 0. Max: 600.
+- **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 600.
+- **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 600.
 - **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
 - **failure_threshold** (Number) Failure Threshold. Default: 3. Min: 1. Max: 20.
 
@@ -459,11 +459,11 @@ Optional:
 
 Optional:
 
-- **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available.
-- **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process.
+- **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available. Default: 0.
+- **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process. Cannot be used in a `stateful` workload.
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
 - **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.
-- **termination_grace_period_seconds** (Number) The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run.
+- **termination_grace_period_seconds** (Number) The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run. Default: 90.
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
 
@@ -1022,10 +1022,11 @@ resource "cpln_workload" "new" {
   }
 
   rollout_options {
-    min_ready_seconds = 2
-    max_unavailable_replicas = "10"
-    max_surge_replicas = "20"
-    scaling_policy = "Parallel"
+    min_ready_seconds                = 2
+    max_unavailable_replicas         = "10"
+    max_surge_replicas               = "20"
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 90
   }
 
   security_options {
@@ -1952,10 +1953,10 @@ resource "cpln_workload" "new" {
   }
 
   rollout_options {
-    min_ready_seconds        = 1
-    max_unavailable_replicas = "10"
-    max_surge_replicas       = "20"
-    scaling_policy           = "Parallel"
+    min_ready_seconds                = 2
+    max_surge_replicas               = "20"
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 90
   }
 
   security_options {

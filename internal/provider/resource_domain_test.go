@@ -395,7 +395,7 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
 				{
 					"dns_mode":         "ns",
-					"accept_all_hosts": "false",
+					"accept_all_hosts": "true",
 					"ports": []map[string]interface{}{
 						{
 							"number":   "443",
@@ -628,7 +628,7 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
 				{
 					"dns_mode":         "ns",
-					"accept_all_hosts": "false",
+					"accept_all_hosts": "true",
 					"ports": []map[string]interface{}{
 						{
 							"number":   "443",
@@ -931,6 +931,7 @@ resource "cpln_domain" "%s" {
 
   spec {
     dns_mode = "ns"
+    accept_all_hosts = true
 
     ports {
       number   = 443
@@ -1189,6 +1190,7 @@ resource "cpln_domain" "%s" {
 
   spec {
     dns_mode = "ns"
+    accept_all_hosts = true
 
     ports {
       number   = 443

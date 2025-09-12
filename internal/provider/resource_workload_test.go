@@ -421,6 +421,13 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate1TestStep(initialCase Prov
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "0",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "90",
+				},
+			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{{}}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
 				{
@@ -599,6 +606,13 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate2TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
 				{
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "10",
+					"scaling_policy":                   "Parallel",
+					"termination_grace_period_seconds": "10",
 				},
 			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
@@ -831,6 +845,14 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
 				{
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "20",
+					"max_unavailable_replicas":         "10",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "20",
 				},
 			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
@@ -1092,6 +1114,15 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "30",
+					"max_unavailable_replicas":         "20",
+					"max_surge_replicas":               "30",
+					"scaling_policy":                   "Parallel",
+					"termination_grace_period_seconds": "40",
+				},
+			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
@@ -1342,6 +1373,13 @@ func (wrt *WorkloadResourceTest) BuildStandardTestStep(name string) (WorkloadRes
 			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
 				{
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "0",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "90",
 				},
 			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
@@ -1621,6 +1659,15 @@ func (wrt *WorkloadResourceTest) BuildStandardUpdate1TestStep(initialCase Provid
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "2",
+					"max_unavailable_replicas":         "10",
+					"max_surge_replicas":               "20",
+					"scaling_policy":                   "Parallel",
+					"termination_grace_period_seconds": "10",
+				},
+			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
@@ -1844,6 +1891,13 @@ func (wrt *WorkloadResourceTest) BuildCronTestStep(name string) (WorkloadResourc
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "0",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "90",
+				},
+			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
@@ -2058,6 +2112,15 @@ func (wrt *WorkloadResourceTest) BuildCronUpdate1TestStep(initialCase ProviderTe
 			c.TestCheckNestedBlocks("sidecar", []map[string]interface{}{
 				{
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
+				},
+			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "2",
+					"max_unavailable_replicas":         "10",
+					"max_surge_replicas":               "20",
+					"scaling_policy":                   "Parallel",
+					"termination_grace_period_seconds": "10",
 				},
 			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
@@ -2312,6 +2375,13 @@ func (wrt *WorkloadResourceTest) BuildStatefulTestStep(name string) (WorkloadRes
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "0",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "90",
+				},
+			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
@@ -2556,6 +2626,14 @@ func (wrt *WorkloadResourceTest) BuildStatefulUpdate1TestStep(initialCase Provid
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "2",
+					"max_surge_replicas":               "20",
+					"scaling_policy":                   "Parallel",
+					"termination_grace_period_seconds": "10",
+				},
+			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
@@ -2746,6 +2824,7 @@ resource "cpln_workload" "%s" {
     envoy = jsonencode(%s)
   }
 
+  rollout_options {}
   security_options {}
   load_balancer {}
   request_retry_policy {}
@@ -2907,6 +2986,12 @@ resource "cpln_workload" "%s" {
 
   sidecar {
     envoy = jsonencode(%s)
+  }
+
+  rollout_options {
+    min_ready_seconds                = 10
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 10
   }
 
   security_options {
@@ -3126,6 +3211,13 @@ resource "cpln_workload" "%s" {
 
   sidecar {
     envoy = jsonencode(%s)
+  }
+
+  rollout_options {
+    min_ready_seconds                = 20
+    max_unavailable_replicas         = "10"
+    scaling_policy                   = "OrderedReady"
+    termination_grace_period_seconds = 20
   }
 
   security_options {
@@ -3370,6 +3462,14 @@ resource "cpln_workload" "%s" {
     envoy = jsonencode(%s)
   }
 
+  rollout_options {
+    min_ready_seconds                = 30
+    max_unavailable_replicas         = "20"
+    max_surge_replicas               = "30"
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 40
+  }
+
   security_options {
     file_system_group_id = 1
   }
@@ -3599,6 +3699,8 @@ resource "cpln_workload" "%s" {
   sidecar {
     envoy = jsonencode(%s)
   }
+
+  rollout_options {}
 
   security_options {
     file_system_group_id = 1
@@ -3861,6 +3963,14 @@ resource "cpln_workload" "%s" {
     envoy = jsonencode(%s)
   }
 
+  rollout_options {
+    min_ready_seconds                = 2
+    max_unavailable_replicas         = "10"
+    max_surge_replicas               = "20"
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 10
+  }
+
   security_options {
     file_system_group_id = 1
   }
@@ -4059,6 +4169,8 @@ resource "cpln_workload" "%s" {
   sidecar {
     envoy = jsonencode(%s)
   }
+
+  rollout_options {}
 
   security_options {
     file_system_group_id = 1
@@ -4261,6 +4373,14 @@ resource "cpln_workload" "%s" {
 
   sidecar {
     envoy = jsonencode(%s)
+  }
+
+  rollout_options {
+    min_ready_seconds                = 2
+    max_unavailable_replicas         = "10"
+    max_surge_replicas               = "20"
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 10
   }
 
   security_options {
@@ -4493,6 +4613,8 @@ resource "cpln_workload" "%s" {
     envoy = jsonencode(%s)
   }
 
+  rollout_options {}
+
   security_options {
     file_system_group_id = 1
   }
@@ -4718,6 +4840,13 @@ resource "cpln_workload" "%s" {
 
   sidecar {
     envoy = jsonencode(%s)
+  }
+
+  rollout_options {
+    min_ready_seconds                = 2
+    max_surge_replicas               = "20"
+    scaling_policy                   = "Parallel"
+    termination_grace_period_seconds = 10
   }
 
   security_options {
