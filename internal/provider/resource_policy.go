@@ -34,13 +34,13 @@ var (
 // PolicyResourceModel holds the Terraform state for the resource.
 type PolicyResourceModel struct {
 	EntityBaseModel
-	TargetKind  types.String          `tfsdk:"target_kind"`
-	Gvc         types.String          `tfsdk:"gvc"`
-	TargetLinks types.Set             `tfsdk:"target_links"`
-	TargetQuery types.List            `tfsdk:"target_query"`
-	Target      types.String          `tfsdk:"target"`
-	Origin      types.String          `tfsdk:"origin"`
-	Binding     []models.BindingModel `tfsdk:"binding"`
+	TargetKind  types.String `tfsdk:"target_kind"`
+	Gvc         types.String `tfsdk:"gvc"`
+	TargetLinks types.Set    `tfsdk:"target_links"`
+	TargetQuery types.List   `tfsdk:"target_query"`
+	Target      types.String `tfsdk:"target"`
+	Origin      types.String `tfsdk:"origin"`
+	Binding     types.Set    `tfsdk:"binding"`
 }
 
 /*** Resource Configuration ***/
@@ -128,7 +128,7 @@ func (pr *PolicyResource) Schema(ctx context.Context, req resource.SchemaRequest
 					listvalidator.SizeAtMost(1),
 				},
 			},
-			"binding": schema.ListNestedBlock{
+			"binding": schema.SetNestedBlock{
 				Description: "The association between a target kind and the bound permissions to service principals.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -148,8 +148,8 @@ func (pr *PolicyResource) Schema(ctx context.Context, req resource.SchemaRequest
 						},
 					},
 				},
-				Validators: []validator.List{
-					listvalidator.SizeAtMost(50),
+				Validators: []validator.Set{
+					setvalidator.SizeAtMost(50),
 				},
 			},
 		},
@@ -343,9 +343,12 @@ func (pro *PolicyResourceOperator) buildTargetLinks(state types.Set, kind string
 }
 
 // buildBinding constructs a []client.Binding from the given Terraform state.
-func (pro *PolicyResourceOperator) buildBinding(state []models.BindingModel) *[]client.Binding {
-	// Return nil if state is not specified
-	if len(state) == 0 {
+func (pro *PolicyResourceOperator) buildBinding(state types.Set) *[]client.Binding {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.BindingModel](pro.Ctx, pro.Diags, state)
+
+	// Return an empty slice if conversion failed or set was empty
+	if !ok {
 		return &[]client.Binding{}
 	}
 
@@ -353,7 +356,7 @@ func (pro *PolicyResourceOperator) buildBinding(state []models.BindingModel) *[]
 	output := []client.Binding{}
 
 	// Iterate over each block and construct an output item
-	for _, block := range state {
+	for _, block := range blocks {
 		// Construct the item
 		item := client.Binding{
 			Permissions:    pro.BuildSetString(block.Permissions),
@@ -442,12 +445,15 @@ func (pro *PolicyResourceOperator) flattenTargetLinks(input *[]string, state typ
 	return FlattenSetString(&output)
 }
 
-// flattenBinding transforms *[]client.Binding into a []models.BindingModel.
-func (pro *PolicyResourceOperator) flattenBinding(input *[]client.Binding) []models.BindingModel {
+// flattenBinding transforms *[]client.Binding into a Terraform types.Set.
+func (pro *PolicyResourceOperator) flattenBinding(input *[]client.Binding) types.Set {
+	// Get attribute types
+	elementType := models.BindingModel{}.AttributeTypes()
+
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return nil
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -468,8 +474,8 @@ func (pro *PolicyResourceOperator) flattenBinding(input *[]client.Binding) []mod
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully accumulated blocks
-	return blocks
+	// Return the successfully created types.Set
+	return FlattenSet(pro.Ctx, pro.Diags, blocks)
 }
 
 // flattenPrincipalLinks transforms *[]string into a types.Set.
@@ -533,8 +539,21 @@ func (pro *PolicyResourceOperator) findMatchingPlannedPrincipalLinks(input clien
 	// Sort the input permissions for reliable comparison
 	sort.Strings(inPerms)
 
+	// Build the binding set from the plan
+	if pro.Plan.Binding.IsNull() || pro.Plan.Binding.IsUnknown() {
+		return nil
+	}
+
+	// Convert Terraform set into model blocks using generic helper
+	proposedBindings, ok := BuildSet[models.BindingModel](pro.Ctx, pro.Diags, pro.Plan.Binding)
+
+	// Return nil if conversion failed
+	if !ok {
+		return nil
+	}
+
 	// Scan through each planned binding
-	for _, pb := range pro.Plan.Binding {
+	for _, pb := range proposedBindings {
 		// Pull out the planned permissions into a []string
 		pbPerms := pro.BuildSetString(pb.Permissions)
 

@@ -25,7 +25,7 @@ var (
 type IpSetResourceModel struct {
 	EntityBaseModel
 	Link      types.String `tfsdk:"link"`
-	Locations types.List   `tfsdk:"location"`
+	Locations types.Set    `tfsdk:"location"`
 	Status    types.List   `tfsdk:"status"`
 }
 
@@ -112,7 +112,7 @@ func (isr *IpSetResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 		}),
 		Blocks: map[string]schema.Block{
-			"location": schema.ListNestedBlock{
+			"location": schema.SetNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -203,7 +203,7 @@ func (isro *IpSetResourceOperator) MapResponseToState(apiResp *client.IpSet, isC
 		state.Locations = isro.flattenLocations(apiResp.Spec.Locations)
 	} else {
 		state.Link = types.StringNull()
-		state.Locations = types.ListNull(models.LocationModel{}.AttributeTypes())
+		state.Locations = types.SetNull(models.LocationModel{}.AttributeTypes())
 	}
 
 	// Set specific attributes
@@ -236,11 +236,11 @@ func (isro *IpSetResourceOperator) InvokeDelete(name string) error {
 // Builders //
 
 // buildLocations constructs a []client.IpSetLocation from the given Terraform state.
-func (isro *IpSetResourceOperator) buildLocations(state types.List) *[]client.IpSetLocation {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.LocationModel](isro.Ctx, isro.Diags, state)
+func (isro *IpSetResourceOperator) buildLocations(state types.Set) *[]client.IpSetLocation {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LocationModel](isro.Ctx, isro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -266,15 +266,15 @@ func (isro *IpSetResourceOperator) buildLocations(state types.List) *[]client.Ip
 
 // Flatteners //
 
-// flattenLocations transforms *[]client.IpSetLocation into a Terraform types.List.
-func (isro *IpSetResourceOperator) flattenLocations(input *[]client.IpSetLocation) types.List {
+// flattenLocations transforms *[]client.IpSetLocation into a Terraform types.Set.
+func (isro *IpSetResourceOperator) flattenLocations(input *[]client.IpSetLocation) types.Set {
 	// Get attribute types
 	elementType := models.LocationModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -292,8 +292,8 @@ func (isro *IpSetResourceOperator) flattenLocations(input *[]client.IpSetLocatio
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(isro.Ctx, isro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(isro.Ctx, isro.Diags, blocks)
 }
 
 // flattenStatus transforms *client.IpSetStatus into a Terraform types.List.

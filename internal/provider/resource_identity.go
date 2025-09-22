@@ -42,8 +42,8 @@ type IdentityResourceModel struct {
 	GcpAccessPolicy       types.List   `tfsdk:"gcp_access_policy"`
 	AzureAccessPolicy     types.List   `tfsdk:"azure_access_policy"`
 	NgsAccessPolicy       types.List   `tfsdk:"ngs_access_policy"`
-	NetworkResource       types.List   `tfsdk:"network_resource"`
-	NativeNetworkResource types.List   `tfsdk:"native_network_resource"`
+	NetworkResource       types.Set    `tfsdk:"network_resource"`
+	NativeNetworkResource types.Set    `tfsdk:"native_network_resource"`
 }
 
 /*** Resource Configuration ***/
@@ -155,7 +155,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					Blocks: map[string]schema.Block{
-						"trust_policy": schema.ListNestedBlock{
+						"trust_policy": schema.SetNestedBlock{
 							Description: "The trust policy for the role.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -210,7 +210,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					Blocks: map[string]schema.Block{
-						"binding": schema.ListNestedBlock{
+						"binding": schema.SetNestedBlock{
 							Description: "The association or connection between a particular identity, such as a user or a group, and a set of permissions or roles within the system.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -248,7 +248,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					Blocks: map[string]schema.Block{
-						"role_assignment": schema.ListNestedBlock{
+						"role_assignment": schema.SetNestedBlock{
 							Description: "The process of assigning specific roles or permissions to an entity, such as a user or a service principal, within the system.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -332,7 +332,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 					listvalidator.SizeAtMost(1),
 				},
 			},
-			"network_resource": schema.ListNestedBlock{
+			"network_resource": schema.SetNestedBlock{
 				Description: "A network resource can be configured with: - A fully qualified domain name (FQDN) and ports. - An FQDN, resolver IP, and ports. - IP's and ports.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -378,7 +378,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 					},
 				},
 			},
-			"native_network_resource": schema.ListNestedBlock{
+			"native_network_resource": schema.SetNestedBlock{
 				Description: "~> **NOTE** The configuration of a native network resource requires the assistance of Control Plane support.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -593,11 +593,11 @@ func (iro *IdentityResourceOperator) buildAws(state types.List) *client.Identity
 }
 
 // buildAwsTrustPolicy constructs a IdentityAwsTrustPolicy struct from the given Terraform state.
-func (iro *IdentityResourceOperator) buildAwsTrustPolicy(state types.List) *client.IdentityAwsTrustPolicy {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.AwsAccessPolicyTrustPolicyModel](iro.Ctx, iro.Diags, state)
+func (iro *IdentityResourceOperator) buildAwsTrustPolicy(state types.Set) *client.IdentityAwsTrustPolicy {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.AwsAccessPolicyTrustPolicyModel](iro.Ctx, iro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -693,11 +693,11 @@ func (iro *IdentityResourceOperator) buildGcpScopes(state types.String) *[]strin
 }
 
 // buildGcpBinding constructs a []client.IdentityGcpBinding from the given Terraform state.
-func (iro *IdentityResourceOperator) buildGcpBinding(state types.List) *[]client.IdentityGcpBinding {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.GcpAccessPolicyBindingModel](iro.Ctx, iro.Diags, state)
+func (iro *IdentityResourceOperator) buildGcpBinding(state types.Set) *[]client.IdentityGcpBinding {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.GcpAccessPolicyBindingModel](iro.Ctx, iro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -742,11 +742,11 @@ func (iro *IdentityResourceOperator) buildAzure(state types.List) *client.Identi
 }
 
 // buildAzureRoleAssignments constructs a []client.IdentityAzureRoleAssignment from the given Terraform state.
-func (iro *IdentityResourceOperator) buildAzureRoleAssignments(state types.List) *[]client.IdentityAzureRoleAssignment {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.AzureAccessPolicyRoleAssignmentModel](iro.Ctx, iro.Diags, state)
+func (iro *IdentityResourceOperator) buildAzureRoleAssignments(state types.Set) *[]client.IdentityAzureRoleAssignment {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.AzureAccessPolicyRoleAssignmentModel](iro.Ctx, iro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -836,11 +836,11 @@ func (iro *IdentityResourceOperator) buildNgsResp(state types.List) *client.Iden
 }
 
 // buildNetworkResources constructs a []client.IdentityNetworkResource from the given Terraform state.
-func (iro *IdentityResourceOperator) buildNetworkResources(state types.List) *[]client.IdentityNetworkResource {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.NetworkResourceModel](iro.Ctx, iro.Diags, state)
+func (iro *IdentityResourceOperator) buildNetworkResources(state types.Set) *[]client.IdentityNetworkResource {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.NetworkResourceModel](iro.Ctx, iro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -869,11 +869,11 @@ func (iro *IdentityResourceOperator) buildNetworkResources(state types.List) *[]
 }
 
 // buildNativeNetworkResources constructs a []client.IdentityNativeNetworkResource from the given Terraform state.
-func (iro *IdentityResourceOperator) buildNativeNetworkResources(state types.List) *[]client.IdentityNativeNetworkResource {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.NativeNetworkResourceModel](iro.Ctx, iro.Diags, state)
+func (iro *IdentityResourceOperator) buildNativeNetworkResources(state types.Set) *[]client.IdentityNativeNetworkResource {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.NativeNetworkResourceModel](iro.Ctx, iro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -963,15 +963,15 @@ func (iro *IdentityResourceOperator) flattenAws(input *client.IdentityAws) types
 	return FlattenList(iro.Ctx, iro.Diags, []models.AwsAccessPolicyModel{block})
 }
 
-// flattenAwsTrustPolicy transforms *client.IdentityAwsTrustPolicy into a Terraform types.List.
-func (iro *IdentityResourceOperator) flattenAwsTrustPolicy(input *client.IdentityAwsTrustPolicy) types.List {
+// flattenAwsTrustPolicy transforms *client.IdentityAwsTrustPolicy into a Terraform types.Set.
+func (iro *IdentityResourceOperator) flattenAwsTrustPolicy(input *client.IdentityAwsTrustPolicy) types.Set {
 	// Get attribute types
 	elementType := models.AwsAccessPolicyTrustPolicyModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Build a single block
@@ -980,8 +980,8 @@ func (iro *IdentityResourceOperator) flattenAwsTrustPolicy(input *client.Identit
 		Statement: iro.flattenAwsTrustPolicyStatement(input.Statement),
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(iro.Ctx, iro.Diags, []models.AwsAccessPolicyTrustPolicyModel{block})
+	// Return the successfully created types.Set
+	return FlattenSet(iro.Ctx, iro.Diags, []models.AwsAccessPolicyTrustPolicyModel{block})
 }
 
 // flattenAwsTrustPolicyStatement transforms *[]map[string]interface{} into a Terraform types.List.
@@ -1113,15 +1113,15 @@ func (iro *IdentityResourceOperator) flattenGcpScopes(state *string, input *[]st
 	return types.StringValue(b.String())
 }
 
-// flattenGcpBinding transforms *[]client.IdentityGcpBinding into a Terraform types.List.
-func (iro *IdentityResourceOperator) flattenGcpBinding(input *[]client.IdentityGcpBinding) types.List {
+// flattenGcpBinding transforms *[]client.IdentityGcpBinding into a Terraform types.Set.
+func (iro *IdentityResourceOperator) flattenGcpBinding(input *[]client.IdentityGcpBinding) types.Set {
 	// Get attribute types
 	elementType := models.GcpAccessPolicyBindingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1139,8 +1139,8 @@ func (iro *IdentityResourceOperator) flattenGcpBinding(input *[]client.IdentityG
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(iro.Ctx, iro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(iro.Ctx, iro.Diags, blocks)
 }
 
 // flattenAzure transforms *client.IdentityAzure into a Terraform types.List.
@@ -1164,15 +1164,15 @@ func (iro *IdentityResourceOperator) flattenAzure(input *client.IdentityAzure) t
 	return FlattenList(iro.Ctx, iro.Diags, []models.AzureAccessPolicyModel{block})
 }
 
-// flattenAzureRoleAssignment transforms *[]client.IdentityAzureRoleAssignment into a Terraform types.List.
-func (iro *IdentityResourceOperator) flattenAzureRoleAssignment(input *[]client.IdentityAzureRoleAssignment) types.List {
+// flattenAzureRoleAssignment transforms *[]client.IdentityAzureRoleAssignment into a Terraform types.Set.
+func (iro *IdentityResourceOperator) flattenAzureRoleAssignment(input *[]client.IdentityAzureRoleAssignment) types.Set {
 	// Get attribute types
 	elementType := models.AzureAccessPolicyRoleAssignmentModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1190,8 +1190,8 @@ func (iro *IdentityResourceOperator) flattenAzureRoleAssignment(input *[]client.
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(iro.Ctx, iro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(iro.Ctx, iro.Diags, blocks)
 }
 
 // flattenNgs transforms *client.IdentityNgs into a Terraform types.List.
@@ -1262,15 +1262,15 @@ func (iro *IdentityResourceOperator) flattenNgsResp(input *client.IdentityNgsRes
 	return FlattenList(iro.Ctx, iro.Diags, []models.NgsAccessPolicyResponsesModel{block})
 }
 
-// flattenNetworkResources transforms *[]client.IdentityNetworkResource into a Terraform types.List.
-func (iro *IdentityResourceOperator) flattenNetworkResources(input *[]client.IdentityNetworkResource) types.List {
+// flattenNetworkResources transforms *[]client.IdentityNetworkResource into a Terraform types.Set.
+func (iro *IdentityResourceOperator) flattenNetworkResources(input *[]client.IdentityNetworkResource) types.Set {
 	// Get attribute types
 	elementType := models.NetworkResourceModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1292,19 +1292,19 @@ func (iro *IdentityResourceOperator) flattenNetworkResources(input *[]client.Ide
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(iro.Ctx, iro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(iro.Ctx, iro.Diags, blocks)
 }
 
-// flattenNativeNetworkResources transforms *[]client.IdentityNativeNetworkResource into a Terraform types.List.
-func (iro *IdentityResourceOperator) flattenNativeNetworkResources(input *[]client.IdentityNativeNetworkResource) types.List {
+// flattenNativeNetworkResources transforms *[]client.IdentityNativeNetworkResource into a Terraform types.Set.
+func (iro *IdentityResourceOperator) flattenNativeNetworkResources(input *[]client.IdentityNativeNetworkResource) types.Set {
 	// Get attribute types
 	elementType := models.NativeNetworkResourceModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1325,8 +1325,8 @@ func (iro *IdentityResourceOperator) flattenNativeNetworkResources(input *[]clie
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(iro.Ctx, iro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(iro.Ctx, iro.Diags, blocks)
 }
 
 // flattenAwsPrivateLink transforms *client.IdentityAwsPrivateLink into a Terraform types.List.

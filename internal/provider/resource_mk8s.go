@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -38,7 +39,7 @@ type Mk8sResourceModel struct {
 	EntityBaseModel
 	Alias                types.String `tfsdk:"alias"`
 	Version              types.String `tfsdk:"version"`
-	Firewall             types.List   `tfsdk:"firewall"`
+	Firewall             types.Set    `tfsdk:"firewall"`
 	GenericProvider      types.List   `tfsdk:"generic_provider"`
 	HetznerProvider      types.List   `tfsdk:"hetzner_provider"`
 	AwsProvider          types.List   `tfsdk:"aws_provider"`
@@ -193,7 +194,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 			},
 		}),
 		Blocks: map[string]schema.Block{
-			"firewall": schema.ListNestedBlock{
+			"firewall": schema.SetNestedBlock{
 				Description: "Allow-list.",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -207,8 +208,8 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						},
 					},
 				},
-				Validators: []validator.List{
-					listvalidator.IsRequired(),
+				Validators: []validator.Set{
+					setvalidator.IsRequired(),
 				},
 			},
 			"generic_provider": schema.ListNestedBlock{
@@ -273,7 +274,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					},
 					Blocks: map[string]schema.Block{
 						"networking": mr.NetworkingSchema(),
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -353,7 +354,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					Blocks: map[string]schema.Block{
 						"networking": mr.NetworkingSchema(),
 						"image":      mr.AwsAmiSchema(),
-						"deploy_role_chain": schema.ListNestedBlock{
+						"deploy_role_chain": schema.SetNestedBlock{
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -372,7 +373,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								},
 							},
 						},
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -470,7 +471,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						"pre_install_script": mr.PreInstallScriptSchema(),
 					},
 					Blocks: map[string]schema.Block{
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -524,7 +525,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						"pre_install_script": mr.PreInstallScriptSchema(),
 					},
 					Blocks: map[string]schema.Block{
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -574,7 +575,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						"pre_install_script": mr.PreInstallScriptSchema(),
 					},
 					Blocks: map[string]schema.Block{
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -629,7 +630,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						},
 					},
 					Blocks: map[string]schema.Block{
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -673,7 +674,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						},
 					},
 					Blocks: map[string]schema.Block{
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -874,7 +875,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								listvalidator.SizeAtMost(1),
 							},
 						},
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -956,7 +957,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					Blocks: map[string]schema.Block{
 						"networking": mr.NetworkingSchema(),
 						"image":      mr.AzureImageSchema("Default image for all nodes."),
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -1039,7 +1040,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					},
 					Blocks: map[string]schema.Block{
 						"networking": mr.NetworkingSchema(),
-						"node_pool": schema.ListNestedBlock{
+						"node_pool": schema.SetNestedBlock{
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -1210,7 +1211,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Blocks: map[string]schema.Block{
-									"mirror": schema.ListNestedBlock{
+									"mirror": schema.SetNestedBlock{
 										Description: "",
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
@@ -1349,8 +1350,8 @@ func (mr *Mk8sResource) NetworkingSchema() schema.ListNestedBlock {
 }
 
 // GenericNodePoolSchema returns the schema for a generic node pool nested block.
-func (mr *Mk8sResource) GenericNodePoolSchema(description string) schema.ListNestedBlock {
-	return schema.ListNestedBlock{
+func (mr *Mk8sResource) GenericNodePoolSchema(description string) schema.SetNestedBlock {
+	return schema.SetNestedBlock{
 		Description: description,
 		NestedObject: schema.NestedBlockObject{
 			Attributes: map[string]schema.Attribute{
@@ -1382,8 +1383,8 @@ func (mr *Mk8sResource) GenericNodePoolLabelsSchema() schema.MapAttribute {
 }
 
 // GenericNodePoolTaintsSchema returns the schema for the generic node pool taints nested block.
-func (mr *Mk8sResource) GenericNodePoolTaintsSchema() schema.ListNestedBlock {
-	return schema.ListNestedBlock{
+func (mr *Mk8sResource) GenericNodePoolTaintsSchema() schema.SetNestedBlock {
+	return schema.SetNestedBlock{
 		Description: "Taint for the nodes of a pool.",
 		NestedObject: schema.NestedBlockObject{
 			Attributes: map[string]schema.Attribute{
@@ -1684,11 +1685,11 @@ func (mro *Mk8sResourceOperator) InvokeDelete(name string) error {
 // Builders //
 
 // buildFirewall constructs a []client.Mk8sFirewallRule from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildFirewall(state types.List) *[]client.Mk8sFirewallRule {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.FirewallModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildFirewall(state types.Set) *[]client.Mk8sFirewallRule {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.FirewallModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1777,11 +1778,11 @@ func (mro *Mk8sResourceOperator) buildGenericProvider(state types.List) *client.
 }
 
 // buildGenericProviderNodePools constructs a []client.Mk8sGenericPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildGenericProviderNodePools(state types.List) *[]client.Mk8sGenericPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.GenericProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildGenericProviderNodePools(state types.Set) *[]client.Mk8sGenericPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.GenericProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1807,11 +1808,11 @@ func (mro *Mk8sResourceOperator) buildGenericProviderNodePools(state types.List)
 }
 
 // buildGenericProviderNodePoolTaints constructs a []client.Mk8sTaint from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildGenericProviderNodePoolTaints(state types.List) *[]client.Mk8sTaint {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.GenericProviderNodePoolTaintModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildGenericProviderNodePoolTaints(state types.Set) *[]client.Mk8sTaint {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.GenericProviderNodePoolTaintModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1868,11 +1869,11 @@ func (mro *Mk8sResourceOperator) buildHetznerProvider(state types.List) *client.
 }
 
 // buildHetznerProviderNodePools constructs a []client.Mk8sHetznerPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildHetznerProviderNodePools(state types.List) *[]client.Mk8sHetznerPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.HetznerProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildHetznerProviderNodePools(state types.Set) *[]client.Mk8sHetznerPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.HetznerProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1957,11 +1958,11 @@ func (mro *Mk8sResourceOperator) buildAwsAmi(state types.List) *client.Mk8sAwsAm
 }
 
 // buildAwsAssumeRoleLink constructs a []client.Mk8sAwsAssumeRoleLink from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAwsAssumeRoleLink(state types.List) *[]client.Mk8sAwsAssumeRoleLink {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.AwsProviderAssumeRoleLinkModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildAwsAssumeRoleLink(state types.Set) *[]client.Mk8sAwsAssumeRoleLink {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.AwsProviderAssumeRoleLinkModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1987,11 +1988,11 @@ func (mro *Mk8sResourceOperator) buildAwsAssumeRoleLink(state types.List) *[]cli
 }
 
 // buildAwsProviderNodePools constructs a []client.Mk8sAwsPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAwsProviderNodePools(state types.List) *[]client.Mk8sAwsPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.AwsProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildAwsProviderNodePools(state types.Set) *[]client.Mk8sAwsPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.AwsProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2058,11 +2059,11 @@ func (mro *Mk8sResourceOperator) buildLinodeProvider(state types.List) *client.M
 }
 
 // buildLinodeProviderNodePools constructs a []client.Mk8sLinodePool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildLinodeProviderNodePools(state types.List) *[]client.Mk8sLinodePool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.LinodeProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildLinodeProviderNodePools(state types.Set) *[]client.Mk8sLinodePool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LinodeProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2120,11 +2121,11 @@ func (mro *Mk8sResourceOperator) buildOblivusProvider(state types.List) *client.
 }
 
 // buildOblivusProviderNodePools constructs a []client.Mk8sOblivusPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildOblivusProviderNodePools(state types.List) *[]client.Mk8sOblivusPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.OblivusProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildOblivusProviderNodePools(state types.Set) *[]client.Mk8sOblivusPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.OblivusProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2181,11 +2182,11 @@ func (mro *Mk8sResourceOperator) buildLambdalabsProvider(state types.List) *clie
 }
 
 // buildLambdalabsProviderNodePools constructs a []client.Mk8sLambdalabsPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildLambdalabsProviderNodePools(state types.List) *[]client.Mk8sLambdalabsPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.LambdalabsProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildLambdalabsProviderNodePools(state types.Set) *[]client.Mk8sLambdalabsPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LambdalabsProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2243,11 +2244,11 @@ func (mro *Mk8sResourceOperator) buildPaperspaceProvider(state types.List) *clie
 }
 
 // buildPaperspaceProviderNodePools constructs a []client.Mk8sPaperspacePool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildPaperspaceProviderNodePools(state types.List) *[]client.Mk8sPaperspacePool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.PaperspaceProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildPaperspaceProviderNodePools(state types.Set) *[]client.Mk8sPaperspacePool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.PaperspaceProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2300,11 +2301,11 @@ func (mro *Mk8sResourceOperator) buildEphemeralProvider(state types.List) *clien
 }
 
 // buildEphemeralProviderNodePools constructs a []client.Mk8sEphemeralPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildEphemeralProviderNodePools(state types.List) *[]client.Mk8sEphemeralPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.EphemeralProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildEphemeralProviderNodePools(state types.Set) *[]client.Mk8sEphemeralPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.EphemeralProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2470,11 +2471,11 @@ func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerGateway(state ty
 }
 
 // buildTritonProviderNodePools constructs a []client.Mk8sTritonPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildTritonProviderNodePools(state types.List) *[]client.Mk8sTritonPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.TritonProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildTritonProviderNodePools(state types.Set) *[]client.Mk8sTritonPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.TritonProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2581,11 +2582,11 @@ func (mro *Mk8sResourceOperator) buildAzureProviderImageReference(state types.Li
 }
 
 // buildAzureProviderNodePools constructs a []client.Mk8sAzurePool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAzureProviderNodePools(state types.List) *[]client.Mk8sAzurePool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.AzureProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildAzureProviderNodePools(state types.Set) *[]client.Mk8sAzurePool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.AzureProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2650,11 +2651,11 @@ func (mro *Mk8sResourceOperator) buildDigitalOceanProvider(state types.List) *cl
 }
 
 // buildDigitalOceanProviderNodePools constructs a []client.Mk8sDigitalOceanPool from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildDigitalOceanProviderNodePools(state types.List) *[]client.Mk8sDigitalOceanPool {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.DigitalOceanProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildDigitalOceanProviderNodePools(state types.Set) *[]client.Mk8sDigitalOceanPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.DigitalOceanProviderNodePoolModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2841,11 +2842,11 @@ func (mro *Mk8sResourceOperator) buildAddOnRegistryMirror(state types.List) *cli
 }
 
 // buildAddOnRegistryConfig constructs a []client.Mk8sAddOnRegistryConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state types.List) *[]client.Mk8sAddOnRegistryConfig {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.AddOnsRegistryConfig](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state types.Set) *[]client.Mk8sAddOnRegistryConfig {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.AddOnsRegistryConfig](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2928,15 +2929,15 @@ func (mro *Mk8sResourceOperator) buildAddOnAzureAcr(state types.List) *client.Mk
 
 // Flatteners //
 
-// flattenFirewall transforms *[]client.Mk8sFirewallRule into a types.List.
-func (mro *Mk8sResourceOperator) flattenFirewall(input *[]client.Mk8sFirewallRule) types.List {
+// flattenFirewall transforms *[]client.Mk8sFirewallRule into a types.Set.
+func (mro *Mk8sResourceOperator) flattenFirewall(input *[]client.Mk8sFirewallRule) types.Set {
 	// Get attribute types
 	elementType := models.FirewallModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -2954,8 +2955,8 @@ func (mro *Mk8sResourceOperator) flattenFirewall(input *[]client.Mk8sFirewallRul
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenNetworking transforms *client.Mk8sNetworkingConfig into a types.List.
@@ -3025,15 +3026,15 @@ func (mro *Mk8sResourceOperator) flattenGenericProvider(input *client.Mk8sGeneri
 	return FlattenList(mro.Ctx, mro.Diags, []models.GenericProviderModel{block})
 }
 
-// flattenGenericProviderNodePools transforms *[]client.Mk8sGenericPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenGenericProviderNodePools(input *[]client.Mk8sGenericPool) types.List {
+// flattenGenericProviderNodePools transforms *[]client.Mk8sGenericPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenGenericProviderNodePools(input *[]client.Mk8sGenericPool) types.Set {
 	// Get attribute types
 	elementType := models.GenericProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3052,19 +3053,19 @@ func (mro *Mk8sResourceOperator) flattenGenericProviderNodePools(input *[]client
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
-// flattenGenericProviderNodePoolTaints transforms *[]client.Mk8sTaint into a types.List.
-func (mro *Mk8sResourceOperator) flattenGenericProviderNodePoolTaints(input *[]client.Mk8sTaint) types.List {
+// flattenGenericProviderNodePoolTaints transforms *[]client.Mk8sTaint into a types.Set.
+func (mro *Mk8sResourceOperator) flattenGenericProviderNodePoolTaints(input *[]client.Mk8sTaint) types.Set {
 	// Get attribute types
 	elementType := models.GenericProviderNodePoolTaintModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3083,8 +3084,8 @@ func (mro *Mk8sResourceOperator) flattenGenericProviderNodePoolTaints(input *[]c
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenHetznerProvider transforms *client.Mk8sHetznerProvider into a types.List.
@@ -3119,15 +3120,15 @@ func (mro *Mk8sResourceOperator) flattenHetznerProvider(input *client.Mk8sHetzne
 	return FlattenList(mro.Ctx, mro.Diags, []models.HetznerProviderModel{block})
 }
 
-// flattenHetznerProviderNodePools transforms *[]client.Mk8sHetznerPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenHetznerProviderNodePools(input *[]client.Mk8sHetznerPool) types.List {
+// flattenHetznerProviderNodePools transforms *[]client.Mk8sHetznerPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenHetznerProviderNodePools(input *[]client.Mk8sHetznerPool) types.Set {
 	// Get attribute types
 	elementType := models.HetznerProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3152,8 +3153,8 @@ func (mro *Mk8sResourceOperator) flattenHetznerProviderNodePools(input *[]client
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenAwsProvider transforms *client.Mk8sAwsProvider into a types.List.
@@ -3211,15 +3212,15 @@ func (mro *Mk8sResourceOperator) flattenAwsAmi(input *client.Mk8sAwsAmi) types.L
 	return FlattenList(mro.Ctx, mro.Diags, []models.AwsProviderAmiModel{block})
 }
 
-// flattenAwsAssumeRoleLink transforms *[]client.Mk8sAwsAssumeRoleLink into a types.List.
-func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAwsAssumeRoleLink) types.List {
+// flattenAwsAssumeRoleLink transforms *[]client.Mk8sAwsAssumeRoleLink into a types.Set.
+func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAwsAssumeRoleLink) types.Set {
 	// Get attribute types
 	elementType := models.AwsProviderAssumeRoleLinkModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3238,19 +3239,19 @@ func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAw
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
-// flattenAwsProviderNodePools transforms *[]client.Mk8sAwsPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8sAwsPool) types.List {
+// flattenAwsProviderNodePools transforms *[]client.Mk8sAwsPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8sAwsPool) types.Set {
 	// Get attribute types
 	elementType := models.AwsProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3281,8 +3282,8 @@ func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenLinodeProvider transforms *client.Mk8sLinodeProvider into a types.List.
@@ -3315,15 +3316,15 @@ func (mro *Mk8sResourceOperator) flattenLinodeProvider(input *client.Mk8sLinodeP
 	return FlattenList(mro.Ctx, mro.Diags, []models.LinodeProviderModel{block})
 }
 
-// flattenLinodeProviderNodePools transforms *[]client.Mk8sLinodePool into a types.List.
-func (mro *Mk8sResourceOperator) flattenLinodeProviderNodePools(input *[]client.Mk8sLinodePool) types.List {
+// flattenLinodeProviderNodePools transforms *[]client.Mk8sLinodePool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenLinodeProviderNodePools(input *[]client.Mk8sLinodePool) types.Set {
 	// Get attribute types
 	elementType := models.LinodeProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3349,8 +3350,8 @@ func (mro *Mk8sResourceOperator) flattenLinodeProviderNodePools(input *[]client.
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenOblivusProvider transforms *client.Mk8sOblivusProvider into a types.List.
@@ -3379,15 +3380,15 @@ func (mro *Mk8sResourceOperator) flattenOblivusProvider(input *client.Mk8sOblivu
 	return FlattenList(mro.Ctx, mro.Diags, []models.OblivusProviderModel{block})
 }
 
-// flattenOblivusProviderNodePools transforms *[]client.Mk8sOblivusPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenOblivusProviderNodePools(input *[]client.Mk8sOblivusPool) types.List {
+// flattenOblivusProviderNodePools transforms *[]client.Mk8sOblivusPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenOblivusProviderNodePools(input *[]client.Mk8sOblivusPool) types.Set {
 	// Get attribute types
 	elementType := models.OblivusProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3411,8 +3412,8 @@ func (mro *Mk8sResourceOperator) flattenOblivusProviderNodePools(input *[]client
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenLambdalabsProvider transforms *client.Mk8sLambdalabsProvider into a types.List.
@@ -3442,15 +3443,15 @@ func (mro *Mk8sResourceOperator) flattenLambdalabsProvider(input *client.Mk8sLam
 	return FlattenList(mro.Ctx, mro.Diags, []models.LambdalabsProviderModel{block})
 }
 
-// flattenLambdalabsProviderNodePools transforms *[]client.Mk8sLambdalabsPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenLambdalabsProviderNodePools(input *[]client.Mk8sLambdalabsPool) types.List {
+// flattenLambdalabsProviderNodePools transforms *[]client.Mk8sLambdalabsPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenLambdalabsProviderNodePools(input *[]client.Mk8sLambdalabsPool) types.Set {
 	// Get attribute types
 	elementType := models.LambdalabsProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3474,8 +3475,8 @@ func (mro *Mk8sResourceOperator) flattenLambdalabsProviderNodePools(input *[]cli
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenPaperspaceProvider transforms *client.Mk8sPaperspaceProvider into a types.List.
@@ -3506,15 +3507,15 @@ func (mro *Mk8sResourceOperator) flattenPaperspaceProvider(input *client.Mk8sPap
 	return FlattenList(mro.Ctx, mro.Diags, []models.PaperspaceProviderModel{block})
 }
 
-// flattenPaperspaceProviderNodePools transforms *[]client.Mk8sPaperspacePool into a types.List.
-func (mro *Mk8sResourceOperator) flattenPaperspaceProviderNodePools(input *[]client.Mk8sPaperspacePool) types.List {
+// flattenPaperspaceProviderNodePools transforms *[]client.Mk8sPaperspacePool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenPaperspaceProviderNodePools(input *[]client.Mk8sPaperspacePool) types.Set {
 	// Get attribute types
 	elementType := models.PaperspaceProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3540,8 +3541,8 @@ func (mro *Mk8sResourceOperator) flattenPaperspaceProviderNodePools(input *[]cli
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenEphemeralProvider transforms *client.Mk8sEphemeralProvider into a types.List.
@@ -3565,15 +3566,15 @@ func (mro *Mk8sResourceOperator) flattenEphemeralProvider(input *client.Mk8sEphe
 	return FlattenList(mro.Ctx, mro.Diags, []models.EphemeralProviderModel{block})
 }
 
-// flattenEphemeralProviderNodePools transforms *[]client.Mk8sEphemeralPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenEphemeralProviderNodePools(input *[]client.Mk8sEphemeralPool) types.List {
+// flattenEphemeralProviderNodePools transforms *[]client.Mk8sEphemeralPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenEphemeralProviderNodePools(input *[]client.Mk8sEphemeralPool) types.Set {
 	// Get attribute types
 	elementType := models.EphemeralProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3599,8 +3600,8 @@ func (mro *Mk8sResourceOperator) flattenEphemeralProviderNodePools(input *[]clie
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenTritonProvider transforms *client.Mk8sTritonProvider into a types.List.
@@ -3742,15 +3743,15 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerGateway(input 
 	return FlattenList(mro.Ctx, mro.Diags, []models.TritonProviderLoadBalancerGatewayModel{{}})
 }
 
-// flattenTritonProviderNodePools transforms *[]client.Mk8sTritonPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenTritonProviderNodePools(input *[]client.Mk8sTritonPool) types.List {
+// flattenTritonProviderNodePools transforms *[]client.Mk8sTritonPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenTritonProviderNodePools(input *[]client.Mk8sTritonPool) types.Set {
 	// Get attribute types
 	elementType := models.TritonProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3778,8 +3779,8 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderNodePools(input *[]client.
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenAzureProvider transforms *client.Mk8sAzureProvider into a types.List.
@@ -3857,15 +3858,15 @@ func (mro *Mk8sResourceOperator) flattenAzureProviderImageReference(input *clien
 	return FlattenList(mro.Ctx, mro.Diags, []models.AzureProviderImageReferenceModel{block})
 }
 
-// flattenAzureProviderNodePools transforms *[]client.Mk8sAzurePool into a types.List.
-func (mro *Mk8sResourceOperator) flattenAzureProviderNodePools(input *[]client.Mk8sAzurePool) types.List {
+// flattenAzureProviderNodePools transforms *[]client.Mk8sAzurePool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenAzureProviderNodePools(input *[]client.Mk8sAzurePool) types.Set {
 	// Get attribute types
 	elementType := models.AzureProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3893,8 +3894,8 @@ func (mro *Mk8sResourceOperator) flattenAzureProviderNodePools(input *[]client.M
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenDigitalOceanProvider transforms *client.Mk8sDigitalOceanProvider into a types.List.
@@ -3928,15 +3929,15 @@ func (mro *Mk8sResourceOperator) flattenDigitalOceanProvider(input *client.Mk8sD
 	return FlattenList(mro.Ctx, mro.Diags, []models.DigitalOceanProviderModel{block})
 }
 
-// flattenDigitalOceanProviderNodePools transforms *[]client.Mk8sDigitalOceanPool into a types.List.
-func (mro *Mk8sResourceOperator) flattenDigitalOceanProviderNodePools(input *[]client.Mk8sDigitalOceanPool) types.List {
+// flattenDigitalOceanProviderNodePools transforms *[]client.Mk8sDigitalOceanPool into a types.Set.
+func (mro *Mk8sResourceOperator) flattenDigitalOceanProviderNodePools(input *[]client.Mk8sDigitalOceanPool) types.Set {
 	// Get attribute types
 	elementType := models.DigitalOceanProviderNodePoolModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3961,8 +3962,8 @@ func (mro *Mk8sResourceOperator) flattenDigitalOceanProviderNodePools(input *[]c
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenAddOns transforms *client.Mk8sSpecAddOns into a types.List.
@@ -4146,15 +4147,15 @@ func (mro *Mk8sResourceOperator) flattenAddOnRegistryMirror(input *client.Mk8sRe
 	return FlattenList(mro.Ctx, mro.Diags, []models.AddOnsRegistryMirror{block})
 }
 
-// flattenAddOnRegistryConfig transforms *[]client.Mk8sAddOnRegistryConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8sAddOnRegistryConfig) types.List {
+// flattenAddOnRegistryConfig transforms *[]client.Mk8sAddOnRegistryConfig into a types.Set.
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8sAddOnRegistryConfig) types.Set {
 	// Get attribute types
 	elementType := models.AddOnsRegistryConfig{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -4172,8 +4173,8 @@ func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8s
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenAddOnNvidia transforms *client.Mk8sNvidiaAddOnConfig into a types.List.
