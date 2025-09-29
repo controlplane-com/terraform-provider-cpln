@@ -69,8 +69,9 @@ type GvcLoadBalancerRedirectClass struct {
 }
 
 type GvcKeda struct {
-	Enabled      *bool   `json:"enabled,omitempty"`
-	IdentityLink *string `json:"identityLink,omitempty"`
+	Enabled      *bool     `json:"enabled,omitempty"`
+	IdentityLink *string   `json:"identityLink,omitempty"`
+	Secrets      *[]string `json:"secrets,omitempty"`
 }
 
 // GetGvcs - Get All Gvcs

@@ -90,6 +90,7 @@ func (l LoadBalancerRedirectClassModel) AttributeTypes() attr.Type {
 type KedaModel struct {
 	Enabled      types.Bool   `tfsdk:"enabled"`
 	IdentityLink types.String `tfsdk:"identity_link"`
+	Secrets      types.Set    `tfsdk:"secrets"`
 }
 
 func (k KedaModel) AttributeTypes() attr.Type {
@@ -97,6 +98,7 @@ func (k KedaModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"enabled":       types.BoolType,
 			"identity_link": types.StringType,
+			"secrets":       types.SetType{ElemType: types.StringType},
 		},
 	}
 }
