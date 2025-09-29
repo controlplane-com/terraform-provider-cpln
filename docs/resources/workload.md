@@ -408,6 +408,17 @@ Optional:
 - **name** (String) An optional name for the trigger. If not provided, a default name will be generated based on the trigger type.
 - **use_cached_metrics** (String) Enables caching of metric values during polling interval.
 - **metric_type** (String) The type of metric to be used for scaling. Exactly One Of: ["AverageValue", "Value", "Utilization"].
+- **authentication_ref** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda--trigger--authentication_ref))
+
+<a id="nestedblock--options--autoscaling--keda--trigger--authentication_ref"></a>
+
+### `options.autoscaling.keda.trigger.authentication_ref`
+
+Reference to a KEDA authentication object for secure access to external systems.
+
+Required:
+
+- **name** (String) The name of secret listed in the GVC spec.keda.secrets.
 
 <a id="nestedblock--options--autoscaling--keda--advanced"></a>
 
@@ -962,6 +973,10 @@ resource "cpln_workload" "new" {
             type  = "Utilization"
             value = "50"
           }
+
+          authentication_ref {
+            name = "rabbitmq-auth-01"
+          }
         }
 
         trigger {
@@ -974,6 +989,10 @@ resource "cpln_workload" "new" {
             host        = "amqp://user:pass@rabbitmq:5672/"
             queueName   = "jobs"
             queueLength = "30"
+          }
+
+          authentication_ref {
+            name = "rabbitmq-auth-02"
           }
         }
 
@@ -1900,6 +1919,10 @@ resource "cpln_workload" "new" {
             type  = "Utilization"
             value = "50"
           }
+
+          authentication_ref {
+            name = "rabbitmq-auth-01"
+          }
         }
 
         trigger {
@@ -1912,6 +1935,10 @@ resource "cpln_workload" "new" {
             host        = "amqp://user:pass@rabbitmq:5672/"
             queueName   = "jobs"
             queueLength = "30"
+          }
+
+          authentication_ref {
+            name = "rabbitmq-auth-02"
           }
         }
 

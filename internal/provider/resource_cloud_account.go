@@ -130,6 +130,9 @@ func (car *CloudAccountResource) Schema(ctx context.Context, req resource.Schema
 						},
 					},
 				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
 			"gcp": schema.ListNestedBlock{
 				Description: "Contains GCP cloud account configuration.",

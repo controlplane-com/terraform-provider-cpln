@@ -15,7 +15,7 @@ type ContainerModel struct {
 	WorkingDirectory types.String `tfsdk:"working_directory"`
 	Metrics          types.List   `tfsdk:"metrics"`
 	Port             types.Int32  `tfsdk:"port"`
-	Ports            types.List   `tfsdk:"ports"`
+	Ports            types.Set    `tfsdk:"ports"`
 	Memory           types.String `tfsdk:"memory"`
 	ReadinessProbe   types.List   `tfsdk:"readiness_probe"`
 	LivenessProbe    types.List   `tfsdk:"liveness_probe"`
@@ -29,7 +29,7 @@ type ContainerModel struct {
 	Command          types.String `tfsdk:"command"`
 	Args             types.List   `tfsdk:"args"`
 	Lifecycle        types.List   `tfsdk:"lifecycle"`
-	Volumes          types.List   `tfsdk:"volume"`
+	Volumes          types.Set    `tfsdk:"volume"`
 }
 
 func (c ContainerModel) AttributeTypes() attr.Type {
@@ -40,7 +40,7 @@ func (c ContainerModel) AttributeTypes() attr.Type {
 			"working_directory": types.StringType,
 			"metrics":           types.ListType{ElemType: ContainerMetricsModel{}.AttributeTypes()},
 			"port":              types.Int32Type,
-			"ports":             types.ListType{ElemType: ContainerPortModel{}.AttributeTypes()},
+			"ports":             types.SetType{ElemType: ContainerPortModel{}.AttributeTypes()},
 			"memory":            types.StringType,
 			"readiness_probe":   types.ListType{ElemType: ContainerHealthCheckModel{}.AttributeTypes()},
 			"liveness_probe":    types.ListType{ElemType: ContainerHealthCheckModel{}.AttributeTypes()},
@@ -54,7 +54,7 @@ func (c ContainerModel) AttributeTypes() attr.Type {
 			"command":           types.StringType,
 			"args":              types.ListType{ElemType: types.StringType},
 			"lifecycle":         types.ListType{ElemType: ContainerLifecycleModel{}.AttributeTypes()},
-			"volume":            types.ListType{ElemType: ContainerVolumeModel{}.AttributeTypes()},
+			"volume":            types.SetType{ElemType: ContainerVolumeModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -287,7 +287,7 @@ type FirewallExternalModel struct {
 	InboundAllowCidr      types.Set  `tfsdk:"inbound_allow_cidr"`
 	InboundBlockedCidr    types.Set  `tfsdk:"inbound_blocked_cidr"`
 	OutboundAllowHostname types.Set  `tfsdk:"outbound_allow_hostname"`
-	OutboundAllowPort     types.List `tfsdk:"outbound_allow_port"`
+	OutboundAllowPort     types.Set  `tfsdk:"outbound_allow_port"`
 	OutboundAllowCidr     types.Set  `tfsdk:"outbound_allow_cidr"`
 	OutboundBlockedCidr   types.Set  `tfsdk:"outbound_blocked_cidr"`
 	Http                  types.List `tfsdk:"http"`
@@ -299,7 +299,7 @@ func (f FirewallExternalModel) AttributeTypes() attr.Type {
 			"inbound_allow_cidr":      types.SetType{ElemType: types.StringType},
 			"inbound_blocked_cidr":    types.SetType{ElemType: types.StringType},
 			"outbound_allow_hostname": types.SetType{ElemType: types.StringType},
-			"outbound_allow_port":     types.ListType{ElemType: FirewallExternalOutboundAllowPortModel{}.AttributeTypes()},
+			"outbound_allow_port":     types.SetType{ElemType: FirewallExternalOutboundAllowPortModel{}.AttributeTypes()},
 			"outbound_allow_cidr":     types.SetType{ElemType: types.StringType},
 			"outbound_blocked_cidr":   types.SetType{ElemType: types.StringType},
 			"http":                    types.ListType{ElemType: FirewallExternalHttpModel{}.AttributeTypes()},
@@ -326,13 +326,13 @@ func (f FirewallExternalOutboundAllowPortModel) AttributeTypes() attr.Type {
 // Firewall -> External -> HTTP //
 
 type FirewallExternalHttpModel struct {
-	InboundHeaderFilter types.List `tfsdk:"inbound_header_filter"`
+	InboundHeaderFilter types.Set `tfsdk:"inbound_header_filter"`
 }
 
 func (f FirewallExternalHttpModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"inbound_header_filter": types.ListType{ElemType: FirewallExternalHttpHeaderFilterModel{}.AttributeTypes()},
+			"inbound_header_filter": types.SetType{ElemType: FirewallExternalHttpHeaderFilterModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -466,11 +466,12 @@ func (o OptionsAutoscalingKedaModel) AttributeTypes() attr.Type {
 // Options -> Autoscaling -> Keda -> Trigger //
 
 type OptionsAutoscalingKedaTriggerModel struct {
-	Type             types.String `tfsdk:"type"`
-	Metadata         types.Map    `tfsdk:"metadata"`
-	Name             types.String `tfsdk:"name"`
-	UseCachedMetrics types.Bool   `tfsdk:"use_cached_metrics"`
-	MetricType       types.String `tfsdk:"metric_type"`
+	Type              types.String `tfsdk:"type"`
+	Metadata          types.Map    `tfsdk:"metadata"`
+	Name              types.String `tfsdk:"name"`
+	UseCachedMetrics  types.Bool   `tfsdk:"use_cached_metrics"`
+	MetricType        types.String `tfsdk:"metric_type"`
+	AuthenticationRef types.List   `tfsdk:"authentication_ref"`
 }
 
 func (o OptionsAutoscalingKedaTriggerModel) AttributeTypes() attr.Type {
@@ -481,6 +482,21 @@ func (o OptionsAutoscalingKedaTriggerModel) AttributeTypes() attr.Type {
 			"name":               types.StringType,
 			"use_cached_metrics": types.BoolType,
 			"metric_type":        types.StringType,
+			"authentication_ref": types.ListType{ElemType: OptionsAutoscalingKedaTriggerAuthenticationRefModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Trigger -> Authentication Ref //
+
+type OptionsAutoscalingKedaTriggerAuthenticationRefModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+func (o OptionsAutoscalingKedaTriggerAuthenticationRefModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name": types.StringType,
 		},
 	}
 }
@@ -651,7 +667,7 @@ func (l LoadBalancerModel) AttributeTypes() attr.Type {
 
 type LoadBalancerDirectModel struct {
 	Enabled types.Bool   `tfsdk:"enabled"`
-	Ports   types.List   `tfsdk:"port"`
+	Ports   types.Set    `tfsdk:"port"`
 	IpSet   types.String `tfsdk:"ipset"`
 }
 
@@ -659,7 +675,7 @@ func (l LoadBalancerDirectModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"enabled": types.BoolType,
-			"port":    types.ListType{ElemType: LoadBalancerDirectPortModel{}.AttributeTypes()},
+			"port":    types.SetType{ElemType: LoadBalancerDirectPortModel{}.AttributeTypes()},
 			"ipset":   types.StringType,
 		},
 	}

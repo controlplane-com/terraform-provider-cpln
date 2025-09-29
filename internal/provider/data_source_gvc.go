@@ -211,6 +211,11 @@ func (d *GvcDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 								validators.LinkValidator{},
 							},
 						},
+						"secrets": schema.SetAttribute{
+							Description: "A list of secrets to be used as TriggerAuthentication objects. The TriggerAuthentication object will be named after the secret and can be used by triggers on workloads in this GVC.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
 					},
 				},
 				Validators: []validator.List{

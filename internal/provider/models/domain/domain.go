@@ -56,7 +56,7 @@ func (s SpecPortsModel) AttributeTypes() attr.Type {
 // Spec -> Ports -> Cors //
 
 type SpecPortsCorsModel struct {
-	AllowOrigins     types.List   `tfsdk:"allow_origins"`
+	AllowOrigins     types.Set    `tfsdk:"allow_origins"`
 	AllowMethods     types.Set    `tfsdk:"allow_methods"`
 	AllowHeaders     types.Set    `tfsdk:"allow_headers"`
 	ExposeHeaders    types.Set    `tfsdk:"expose_headers"`
@@ -67,7 +67,7 @@ type SpecPortsCorsModel struct {
 func (s SpecPortsCorsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"allow_origins":     types.ListType{ElemType: SpecPortsCorsAllowOriginsModel{}.AttributeTypes()},
+			"allow_origins":     types.SetType{ElemType: SpecPortsCorsAllowOriginsModel{}.AttributeTypes()},
 			"allow_methods":     types.SetType{ElemType: types.StringType},
 			"allow_headers":     types.SetType{ElemType: types.StringType},
 			"expose_headers":    types.SetType{ElemType: types.StringType},
