@@ -1,3 +1,10 @@
+## 1.2.10
+
+- Add acceptAllSubdomains, certChallengeType and workloadLink to domain resource.
+- Add authentication_ref to workload KEDA.
+- Add secrets to GVC KEDA.
+- Switch between List & Set usage when necessary.
+
 ## 1.2.9
 
 - Add KEDA to workload and GVC resources.
