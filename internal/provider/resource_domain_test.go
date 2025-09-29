@@ -227,9 +227,11 @@ func (drt *DomainResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			c.TestCheckNestedBlocks("spec", []map[string]interface{}{
 				{
-					"dns_mode":         "cname",
-					"gvc_link":         "/org/terraform-test-org/gvc/gvc-01",
-					"accept_all_hosts": "false",
+					"dns_mode":              "cname",
+					"gvc_link":              "/org/terraform-test-org/gvc/gvc-01",
+					"cert_challenge_type":   "dns01",
+					"accept_all_hosts":      "false",
+					"accept_all_subdomains": "true",
 					"ports": []map[string]interface{}{
 						{
 							"number":   "443",
@@ -342,9 +344,11 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			c.TestCheckNestedBlocks("spec", []map[string]interface{}{
 				{
-					"dns_mode":         "cname",
-					"gvc_link":         "/org/terraform-test-org/gvc/gvc-01",
-					"accept_all_hosts": "false",
+					"dns_mode":              "cname",
+					"gvc_link":              "/org/terraform-test-org/gvc/gvc-01",
+					"cert_challenge_type":   "http01",
+					"accept_all_hosts":      "false",
+					"accept_all_subdomains": "false",
 					"ports": []map[string]interface{}{
 						{
 							"number":   "443",
@@ -760,9 +764,11 @@ resource "cpln_domain" "%s" {
   }
 
   spec {
-    dns_mode         = "cname"
-    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
-    accept_all_hosts = false
+    dns_mode              = "cname"
+    gvc_link              = "/org/terraform-test-org/gvc/gvc-01"
+    cert_challenge_type   = "dns01"
+    accept_all_hosts      = false
+    accept_all_subdomains = true
 
     ports {
       number = 443
@@ -872,9 +878,11 @@ resource "cpln_domain" "%s" {
   }
 
   spec {
-    dns_mode         = "cname"
-    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
-    accept_all_hosts = false
+    dns_mode              = "cname"
+    gvc_link              = "/org/terraform-test-org/gvc/gvc-01"
+    cert_challenge_type   = "http01"
+    accept_all_hosts      = false
+    accept_all_subdomains = false
 
     ports {
       number = 443
