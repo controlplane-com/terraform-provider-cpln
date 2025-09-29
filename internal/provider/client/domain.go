@@ -18,10 +18,13 @@ type Domain struct {
 }
 
 type DomainSpec struct {
-	DnsMode        *string           `json:"dnsMode,omitempty"` // Enum: "cname", "ns"
-	GvcLink        *string           `json:"gvcLink,omitempty"`
-	AcceptAllHosts *bool             `json:"acceptAllHosts,omitempty"`
-	Ports          *[]DomainSpecPort `json:"ports,omitempty"`
+	DnsMode             *string           `json:"dnsMode,omitempty"` // Enum: "cname", "ns"
+	GvcLink             *string           `json:"gvcLink,omitempty"`
+	CertChallengeType   *string           `json:"certChallengeType,omitempty"` // Enum: "http01", "dns01"
+	WorkloadLink        *string           `json:"workloadLink,omitempty"`
+	AcceptAllHosts      *bool             `json:"acceptAllHosts,omitempty"`
+	AcceptAllSubdomains *bool             `json:"acceptAllSubdomains,omitempty"`
+	Ports               *[]DomainSpecPort `json:"ports,omitempty"`
 }
 
 type DomainStatus struct {

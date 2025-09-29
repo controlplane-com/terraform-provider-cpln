@@ -10,19 +10,25 @@ import (
 // Spec //
 
 type SpecModel struct {
-	DnsMode        types.String `tfsdk:"dns_mode"`
-	GvcLink        types.String `tfsdk:"gvc_link"`
-	AcceptAllHosts types.Bool   `tfsdk:"accept_all_hosts"`
-	Ports          types.List   `tfsdk:"ports"`
+	DnsMode             types.String `tfsdk:"dns_mode"`
+	GvcLink             types.String `tfsdk:"gvc_link"`
+	CertChallengeType   types.String `tfsdk:"cert_challenge_type"`
+	WorkloadLink        types.String `tfsdk:"workload_link"`
+	AcceptAllHosts      types.Bool   `tfsdk:"accept_all_hosts"`
+	AcceptAllSubdomains types.Bool   `tfsdk:"accept_all_subdomains"`
+	Ports               types.List   `tfsdk:"ports"`
 }
 
 func (s SpecModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"dns_mode":         types.StringType,
-			"gvc_link":         types.StringType,
-			"accept_all_hosts": types.BoolType,
-			"ports":            types.ListType{ElemType: SpecPortsModel{}.AttributeTypes()},
+			"dns_mode":              types.StringType,
+			"gvc_link":              types.StringType,
+			"cert_challenge_type":   types.StringType,
+			"workload_link":         types.StringType,
+			"accept_all_hosts":      types.BoolType,
+			"accept_all_subdomains": types.BoolType,
+			"ports":                 types.ListType{ElemType: SpecPortsModel{}.AttributeTypes()},
 		},
 	}
 }

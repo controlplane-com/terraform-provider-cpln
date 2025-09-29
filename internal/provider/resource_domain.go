@@ -197,8 +197,25 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 							Description: "This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. **Do not include if path based routing is used.**",
 							Optional:    true,
 						},
+						"cert_challenge_type": schema.StringAttribute{
+							Description: "Defines the method used to prove domain ownership for certificate issuance.",
+							Optional:    true,
+							Validators: []validator.String{
+								stringvalidator.OneOf("http01", "dns01"),
+							},
+						},
+						"workload_link": schema.StringAttribute{
+							Description: "Creates a unique subdomain for each replica of a stateful workload, enabling direct access to individual instances.",
+							Optional:    true,
+						},
 						"accept_all_hosts": schema.BoolAttribute{
 							Description: "Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled.",
+							Optional:    true,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
+						},
+						"accept_all_subdomains": schema.BoolAttribute{
+							Description: "Accept all subdomains will accept any host that is a sub domain of the domain so *.$DOMAIN",
 							Optional:    true,
 							Computed:    true,
 							Default:     booldefault.StaticBool(false),
@@ -521,10 +538,13 @@ func (dro *DomainResourceOperator) buildSpec(state types.List) *client.DomainSpe
 
 	// Construct and return the result
 	return &client.DomainSpec{
-		DnsMode:        BuildString(block.DnsMode),
-		GvcLink:        BuildString(block.GvcLink),
-		AcceptAllHosts: BuildBool(block.AcceptAllHosts),
-		Ports:          dro.buildSpecPorts(block.Ports),
+		DnsMode:             BuildString(block.DnsMode),
+		GvcLink:             BuildString(block.GvcLink),
+		CertChallengeType:   BuildString(block.CertChallengeType),
+		WorkloadLink:        BuildString(block.WorkloadLink),
+		AcceptAllHosts:      BuildBool(block.AcceptAllHosts),
+		AcceptAllSubdomains: BuildBool(block.AcceptAllSubdomains),
+		Ports:               dro.buildSpecPorts(block.Ports),
 	}
 }
 
@@ -668,10 +688,13 @@ func (dro *DomainResourceOperator) flattenSpec(input *client.DomainSpec) types.L
 
 	// Build a single block
 	block := models.SpecModel{
-		DnsMode:        types.StringPointerValue(input.DnsMode),
-		GvcLink:        types.StringPointerValue(input.GvcLink),
-		AcceptAllHosts: types.BoolPointerValue(input.AcceptAllHosts),
-		Ports:          dro.flattenSpecPorts(input.Ports),
+		DnsMode:             types.StringPointerValue(input.DnsMode),
+		GvcLink:             types.StringPointerValue(input.GvcLink),
+		CertChallengeType:   types.StringPointerValue(input.CertChallengeType),
+		WorkloadLink:        types.StringPointerValue(input.WorkloadLink),
+		AcceptAllHosts:      types.BoolPointerValue(input.AcceptAllHosts),
+		AcceptAllSubdomains: types.BoolPointerValue(input.AcceptAllSubdomains),
+		Ports:               dro.flattenSpecPorts(input.Ports),
 	}
 
 	// Return the successfully created types.List
