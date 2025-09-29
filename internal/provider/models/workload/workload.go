@@ -466,11 +466,12 @@ func (o OptionsAutoscalingKedaModel) AttributeTypes() attr.Type {
 // Options -> Autoscaling -> Keda -> Trigger //
 
 type OptionsAutoscalingKedaTriggerModel struct {
-	Type             types.String `tfsdk:"type"`
-	Metadata         types.Map    `tfsdk:"metadata"`
-	Name             types.String `tfsdk:"name"`
-	UseCachedMetrics types.Bool   `tfsdk:"use_cached_metrics"`
-	MetricType       types.String `tfsdk:"metric_type"`
+	Type              types.String `tfsdk:"type"`
+	Metadata          types.Map    `tfsdk:"metadata"`
+	Name              types.String `tfsdk:"name"`
+	UseCachedMetrics  types.Bool   `tfsdk:"use_cached_metrics"`
+	MetricType        types.String `tfsdk:"metric_type"`
+	AuthenticationRef types.List   `tfsdk:"authentication_ref"`
 }
 
 func (o OptionsAutoscalingKedaTriggerModel) AttributeTypes() attr.Type {
@@ -481,6 +482,21 @@ func (o OptionsAutoscalingKedaTriggerModel) AttributeTypes() attr.Type {
 			"name":               types.StringType,
 			"use_cached_metrics": types.BoolType,
 			"metric_type":        types.StringType,
+			"authentication_ref": types.ListType{ElemType: OptionsAutoscalingKedaTriggerAuthenticationRefModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Trigger -> Authentication Ref //
+
+type OptionsAutoscalingKedaTriggerAuthenticationRefModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+func (o OptionsAutoscalingKedaTriggerAuthenticationRefModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name": types.StringType,
 		},
 	}
 }

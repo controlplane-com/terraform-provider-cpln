@@ -225,11 +225,16 @@ type WorkloadOptionsAutoscalingKeda struct {
 }
 
 type WorkloadOptionsAutoscalingKedaTrigger struct {
-	Type             *string                 `json:"type,omitempty"`
-	Metadata         *map[string]interface{} `json:"metadata,omitempty"`
-	Name             *string                 `json:"name,omitempty"`
-	UseCachedMetrics *bool                   `json:"useCachedMetrics,omitempty"`
-	MetricType       *string                 `json:"metricType,omitempty"`
+	Type              *string                                                 `json:"type,omitempty"`
+	Metadata          *map[string]interface{}                                 `json:"metadata,omitempty"`
+	Name              *string                                                 `json:"name,omitempty"`
+	UseCachedMetrics  *bool                                                   `json:"useCachedMetrics,omitempty"`
+	MetricType        *string                                                 `json:"metricType,omitempty"`
+	AuthenticationRef *WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef `json:"authenticationRef,omitempty"`
+}
+
+type WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef struct {
+	Name *string `json:"name,omitempty"`
 }
 
 type WorkloadOptionsAutoscalingKedaAdvanced struct {

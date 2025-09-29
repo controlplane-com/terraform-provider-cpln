@@ -1634,6 +1634,11 @@ func (wrt *WorkloadResourceTest) BuildStandardUpdate1TestStep(initialCase Provid
 												"queueName":   "jobs",
 												"queueLength": "30",
 											},
+											"authentication_ref": []map[string]interface{}{
+												{
+													"name": "rabbitmq-auth",
+												},
+											},
 										},
 									},
 									"advanced": []map[string]interface{}{
@@ -3944,6 +3949,10 @@ resource "cpln_workload" "%s" {
             host        = "amqp://user:pass@rabbitmq:5672/"
             queueName   = "jobs"
             queueLength = "30"
+          }
+
+          authentication_ref {
+            name = "rabbitmq-auth"
           }
         }
 
