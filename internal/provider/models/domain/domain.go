@@ -13,7 +13,7 @@ type SpecModel struct {
 	DnsMode        types.String `tfsdk:"dns_mode"`
 	GvcLink        types.String `tfsdk:"gvc_link"`
 	AcceptAllHosts types.Bool   `tfsdk:"accept_all_hosts"`
-	Ports          types.List   `tfsdk:"ports"`
+	Ports          types.Set    `tfsdk:"ports"`
 }
 
 func (s SpecModel) AttributeTypes() attr.Type {
@@ -22,7 +22,7 @@ func (s SpecModel) AttributeTypes() attr.Type {
 			"dns_mode":         types.StringType,
 			"gvc_link":         types.StringType,
 			"accept_all_hosts": types.BoolType,
-			"ports":            types.ListType{ElemType: SpecPortsModel{}.AttributeTypes()},
+			"ports":            types.SetType{ElemType: SpecPortsModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -50,7 +50,7 @@ func (s SpecPortsModel) AttributeTypes() attr.Type {
 // Spec -> Ports -> Cors //
 
 type SpecPortsCorsModel struct {
-	AllowOrigins     types.List   `tfsdk:"allow_origins"`
+	AllowOrigins     types.Set    `tfsdk:"allow_origins"`
 	AllowMethods     types.Set    `tfsdk:"allow_methods"`
 	AllowHeaders     types.Set    `tfsdk:"allow_headers"`
 	ExposeHeaders    types.Set    `tfsdk:"expose_headers"`
@@ -61,7 +61,7 @@ type SpecPortsCorsModel struct {
 func (s SpecPortsCorsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"allow_origins":     types.ListType{ElemType: SpecPortsCorsAllowOriginsModel{}.AttributeTypes()},
+			"allow_origins":     types.SetType{ElemType: SpecPortsCorsAllowOriginsModel{}.AttributeTypes()},
 			"allow_methods":     types.SetType{ElemType: types.StringType},
 			"allow_headers":     types.SetType{ElemType: types.StringType},
 			"expose_headers":    types.SetType{ElemType: types.StringType},

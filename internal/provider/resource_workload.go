@@ -429,7 +429,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								listvalidator.SizeAtMost(1),
 							},
 						},
-						"ports": schema.ListNestedBlock{
+						"ports": schema.SetNestedBlock{
 							Description: "Communication endpoints used by the workload to send and receive network traffic.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -537,7 +537,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								listvalidator.SizeAtMost(1),
 							},
 						},
-						"volume": schema.ListNestedBlock{
+						"volume": schema.SetNestedBlock{
 							MarkdownDescription: "Mount Object Store (S3, GCS, AzureBlob) buckets as file system.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -579,8 +579,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									},
 								},
 							},
-							Validators: []validator.List{
-								listvalidator.SizeAtMost(15),
+							Validators: []validator.Set{
+								setvalidator.SizeAtMost(15),
 							},
 						},
 					},
@@ -636,7 +636,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									},
 								},
 								Blocks: map[string]schema.Block{
-									"outbound_allow_port": schema.ListNestedBlock{
+									"outbound_allow_port": schema.SetNestedBlock{
 										Description: "Allow outbound access to specific ports and protocols. When not specified, communication to address ranges in outboundAllowCIDR is allowed on all ports and communication to names in outboundAllowHostname is allowed on ports 80/443.",
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
@@ -661,7 +661,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 										Description: "Firewall options for HTTP workloads.",
 										NestedObject: schema.NestedBlockObject{
 											Blocks: map[string]schema.Block{
-												"inbound_header_filter": schema.ListNestedBlock{
+												"inbound_header_filter": schema.SetNestedBlock{
 													Description: "A list of header filters for HTTP workloads.",
 													NestedObject: schema.NestedBlockObject{
 														Attributes: map[string]schema.Attribute{
@@ -781,6 +781,9 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
 			"sidecar": schema.ListNestedBlock{
 				Description: "",
@@ -834,7 +837,9 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 				},
-				Validators: []validator.List{},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
 			},
 			"security_options": schema.ListNestedBlock{
 				Description: "Allows for the configuration of the `file system group id` and `geo location`.",
@@ -879,7 +884,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									},
 								},
 								Blocks: map[string]schema.Block{
-									"port": schema.ListNestedBlock{
+									"port": schema.SetNestedBlock{
 										Description: "List of ports that will be exposed by this load balancer.",
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
@@ -1684,7 +1689,7 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 	}
 
 	// Build ports from container
-	ports, ok := BuildList[models.ContainerPortModel](ctx, diags, container.Ports)
+	ports, ok := BuildSet[models.ContainerPortModel](ctx, diags, container.Ports)
 
 	// If the port number is still nil, extract the port number from the very first item of container ports
 	if ok && len(ports) != 0 {
@@ -1708,7 +1713,7 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 	}
 
 	// Set ports back to container
-	container.Ports = FlattenList(ctx, diags, ports)
+	container.Ports = FlattenSet(ctx, diags, ports)
 
 	// Set probes back to container
 	container.LivenessProbe = FlattenList(ctx, diags, livenessProbe)
@@ -2117,7 +2122,7 @@ func (wro *WorkloadResourceOperator) buildContainers(state types.List) *[]client
 	// Iterate over each block and construct an output item
 	for _, block := range blocks {
 		// Build block ports
-		ports, ok := BuildList[models.ContainerPortModel](wro.Ctx, wro.Diags, block.Ports)
+		ports, ok := BuildSet[models.ContainerPortModel](wro.Ctx, wro.Diags, block.Ports)
 
 		// Skip if ports are nil, this shouldn't happen but let's handle it anyway
 		if !block.Ports.IsNull() && !block.Ports.IsUnknown() && !ok {
@@ -2482,11 +2487,11 @@ func (wro *WorkloadResourceOperator) buildContainerLifecycleSpec(state types.Lis
 }
 
 // buildContainerVolume constructs a []client.WorkloadContainerVolume from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildContainerVolume(state types.List) *[]client.WorkloadContainerVolume {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.ContainerVolumeModel](wro.Ctx, wro.Diags, state)
+func (wro *WorkloadResourceOperator) buildContainerVolume(state types.Set) *[]client.WorkloadContainerVolume {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.ContainerVolumeModel](wro.Ctx, wro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2557,11 +2562,11 @@ func (wro *WorkloadResourceOperator) buildFirewallExternal(state types.List) *cl
 }
 
 // buildFirewallExternalOutboundAllowPort constructs a []client.WorkloadFirewallOutboundAllowPort from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallExternalOutboundAllowPort(state types.List) *[]client.WorkloadFirewallOutboundAllowPort {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.FirewallExternalOutboundAllowPortModel](wro.Ctx, wro.Diags, state)
+func (wro *WorkloadResourceOperator) buildFirewallExternalOutboundAllowPort(state types.Set) *[]client.WorkloadFirewallOutboundAllowPort {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.FirewallExternalOutboundAllowPortModel](wro.Ctx, wro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -2605,11 +2610,11 @@ func (wro *WorkloadResourceOperator) buildFirewallExternalHttp(state types.List)
 }
 
 // buildFirewallExternalHttpHeaderFilter constructs a []client.WorkloadFirewallExternalHttpHeaderFilter from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildFirewallExternalHttpHeaderFilter(state types.List) *[]client.WorkloadFirewallExternalHttpHeaderFilter {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.FirewallExternalHttpHeaderFilterModel](wro.Ctx, wro.Diags, state)
+func (wro *WorkloadResourceOperator) buildFirewallExternalHttpHeaderFilter(state types.Set) *[]client.WorkloadFirewallExternalHttpHeaderFilter {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.FirewallExternalHttpHeaderFilterModel](wro.Ctx, wro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -3054,11 +3059,11 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerDirect(state types.List) *
 }
 
 // buildLoadBalancerDirectPort constructs a []client.WorkloadLoadBalancerDirectPort from the given Terraform state.
-func (wro *WorkloadResourceOperator) buildLoadBalancerDirectPort(state types.List) *[]client.WorkloadLoadBalancerDirectPort {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.LoadBalancerDirectPortModel](wro.Ctx, wro.Diags, state)
+func (wro *WorkloadResourceOperator) buildLoadBalancerDirectPort(state types.Set) *[]client.WorkloadLoadBalancerDirectPort {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LoadBalancerDirectPortModel](wro.Ctx, wro.Diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -3297,15 +3302,15 @@ func (wro *WorkloadResourceOperator) flattenContainerMetrics(input *client.Workl
 	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerMetricsModel{block})
 }
 
-// flattenContainerPort transforms *[]client.WorkloadContainerPort into a types.List.
-func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.WorkloadContainerPort) types.List {
+// flattenContainerPort transforms *[]client.WorkloadContainerPort into a types.Set.
+func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.WorkloadContainerPort) types.Set {
 	// Get attribute types
 	elementType := models.ContainerPortModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3323,8 +3328,8 @@ func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.Worklo
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(wro.Ctx, wro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenHealthCheck transforms *client.WorkloadHealthCheck into a types.List.
@@ -3595,15 +3600,15 @@ func (wro *WorkloadResourceOperator) flattenContainerLifecycleSpec(input *client
 	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerLifecycleSpecModel{block})
 }
 
-// flattenContainerVolume transforms *[]client.WorkloadContainerVolume into a types.List.
-func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.WorkloadContainerVolume) types.List {
+// flattenContainerVolume transforms *[]client.WorkloadContainerVolume into a types.Set.
+func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.WorkloadContainerVolume) types.Set {
 	// Get attribute types
 	elementType := models.ContainerVolumeModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3622,8 +3627,8 @@ func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.Work
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(wro.Ctx, wro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenFirewall transforms *client.WorkloadFirewall into a types.List.
@@ -3673,15 +3678,15 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternal(input *client.Workl
 	return FlattenList(wro.Ctx, wro.Diags, []models.FirewallExternalModel{block})
 }
 
-// flattenFirewallExternalOutboundAllowPort transforms *[]client.WorkloadFirewallOutboundAllowPort into a types.List.
-func (wro *WorkloadResourceOperator) flattenFirewallExternalOutboundAllowPort(input *[]client.WorkloadFirewallOutboundAllowPort) types.List {
+// flattenFirewallExternalOutboundAllowPort transforms *[]client.WorkloadFirewallOutboundAllowPort into a types.Set.
+func (wro *WorkloadResourceOperator) flattenFirewallExternalOutboundAllowPort(input *[]client.WorkloadFirewallOutboundAllowPort) types.Set {
 	// Get attribute types
 	elementType := models.FirewallExternalOutboundAllowPortModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3699,8 +3704,8 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternalOutboundAllowPort(in
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(wro.Ctx, wro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenFirewallExternalHttp transforms *client.WorkloadFirewallExternalHttp into a types.List.
@@ -3723,15 +3728,15 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternalHttp(input *client.W
 	return FlattenList(wro.Ctx, wro.Diags, []models.FirewallExternalHttpModel{block})
 }
 
-// flattenFirewallExternalHttpHeaderFilter transforms *[]client.WorkloadFirewallExternalHttpHeaderFilter into a types.List.
-func (wro *WorkloadResourceOperator) flattenFirewallExternalHttpHeaderFilter(input *[]client.WorkloadFirewallExternalHttpHeaderFilter) types.List {
+// flattenFirewallExternalHttpHeaderFilter transforms *[]client.WorkloadFirewallExternalHttpHeaderFilter into a types.Set.
+func (wro *WorkloadResourceOperator) flattenFirewallExternalHttpHeaderFilter(input *[]client.WorkloadFirewallExternalHttpHeaderFilter) types.Set {
 	// Get attribute types
 	elementType := models.FirewallExternalHttpHeaderFilterModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3750,8 +3755,8 @@ func (wro *WorkloadResourceOperator) flattenFirewallExternalHttpHeaderFilter(inp
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(wro.Ctx, wro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenFirewallInternal transforms *client.WorkloadFirewallInternal into a types.List.
@@ -4228,15 +4233,15 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerDirect(state []models.Lo
 	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerDirectModel{block})
 }
 
-// flattenLoadBalancerDirectPort transforms *[]client.WorkloadLoadBalancerDirectPort into a types.List.
-func (wro *WorkloadResourceOperator) flattenLoadBalancerDirectPort(input *[]client.WorkloadLoadBalancerDirectPort) types.List {
+// flattenLoadBalancerDirectPort transforms *[]client.WorkloadLoadBalancerDirectPort into a types.Set.
+func (wro *WorkloadResourceOperator) flattenLoadBalancerDirectPort(input *[]client.WorkloadLoadBalancerDirectPort) types.Set {
 	// Get attribute types
 	elementType := models.LoadBalancerDirectPortModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -4256,8 +4261,8 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerDirectPort(input *[]clie
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(wro.Ctx, wro.Diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenLoadBalancerGeoLocation transforms *client.WorkloadLoadBalancerGeoLocation into a types.List.

@@ -233,6 +233,11 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 								validators.LinkValidator{},
 							},
 						},
+						"secrets": schema.SetAttribute{
+							Description: "A list of secrets to be used as TriggerAuthentication objects. The TriggerAuthentication object will be named after the secret and can be used by triggers on workloads in this GVC.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
 					},
 				},
 				Validators: []validator.List{
@@ -662,6 +667,7 @@ func (gro *GvcResourceOperator) buildKeda(state types.List) *client.GvcKeda {
 	return &client.GvcKeda{
 		Enabled:      BuildBool(block.Enabled),
 		IdentityLink: BuildString(block.IdentityLink),
+		Secrets:      gro.BuildSetString(block.Secrets),
 	}
 }
 
@@ -894,6 +900,7 @@ func (gro *GvcResourceOperator) flattenKeda(input *client.GvcKeda) types.List {
 	block := models.KedaModel{
 		Enabled:      types.BoolPointerValue(input.Enabled),
 		IdentityLink: types.StringPointerValue(input.IdentityLink),
+		Secrets:      FlattenSetString(input.Secrets),
 	}
 
 	// Return the successfully created types.List
