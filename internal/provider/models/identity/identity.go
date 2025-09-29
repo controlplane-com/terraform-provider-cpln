@@ -11,7 +11,7 @@ type AwsAccessPolicyModel struct {
 	CloudAccountLink types.String `tfsdk:"cloud_account_link"`
 	PolicyRefs       types.Set    `tfsdk:"policy_refs"`
 	RoleName         types.String `tfsdk:"role_name"`
-	TrustPolicy      types.List   `tfsdk:"trust_policy"`
+	TrustPolicy      types.Set    `tfsdk:"trust_policy"`
 }
 
 func (a AwsAccessPolicyModel) AttributeTypes() attr.Type {
@@ -20,7 +20,7 @@ func (a AwsAccessPolicyModel) AttributeTypes() attr.Type {
 			"cloud_account_link": types.StringType,
 			"policy_refs":        types.SetType{ElemType: types.StringType},
 			"role_name":          types.StringType,
-			"trust_policy":       types.ListType{ElemType: AwsAccessPolicyTrustPolicyModel{}.AttributeTypes()},
+			"trust_policy":       types.SetType{ElemType: AwsAccessPolicyTrustPolicyModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -47,7 +47,7 @@ type GcpAccessPolicyModel struct {
 	CloudAccountLink types.String `tfsdk:"cloud_account_link"`
 	Scopes           types.String `tfsdk:"scopes"`
 	ServiceAccount   types.String `tfsdk:"service_account"`
-	Binding          types.List   `tfsdk:"binding"`
+	Binding          types.Set    `tfsdk:"binding"`
 }
 
 func (g GcpAccessPolicyModel) AttributeTypes() attr.Type {
@@ -56,7 +56,7 @@ func (g GcpAccessPolicyModel) AttributeTypes() attr.Type {
 			"cloud_account_link": types.StringType,
 			"scopes":             types.StringType,
 			"service_account":    types.StringType,
-			"binding":            types.ListType{ElemType: GcpAccessPolicyBindingModel{}.AttributeTypes()},
+			"binding":            types.SetType{ElemType: GcpAccessPolicyBindingModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -81,14 +81,14 @@ func (g GcpAccessPolicyBindingModel) AttributeTypes() attr.Type {
 
 type AzureAccessPolicyModel struct {
 	CloudAccountLink types.String `tfsdk:"cloud_account_link"`
-	RoleAssignment   types.List   `tfsdk:"role_assignment"`
+	RoleAssignment   types.Set    `tfsdk:"role_assignment"`
 }
 
 func (a AzureAccessPolicyModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"cloud_account_link": types.StringType,
-			"role_assignment":    types.ListType{ElemType: AzureAccessPolicyRoleAssignmentModel{}.AttributeTypes()},
+			"role_assignment":    types.SetType{ElemType: AzureAccessPolicyRoleAssignmentModel{}.AttributeTypes()},
 		},
 	}
 }

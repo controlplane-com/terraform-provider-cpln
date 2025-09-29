@@ -30,7 +30,7 @@ func (f FirewallModel) AttributeTypes() attr.Type {
 type GenericProviderModel struct {
 	Location   types.String `tfsdk:"location"`
 	Networking types.List   `tfsdk:"networking"`
-	NodePools  types.List   `tfsdk:"node_pool"`
+	NodePools  types.Set    `tfsdk:"node_pool"`
 }
 
 func (g GenericProviderModel) AttributeTypes() attr.Type {
@@ -38,7 +38,7 @@ func (g GenericProviderModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"location":   types.StringType,
 			"networking": types.ListType{ElemType: NetworkingModel{}.AttributeTypes()},
-			"node_pool":  types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":  types.SetType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -48,7 +48,7 @@ func (g GenericProviderModel) AttributeTypes() attr.Type {
 type GenericProviderNodePoolModel struct {
 	Name   types.String `tfsdk:"name"`
 	Labels types.Map    `tfsdk:"labels"`
-	Taints types.List   `tfsdk:"taint"`
+	Taints types.Set    `tfsdk:"taint"`
 }
 
 func (g GenericProviderNodePoolModel) AttributeTypes() attr.Type {
@@ -56,7 +56,7 @@ func (g GenericProviderNodePoolModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"name":   types.StringType,
 			"labels": types.MapType{ElemType: types.StringType},
-			"taint":  types.ListType{ElemType: GenericProviderNodePoolTaintModel{}.AttributeTypes()},
+			"taint":  types.SetType{ElemType: GenericProviderNodePoolTaintModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -89,8 +89,8 @@ type HetznerProviderModel struct {
 	TokenSecretLink          types.String `tfsdk:"token_secret_link"`
 	NetworkId                types.String `tfsdk:"network_id"`
 	FirewallId               types.String `tfsdk:"firewall_id"`
-	NodePools                types.List   `tfsdk:"node_pool"`
-	DedicatedServerNodePools types.List   `tfsdk:"dedicated_server_node_pool"`
+	NodePools                types.Set    `tfsdk:"node_pool"`
+	DedicatedServerNodePools types.Set    `tfsdk:"dedicated_server_node_pool"`
 	Image                    types.String `tfsdk:"image"`
 	SshKey                   types.String `tfsdk:"ssh_key"`
 	Autoscaler               types.List   `tfsdk:"autoscaler"`
@@ -107,8 +107,8 @@ func (h HetznerProviderModel) AttributeTypes() attr.Type {
 			"token_secret_link":          types.StringType,
 			"network_id":                 types.StringType,
 			"firewall_id":                types.StringType,
-			"node_pool":                  types.ListType{ElemType: HetznerProviderNodePoolModel{}.AttributeTypes()},
-			"dedicated_server_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":                  types.SetType{ElemType: HetznerProviderNodePoolModel{}.AttributeTypes()},
+			"dedicated_server_node_pool": types.SetType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
 			"image":                      types.StringType,
 			"ssh_key":                    types.StringType,
 			"autoscaler":                 types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
@@ -158,13 +158,13 @@ type AwsProviderModel struct {
 	PreInstallScript     types.String `tfsdk:"pre_install_script"`
 	Image                types.List   `tfsdk:"image"`
 	DeployRoleArn        types.String `tfsdk:"deploy_role_arn"`
-	DeployRoleChain      types.List   `tfsdk:"deploy_role_chain"`
+	DeployRoleChain      types.Set    `tfsdk:"deploy_role_chain"`
 	VpcId                types.String `tfsdk:"vpc_id"`
 	KeyPair              types.String `tfsdk:"key_pair"`
 	DiskEncryptionKeyArn types.String `tfsdk:"disk_encryption_key_arn"`
 	SecurityGroupIds     types.Set    `tfsdk:"security_group_ids"`
 	ExtraNodePolicies    types.Set    `tfsdk:"extra_node_policies"`
-	NodePools            types.List   `tfsdk:"node_pool"`
+	NodePools            types.Set    `tfsdk:"node_pool"`
 	Autoscaler           types.List   `tfsdk:"autoscaler"`
 }
 
@@ -178,13 +178,13 @@ func (a AwsProviderModel) AttributeTypes() attr.Type {
 			"pre_install_script":      types.StringType,
 			"image":                   types.ListType{ElemType: AwsProviderAmiModel{}.AttributeTypes()},
 			"deploy_role_arn":         types.StringType,
-			"deploy_role_chain":       types.ListType{ElemType: AwsProviderAssumeRoleLinkModel{}.AttributeTypes()},
+			"deploy_role_chain":       types.SetType{ElemType: AwsProviderAssumeRoleLinkModel{}.AttributeTypes()},
 			"vpc_id":                  types.StringType,
 			"key_pair":                types.StringType,
 			"disk_encryption_key_arn": types.StringType,
 			"security_group_ids":      types.SetType{ElemType: types.StringType},
 			"extra_node_policies":     types.SetType{ElemType: types.StringType},
-			"node_pool":               types.ListType{ElemType: AwsProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":               types.SetType{ElemType: AwsProviderNodePoolModel{}.AttributeTypes()},
 			"autoscaler":              types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
 		},
 	}
@@ -273,7 +273,7 @@ type LinodeProviderModel struct {
 	Region           types.String `tfsdk:"region"`
 	TokenSecretLink  types.String `tfsdk:"token_secret_link"`
 	FirewallId       types.String `tfsdk:"firewall_id"`
-	NodePools        types.List   `tfsdk:"node_pool"`
+	NodePools        types.Set    `tfsdk:"node_pool"`
 	Image            types.String `tfsdk:"image"`
 	AuthorizedUsers  types.Set    `tfsdk:"authorized_users"`
 	AuthorizedKeys   types.Set    `tfsdk:"authorized_keys"`
@@ -289,7 +289,7 @@ func (l LinodeProviderModel) AttributeTypes() attr.Type {
 			"region":             types.StringType,
 			"token_secret_link":  types.StringType,
 			"firewall_id":        types.StringType,
-			"node_pool":          types.ListType{ElemType: LinodeProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":          types.SetType{ElemType: LinodeProviderNodePoolModel{}.AttributeTypes()},
 			"image":              types.StringType,
 			"authorized_users":   types.SetType{ElemType: types.StringType},
 			"authorized_keys":    types.SetType{ElemType: types.StringType},
@@ -339,9 +339,9 @@ func (l LinodeProviderNodePoolModel) AttributeTypes() attr.Type {
 type OblivusProviderModel struct {
 	Datacenter        types.String `tfsdk:"datacenter"`
 	TokenSecretLink   types.String `tfsdk:"token_secret_link"`
-	NodePools         types.List   `tfsdk:"node_pool"`
+	NodePools         types.Set    `tfsdk:"node_pool"`
 	SshKeys           types.Set    `tfsdk:"ssh_keys"`
-	UnmanagedNodePool types.List   `tfsdk:"unmanaged_node_pool"`
+	UnmanagedNodePool types.Set    `tfsdk:"unmanaged_node_pool"`
 	Autoscaler        types.List   `tfsdk:"autoscaler"`
 	PreInstallScript  types.String `tfsdk:"pre_install_script"`
 }
@@ -351,9 +351,9 @@ func (o OblivusProviderModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"datacenter":          types.StringType,
 			"token_secret_link":   types.StringType,
-			"node_pool":           types.ListType{ElemType: OblivusProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":           types.SetType{ElemType: OblivusProviderNodePoolModel{}.AttributeTypes()},
 			"ssh_keys":            types.SetType{ElemType: types.StringType},
-			"unmanaged_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"unmanaged_node_pool": types.SetType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
 			"autoscaler":          types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
 			"pre_install_script":  types.StringType,
 		},
@@ -394,9 +394,9 @@ func (o OblivusProviderNodePoolModel) AttributeTypes() attr.Type {
 type LambdalabsProviderModel struct {
 	Region             types.String `tfsdk:"region"`
 	TokenSecretLink    types.String `tfsdk:"token_secret_link"`
-	NodePools          types.List   `tfsdk:"node_pool"`
+	NodePools          types.Set    `tfsdk:"node_pool"`
 	SshKey             types.String `tfsdk:"ssh_key"`
-	UnmanagedNodePools types.List   `tfsdk:"unmanaged_node_pool"`
+	UnmanagedNodePools types.Set    `tfsdk:"unmanaged_node_pool"`
 	Autoscaler         types.List   `tfsdk:"autoscaler"`
 	FileSystems        types.Set    `tfsdk:"file_systems"`
 	PreInstallScript   types.String `tfsdk:"pre_install_script"`
@@ -407,9 +407,9 @@ func (l LambdalabsProviderModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"region":              types.StringType,
 			"token_secret_link":   types.StringType,
-			"node_pool":           types.ListType{ElemType: LambdalabsProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":           types.SetType{ElemType: LambdalabsProviderNodePoolModel{}.AttributeTypes()},
 			"ssh_key":             types.StringType,
-			"unmanaged_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"unmanaged_node_pool": types.SetType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
 			"autoscaler":          types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
 			"file_systems":        types.SetType{ElemType: types.StringType},
 			"pre_install_script":  types.StringType,
@@ -452,9 +452,9 @@ type PaperspaceProviderModel struct {
 	Region             types.String `tfsdk:"region"`
 	TokenSecretLink    types.String `tfsdk:"token_secret_link"`
 	SharedDrives       types.Set    `tfsdk:"shared_drives"`
-	NodePools          types.List   `tfsdk:"node_pool"`
+	NodePools          types.Set    `tfsdk:"node_pool"`
 	Autoscaler         types.List   `tfsdk:"autoscaler"`
-	UnmanagedNodePools types.List   `tfsdk:"unmanaged_node_pool"`
+	UnmanagedNodePools types.Set    `tfsdk:"unmanaged_node_pool"`
 	PreInstallScript   types.String `tfsdk:"pre_install_script"`
 	UserIds            types.Set    `tfsdk:"user_ids"`
 	NetworkId          types.String `tfsdk:"network_id"`
@@ -466,9 +466,9 @@ func (p PaperspaceProviderModel) AttributeTypes() attr.Type {
 			"region":              types.StringType,
 			"token_secret_link":   types.StringType,
 			"shared_drives":       types.SetType{ElemType: types.StringType},
-			"node_pool":           types.ListType{ElemType: PaperspaceProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":           types.SetType{ElemType: PaperspaceProviderNodePoolModel{}.AttributeTypes()},
 			"autoscaler":          types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
-			"unmanaged_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"unmanaged_node_pool": types.SetType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
 			"pre_install_script":  types.StringType,
 			"user_ids":            types.SetType{ElemType: types.StringType},
 			"network_id":          types.StringType,
@@ -513,14 +513,14 @@ func (p PaperspaceProviderNodePoolModel) AttributeTypes() attr.Type {
 
 type EphemeralProviderModel struct {
 	Location  types.String `tfsdk:"location"`
-	NodePools types.List   `tfsdk:"node_pool"`
+	NodePools types.Set    `tfsdk:"node_pool"`
 }
 
 func (e EphemeralProviderModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"location":  types.StringType,
-			"node_pool": types.ListType{ElemType: EphemeralProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool": types.SetType{ElemType: EphemeralProviderNodePoolModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -568,7 +568,7 @@ type TritonProviderModel struct {
 	LoadBalancer     types.List   `tfsdk:"load_balancer"`
 	PrivateNetworkId types.String `tfsdk:"private_network_id"`
 	FirewallEnabled  types.Bool   `tfsdk:"firewall_enabled"`
-	NodePools        types.List   `tfsdk:"node_pool"`
+	NodePools        types.Set    `tfsdk:"node_pool"`
 	ImageId          types.String `tfsdk:"image_id"`
 	SshKeys          types.Set    `tfsdk:"ssh_keys"`
 	Autoscaler       types.List   `tfsdk:"autoscaler"`
@@ -584,7 +584,7 @@ func (t TritonProviderModel) AttributeTypes() attr.Type {
 			"load_balancer":      types.ListType{ElemType: TritonProviderLoadBalancerModel{}.AttributeTypes()},
 			"private_network_id": types.StringType,
 			"firewall_enabled":   types.BoolType,
-			"node_pool":          types.ListType{ElemType: TritonProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":          types.SetType{ElemType: TritonProviderNodePoolModel{}.AttributeTypes()},
 			"image_id":           types.StringType,
 			"ssh_keys":           types.SetType{ElemType: types.StringType},
 			"autoscaler":         types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
@@ -736,7 +736,7 @@ type AzureProviderModel struct {
 	SshKeys          types.Set    `tfsdk:"ssh_keys"`
 	NetworkId        types.String `tfsdk:"network_id"`
 	Tags             types.Map    `tfsdk:"tags"`
-	NodePools        types.List   `tfsdk:"node_pool"`
+	NodePools        types.Set    `tfsdk:"node_pool"`
 	Autoscaler       types.List   `tfsdk:"autoscaler"`
 }
 
@@ -753,7 +753,7 @@ func (a AzureProviderModel) AttributeTypes() attr.Type {
 			"ssh_keys":           types.SetType{ElemType: types.StringType},
 			"network_id":         types.StringType,
 			"tags":               types.MapType{ElemType: types.StringType},
-			"node_pool":          types.ListType{ElemType: AzureProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":          types.SetType{ElemType: AzureProviderNodePoolModel{}.AttributeTypes()},
 			"autoscaler":         types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
 		},
 	}
@@ -841,7 +841,7 @@ type DigitalOceanProviderModel struct {
 	PreInstallScript types.String `tfsdk:"pre_install_script"`
 	TokenSecretLink  types.String `tfsdk:"token_secret_link"`
 	VpcId            types.String `tfsdk:"vpc_id"`
-	NodePools        types.List   `tfsdk:"node_pool"`
+	NodePools        types.Set    `tfsdk:"node_pool"`
 	Image            types.String `tfsdk:"image"`
 	SshKeys          types.Set    `tfsdk:"ssh_keys"`
 	ExtraSshKeys     types.Set    `tfsdk:"extra_ssh_keys"`
@@ -858,7 +858,7 @@ func (d DigitalOceanProviderModel) AttributeTypes() attr.Type {
 			"pre_install_script": types.StringType,
 			"token_secret_link":  types.StringType,
 			"vpc_id":             types.StringType,
-			"node_pool":          types.ListType{ElemType: DigitalOceanProviderNodePoolModel{}.AttributeTypes()},
+			"node_pool":          types.SetType{ElemType: DigitalOceanProviderNodePoolModel{}.AttributeTypes()},
 			"image":              types.StringType,
 			"ssh_keys":           types.SetType{ElemType: types.StringType},
 			"extra_ssh_keys":     types.SetType{ElemType: types.StringType},
@@ -1026,13 +1026,13 @@ func (a AddOnsLogsModel) AttributeTypes() attr.Type {
 // Add Ons -> Registry Mirror //
 
 type AddOnsRegistryMirror struct {
-	Mirrors types.List `tfsdk:"mirror"`
+	Mirrors types.Set `tfsdk:"mirror"`
 }
 
 func (a AddOnsRegistryMirror) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"mirror": types.ListType{ElemType: AddOnsRegistryConfig{}.AttributeTypes()},
+			"mirror": types.SetType{ElemType: AddOnsRegistryConfig{}.AttributeTypes()},
 		},
 	}
 }

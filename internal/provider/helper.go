@@ -541,6 +541,33 @@ func BuildList[T any](ctx context.Context, diags *diag.Diagnostics, l types.List
 	return blocks, true
 }
 
+// BuildSet extracts a slice of blocks of type T from a Terraform types.Set.
+func BuildSet[T any](ctx context.Context, diags *diag.Diagnostics, s types.Set) ([]T, bool) {
+	// Return nil, false if set is null or unknown
+	if s.IsNull() || s.IsUnknown() {
+		return nil, false
+	}
+
+	// Prepare a slice to hold decoded blocks
+	var blocks []T
+
+	// Decode set elements into blocks and append any diagnostics
+	diags.Append(s.ElementsAs(ctx, &blocks, false)...)
+
+	// If decoding produced errors, abort and return false
+	if diags.HasError() {
+		return nil, false
+	}
+
+	// If there were no blocks, return nil
+	if len(blocks) == 0 {
+		return nil, false
+	}
+
+	// Return decoded blocks and success indicator
+	return blocks, true
+}
+
 // Flatteners //
 
 // FlattenInt converts an *int into a Terraform types.Int32.
@@ -688,6 +715,34 @@ func FlattenList[T commonmodel.Model](ctx context.Context, diags *diag.Diagnosti
 	}
 
 	// Return the successfully built list
+	return l
+}
+
+// FlattenSet creates a Terraform types.Set from a slice of generic Model blocks.
+func FlattenSet[T commonmodel.Model](ctx context.Context, diags *diag.Diagnostics, blocks []T) types.Set {
+	// Declare a zero value to access attribute types
+	var zero T
+
+	// Obtain the element attribute types for the set
+	elemType := zero.AttributeTypes()
+
+	// Guard clause for existing diagnostics errors or empty input
+	if diags.HasError() || len(blocks) == 0 {
+		return types.SetNull(elemType)
+	}
+
+	// Convert the slice of blocks into a Terraform set while collecting diagnostics
+	l, d := types.SetValueFrom(ctx, elemType, blocks)
+
+	// Merge any diagnostics from the conversion into the main diagnostics
+	diags.Append(d...)
+
+	// If the conversion produced errors, return a null set
+	if d.HasError() {
+		return types.SetNull(elemType)
+	}
+
+	// Return the successfully built set
 	return l
 }
 

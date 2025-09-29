@@ -175,6 +175,10 @@ func (isrt *IpSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase
 					"name":             fmt.Sprintf("/org/%s/location/aws-eu-central-1", OrgName),
 					"retention_policy": "keep",
 				},
+				{
+					"name":             fmt.Sprintf("/org/%s/location/aws-us-west-2", OrgName),
+					"retention_policy": "keep",
+				},
 			}),
 		),
 	}
@@ -205,12 +209,17 @@ resource "cpln_ipset" "%s" {
 
 	link = "%s"
 
-	location {
-	  name             = "/org/%s/location/aws-eu-central-1"
-		retention_policy = "keep"
-	}
+  location {
+    name             = "/org/%s/location/aws-eu-central-1"
+    retention_policy = "keep"
+  }
+
+  location {
+    name             = "/org/%s/location/aws-us-west-2"
+    retention_policy = "keep"
+  }
 }
-`, c.ResourceName, c.Name, c.DescriptionUpdate, c.Link, OrgName)
+`, c.ResourceName, c.Name, c.DescriptionUpdate, c.Link, OrgName, OrgName)
 }
 
 /*** Resource Test Case ***/

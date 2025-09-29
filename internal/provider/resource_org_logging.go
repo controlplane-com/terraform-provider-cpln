@@ -43,15 +43,15 @@ type OrgLoggingResourceModel struct {
 	Description        types.String `tfsdk:"description"`
 	Tags               types.Map    `tfsdk:"tags"`
 	SelfLink           types.String `tfsdk:"self_link"`
-	S3Logging          types.List   `tfsdk:"s3_logging"`
-	CoralogixLogging   types.List   `tfsdk:"coralogix_logging"`
-	DatadogLogging     types.List   `tfsdk:"datadog_logging"`
-	LogzioLogging      types.List   `tfsdk:"logzio_logging"`
-	ElasticLogging     types.List   `tfsdk:"elastic_logging"`
-	CloudWatchLogging  types.List   `tfsdk:"cloud_watch_logging"`
-	FluentdLogging     types.List   `tfsdk:"fluentd_logging"`
-	StackdriverLogging types.List   `tfsdk:"stackdriver_logging"`
-	SyslogLogging      types.List   `tfsdk:"syslog_logging"`
+	S3Logging          types.Set    `tfsdk:"s3_logging"`
+	CoralogixLogging   types.Set    `tfsdk:"coralogix_logging"`
+	DatadogLogging     types.Set    `tfsdk:"datadog_logging"`
+	LogzioLogging      types.Set    `tfsdk:"logzio_logging"`
+	ElasticLogging     types.Set    `tfsdk:"elastic_logging"`
+	CloudWatchLogging  types.Set    `tfsdk:"cloud_watch_logging"`
+	FluentdLogging     types.Set    `tfsdk:"fluentd_logging"`
+	StackdriverLogging types.Set    `tfsdk:"stackdriver_logging"`
+	SyslogLogging      types.Set    `tfsdk:"syslog_logging"`
 }
 
 /*** Resource Configuration ***/
@@ -124,7 +124,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 			},
 		},
 		Blocks: map[string]schema.Block{
-			"s3_logging": schema.ListNestedBlock{
+			"s3_logging": schema.SetNestedBlock{
 				MarkdownDescription: "[Documentation Reference](https://docs.controlplane.com/external-logging/s3)",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -149,7 +149,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"coralogix_logging": schema.ListNestedBlock{
+			"coralogix_logging": schema.SetNestedBlock{
 				MarkdownDescription: "[Documentation Reference](https://docs.controlplane.com/external-logging/coralogix)",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -172,7 +172,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"datadog_logging": schema.ListNestedBlock{
+			"datadog_logging": schema.SetNestedBlock{
 				MarkdownDescription: "[Documentation Reference](https://docs.controlplane.com/external-logging/datadog)",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -187,7 +187,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"logzio_logging": schema.ListNestedBlock{
+			"logzio_logging": schema.SetNestedBlock{
 				MarkdownDescription: "[Documentation Reference](https://docs.controlplane.com/external-logging/logz-io)",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -202,7 +202,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"elastic_logging": schema.ListNestedBlock{
+			"elastic_logging": schema.SetNestedBlock{
 				Description: "For logging and analyzing data within an org using Elastic Logging.",
 				NestedObject: schema.NestedBlockObject{
 					Blocks: map[string]schema.Block{
@@ -303,7 +303,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"cloud_watch_logging": schema.ListNestedBlock{
+			"cloud_watch_logging": schema.SetNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -335,7 +335,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"fluentd_logging": schema.ListNestedBlock{
+			"fluentd_logging": schema.SetNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -352,7 +352,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"stackdriver_logging": schema.ListNestedBlock{
+			"stackdriver_logging": schema.SetNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -367,7 +367,7 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
-			"syslog_logging": schema.ListNestedBlock{
+			"syslog_logging": schema.SetNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
@@ -711,11 +711,11 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 // Builders //
 
 // buildS3Logging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildS3Logging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.S3LoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildS3Logging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.S3LoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -747,11 +747,11 @@ func (olr *OrgLoggingResource) buildS3Logging(ctx context.Context, diags *diag.D
 }
 
 // buildCoralogixLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildCoralogixLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.CoralogixLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildCoralogixLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.CoralogixLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -783,11 +783,11 @@ func (olr *OrgLoggingResource) buildCoralogixLogging(ctx context.Context, diags 
 }
 
 // buildDatadogLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildDatadogLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.DatadogLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildDatadogLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.DatadogLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -817,11 +817,11 @@ func (olr *OrgLoggingResource) buildDatadogLogging(ctx context.Context, diags *d
 }
 
 // buildLogzioLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildLogzioLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.LogzioLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildLogzioLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LogzioLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -851,11 +851,11 @@ func (olr *OrgLoggingResource) buildLogzioLogging(ctx context.Context, diags *di
 }
 
 // buildElasticLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildElasticLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.ElasticLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildElasticLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.ElasticLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -956,11 +956,11 @@ func (olr *OrgLoggingResource) buildElasticLoggingGeneric(ctx context.Context, d
 }
 
 // buildCloudWatchLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildCloudWatchLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.CloudWatchModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildCloudWatchLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.CloudWatchModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -994,11 +994,11 @@ func (olr *OrgLoggingResource) buildCloudWatchLogging(ctx context.Context, diags
 }
 
 // buildFluentdLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildFluentdLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.FluentdLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildFluentdLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.FluentdLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1028,11 +1028,11 @@ func (olr *OrgLoggingResource) buildFluentdLogging(ctx context.Context, diags *d
 }
 
 // buildStackdriverLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildStackdriverLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.StackdriverLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildStackdriverLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.StackdriverLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1062,11 +1062,11 @@ func (olr *OrgLoggingResource) buildStackdriverLogging(ctx context.Context, diag
 }
 
 // buildSyslogLogging constructs a []client.Logging from the given Terraform state.
-func (olr *OrgLoggingResource) buildSyslogLogging(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.Logging {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.SyslogLoggingModel](ctx, diags, state)
+func (olr *OrgLoggingResource) buildSyslogLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.SyslogLoggingModel](ctx, diags, state)
 
-	// Return nil if conversion failed or list was empty
+	// Return nil if conversion failed or set was empty
 	if !ok {
 		return nil
 	}
@@ -1100,15 +1100,15 @@ func (olr *OrgLoggingResource) buildSyslogLogging(ctx context.Context, diags *di
 
 // Flatteners //
 
-// flattenS3Logging transforms *[]client.S3Logging into a types.List.
-func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag.Diagnostics, input *[]client.S3Logging) types.List {
+// flattenS3Logging transforms *[]client.S3Logging into a types.Set.
+func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag.Diagnostics, input *[]client.S3Logging) types.Set {
 	// Get attribute types
 	elementType := models.S3LoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1128,19 +1128,19 @@ func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenCoralogixLogging transforms *[]client.CoralogixLogging into a types.List.
-func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.CoralogixLogging) types.List {
+// flattenCoralogixLogging transforms *[]client.CoralogixLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.CoralogixLogging) types.Set {
 	// Get attribute types
 	elementType := models.CoralogixLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1160,19 +1160,19 @@ func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diag
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenDatadogLogging transforms *[]client.DatadogLogging into a types.List.
-func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.DatadogLogging) types.List {
+// flattenDatadogLogging transforms *[]client.DatadogLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.DatadogLogging) types.Set {
 	// Get attribute types
 	elementType := models.DatadogLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1190,19 +1190,19 @@ func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags 
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenLogzioLogging transforms *[]client.LogzioLogging into a types.List.
-func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.LogzioLogging) types.List {
+// flattenLogzioLogging transforms *[]client.LogzioLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.LogzioLogging) types.Set {
 	// Get attribute types
 	elementType := models.LogzioLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1220,19 +1220,19 @@ func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenElasticLogging transforms *[]client.ElasticLogging into a types.List.
-func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.ElasticLogging) types.List {
+// flattenElasticLogging transforms *[]client.ElasticLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.ElasticLogging) types.Set {
 	// Get attribute types
 	elementType := models.ElasticLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1251,8 +1251,8 @@ func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags 
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
 // flattenElasticLoggingAws transforms *client.AWSLogging into a types.List.
@@ -1328,15 +1328,15 @@ func (olr *OrgLoggingResource) flattenElasticLoggingGeneric(ctx context.Context,
 	return FlattenList(ctx, diags, []models.ElasticLoggingGenericModel{block})
 }
 
-// flattenCloudWatchLogging transforms *[]client.CloudWatchLogging into a types.List.
-func (olr *OrgLoggingResource) flattenCloudWatchLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.CloudWatchLogging) types.List {
+// flattenCloudWatchLogging transforms *[]client.CloudWatchLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenCloudWatchLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.CloudWatchLogging) types.Set {
 	// Get attribute types
 	elementType := models.CloudWatchModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1358,19 +1358,19 @@ func (olr *OrgLoggingResource) flattenCloudWatchLogging(ctx context.Context, dia
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenFluentdLogging transforms *[]client.FluentdLogging into a types.List.
-func (olr *OrgLoggingResource) flattenFluentdLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.FluentdLogging) types.List {
+// flattenFluentdLogging transforms *[]client.FluentdLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenFluentdLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.FluentdLogging) types.Set {
 	// Get attribute types
 	elementType := models.FluentdLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1388,19 +1388,19 @@ func (olr *OrgLoggingResource) flattenFluentdLogging(ctx context.Context, diags 
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenStackdriverLogging transforms *[]client.StackdriverLogging into a types.List.
-func (olr *OrgLoggingResource) flattenStackdriverLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.StackdriverLogging) types.List {
+// flattenStackdriverLogging transforms *[]client.StackdriverLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenStackdriverLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.StackdriverLogging) types.Set {
 	// Get attribute types
 	elementType := models.StackdriverLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1418,19 +1418,19 @@ func (olr *OrgLoggingResource) flattenStackdriverLogging(ctx context.Context, di
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
-// flattenSyslogLogging transforms *[]client.SyslogLogging into a types.List.
-func (olr *OrgLoggingResource) flattenSyslogLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.SyslogLogging) types.List {
+// flattenSyslogLogging transforms *[]client.SyslogLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenSyslogLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.SyslogLogging) types.Set {
 	// Get attribute types
 	elementType := models.SyslogLoggingModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null list
-		return types.ListNull(elementType)
+		// Return a null set
+		return types.SetNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -1451,8 +1451,8 @@ func (olr *OrgLoggingResource) flattenSyslogLogging(ctx context.Context, diags *
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, blocks)
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
 }
 
 /*** Helpers ***/
