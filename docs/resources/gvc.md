@@ -115,6 +115,7 @@ Optional:
 
 - **enabled** (Boolean) Enable KEDA for this GVC. KEDA is a Kubernetes-based event-driven autoscaler that allows you to scale workloads based on external events. When enabled, a keda operator will be deployed in the GVC and workloads in the GVC can use KEDA to scale based on external metrics.
 - **identity_link** (String) A link to an Identity resource that will be used for KEDA. This will allow the keda operator to access cloud and network resources.
+- **secrets** (List of String) A list of secrets to be used as TriggerAuthentication objects. The TriggerAuthentication object will be named after the secret and can be used by triggers on workloads in this GVC.
 
 ## Outputs
 
@@ -211,6 +212,7 @@ resource "cpln_gvc" "example" {
   keda {
     enabled       = true
     identity_link = "/org/terraform-test-org/gvc/gvc-example/identity/non-existant-identity"
+    secrets       = ["/org/terraform-test-org/secret/my-secret-01", "/org/terraform-test-org/secret/my-secret-02", "/org/terraform-test-org/secret/my-secret-03"]
   }
 }
 

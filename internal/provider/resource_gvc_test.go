@@ -428,6 +428,11 @@ func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, e
 				{
 					"enabled":       "true",
 					"identity_link": fmt.Sprintf("/org/%s/gvc/%s/identity/non-existant-identity", OrgName, c.Name),
+					"secrets": []string{
+						fmt.Sprintf("/org/%s/secret/non-existant-secret-01", OrgName),
+						fmt.Sprintf("/org/%s/secret/non-existant-secret-02", OrgName),
+						fmt.Sprintf("/org/%s/secret/non-existant-secret-03", OrgName),
+					},
 				},
 			}),
 		),
@@ -749,6 +754,7 @@ resource "cpln_gvc" "%s" {
   keda {
     enabled       = true
     identity_link = "/org/%s/gvc/%s/identity/non-existant-identity"
+    secrets       = ["/org/terraform-test-org/secret/non-existant-secret-01", "/org/terraform-test-org/secret/non-existant-secret-02", "/org/terraform-test-org/secret/non-existant-secret-03"]
   }
 }
 `, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),
