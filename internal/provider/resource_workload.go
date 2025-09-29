@@ -1500,6 +1500,22 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 														},
 													},
 												},
+												Blocks: map[string]schema.Block{
+													"authentication_ref": schema.ListNestedBlock{
+														Description: "Reference to a KEDA authentication object for secure access to external systems.",
+														NestedObject: schema.NestedBlockObject{
+															Attributes: map[string]schema.Attribute{
+																"name": schema.StringAttribute{
+																	Description: "The name of secret listed in the GVC spec.keda.secrets.",
+																	Required:    true,
+																},
+															},
+														},
+														Validators: []validator.List{
+															listvalidator.SizeAtMost(1),
+														},
+													},
+												},
 											},
 										},
 										"advanced": schema.ListNestedBlock{
@@ -2763,11 +2779,12 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state ty
 	for _, block := range blocks {
 		// Construct the item
 		item := client.WorkloadOptionsAutoscalingKedaTrigger{
-			Type:             BuildString(block.Type),
-			Metadata:         wro.BuildMapString(block.Metadata),
-			Name:             BuildString(block.Name),
-			UseCachedMetrics: BuildBool(block.UseCachedMetrics),
-			MetricType:       BuildString(block.MetricType),
+			Type:              BuildString(block.Type),
+			Metadata:          wro.BuildMapString(block.Metadata),
+			Name:              BuildString(block.Name),
+			UseCachedMetrics:  BuildBool(block.UseCachedMetrics),
+			MetricType:        BuildString(block.MetricType),
+			AuthenticationRef: wro.buildOptionsAutoscalingKedaTriggerAuthenticationRef(block.AuthenticationRef),
 		}
 
 		// Add the item to the output slice
@@ -2776,6 +2793,25 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTrigger(state ty
 
 	// Return a pointer to the output
 	return &output
+}
+
+// buildOptionsAutoscalingKedaTriggerAuthenticationRef constructs a WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaTriggerAuthenticationRef(state types.List) *client.WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingKedaTriggerAuthenticationRefModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef{
+		Name: BuildString(block.Name),
+	}
 }
 
 // buildOptionsAutoscalingKedaAdvanced constructs a WorkloadOptionsAutoscalingKedaAdvanced from the given Terraform state.
@@ -3869,11 +3905,12 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTrigger(input 
 	for _, item := range *input {
 		// Construct a block
 		block := models.OptionsAutoscalingKedaTriggerModel{
-			Type:             types.StringPointerValue(item.Type),
-			Metadata:         FlattenMapString(item.Metadata),
-			Name:             types.StringPointerValue(item.Name),
-			UseCachedMetrics: types.BoolPointerValue(item.UseCachedMetrics),
-			MetricType:       types.StringPointerValue(item.MetricType),
+			Type:              types.StringPointerValue(item.Type),
+			Metadata:          FlattenMapString(item.Metadata),
+			Name:              types.StringPointerValue(item.Name),
+			UseCachedMetrics:  types.BoolPointerValue(item.UseCachedMetrics),
+			MetricType:        types.StringPointerValue(item.MetricType),
+			AuthenticationRef: wro.flattenOptionsAutoscalingKedaTriggerAuthenticationRef(item.AuthenticationRef),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -3882,6 +3919,26 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTrigger(input 
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, blocks)
+}
+
+// flattenOptionsAutoscalingKedaTriggerAuthenticationRef transforms *client.WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef into a Terraform types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaTriggerAuthenticationRef(input *client.WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingKedaTriggerAuthenticationRefModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.OptionsAutoscalingKedaTriggerAuthenticationRefModel{
+		Name: types.StringPointerValue(input.Name),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaTriggerAuthenticationRefModel{block})
 }
 
 // flattenOptionsAutoscalingKedaAdvanced transforms *client.WorkloadOptionsAutoscalingKedaAdvanced into a types.List.
