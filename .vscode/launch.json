@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneDomain_basic",
+        "TestAccControlPlaneServiceAccount_basic",
         "-test.v"
       ]
     }
