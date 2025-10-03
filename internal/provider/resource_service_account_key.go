@@ -168,7 +168,7 @@ func (sakr *ServiceAccountKeyResource) Create(ctx context.Context, req resource.
 	}
 
 	// Map the API response to the Terraform state
-	finalState := sakr.buildState(serviceAccountName, responsePayload)
+	finalState := sakr.buildState(nil, serviceAccountName, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -217,7 +217,7 @@ func (sakr *ServiceAccountKeyResource) Read(ctx context.Context, req resource.Re
 		for _, serviceAccountKey := range *responsePayload.Keys {
 			if serviceAccountKey.Name == keyName {
 				// Map the API response to the Terraform state
-				finalState := sakr.buildState(serviceAccountName, &serviceAccountKey)
+				finalState := sakr.buildState(&plannedState, serviceAccountName, &serviceAccountKey)
 
 				// Return if an error has occurred during the state creation
 				if resp.Diagnostics.HasError() {
@@ -289,7 +289,7 @@ func (sakr *ServiceAccountKeyResource) buildRequest(state ServiceAccountKeyResou
 }
 
 // buildState creates a state model from response payload.
-func (sakr *ServiceAccountKeyResource) buildState(serviceAccountName string, serviceAccountKey *client.ServiceAccountKey) ServiceAccountKeyResourceModel {
+func (sakr *ServiceAccountKeyResource) buildState(plan *ServiceAccountKeyResourceModel, serviceAccountName string, serviceAccountKey *client.ServiceAccountKey) ServiceAccountKeyResourceModel {
 	// Initialize empty state model
 	state := ServiceAccountKeyResourceModel{}
 
@@ -298,7 +298,16 @@ func (sakr *ServiceAccountKeyResource) buildState(serviceAccountName string, ser
 	state.Description = types.StringPointerValue(serviceAccountKey.Description)
 	state.Name = types.StringValue(serviceAccountKey.Name)
 	state.Created = types.StringPointerValue(serviceAccountKey.Created)
-	state.Key = types.StringValue(serviceAccountKey.Key)
+
+	// Use the key specified in the plan by default
+	if plan != nil {
+		state.Key = plan.Key
+	}
+
+	// Only assign the key if the API returned it non-empty
+	if len(serviceAccountKey.Key) != 0 {
+		state.Key = types.StringValue(serviceAccountKey.Key)
+	}
 
 	// Return completed state model
 	return state

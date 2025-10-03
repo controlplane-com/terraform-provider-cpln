@@ -213,6 +213,7 @@ func (sart *ServiceAccountResourceTest) BuildUpdate2TestStep(initialCase Provide
 			// Key 01
 			resource.TestCheckResourceAttr(keyCase1.ResourceAddress, "description", keyCase1.KeyDescription),
 			resource.TestCheckResourceAttr(keyCase1.ResourceAddress, "service_account_name", c.Name),
+			resource.TestCheckResourceAttrSet(keyCase1.ResourceAddress, "key"),
 		),
 	}
 }
@@ -265,10 +266,12 @@ func (sart *ServiceAccountResourceTest) BuildUpdate3TestStep(initialCase Provide
 			// Key 01
 			resource.TestCheckResourceAttr(keyCase1.ResourceAddress, "description", keyCase1.KeyDescription),
 			resource.TestCheckResourceAttr(keyCase1.ResourceAddress, "service_account_name", c.Name),
+			resource.TestCheckResourceAttrSet(keyCase1.ResourceAddress, "key"),
 
 			// Key 02
 			resource.TestCheckResourceAttr(keyCase2.ResourceAddress, "description", keyCase2.KeyDescription),
 			resource.TestCheckResourceAttr(keyCase2.ResourceAddress, "service_account_name", c.Name),
+			resource.TestCheckResourceAttrSet(keyCase2.ResourceAddress, "key"),
 		),
 	}
 }

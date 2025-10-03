@@ -1,3 +1,7 @@
+## 1.2.11
+
+- Fix serivce account key preservation.
+
 ## 1.2.10
 
 - Add acceptAllSubdomains, certChallengeType and workloadLink to domain resource.
