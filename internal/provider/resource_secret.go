@@ -116,6 +116,9 @@ func (sr *SecretResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "If a dictionary secret is defined, this output will be a key-value map in the following format: `key = cpln://secret/SECRET_NAME.key`.",
 				ElementType:         types.StringType,
 				Computed:            true,
+				PlanModifiers: []planmodifier.Map{
+					modifiers.DictionaryAsEnvsPlanModifier{},
+				},
 			},
 			"azure_sdk": schema.StringAttribute{
 				MarkdownDescription: "JSON string containing the Docker secret. [Reference Page](https://docs.controlplane.com/reference/secret#azure).",
