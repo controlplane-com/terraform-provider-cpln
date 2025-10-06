@@ -1,3 +1,7 @@
+## 1.2.12
+
+- Fix noisy diffs for `dictionary_as_envs` across runs in secret resource.
+
 ## 1.2.11
 
 - Fix serivce account key preservation.
