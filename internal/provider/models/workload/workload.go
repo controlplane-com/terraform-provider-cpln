@@ -15,7 +15,7 @@ type ContainerModel struct {
 	WorkingDirectory types.String `tfsdk:"working_directory"`
 	Metrics          types.List   `tfsdk:"metrics"`
 	Port             types.Int32  `tfsdk:"port"`
-	Ports            types.Set    `tfsdk:"ports"`
+	Ports            types.List   `tfsdk:"ports"`
 	Memory           types.String `tfsdk:"memory"`
 	ReadinessProbe   types.List   `tfsdk:"readiness_probe"`
 	LivenessProbe    types.List   `tfsdk:"liveness_probe"`
@@ -40,7 +40,7 @@ func (c ContainerModel) AttributeTypes() attr.Type {
 			"working_directory": types.StringType,
 			"metrics":           types.ListType{ElemType: ContainerMetricsModel{}.AttributeTypes()},
 			"port":              types.Int32Type,
-			"ports":             types.SetType{ElemType: ContainerPortModel{}.AttributeTypes()},
+			"ports":             types.ListType{ElemType: ContainerPortModel{}.AttributeTypes()},
 			"memory":            types.StringType,
 			"readiness_probe":   types.ListType{ElemType: ContainerHealthCheckModel{}.AttributeTypes()},
 			"liveness_probe":    types.ListType{ElemType: ContainerHealthCheckModel{}.AttributeTypes()},
