@@ -180,15 +180,12 @@ func (grt *GvcResourceTest) NewDefaultNamingScenario() []resource.TestStep {
 	// Get secret config
 	opaqueSecretConfig := opaqueSecretCase.OpaqueRequiredOnly("opaque_secret_payload")
 
-	// Declare the endpoint naming format for this test case
-	endpointNamingFormat := "default"
-
 	// Build test steps
-	initialConfig, initialStep := grt.BuildInitialTestStepWithEndpointNamingFormat(resourceName, name, endpointNamingFormat)
-	caseUpdate1 := grt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretConfig)
-	caseUpdate2 := grt.BuildUpdate2TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
-	caseUpdate3 := grt.BuildUpdate3TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
-	caseUpdate4 := grt.BuildUpdate4TestStep(initialConfig.ProviderTestCase, endpointNamingFormat, dockerName, opaqueSecretCase, opaqueSecretConfig)
+	initialConfig, initialStep := grt.BuildInitialTestStepWithEndpointNamingFormat(resourceName, name, "default")
+	caseUpdate1 := grt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, "default", dockerName, opaqueSecretConfig)
+	caseUpdate2 := grt.BuildUpdate2TestStep(initialConfig.ProviderTestCase, "legacy", dockerName, opaqueSecretCase, opaqueSecretConfig)
+	caseUpdate3 := grt.BuildUpdate3TestStep(initialConfig.ProviderTestCase, "legacy", dockerName, opaqueSecretCase, opaqueSecretConfig)
+	caseUpdate4 := grt.BuildUpdate4TestStep(initialConfig.ProviderTestCase, "legacy", dockerName, opaqueSecretCase, opaqueSecretConfig)
 
 	// Return the complete test steps
 	return []resource.TestStep{

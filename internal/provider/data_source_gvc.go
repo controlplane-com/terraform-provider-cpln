@@ -92,11 +92,11 @@ func (d *GvcDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 				Optional:           true,
 			},
 			"endpoint_naming_format": schema.StringAttribute{
-				Description: "Customizes the subdomain format for the canonical workload endpoint. `default` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${org}.cpln.app'.",
+				Description: "Customizes the subdomain format for the canonical workload endpoint. `legacy` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${orgEndpointPrefix}.cpln.app'.",
 				Optional:    true,
 				Computed:    true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("default", "org"),
+					stringvalidator.OneOf("default", "org", "legacy"),
 				},
 			},
 			"env": schema.MapAttribute{
