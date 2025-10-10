@@ -354,7 +354,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					Blocks: map[string]schema.Block{
 						"networking": mr.NetworkingSchema(),
 						"image":      mr.AwsAmiSchema(),
-						"deploy_role_chain": schema.SetNestedBlock{
+						"deploy_role_chain": schema.ListNestedBlock{
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -1958,11 +1958,11 @@ func (mro *Mk8sResourceOperator) buildAwsAmi(state types.List) *client.Mk8sAwsAm
 }
 
 // buildAwsAssumeRoleLink constructs a []client.Mk8sAwsAssumeRoleLink from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAwsAssumeRoleLink(state types.Set) *[]client.Mk8sAwsAssumeRoleLink {
-	// Convert Terraform set into model blocks using generic helper
-	blocks, ok := BuildSet[models.AwsProviderAssumeRoleLinkModel](mro.Ctx, mro.Diags, state)
+func (mro *Mk8sResourceOperator) buildAwsAssumeRoleLink(state types.List) *[]client.Mk8sAwsAssumeRoleLink {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AwsProviderAssumeRoleLinkModel](mro.Ctx, mro.Diags, state)
 
-	// Return nil if conversion failed or set was empty
+	// Return nil if conversion failed or List was empty
 	if !ok {
 		return nil
 	}
@@ -3212,15 +3212,15 @@ func (mro *Mk8sResourceOperator) flattenAwsAmi(input *client.Mk8sAwsAmi) types.L
 	return FlattenList(mro.Ctx, mro.Diags, []models.AwsProviderAmiModel{block})
 }
 
-// flattenAwsAssumeRoleLink transforms *[]client.Mk8sAwsAssumeRoleLink into a types.Set.
-func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAwsAssumeRoleLink) types.Set {
+// flattenAwsAssumeRoleLink transforms *[]client.Mk8sAwsAssumeRoleLink into a types.List.
+func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAwsAssumeRoleLink) types.List {
 	// Get attribute types
 	elementType := models.AwsProviderAssumeRoleLinkModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null set
-		return types.SetNull(elementType)
+		// Return a null List
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3239,8 +3239,8 @@ func (mro *Mk8sResourceOperator) flattenAwsAssumeRoleLink(input *[]client.Mk8sAw
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.Set
-	return FlattenSet(mro.Ctx, mro.Diags, blocks)
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, blocks)
 }
 
 // flattenAwsProviderNodePools transforms *[]client.Mk8sAwsPool into a types.Set.

@@ -158,7 +158,7 @@ type AwsProviderModel struct {
 	PreInstallScript     types.String `tfsdk:"pre_install_script"`
 	Image                types.List   `tfsdk:"image"`
 	DeployRoleArn        types.String `tfsdk:"deploy_role_arn"`
-	DeployRoleChain      types.Set    `tfsdk:"deploy_role_chain"`
+	DeployRoleChain      types.List   `tfsdk:"deploy_role_chain"`
 	VpcId                types.String `tfsdk:"vpc_id"`
 	KeyPair              types.String `tfsdk:"key_pair"`
 	DiskEncryptionKeyArn types.String `tfsdk:"disk_encryption_key_arn"`
@@ -178,7 +178,7 @@ func (a AwsProviderModel) AttributeTypes() attr.Type {
 			"pre_install_script":      types.StringType,
 			"image":                   types.ListType{ElemType: AwsProviderAmiModel{}.AttributeTypes()},
 			"deploy_role_arn":         types.StringType,
-			"deploy_role_chain":       types.SetType{ElemType: AwsProviderAssumeRoleLinkModel{}.AttributeTypes()},
+			"deploy_role_chain":       types.ListType{ElemType: AwsProviderAssumeRoleLinkModel{}.AttributeTypes()},
 			"vpc_id":                  types.StringType,
 			"key_pair":                types.StringType,
 			"disk_encryption_key_arn": types.StringType,

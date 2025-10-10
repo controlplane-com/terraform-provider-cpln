@@ -1,3 +1,10 @@
+## 1.2.13
+
+- Fix order of values in command array in workload resource.
+- Deprecate 'default' endpoint_naming_format in gvc resource; add 'legacy' as replacement.
+- Fix order of values in deploy_role_chain in mk8s resource.
+- Fix order of values in container ports in workload resource.
+
 ## 1.2.12
 
 - Fix noisy diffs for `dictionary_as_envs` across runs in secret resource.

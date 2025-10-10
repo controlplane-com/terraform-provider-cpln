@@ -429,7 +429,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								listvalidator.SizeAtMost(1),
 							},
 						},
-						"ports": schema.SetNestedBlock{
+						"ports": schema.ListNestedBlock{
 							Description: "Communication endpoints used by the workload to send and receive network traffic.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -1689,7 +1689,7 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 	}
 
 	// Build ports from container
-	ports, ok := BuildSet[models.ContainerPortModel](ctx, diags, container.Ports)
+	ports, ok := BuildList[models.ContainerPortModel](ctx, diags, container.Ports)
 
 	// If the port number is still nil, extract the port number from the very first item of container ports
 	if ok && len(ports) != 0 {
@@ -1713,7 +1713,7 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 	}
 
 	// Set ports back to container
-	container.Ports = FlattenSet(ctx, diags, ports)
+	container.Ports = FlattenList(ctx, diags, ports)
 
 	// Set probes back to container
 	container.LivenessProbe = FlattenList(ctx, diags, livenessProbe)
@@ -2122,7 +2122,7 @@ func (wro *WorkloadResourceOperator) buildContainers(state types.List) *[]client
 	// Iterate over each block and construct an output item
 	for _, block := range blocks {
 		// Build block ports
-		ports, ok := BuildSet[models.ContainerPortModel](wro.Ctx, wro.Diags, block.Ports)
+		ports, ok := BuildList[models.ContainerPortModel](wro.Ctx, wro.Diags, block.Ports)
 
 		// Skip if ports are nil, this shouldn't happen but let's handle it anyway
 		if !block.Ports.IsNull() && !block.Ports.IsUnknown() && !ok {
@@ -3302,15 +3302,15 @@ func (wro *WorkloadResourceOperator) flattenContainerMetrics(input *client.Workl
 	return FlattenList(wro.Ctx, wro.Diags, []models.ContainerMetricsModel{block})
 }
 
-// flattenContainerPort transforms *[]client.WorkloadContainerPort into a types.Set.
-func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.WorkloadContainerPort) types.Set {
+// flattenContainerPort transforms *[]client.WorkloadContainerPort into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.WorkloadContainerPort) types.List {
 	// Get attribute types
 	elementType := models.ContainerPortModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null set
-		return types.SetNull(elementType)
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -3328,8 +3328,8 @@ func (wro *WorkloadResourceOperator) flattenContainerPort(input *[]client.Worklo
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.Set
-	return FlattenSet(wro.Ctx, wro.Diags, blocks)
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenHealthCheck transforms *client.WorkloadHealthCheck into a types.List.
