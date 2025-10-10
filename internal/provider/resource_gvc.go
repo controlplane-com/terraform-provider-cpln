@@ -28,6 +28,7 @@ import (
 var (
 	_ resource.Resource                = &GvcResource{}
 	_ resource.ResourceWithImportState = &GvcResource{}
+	_ resource.ResourceWithModifyPlan  = &GvcResource{}
 )
 
 /*** Resource Model ***/
@@ -70,6 +71,85 @@ func (gr *GvcResource) Configure(ctx context.Context, req resource.ConfigureRequ
 	gr.Operations = NewEntityOperations(gr.client, &GvcResourceOperator{})
 }
 
+// ModifyPlan adds deprecation warnings for deprecated configuration choices.
+func (gr *GvcResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Skip evaluation when the resource is being destroyed
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+
+	// Read the planned values into our model for inspection
+	var planModel GvcResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &planModel)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Capture prior state when present so we can make comparisons
+	var (
+		stateModel GvcResourceModel
+		hasState   bool
+	)
+
+	if !req.State.Raw.IsNull() {
+		hasState = true
+		resp.Diagnostics.Append(req.State.Get(ctx, &stateModel)...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	// Track whether we should emit the deprecation warning
+	shouldWarn := false
+
+	// Prefer checking the planned value so users see the warning on new configurations
+	if !planModel.EndpointNamingFormat.IsNull() && !planModel.EndpointNamingFormat.IsUnknown() {
+		if strings.EqualFold(planModel.EndpointNamingFormat.ValueString(), "default") {
+			shouldWarn = true
+		}
+	} else if hasState {
+		if !stateModel.EndpointNamingFormat.IsNull() && !stateModel.EndpointNamingFormat.IsUnknown() &&
+			strings.EqualFold(stateModel.EndpointNamingFormat.ValueString(), "default") {
+			shouldWarn = true
+		}
+	}
+
+	// Show a warning any time the user is trying to keep the deprecated value
+	if shouldWarn {
+		resp.Diagnostics.AddWarning(
+			"Deprecated endpoint naming format `default`",
+			"The `default` endpoint naming format is deprecated and will be removed in a future release. Please use \"legacy\" instead.",
+		)
+	}
+
+	// Nothing further to reconcile when there was no prior state
+	if !hasState {
+		return
+	}
+
+	endpointPath := path.Root("endpoint_naming_format")
+
+	// Preserve the server-sourced value when the plan leaves it unknown or explicitly null
+	switch {
+	case planModel.EndpointNamingFormat.IsUnknown():
+		if stateModel.EndpointNamingFormat.IsNull() {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, endpointPath, types.StringNull())...)
+		} else if !stateModel.EndpointNamingFormat.IsUnknown() {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, endpointPath, stateModel.EndpointNamingFormat)...)
+		}
+	case planModel.EndpointNamingFormat.IsNull():
+		if !stateModel.EndpointNamingFormat.IsNull() && !stateModel.EndpointNamingFormat.IsUnknown() {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, endpointPath, stateModel.EndpointNamingFormat)...)
+		}
+	}
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}
+
 // ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
 func (gr *GvcResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
@@ -107,15 +187,14 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				Optional:           true,
 			},
 			"endpoint_naming_format": schema.StringAttribute{
-				Description: "Customizes the subdomain format for the canonical workload endpoint. `default` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${org}.cpln.app'.",
+				Description: "Customizes the subdomain format for the canonical workload endpoint. `legacy` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${orgEndpointPrefix}.cpln.app'.",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
-					gr.RequiresReplace(),
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Validators: []validator.String{
-					stringvalidator.OneOf("default", "org"),
+					stringvalidator.OneOf("default", "org", "legacy"),
 				},
 			},
 			"env": schema.MapAttribute{
@@ -280,11 +359,6 @@ func (gr *GvcResource) RequiresReplace() planmodifier.String {
 
 			// Capture the attribute path for the error message
 			attrPath := req.Path.String()
-
-			// Skip if it is an endpoint naming format change from null to default
-			if attrPath == "endpoint_naming_format" && strings.EqualFold(oldStr, "<null>") && strings.EqualFold(newStr, "default") {
-				return
-			}
 
 			// Whole resource removed from config
 			if req.Config.Raw.IsNull() {

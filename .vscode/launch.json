@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneSecret_basic",
+        "TestAccControlPlaneGvc_basic",
         "-test.v"
       ]
     }
