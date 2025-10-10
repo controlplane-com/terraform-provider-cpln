@@ -478,6 +478,42 @@ func BuildSetString(ctx context.Context, diags *diag.Diagnostics, input types.Se
 	return &output
 }
 
+// BuildListString converts a Terraform types.List with tfsdk.StringType into a Go *[]string.
+func BuildListString(ctx context.Context, diags *diag.Diagnostics, input types.List) *[]string {
+	// Exit early if list itself is null or unknown
+	if input.IsNull() || input.IsUnknown() {
+		return nil
+	}
+
+	// Prepare an intermediate slice to unmarshal Terraform values
+	var intermediate []types.String
+
+	// Decode Terraform list elements into the intermediate slice
+	diags.Append(input.ElementsAs(ctx, &intermediate, false)...)
+
+	// Abort if any diagnostic errors occurred during decoding
+	if diags.HasError() {
+		return nil
+	}
+
+	// Build the output slice, preallocating for efficiency
+	output := make([]string, 0, len(intermediate))
+
+	// Iterate and extract each known string value
+	for _, elem := range intermediate {
+		// Skip null or unknown entries
+		if elem.IsNull() || elem.IsUnknown() {
+			continue
+		}
+
+		// Add the element to the output slice
+		output = append(output, elem.ValueString())
+	}
+
+	// Return a pointer to the populated slice
+	return &output
+}
+
 // BuildSetInt converts a Terraform types.Set with tfsdk.Int32Type into a Go *[]int.
 func BuildSetInt(ctx context.Context, diags *diag.Diagnostics, input types.Set) *[]int {
 	// Exit early if set itself is null or unknown
@@ -671,6 +707,23 @@ func FlattenSetString(input *[]string) types.Set {
 
 	// Build and return the Set, panicking on any internal error
 	return types.SetValueMust(types.StringType, values)
+}
+
+// FlattenListString converts a Go *[]string into a Terraform types.List with tfsdk.StringType.
+func FlattenListString(input *[]string) types.List {
+	// No input slice means no data → return a null list
+	if input == nil {
+		return types.ListNull(types.StringType)
+	}
+
+	// Convert each Go string into an attr.Value (types.String)
+	values := make([]attr.Value, len(*input))
+	for i, s := range *input {
+		values[i] = types.StringValue(s)
+	}
+
+	// Build and return the List, panicking on any internal error
+	return types.ListValueMust(types.StringType, values)
 }
 
 // FlattenSetInt converts a Go *[]int into a Terraform types.Set with tfsdk.Int32Type.
