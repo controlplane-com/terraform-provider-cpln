@@ -21,7 +21,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **domain** (String) Custom domain name used by associated workloads.
-- **endpoint_naming_format** (String) Customizes the subdomain format for the canonical workload endpoint. `default` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${org}.cpln.app'.
+- **endpoint_naming_format** (String) Customizes the subdomain format for the canonical workload endpoint. `legacy` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${orgEndpointPrefix}.cpln.app'.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
@@ -164,8 +164,8 @@ resource "cpln_gvc" "example" {
   name        = "gvc-example"
   description = "Example GVC"
 
-  # Default endpoint naming format gives us: ${workloadName}-${gvcName}.cpln.app
-  endpoint_naming_format = "default"
+  # Org endpoint naming format gives us: ${workloadName}-${gvcName}.${orgEndpointPrefix}.cpln.app
+  endpoint_naming_format = "org"
 
   # Example Locations: `aws-eu-central-1`, `aws-us-west-2`, `azure-east2`, `gcp-us-east1`
   locations = ["aws-eu-central-1", "aws-us-west-2"]
