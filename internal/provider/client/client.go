@@ -227,6 +227,9 @@ func (c *Client) CreateResource(resourceType, id string, resource interface{}) (
 	// Set the initial backoff delay
 	backoff := 2 * time.Second
 
+	// Track the last error returned by the API
+	var lastErr error
+
 	// Attempt the HTTP request up to maxRetries times
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		// Build a new HTTP POST request for creating the resource
@@ -246,6 +249,8 @@ func (c *Client) CreateResource(resourceType, id string, resource interface{}) (
 
 		// On HTTP 429 Too Many Requests...
 		if err != nil {
+			lastErr = err
+
 			if code == http.StatusTooManyRequests {
 				// If the error message mentions quota, return the original error
 				if strings.Contains(err.Error(), "quota") {
@@ -276,6 +281,10 @@ func (c *Client) CreateResource(resourceType, id string, resource interface{}) (
 	}
 
 	// Report final failure after all retry attempts
+	if lastErr != nil {
+		return 0, fmt.Errorf("create resource %q failed after %d attempts due to HTTP 429: %w", id, maxRetries, lastErr)
+	}
+
 	return 0, fmt.Errorf("create resource %q failed after %d attempts due to HTTP 429", id, maxRetries)
 }
 
@@ -298,6 +307,9 @@ func (c *Client) CreateResourceAgent(resource Agent) (*Agent, int, error) {
 	// Set the initial backoff delay
 	backoff := 2 * time.Second
 
+	// Track the last error returned by the API
+	var lastErr error
+
 	// Attempt the HTTP request up to maxRetries times
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		// Build a new HTTP POST request for creating the Agent
@@ -316,6 +328,8 @@ func (c *Client) CreateResourceAgent(resource Agent) (*Agent, int, error) {
 		respBody, code, err := c.doRequest(req, "application/json")
 		// On HTTP 429 Too Many Requests...
 		if err != nil {
+			lastErr = err
+
 			if code == http.StatusTooManyRequests {
 				// If the error message mentions quota, return the original error
 				if strings.Contains(err.Error(), "quota") {
@@ -354,6 +368,10 @@ func (c *Client) CreateResourceAgent(resource Agent) (*Agent, int, error) {
 	}
 
 	// Report final failure after all retry attempts
+	if lastErr != nil {
+		return nil, 0, fmt.Errorf("create Agent failed after %d attempts due to HTTP 429: %w", maxRetries, lastErr)
+	}
+
 	return nil, 0, fmt.Errorf("create Agent failed after %d attempts due to HTTP 429", maxRetries)
 }
 
@@ -376,6 +394,9 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 	// Set the initial backoff delay
 	backoff := 2 * time.Second
 
+	// Track the last error returned by the API
+	var lastErr error
+
 	// Attempt the HTTP request up to maxRetries times
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		// Build a new HTTP PATCH request for updating the resource
@@ -395,6 +416,8 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 
 		// On HTTP 429 Too Many Requests...
 		if err != nil {
+			lastErr = err
+
 			if code == http.StatusTooManyRequests {
 				// If the error message mentions quota, return the original error
 				if strings.Contains(err.Error(), "quota") {
@@ -425,6 +448,10 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 	}
 
 	// Report final failure after all retry attempts
+	if lastErr != nil {
+		return 0, fmt.Errorf("update resource %q failed after %d attempts due to HTTP 429: %w", id, maxRetries, lastErr)
+	}
+
 	return 0, fmt.Errorf("update resource %q failed after %d attempts due to HTTP 429", id, maxRetries)
 }
 
@@ -435,6 +462,9 @@ func (c *Client) DeleteResource(id string) error {
 
 	// Set the initial backoff delay
 	backoff := 2 * time.Second
+
+	// Track the last error returned by the API
+	var lastErr error
 
 	// Attempt the HTTP delete up to maxRetries times
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -453,54 +483,61 @@ func (c *Client) DeleteResource(id string) error {
 		// Execute the HTTP request
 		_, code, err := c.doRequest(req, "")
 
-		// On HTTP 409 Conflict...
-		if err != nil && code == http.StatusConflict {
-			// If we've exhausted all retries, break to report failure
-			if attempt == maxRetries {
-				break
+		if err != nil {
+			lastErr = err
+
+			// On HTTP 409 Conflict...
+			if code == http.StatusConflict {
+				// If we've exhausted all retries, break to report failure
+				if attempt == maxRetries {
+					break
+				}
+
+				// Wait for the current backoff duration
+				time.Sleep(backoff)
+
+				// Double the backoff for the next attempt
+				backoff *= 2
+
+				// Retry the request
+				continue
 			}
 
-			// Wait for the current backoff duration
-			time.Sleep(backoff)
+			// On HTTP 429 Too Many Requests...
+			if code == http.StatusTooManyRequests {
+				// If the error message mentions quota, return the original error
+				if strings.Contains(err.Error(), "quota") {
+					return err
+				}
 
-			// Double the backoff for the next attempt
-			backoff *= 2
+				// If we've exhausted all retries, break to report failure
+				if attempt == maxRetries {
+					break
+				}
 
-			// Retry the request
-			continue
-		}
-		// On HTTP 429 Too Many Requests...
-		if err != nil && code == http.StatusTooManyRequests {
-			// If the error message mentions quota, return the original error
-			if strings.Contains(err.Error(), "quota") {
-				return err
+				// Wait for the current backoff duration
+				time.Sleep(backoff)
+
+				// Double the backoff for the next attempt
+				backoff *= 2
+
+				// Retry the request
+				continue
 			}
 
-			// If we've exhausted all retries, break to report failure
-			if attempt == maxRetries {
-				break
-			}
-
-			// Wait for the current backoff duration
-			time.Sleep(backoff)
-
-			// Double the backoff for the next attempt
-			backoff *= 2
-
-			// Retry the request
-			continue
+			// Return any other error immediately
+			return err
 		}
 
-		// If delete succeeded or a non‐retryable error occurred, return immediately
-		if err == nil {
-			return nil
-		}
-
-		// Return any other error immediately
-		return err
+		// If delete succeeded, return immediately
+		return nil
 	}
 
 	// Report final failure after all retry attempts
+	if lastErr != nil {
+		return fmt.Errorf("delete resource %q failed after %d attempts: %w", id, maxRetries, lastErr)
+	}
+
 	return fmt.Errorf("delete resource %q failed after %d attempts", id, maxRetries)
 }
 
