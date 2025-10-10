@@ -1292,12 +1292,12 @@ func (wr *WorkloadResource) ExecSchema(description string) schema.ListNestedBloc
 		Description: "",
 		NestedObject: schema.NestedBlockObject{
 			Attributes: map[string]schema.Attribute{
-				"command": schema.SetAttribute{
+				"command": schema.ListAttribute{
 					Description: description,
 					ElementType: types.StringType,
 					Required:    true,
-					Validators: []validator.Set{
-						setvalidator.SizeAtLeast(1),
+					Validators: []validator.List{
+						listvalidator.SizeAtLeast(1),
 					},
 				},
 			},
@@ -2264,7 +2264,7 @@ func (wro *WorkloadResourceOperator) buildExec(state types.List) *client.Workloa
 
 	// Construct and return the output
 	return &client.WorkloadExec{
-		Command: wro.BuildSetString(block.Command),
+		Command: wro.BuildListString(block.Command),
 	}
 }
 
@@ -3373,7 +3373,7 @@ func (wro *WorkloadResourceOperator) flattenExec(input *client.WorkloadExec) typ
 
 	// Build a single block
 	block := models.ContainerExecModel{
-		Command: FlattenSetString(input.Command),
+		Command: FlattenListString(input.Command),
 	}
 
 	// Return the successfully created types.List

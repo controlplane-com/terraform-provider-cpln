@@ -254,13 +254,13 @@ func (c ContainerVolumeModel) AttributeTypes() attr.Type {
 // Container -> Exec //
 
 type ContainerExecModel struct {
-	Command types.Set `tfsdk:"command"`
+	Command types.List `tfsdk:"command"`
 }
 
 func (c ContainerExecModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"command": types.SetType{ElemType: types.StringType},
+			"command": types.ListType{ElemType: types.StringType},
 		},
 	}
 }

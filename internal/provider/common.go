@@ -436,6 +436,11 @@ func (eo *EntityOperator[Plan]) BuildSetInt(state types.Set) *[]int {
 	return BuildSetInt(eo.Ctx, eo.Diags, state)
 }
 
+// BuildListString constructs a string slice from the given Terraform state.
+func (eo *EntityOperator[Plan]) BuildListString(state types.List) *[]string {
+	return BuildListString(eo.Ctx, eo.Diags, state)
+}
+
 // BuildStringSet constructs a string slice from the given Terraform state.
 func (eo *EntityOperator[Plan]) BuildMapString(state types.Map) *map[string]interface{} {
 	return BuildMapString(eo.Ctx, eo.Diags, state)
