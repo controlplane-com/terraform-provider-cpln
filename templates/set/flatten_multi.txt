@@ -1,0 +1,26 @@
+// flatten{NAME} transforms *[]client.{CLIENT_TYPE} into a Terraform types.Set.
+func ({OPERATOR_INSTANCE_NAME} *{OPERATOR_NAME}) flatten{NAME}(input *[]client.{CLIENT_TYPE}) types.Set {
+	// Get attribute types
+  elementType := models.{MODEL}{}.AttributeTypes()
+
+	// Check if the input is nil
+  if input == nil {
+		// Return a null set
+    return types.SetNull(elementType)
+  }
+
+	// Define the blocks slice
+  var blocks []models.{MODEL}
+
+	// Iterate over the slice and construct the blocks
+  for _, item := range *input {
+		// Construct a block
+    block := models.{MODEL}{}
+
+		// Append the constructed block to the blocks slice
+    blocks = append(blocks, block)
+  }
+
+	// Return the successfully created types.Set
+  return FlattenSet({OPERATOR_INSTANCE_NAME}.Ctx, {OPERATOR_INSTANCE_NAME}.Diags, blocks)
+}

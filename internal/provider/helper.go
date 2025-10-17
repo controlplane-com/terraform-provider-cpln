@@ -12,13 +12,14 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 
 	"slices"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	commonmodel "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/common"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 /*** Exported Functions ***/
@@ -86,6 +87,11 @@ func IntPointer(input int) *int {
 
 // Float64Pointer returns a pointer to the input float64.
 func Float64Pointer(input float64) *float64 {
+	return &input
+}
+
+// Float32Pointer returns a pointer to the input float32.
+func Float32Pointer(input float32) *float32 {
 	return &input
 }
 
@@ -349,6 +355,21 @@ func BuildInt(input types.Int32) *int {
 	return &result
 }
 
+// BuildFloat32 converts a types.Float64 to a pointer to float64.
+func BuildFloat32(input types.Float32) *float32 {
+	// Determine if input has no valid value
+	if input.IsNull() || input.IsUnknown() {
+		// Indicate absence of value by returning nil
+		return nil
+	}
+
+	// Extract the Float32 value
+	output := input.ValueFloat32()
+
+	// Provide pointer to the float32 for further use
+	return &output
+}
+
 // BuildFloat64 converts a types.Float64 to a pointer to float64.
 func BuildFloat64(input types.Float64) *float64 {
 	// Determine if input has no valid value
@@ -604,6 +625,27 @@ func BuildSet[T any](ctx context.Context, diags *diag.Diagnostics, s types.Set) 
 	return blocks, true
 }
 
+// BuildObject extracts a block of type T from a Terraform types.Object.
+func BuildObject[T any](ctx context.Context, diags *diag.Diagnostics, o types.Object) (*T, bool) {
+	// Return nil, false if object is null or unknown
+	if o.IsNull() || o.IsUnknown() {
+		return nil, false
+	}
+
+	// Prepare the destination value
+	var block T
+
+	// Decode the object into the destination using framework helper
+	diags.Append(o.As(ctx, &block, basetypes.ObjectAsOptions{})...)
+
+	// Abort on diagnostics errors
+	if diags.HasError() {
+		return nil, false
+	}
+
+	return &block, true
+}
+
 // Flatteners //
 
 // FlattenInt converts an *int into a Terraform types.Int32.
@@ -797,6 +839,34 @@ func FlattenSet[T commonmodel.Model](ctx context.Context, diags *diag.Diagnostic
 
 	// Return the successfully built set
 	return l
+}
+
+// FlattenObject creates a Terraform types.Object from a block implementing Model.
+func FlattenObject[T commonmodel.Model](ctx context.Context, diags *diag.Diagnostics, block *T) types.Object {
+	// Access attribute types via a zero value of T
+	var zero T
+
+	// Attempt to interpret the attribute types as an ObjectType
+	objectType := zero.AttributeTypes().(types.ObjectType)
+
+	// Return a null object when the input block is absent
+	if block == nil {
+		return types.ObjectNull(objectType.AttrTypes)
+	}
+
+	// Build an Object value from the provided block while collecting diagnostics
+	objectValue, diag := types.ObjectValueFrom(ctx, objectType.AttrTypes, *block)
+
+	// Merge any diagnostics from the conversion into the main diagnostics
+	diags.Append(diag...)
+
+	// Return a null object if the conversion produced errors
+	if diag.HasError() {
+		return types.ObjectNull(objectType.AttrTypes)
+	}
+
+	// Return the successfully constructed Object value
+	return objectValue
 }
 
 /*** Local Functions ***/
