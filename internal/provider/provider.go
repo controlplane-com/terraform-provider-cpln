@@ -158,6 +158,7 @@ func (p *CplnProvider) DataSources(_ context.Context) []func() datasource.DataSo
 		NewLocationsDataSource,
 		NewOrgDataSource,
 		NewSecretDataSource,
+		NewWorkloadDataSource,
 	}
 }
 

@@ -64,8 +64,9 @@ type WorkloadContainer struct {
 }
 
 type WorkloadContainerMetrics struct {
-	Path *string `json:"path,omitempty"`
-	Port *int    `json:"port,omitempty"`
+	Path        *string   `json:"path,omitempty"`
+	Port        *int      `json:"port,omitempty"`
+	DropMetrics *[]string `json:"dropMetrics,omitempty"`
 }
 
 type WorkloadContainerPort struct {
@@ -188,13 +189,14 @@ type WorkloadFirewallInternal struct {
 
 // WorkloadOptions - WorkloadOptions
 type WorkloadOptions struct {
-	AutoScaling    *WorkloadOptionsAutoscaling `json:"autoscaling,omitempty"`
-	TimeoutSeconds *int                        `json:"timeoutSeconds,omitempty"`
-	CapacityAI     *bool                       `json:"capacityAI,omitempty"`
-	Debug          *bool                       `json:"debug,omitempty"`
-	Suspend        *bool                       `json:"suspend,omitempty"`
-	MultiZone      *WorkloadOptionsMultiZone   `json:"multiZone,omitempty"`
-	Location       *string                     `json:"location,omitempty"`
+	AutoScaling             *WorkloadOptionsAutoscaling `json:"autoscaling,omitempty"`
+	TimeoutSeconds          *int                        `json:"timeoutSeconds,omitempty"`
+	CapacityAI              *bool                       `json:"capacityAI,omitempty"`
+	CapacityAIUpdateMinutes *int                        `json:"capacityAIUpdateMinutes,omitempty"`
+	Debug                   *bool                       `json:"debug,omitempty"`
+	Suspend                 *bool                       `json:"suspend,omitempty"`
+	MultiZone               *WorkloadOptionsMultiZone   `json:"multiZone,omitempty"`
+	Location                *string                     `json:"location,omitempty"`
 }
 
 // WorkloadOptionsAutoscaling - Auto Scaling Options
