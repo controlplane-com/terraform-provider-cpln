@@ -195,6 +195,7 @@ func (vsrt *VolumeSetResourceTest) BuildInitialTestStep(name string, gvcConfig s
 			resource.TestCheckResourceAttr(c.ResourceAddress, "performance_class", c.PerformanceClass),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "file_system_type", c.FileSystemType),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "volumeset_link", fmt.Sprintf("cpln://volumeset/%s", c.Name)),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "custom_encryption.#"),
 		),
 	}
 }
@@ -239,6 +240,11 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTest
 			}),
 			c.TestCheckNestedBlocks("mount_options", []map[string]interface{}{
 				{},
+			}),
+			c.TestCheckMapObjectAttr("custom_encryption.0.regions", map[string]interface{}{
+				"aws-us-west-2": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-west-2:123456789012:key/minimal",
+				},
 			}),
 		),
 	}
@@ -300,6 +306,14 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate2TestStep(initialCase ProviderTest
 					},
 				},
 			}),
+			c.TestCheckMapObjectAttr("custom_encryption.0.regions", map[string]interface{}{
+				"aws-us-west-2": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-west-2:123456789012:key/minimal",
+				},
+				"aws-us-east-1": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-east-1:123456789012:key/extended",
+				},
+			}),
 		),
 	}
 }
@@ -336,7 +350,7 @@ resource "cpln_volume_set" "%s" {
   depends_on = [%s]
 
   name        = "%s"
-	description = "%s"
+  description = "%s"
 
   tags = {
     terraform_generated = "true"
@@ -346,7 +360,16 @@ resource "cpln_volume_set" "%s" {
   gvc                  = "%s"
   initial_capacity     = %s
   performance_class    = "%s"
-  file_system_type  	 = "%s"
+  file_system_type     = "%s"
+
+	custom_encryption {
+		regions = {
+			aws-us-west-2 = {
+				key_id = "arn:aws:kms:us-west-2:123456789012:key/minimal"
+			}
+		}
+	}
+
   storage_class_suffix = "demo-class"
 
   snapshots {}
@@ -368,7 +391,7 @@ resource "cpln_volume_set" "%s" {
   depends_on = [%s]
 
   name        = "%s"
-	description = "%s"
+  description = "%s"
 
   tags = {
     terraform_generated = "true"
@@ -378,13 +401,26 @@ resource "cpln_volume_set" "%s" {
   gvc                  = "%s"
   initial_capacity     = %s
   performance_class    = "%s"
-  file_system_type  	 = "%s"
+  file_system_type     = "%s"
+
+	custom_encryption {
+		regions = {
+			aws-us-west-2 = {
+				key_id = "arn:aws:kms:us-west-2:123456789012:key/minimal"
+			}
+
+			"aws-us-east-1" = {
+				key_id = "arn:aws:kms:us-east-1:123456789012:key/extended"
+			}
+		}
+	}
+
   storage_class_suffix = "demo-class"
 
   snapshots {
     create_final_snapshot = false
     retention_duration    = "2d"
-    schedule 			        = "0 * * * *"
+    schedule              = "0 * * * *"
   }
 
   autoscaling {

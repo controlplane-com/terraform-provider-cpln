@@ -166,6 +166,58 @@ func (ptc *ProviderTestCase) TestCheckMapAttr(key string, expected map[string]st
 	return resource.ComposeAggregateTestCheckFunc(checks...)
 }
 
+// TestCheckMapObjectAttr verifies a map attribute where the values are objects with arbitrary depth.
+func (ptc *ProviderTestCase) TestCheckMapObjectAttr(key string, expected map[string]interface{}) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		// Retrieve the resource from the Terraform state using its address
+		rs, ok := state.RootModule().Resources[ptc.ResourceAddress]
+		if !ok {
+			return fmt.Errorf("resource %q not in state", ptc.ResourceAddress)
+		}
+
+		attrs := rs.Primary.Attributes
+
+		// Determine expected entry count (ignoring nil map)
+		expectedCount := len(expected)
+		countAttrKey := fmt.Sprintf("%s.%%", key)
+
+		// Read the count attribute from state (default to zero if absent)
+		actualCount := attrs[countAttrKey]
+		if expectedCount == 0 {
+			if actualCount != "" && actualCount != "0" {
+				return fmt.Errorf("expected no entries in %s but found %s", key, actualCount)
+			}
+			// Nothing else to validate
+			return nil
+		}
+
+		if actualCount != fmt.Sprint(expectedCount) {
+			return fmt.Errorf("%s expected %d entries but found %s", key, expectedCount, actualCount)
+		}
+
+		// Build expected token bag for the entire map
+		expectTokens := ptc.BuildExpectedTokenBag(key, expected)
+
+		// Build state token bag under the map prefix
+		stateTokens := ptc.BuildStateTokenBag(attrs, key)
+
+		// Ensure state covers expected tokens
+		if ptc.StateTokenBagCoversExpected(stateTokens, expectTokens) {
+			return nil
+		}
+
+		// Compute missing tokens for diagnostics
+		missing := ptc.MissingExpectedTokens(stateTokens, expectTokens)
+
+		// Provide detailed dump for easier debugging
+		return fmt.Errorf("map object attribute %s mismatch\nMissing tokens:\n  %s\nState subtree:\n%s",
+			key,
+			strings.Join(missing, "\n  "),
+			ptc.DumpStateSubtree(attrs, key),
+		)
+	}
+}
+
 // TestCheckNestedBlocks verifies that a nested block attribute contains the expected values
 func (ptc *ProviderTestCase) TestCheckNestedBlocks(key string, expected []map[string]interface{}) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
