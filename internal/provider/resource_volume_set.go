@@ -43,6 +43,7 @@ type VolumeSetResourceModel struct {
 	PerformanceClass   types.String               `tfsdk:"performance_class"`
 	StorageClassSuffix types.String               `tfsdk:"storage_class_suffix"`
 	FileSystemType     types.String               `tfsdk:"file_system_type"`
+	CustomEncryption   types.List                 `tfsdk:"custom_encryption"`
 	Snapshots          []models.SnapshotsModel    `tfsdk:"snapshots"`
 	Autoscaling        []models.AutoscalingModel  `tfsdk:"autoscaling"`
 	MountOptions       []models.MountOptionsModel `tfsdk:"mount_options"`
@@ -192,6 +193,21 @@ func (vsr *VolumeSetResource) Schema(ctx context.Context, req resource.SchemaReq
 			},
 		}),
 		Blocks: map[string]schema.Block{
+			"custom_encryption": schema.ListNestedBlock{
+				Description: "Configuration for customer-managed encryption keys, keyed by region.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"regions": schema.MapAttribute{
+							Description: "Map of region identifiers to encryption key configuration.",
+							ElementType: models.CustomEncryptionRegionModel{}.AttributeTypes(),
+							Required:    true,
+						},
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
 			"snapshots": schema.ListNestedBlock{
 				Description: "Point-in-time copies of data stored within the volume set, capturing the state of the data at a specific moment.",
 				NestedObject: schema.NestedBlockObject{
@@ -402,6 +418,7 @@ func (vsro *VolumeSetResourceOperator) NewAPIRequest(isUpdate bool) client.Volum
 	spec.PerformanceClass = BuildString(vsro.Plan.PerformanceClass)
 	spec.StorageClassSuffix = BuildString(vsro.Plan.StorageClassSuffix)
 	spec.FileSystemType = BuildString(vsro.Plan.FileSystemType)
+	spec.CustomEncryption = vsro.buildCustomEncryption(vsro.Plan.CustomEncryption)
 	spec.Snapshots = vsro.buildSnapshots(vsro.Plan.Snapshots)
 	spec.AutoScaling = vsro.buildAutoscaling(vsro.Plan.Autoscaling)
 	spec.MountOptions = vsro.buildMountOptions(vsro.Plan.MountOptions)
@@ -429,6 +446,7 @@ func (vsro *VolumeSetResourceOperator) MapResponseToState(apiResp *client.Volume
 		state.PerformanceClass = types.StringNull()
 		state.StorageClassSuffix = types.StringNull()
 		state.FileSystemType = types.StringNull()
+		state.CustomEncryption = types.ListNull(models.CustomEncryptionModel{}.AttributeTypes())
 		state.Snapshots = nil
 		state.Autoscaling = nil
 		state.MountOptions = nil
@@ -437,6 +455,7 @@ func (vsro *VolumeSetResourceOperator) MapResponseToState(apiResp *client.Volume
 		state.PerformanceClass = types.StringPointerValue(apiResp.Spec.PerformanceClass)
 		state.StorageClassSuffix = types.StringPointerValue(apiResp.Spec.StorageClassSuffix)
 		state.FileSystemType = types.StringPointerValue(apiResp.Spec.FileSystemType)
+		state.CustomEncryption = vsro.flattenCustomEncryption(apiResp.Spec.CustomEncryption)
 		state.Snapshots = vsro.flattenSnapshots(apiResp.Spec.Snapshots)
 		state.Autoscaling = vsro.flattenAutoscaling(apiResp.Spec.AutoScaling)
 		state.MountOptions = vsro.flattenMountOptions(apiResp.Spec.MountOptions)
@@ -467,6 +486,56 @@ func (vsro *VolumeSetResourceOperator) InvokeDelete(name string) error {
 }
 
 // Builders //
+
+// buildCustomEncryption constructs a VolumeSetCustomEncryption from the given Terraform state list.
+func (vsro *VolumeSetResourceOperator) buildCustomEncryption(state types.List) *client.VolumeSetCustomEncryption {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.CustomEncryptionModel](vsro.Ctx, vsro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.VolumeSetCustomEncryption{
+		Regions: vsro.buildCustomEncryptionRegions(block.Regions),
+	}
+}
+
+// buildCustomEncryptionRegions constructs a map of VolumeSetCustomEncryptionRegion from the given Terraform map.
+func (vsro *VolumeSetResourceOperator) buildCustomEncryptionRegions(state types.Map) *map[string]*client.VolumeSetCustomEncryptionRegion {
+	// Return nil if state is null or unknown
+	if state.IsNull() || state.IsUnknown() {
+		return nil
+	}
+
+	// Convert Terraform map into Go map
+	var regions map[string]models.CustomEncryptionRegionModel
+	vsro.Diags.Append(state.ElementsAs(vsro.Ctx, &regions, false)...)
+
+	// Return nil if conversion failed or regions were nil
+	if vsro.Diags.HasError() || regions == nil {
+		return nil
+	}
+
+	// Construct output map
+	output := make(map[string]*client.VolumeSetCustomEncryptionRegion, len(regions))
+
+	// Iterate over regions and populate output map
+	for key, value := range regions {
+		keyID := BuildString(value.KeyId)
+		output[key] = &client.VolumeSetCustomEncryptionRegion{
+			KeyId: keyID,
+		}
+	}
+
+	// Return constructed map
+	return &output
+}
 
 // buildSnapshots constructs a VolumeSetSnapshots from the given Terraform state.
 func (vsro *VolumeSetResourceOperator) buildSnapshots(state []models.SnapshotsModel) *client.VolumeSetSnapshots {
@@ -540,6 +609,69 @@ func (vsro *VolumeSetResourceOperator) buildMountOptionsResources(state []models
 }
 
 // Flatteners //
+
+// flattenCustomEncryption transforms *client.VolumeSetCustomEncryption into a Terraform types.List.
+func (vsro *VolumeSetResourceOperator) flattenCustomEncryption(input *client.VolumeSetCustomEncryption) types.List {
+	// Get attribute types
+	elementType := models.CustomEncryptionModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.CustomEncryptionModel{
+		Regions: vsro.flattenCustomEncryptionRegions(input.Regions),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(vsro.Ctx, vsro.Diags, []models.CustomEncryptionModel{block})
+}
+
+// flattenCustomEncryptionRegions transforms *map[string]*client.VolumeSetCustomEncryptionRegion into a Terraform types.Map.
+func (vsro *VolumeSetResourceOperator) flattenCustomEncryptionRegions(input *map[string]*client.VolumeSetCustomEncryptionRegion) types.Map {
+	// Get attribute types
+	elementType := models.CustomEncryptionRegionModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.MapNull(elementType)
+	}
+
+	// Build regions map
+	regions := make(map[string]models.CustomEncryptionRegionModel, len(*input))
+
+	// Iterate over each region in the input map
+	for key, value := range *input {
+		// Initialize a new region model
+		region := models.CustomEncryptionRegionModel{}
+
+		// Set KeyId attribute
+		if value != nil {
+			region.KeyId = types.StringPointerValue(value.KeyId)
+		} else {
+			region.KeyId = types.StringNull()
+		}
+
+		// Add region to regions map
+		regions[key] = region
+	}
+
+	// Convert the regions map into a Terraform types.Map
+	result, diags := types.MapValueFrom(vsro.Ctx, elementType, regions)
+	vsro.Diags.Append(diags...)
+
+	// Check for errors during conversion and return null map if any
+	if vsro.Diags.HasError() {
+		return types.MapNull(elementType)
+	}
+
+	// Return the successfully created types.Map
+	return result
+}
 
 // flattenStatus transforms *client.VolumeSetStatus into a Terraform types.List.
 func (vsro *VolumeSetResourceOperator) flattenStatus(input *client.VolumeSetStatus) types.List {

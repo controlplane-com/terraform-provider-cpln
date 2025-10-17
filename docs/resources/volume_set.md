@@ -25,9 +25,19 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 - **tags** (Map of String) Key-value map of resource tags.
 - **storage_class_suffix** (String) For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}
 - **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`. Default: `ext4`.
+- **custom_encryption** (Block List, Max: 1) ([see below](#nestedblock--custom_encryption)).
 - **snapshots** (Block List, Max: 1) ([see below](#nestedblock--snapshots)).
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--autoscaling)).
 - **mount_options** (Block List, Max: 1) ([see below](#nestedblock--mount_options))
+
+<a id="nestedblock--custom_encryption"></a>
+
+### `custom_encryption`
+
+Optional:
+
+- **regions** (Map of Object) Map keyed by region identifier. Each object supports:
+  - **key_id** (String) Identifier of the customer-managed key used to encrypt volumes in the region.
 
 <a id="nestedblock--snapshots"></a>
 
@@ -107,6 +117,18 @@ resource "cpln_volume_set" "new" {
   performance_class    = "high-throughput-ssd"
   file_system_type     = "xfs"
   storage_class_suffix = "demo-class"
+
+  custom_encryption {
+    regions = {
+      "aws-us-west-2" = {
+        key_id = "arn:aws:kms:us-west-2:123456789012:key/example"
+      }
+      
+      "aws-us-east-1" = {
+        key_id = "arn:aws:kms:us-east-1:123456789012:key/example"
+      }
+    }
+  }
 
   snapshots {
     create_final_snapshot = false

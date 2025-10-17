@@ -10,13 +10,14 @@ type VolumeSet struct {
 }
 
 type VolumeSetSpec struct {
-	InitialCapacity    *int                   `json:"initialCapacity,omitempty"`
-	PerformanceClass   *string                `json:"performanceClass,omitempty"`
-	StorageClassSuffix *string                `json:"storageClassSuffix,omitempty"`
-	FileSystemType     *string                `json:"fileSystemType,omitempty"`
-	Snapshots          *VolumeSetSnapshots    `json:"snapshots,omitempty"`
-	AutoScaling        *VolumeSetScaling      `json:"autoscaling,omitempty"`
-	MountOptions       *VolumeSetMountOptions `json:"mountOptions,omitempty"`
+	InitialCapacity    *int                       `json:"initialCapacity,omitempty"`
+	PerformanceClass   *string                    `json:"performanceClass,omitempty"`
+	StorageClassSuffix *string                    `json:"storageClassSuffix,omitempty"`
+	FileSystemType     *string                    `json:"fileSystemType,omitempty"`
+	CustomEncryption   *VolumeSetCustomEncryption `json:"customEncryption,omitempty"`
+	Snapshots          *VolumeSetSnapshots        `json:"snapshots,omitempty"`
+	AutoScaling        *VolumeSetScaling          `json:"autoscaling,omitempty"`
+	MountOptions       *VolumeSetMountOptions     `json:"mountOptions,omitempty"`
 }
 
 type VolumeSetStatus struct {
@@ -24,6 +25,14 @@ type VolumeSetStatus struct {
 	UsedByWorkload *string        `json:"usedByWorkload,omitempty"`
 	BindingID      *string        `json:"bindingId,omitempty"`
 	Locations      *[]interface{} `json:"locations,omitempty"`
+}
+
+type VolumeSetCustomEncryption struct {
+	Regions *map[string]*VolumeSetCustomEncryptionRegion `json:"regions,omitempty"`
+}
+
+type VolumeSetCustomEncryptionRegion struct {
+	KeyId *string `json:"keyId,omitempty"`
 }
 
 type VolumeSetSnapshots struct {
