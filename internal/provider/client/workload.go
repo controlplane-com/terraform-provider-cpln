@@ -64,8 +64,9 @@ type WorkloadContainer struct {
 }
 
 type WorkloadContainerMetrics struct {
-	Path *string `json:"path,omitempty"`
-	Port *int    `json:"port,omitempty"`
+	Path        *string   `json:"path,omitempty"`
+	Port        *int      `json:"port,omitempty"`
+	DropMetrics *[]string `json:"dropMetrics,omitempty"`
 }
 
 type WorkloadContainerPort struct {

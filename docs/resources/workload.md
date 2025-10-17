@@ -83,6 +83,7 @@ Required:
 
 - **path** (String) Path from container emitting custom metrics
 - **port** (Number) Port from container emitting custom metrics
+- **drop_metrics** (List of String) Drop metrics that match given patterns.
 
 <a id="nestedblock--container--ports"></a>
 
@@ -1345,8 +1346,9 @@ resource "cpln_workload" "new" {
     }
 
     metrics {
-      path = "/metrics"
-      port = 8181
+      path         = "/metrics"
+      port         = 8181
+			drop_metrics = ["go_.*", "process_.*", ".*_bucket|.*_sum|.*_count"]
     }
   }
 
@@ -1472,8 +1474,9 @@ resource "cpln_workload" "new" {
     }
 
     metrics {
-      path = "/metrics"
-      port = 8181
+      path         = "/metrics"
+      port         = 8181
+			drop_metrics = ["go_.*", "process_.*", ".*_bucket|.*_sum|.*_count"]
     }
 
     readiness_probe {
@@ -1672,8 +1675,9 @@ resource "cpln_workload" "new" {
     }
 
     metrics {
-      path = "/metrics"
-      port = 8181
+      path         = "/metrics"
+      port         = 8181
+			drop_metrics = ["go_.*", "process_.*", ".*_bucket|.*_sum|.*_count"]
     }
 
     readiness_probe {

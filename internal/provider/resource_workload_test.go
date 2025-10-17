@@ -483,8 +483,9 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate2TestStep(initialCase Prov
 					"args":        []string{"arg-01", "arg-02", "arg-03"},
 					"metrics": []map[string]interface{}{
 						{
-							"path": "/metrics",
-							"port": "8181",
+							"path":         "/metrics",
+							"port":         "8181",
+							"drop_metrics": []string{"go_.*", "process_.*", ".*_bucket|.*_sum|.*_count"},
 						},
 					},
 					"readiness_probe": []map[string]interface{}{
@@ -684,8 +685,9 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 					"args":        []string{"arg-01", "arg-02", "arg-03"},
 					"metrics": []map[string]interface{}{
 						{
-							"path": "/metrics",
-							"port": "8181",
+							"path":         "/metrics",
+							"port":         "8181",
+							"drop_metrics": []string{"go_.*", ".*_bucket|.*_sum|.*_count"},
 						},
 					},
 					"readiness_probe": []map[string]interface{}{
@@ -2895,8 +2897,9 @@ resource "cpln_workload" "%s" {
     args        = ["arg-01", "arg-02", "arg-03"]
 
     metrics {
-      path = "/metrics"
-      port = 8181
+      path         = "/metrics"
+      port         = 8181
+			drop_metrics = ["go_.*", "process_.*", ".*_bucket|.*_sum|.*_count"]
     }
 
     readiness_probe {
@@ -3081,6 +3084,7 @@ resource "cpln_workload" "%s" {
     metrics {
       path = "/metrics"
       port = 8181
+			drop_metrics = ["go_.*", ".*_bucket|.*_sum|.*_count"]
     }
 
     readiness_probe {

@@ -423,6 +423,11 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 											stringvalidator.LengthAtMost(128),
 										},
 									},
+									"drop_metrics": schema.SetAttribute{
+										Description: "Drop metrics that match given patterns.",
+										ElementType: types.StringType,
+										Optional:    true,
+									},
 								},
 							},
 							Validators: []validator.List{
@@ -2195,8 +2200,9 @@ func (wro *WorkloadResourceOperator) buildContainerMetrics(state types.List) *cl
 
 	// Construct and return the output
 	return &client.WorkloadContainerMetrics{
-		Port: BuildInt(block.Port),
-		Path: BuildString(block.Path),
+		Port:        BuildInt(block.Port),
+		Path:        BuildString(block.Path),
+		DropMetrics: wro.BuildSetString(block.DropMetrics),
 	}
 }
 
@@ -3302,8 +3308,9 @@ func (wro *WorkloadResourceOperator) flattenContainerMetrics(input *client.Workl
 
 	// Build a single block
 	block := models.ContainerMetricsModel{
-		Port: FlattenInt(input.Port),
-		Path: types.StringPointerValue(input.Path),
+		Port:        FlattenInt(input.Port),
+		Path:        types.StringPointerValue(input.Path),
+		DropMetrics: FlattenSetString(input.DropMetrics),
 	}
 
 	// Return the successfully created types.List

@@ -62,15 +62,17 @@ func (c ContainerModel) AttributeTypes() attr.Type {
 // Container -> Metrics //
 
 type ContainerMetricsModel struct {
-	Port types.Int32  `tfsdk:"port"`
-	Path types.String `tfsdk:"path"`
+	Port        types.Int32  `tfsdk:"port"`
+	Path        types.String `tfsdk:"path"`
+	DropMetrics types.Set    `tfsdk:"drop_metrics"`
 }
 
 func (c ContainerMetricsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"port": types.Int32Type,
-			"path": types.StringType,
+			"port":         types.Int32Type,
+			"path":         types.StringType,
+			"drop_metrics": types.SetType{ElemType: types.StringType},
 		},
 	}
 }
