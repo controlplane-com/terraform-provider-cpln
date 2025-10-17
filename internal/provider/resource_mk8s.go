@@ -6,11 +6,14 @@ import (
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/mk8s"
+	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
+	"github.com/hashicorp/terraform-plugin-framework-validators/float32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -18,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -1089,6 +1093,364 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							Optional:    true,
 						},
+						"byok": schema.SingleNestedAttribute{
+							Description: "Bring-your-own Kubernetes (BYOK) add-on settings.",
+							Optional:    true,
+							Attributes: map[string]schema.Attribute{
+								"ignore_updates": schema.BoolAttribute{
+									Description: "Disable Control Plane managed upgrades for BYOK components.",
+									Optional:    true,
+								},
+								"location": schema.StringAttribute{
+									Description: "The full link of a BYOK location.",
+									Required:    true,
+									Validators: []validator.String{
+										validators.LinkValidator{},
+									},
+								},
+								"config": schema.SingleNestedAttribute{
+									Description: "Fine-grained configuration for the BYOK workloads.",
+									Optional:    true,
+									Computed:    true,
+									Default:     objectdefault.StaticValue(defaultByokConfigValue()),
+									Attributes: map[string]schema.Attribute{
+										"actuator": schema.SingleNestedAttribute{
+											Description: "Resource tuning for the actuator component.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"min_cpu": schema.StringAttribute{
+													Description: "Minimum CPU request applied to actuator pods (e.g. \"100m\").",
+													Optional:    true,
+												},
+												"max_cpu": schema.StringAttribute{
+													Description: "CPU limit applied to actuator pods.",
+													Optional:    true,
+												},
+												"min_memory": schema.StringAttribute{
+													Description: "Minimum memory request applied to actuator pods (e.g. \"128Mi\").",
+													Optional:    true,
+												},
+												"max_memory": schema.StringAttribute{
+													Description: "Memory limit applied to actuator pods.",
+													Optional:    true,
+												},
+												"log_level": schema.StringAttribute{
+													Description: "Log level override for actuator containers. Valid values are: trace, info, error.",
+													Optional:    true,
+													Validators: []validator.String{
+														stringvalidator.OneOf("trace", "info", "error"),
+													},
+												},
+												"env": schema.MapAttribute{
+													Description: "Additional environment variables injected into actuator pods.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+											},
+										},
+										"middlebox": schema.SingleNestedAttribute{
+											Description: "Configuration for the optional middlebox traffic shaper.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"enabled": schema.BoolAttribute{
+													Description: "Whether to deploy the middlebox component.",
+													Optional:    true,
+												},
+												"bandwidth_alert_mbps": schema.Int32Attribute{
+													Description: "Alert threshold, in Mbps, for middlebox bandwidth usage.",
+													Optional:    true,
+													Validators: []validator.Int32{
+														int32validator.AtLeast(0),
+													},
+												},
+											},
+										},
+										"common": schema.SingleNestedAttribute{
+											Description: "Shared rollout settings for BYOK workloads.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"deployment_replicas": schema.Int32Attribute{
+													Description: "Replica count shared by BYOK control plane deployments.",
+													Optional:    true,
+													Validators: []validator.Int32{
+														int32validator.AtLeast(0),
+													},
+												},
+												"pbd": schema.SingleNestedAttribute{
+													Description: "Pod disruption budget limits for BYOK workloads.",
+													Optional:    true,
+													Attributes: map[string]schema.Attribute{
+														"max_unavailable": schema.Int32Attribute{
+															Description: "Maximum number of pods that can be unavailable during disruptions.",
+															Optional:    true,
+															Validators: []validator.Int32{
+																int32validator.AtLeast(0),
+															},
+														},
+													},
+												},
+											},
+										},
+										"longhorn": schema.SingleNestedAttribute{
+											Description: "Longhorn persistent volume settings.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"replicas": schema.Int32Attribute{
+													Description: "Replica factor for Longhorn volumes. Minimum: 1.",
+													Optional:    true,
+													Validators: []validator.Int32{
+														int32validator.AtLeast(1),
+													},
+												},
+											},
+										},
+										"ingress": schema.SingleNestedAttribute{
+											Description: "Ingress controller resource configuration.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"cpu": schema.StringAttribute{
+													Description: "CPU request/limit string applied to ingress pods.",
+													Optional:    true,
+												},
+												"memory": schema.StringAttribute{
+													Description: "Memory request/limit string applied to ingress pods.",
+													Optional:    true,
+												},
+												"target_percent": schema.Float32Attribute{
+													Description: "Target usage percentage that triggers ingress autoscaling.",
+													Optional:    true,
+													Validators: []validator.Float32{
+														float32validator.AtLeast(0),
+													},
+												},
+											},
+										},
+										"istio": schema.SingleNestedAttribute{
+											Description: "Istio service mesh configuration.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"istiod": schema.SingleNestedAttribute{
+													Description: "Control plane deployment settings for istiod.",
+													Optional:    true,
+													Attributes: map[string]schema.Attribute{
+														"replicas": schema.Int32Attribute{
+															Description: "Number of istiod replicas.",
+															Optional:    true,
+															Validators: []validator.Int32{
+																int32validator.AtLeast(0),
+															},
+														},
+														"min_cpu": schema.StringAttribute{
+															Description: "CPU request applied to istiod pods.",
+															Optional:    true,
+														},
+														"max_cpu": schema.StringAttribute{
+															Description: "CPU limit applied to istiod pods.",
+															Optional:    true,
+														},
+														"min_memory": schema.StringAttribute{
+															Description: "Memory request applied to istiod pods.",
+															Optional:    true,
+														},
+														"max_memory": schema.StringAttribute{
+															Description: "Memory limit applied to istiod pods.",
+															Optional:    true,
+														},
+														"pbd": schema.Int32Attribute{
+															Description: "Pod disruption budget maxUnavailable for istiod.",
+															Optional:    true,
+															Validators: []validator.Int32{
+																int32validator.AtLeast(0),
+															},
+														},
+													},
+												},
+												"ingress_gateway": schema.SingleNestedAttribute{
+													Description: "Istio ingress gateway deployment settings.",
+													Optional:    true,
+													Attributes: map[string]schema.Attribute{
+														"replicas": schema.Int32Attribute{
+															Description: "Number of ingress gateway replicas.",
+															Optional:    true,
+															Validators: []validator.Int32{
+																int32validator.AtLeast(0),
+															},
+														},
+														"max_cpu": schema.StringAttribute{
+															Description: "CPU limit applied to ingress gateway pods.",
+															Optional:    true,
+														},
+														"max_memory": schema.StringAttribute{
+															Description: "Memory limit applied to ingress gateway pods.",
+															Optional:    true,
+														},
+													},
+												},
+												"sidecar": schema.SingleNestedAttribute{
+													Description: "Default resource requests for Istio sidecar injection.",
+													Optional:    true,
+													Attributes: map[string]schema.Attribute{
+														"min_cpu": schema.StringAttribute{
+															Description: "CPU request applied to injected sidecars.",
+															Optional:    true,
+														},
+														"min_memory": schema.StringAttribute{
+															Description: "Memory request applied to injected sidecars.",
+															Optional:    true,
+														},
+													},
+												},
+											},
+										},
+										"log_splitter": schema.SingleNestedAttribute{
+											Description: "Log splitter deployment configuration.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"min_cpu": schema.StringAttribute{
+													Description: "CPU request applied to log splitter pods.",
+													Optional:    true,
+												},
+												"max_cpu": schema.StringAttribute{
+													Description: "CPU limit applied to log splitter pods.",
+													Optional:    true,
+												},
+												"min_memory": schema.StringAttribute{
+													Description: "Memory request applied to log splitter pods.",
+													Optional:    true,
+												},
+												"max_memory": schema.StringAttribute{
+													Description: "Memory limit applied to log splitter pods.",
+													Optional:    true,
+												},
+												"mem_buffer_size": schema.StringAttribute{
+													Description: "In-memory buffer size consumed by each log splitter pod.",
+													Optional:    true,
+												},
+												"per_pod_rate": schema.Int32Attribute{
+													Description: "Per-pod log processing rate limit.",
+													Optional:    true,
+													Validators: []validator.Int32{
+														int32validator.AtLeast(0),
+													},
+												},
+											},
+										},
+										"monitoring": schema.SingleNestedAttribute{
+											Description: "Monitoring stack configuration.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"min_memory": schema.StringAttribute{
+													Description: "Minimum memory request for monitoring components.",
+													Optional:    true,
+												},
+												"max_memory": schema.StringAttribute{
+													Description: "Maximum memory limit for monitoring components.",
+													Optional:    true,
+												},
+												"kube_state_metrics": schema.SingleNestedAttribute{
+													Description: "Kube-state-metrics resource overrides.",
+													Optional:    true,
+													Attributes: map[string]schema.Attribute{
+														"min_memory": schema.StringAttribute{
+															Description: "Memory request applied to kube-state-metrics pods.",
+															Optional:    true,
+														},
+													},
+												},
+												"prometheus": schema.SingleNestedAttribute{
+													Description: "Prometheus deployment configuration.",
+													Optional:    true,
+													Attributes: map[string]schema.Attribute{
+														"main": schema.SingleNestedAttribute{
+															Description: "Primary Prometheus instance settings.",
+															Optional:    true,
+															Attributes: map[string]schema.Attribute{
+																"storage": schema.StringAttribute{
+																	Description: "Persistent volume size for Prometheus (for example, \"50Gi\").",
+																	Optional:    true,
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										"redis": schema.SingleNestedAttribute{
+											Description: "Redis cache configuration.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"min_cpu": schema.StringAttribute{
+													Description: "CPU request applied to the Redis pods.",
+													Optional:    true,
+												},
+												"max_cpu": schema.StringAttribute{
+													Description: "CPU limit applied to the Redis pods.",
+													Optional:    true,
+												},
+												"min_memory": schema.StringAttribute{
+													Description: "Memory request applied to the Redis pods.",
+													Optional:    true,
+												},
+												"max_memory": schema.StringAttribute{
+													Description: "Memory limit applied to the Redis pods.",
+													Optional:    true,
+												},
+												"storage": schema.StringAttribute{
+													Description: "Persistent storage size allocated to the Redis pods (for example, \"8Gi\").",
+													Optional:    true,
+												},
+											},
+										},
+										"redis_ha": schema.SingleNestedAttribute{
+											Description: "High-availability Redis configuration.",
+											Optional:    true,
+											Attributes:  mr.ByokAddOnRedisIntSchema(),
+										},
+										"redis_sentinel": schema.SingleNestedAttribute{
+											Description: "Redis Sentinel configuration.",
+											Optional:    true,
+											Attributes:  mr.ByokAddOnRedisIntSchema(),
+										},
+										"tempo_agent": schema.SingleNestedAttribute{
+											Description: "Tempo agent resource configuration.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"min_cpu": schema.StringAttribute{
+													Description: "CPU request applied to tempo agent pods.",
+													Optional:    true,
+												},
+												"min_memory": schema.StringAttribute{
+													Description: "Memory request applied to tempo agent pods.",
+													Optional:    true,
+												},
+											},
+										},
+										"internal_dns": schema.SingleNestedAttribute{
+											Description: "Internal DNS deployment settings.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"min_cpu": schema.StringAttribute{
+													Description: "CPU request applied to internal DNS pods.",
+													Optional:    true,
+												},
+												"max_cpu": schema.StringAttribute{
+													Description: "CPU limit applied to internal DNS pods.",
+													Optional:    true,
+												},
+												"min_memory": schema.StringAttribute{
+													Description: "Memory request applied to internal DNS pods.",
+													Optional:    true,
+												},
+												"max_memory": schema.StringAttribute{
+													Description: "Memory limit applied to internal DNS pods.",
+													Optional:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 					Blocks: map[string]schema.Block{
 						"azure_workload_identity": schema.ListNestedBlock{
@@ -1583,6 +1945,284 @@ func (mr *Mk8sResource) AzureImageSchema(description string) schema.ListNestedBl
 			),
 		},
 	}
+}
+
+// ByokAddOnRedisIntSchema returns the attributes definition used by Redis HA/Sentinel add-ons where storage is numeric.
+func (mr *Mk8sResource) ByokAddOnRedisIntSchema() map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"min_cpu": schema.StringAttribute{
+			Description: "CPU request applied to the Redis pods.",
+			Optional:    true,
+		},
+		"max_cpu": schema.StringAttribute{
+			Description: "CPU limit applied to the Redis pods.",
+			Optional:    true,
+		},
+		"min_memory": schema.StringAttribute{
+			Description: "Memory request applied to the Redis pods.",
+			Optional:    true,
+		},
+		"max_memory": schema.StringAttribute{
+			Description: "Memory limit applied to the Redis pods.",
+			Optional:    true,
+		},
+		"storage": schema.Int32Attribute{
+			Description: "Persistent storage size allocated to the Redis pods, in GiB.",
+			Optional:    true,
+			Validators: []validator.Int32{
+				int32validator.AtLeast(0),
+			},
+		},
+	}
+}
+
+/*** Schemas Defaults ***/
+
+// Returns the static default for add_ons.byok.config as a basetypes.ObjectValue
+func defaultByokConfigValue() types.Object {
+	// Build the nested object for actuator
+	actuatorTypes := models.AddOnsByokActuatorModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	actuator := types.ObjectValueMust(
+		actuatorTypes,
+		map[string]attr.Value{
+			"min_cpu":    types.StringValue("50m"),
+			"max_cpu":    types.StringValue("8001m"),
+			"min_memory": types.StringValue("200Mi"),
+			"max_memory": types.StringValue("8000Mi"),
+			"log_level":  types.StringValue("info"),
+			"env": types.MapValueMust(
+				types.StringType,
+				map[string]attr.Value{
+					"CACHE_PERIOD_DATA_SERVICE": types.StringValue("600"),
+					"LABEL_NODES":               types.StringValue("false"),
+				},
+			),
+		},
+	)
+
+	// Build the nested object for middlebox
+	middleboxTypes := models.AddOnsByokMiddleboxModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	middlebox := types.ObjectValueMust(
+		middleboxTypes,
+		map[string]attr.Value{
+			"enabled":              types.BoolValue(false),
+			"bandwidth_alert_mbps": types.Int32Value(650),
+		},
+	)
+
+	// Build the nested object for common.pbd
+	commonPbdTypes := models.AddOnsByokCommonPbdModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	// commonPbd := types.ObjectValueMust(
+	// 	commonPbdTypes,
+	// 	map[string]attr.Value{
+	// 		"max_unavailable": types.Int32Value(1),
+	// 	},
+	// )
+
+	// Build the nested object for common
+	commonTypes := models.AddOnsByokCommonModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	common := types.ObjectValueMust(
+		commonTypes,
+		map[string]attr.Value{
+			"deployment_replicas": types.Int32Value(1),
+			// "pbd":                 commonPbd,
+			"pbd": types.ObjectNull(commonPbdTypes),
+		},
+	)
+
+	// Build the nested object for longhorn
+	longhornTypes := models.AddOnsByokLonghornModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	longhorn := types.ObjectValueMust(
+		longhornTypes,
+		map[string]attr.Value{
+			"replicas": types.Int32Value(2),
+		},
+	)
+
+	// Build the nested object for ingress
+	ingressTypes := models.AddOnsByokIngressModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	ingress := types.ObjectValueMust(
+		ingressTypes,
+		map[string]attr.Value{
+			"cpu":            types.StringValue("50m"),
+			"memory":         types.StringValue("200Mi"),
+			"target_percent": types.Float32Value(6000),
+		},
+	)
+
+	// Build the nested object for istio.istiod
+	istiodTypes := models.AddOnsByokIstioIstiodModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	istiod := types.ObjectValueMust(
+		istiodTypes,
+		map[string]attr.Value{
+			"replicas":   types.Int32Value(2),
+			"min_cpu":    types.StringValue("50m"),
+			"max_cpu":    types.StringValue("8001m"),
+			"min_memory": types.StringValue("100Mi"),
+			"max_memory": types.StringValue("8000Mi"),
+			// "pbd":        types.Int32Value(0),
+			"pbd": types.Int32Null(),
+		},
+	)
+
+	// Build the nested object for istio.ingress_gateway
+	ingressGatewayTypes := models.AddOnsByokIstioIngressGatewayModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	ingressGateway := types.ObjectValueMust(
+		ingressGatewayTypes,
+		map[string]attr.Value{
+			"replicas":   types.Int32Value(2),
+			"max_cpu":    types.StringValue("1"),
+			"max_memory": types.StringValue("1Gi"),
+		},
+	)
+
+	// Build the nested object for istio.sidecar
+	istioSidecarTypes := models.AddOnsByokIstioSidecarModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	istioSidecar := types.ObjectValueMust(
+		istioSidecarTypes,
+		map[string]attr.Value{
+			"min_cpu":    types.StringValue("0m"),
+			"min_memory": types.StringValue("200Mi"),
+		},
+	)
+
+	// Build the nested object for istio (grouping istiod/ingress_gateway/sidecar)
+	istioTypes := models.AddOnsByokIstioModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	istio := types.ObjectValueMust(
+		istioTypes,
+		map[string]attr.Value{
+			"istiod":          istiod,
+			"ingress_gateway": ingressGateway,
+			"sidecar":         istioSidecar,
+		},
+	)
+
+	// Build the nested object for log_splitter
+	logSplitterTypes := models.AddOnsByokLogSplitterModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	logSplitter := types.ObjectValueMust(
+		logSplitterTypes,
+		map[string]attr.Value{
+			"min_cpu":         types.StringValue("1m"),
+			"max_cpu":         types.StringValue("1000m"),
+			"min_memory":      types.StringValue("10Mi"),
+			"max_memory":      types.StringValue("2000Mi"),
+			"mem_buffer_size": types.StringValue("128M"),
+			"per_pod_rate":    types.Int32Value(10000),
+		},
+	)
+
+	// Build the nested object for monitoring.kube_state_metrics
+	ksmTypes := models.AddOnsByokMonitoringKubeStateMetricsModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	ksm := types.ObjectValueMust(
+		ksmTypes,
+		map[string]attr.Value{
+			"min_memory": types.StringValue("25Mi"),
+		},
+	)
+
+	// Build the nested object for monitoring.prometheus.main
+	promMainTypes := models.AddOnsByokMonitoringPrometheusMainModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	promMain := types.ObjectValueMust(
+		promMainTypes,
+		map[string]attr.Value{
+			"storage": types.StringValue("10Gi"),
+		},
+	)
+
+	// Build the nested object for monitoring.prometheus
+	prometheusTypes := models.AddOnsByokMonitoringPrometheusModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	prometheus := types.ObjectValueMust(
+		prometheusTypes,
+		map[string]attr.Value{
+			"main": promMain,
+		},
+	)
+
+	// Build the nested object for monitoring
+	monitoringTypes := models.AddOnsByokMonitoringModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	monitoring := types.ObjectValueMust(
+		monitoringTypes,
+		map[string]attr.Value{
+			"min_memory":         types.StringValue("100Mi"),
+			"max_memory":         types.StringValue("20Gi"),
+			"kube_state_metrics": ksm,
+			"prometheus":         prometheus,
+		},
+	)
+
+	// Build the nested object for redis (string storage)
+	redisTypes := models.AddOnsByokRedisStringModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	redis := types.ObjectValueMust(
+		redisTypes,
+		map[string]attr.Value{
+			"min_cpu":    types.StringValue("10m"),
+			"max_cpu":    types.StringValue("2001m"),
+			"min_memory": types.StringValue("100Mi"),
+			"max_memory": types.StringValue("1000Mi"),
+			"storage":    types.StringValue("8Gi"),
+		},
+	)
+
+	// Build the nested object for redis_ha (int storage)
+	redisHaTypes := models.AddOnsByokRedisIntModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	redisHa := types.ObjectValueMust(
+		redisHaTypes,
+		map[string]attr.Value{
+			"min_cpu":    types.StringValue("50m"),
+			"max_cpu":    types.StringValue("2001m"),
+			"min_memory": types.StringValue("100Mi"),
+			"max_memory": types.StringValue("1000Mi"),
+			"storage":    types.Int32Value(0),
+		},
+	)
+
+	// Build the nested object for redis_sentinel (int storage)
+	redisSentinelTypes := models.AddOnsByokRedisIntModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	redisSentinel := types.ObjectValueMust(
+		redisSentinelTypes,
+		map[string]attr.Value{
+			"min_cpu":    types.StringValue("10m"),
+			"max_cpu":    types.StringValue("500m"),
+			"min_memory": types.StringValue("10Mi"),
+			"max_memory": types.StringValue("400Mi"),
+			"storage":    types.Int32Value(0),
+		},
+	)
+
+	// Build the nested object for tempo_agent
+	tempoAgentTypes := models.AddOnsByokTempoAgentModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	tempoAgent := types.ObjectValueMust(
+		tempoAgentTypes,
+		map[string]attr.Value{
+			"min_cpu":    types.StringValue("0m"),
+			"min_memory": types.StringValue("10Mi"),
+		},
+	)
+
+	// Build the nested object for internal_dns (present in schema; keep null-by-default)
+	internalDnsTypes := models.AddOnsByokInternalDnsModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	internalDns := types.ObjectNull(internalDnsTypes)
+
+	// Build the final byok.config object by composing all children
+	configType := models.AddOnsByokConfigModel{}.AttributeTypes().(types.ObjectType)
+	return types.ObjectValueMust(
+		configType.AttrTypes,
+		map[string]attr.Value{
+			"actuator":       actuator,
+			"middlebox":      middlebox,
+			"common":         common,
+			"longhorn":       longhorn,
+			"ingress":        ingress,
+			"istio":          istio,
+			"log_splitter":   logSplitter,
+			"monitoring":     monitoring,
+			"redis":          redis,
+			"redis_ha":       redisHa,
+			"redis_sentinel": redisSentinel,
+			"tempo_agent":    tempoAgent,
+			"internal_dns":   internalDns,
+		},
+	)
 }
 
 /*** Resource Operator ***/
@@ -2713,6 +3353,7 @@ func (mro *Mk8sResourceOperator) buildAddOns(state types.List) *client.Mk8sSpecA
 		AwsECR:                mro.buildAddOnAwsConfig(block.AwsECR),
 		AwsELB:                mro.buildAddOnAwsConfig(block.AwsELB),
 		AzureACR:              mro.buildAddOnAzureAcr(block.AzureACR),
+		Byok:                  mro.buildAddOnByok(block.Byok),
 		Sysbox:                mro.buildAddOnConfig(block.Sysbox),
 	}
 }
@@ -2732,7 +3373,7 @@ func (mro *Mk8sResourceOperator) buildAddOnConfig(state types.Bool) *client.Mk8s
 }
 
 // buildAddOnAzureWorkloadIdentity constructs a Mk8sAzureWorkloadIdentityAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnAzureWorkloadIdentity(state types.List) *client.Mk8sAzureWorkloadIdentityAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnAzureWorkloadIdentity(state types.List) *client.Mk8sAzureWorkloadIdentityAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnAzureWorkloadIdentityModel](mro.Ctx, mro.Diags, state)
 
@@ -2745,13 +3386,13 @@ func (mro *Mk8sResourceOperator) buildAddOnAzureWorkloadIdentity(state types.Lis
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sAzureWorkloadIdentityAddOnConfig{
+	return &client.Mk8sAzureWorkloadIdentityAddOn{
 		TenantId: BuildString(block.TenantId),
 	}
 }
 
 // buildAddOnMetrics constructs a Mk8sMetricsAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnMetrics(state types.List) *client.Mk8sMetricsAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnMetrics(state types.List) *client.Mk8sMetricsAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnsMetricsModel](mro.Ctx, mro.Diags, state)
 
@@ -2764,7 +3405,7 @@ func (mro *Mk8sResourceOperator) buildAddOnMetrics(state types.List) *client.Mk8
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sMetricsAddOnConfig{
+	return &client.Mk8sMetricsAddOn{
 		KubeState:       BuildBool(block.KubeState),
 		CoreDns:         BuildBool(block.CoreDns),
 		Kubelet:         BuildBool(block.Kubelet),
@@ -2798,7 +3439,7 @@ func (mro *Mk8sResourceOperator) buildAddOnMetricsScrapeAnnotated(state types.Li
 }
 
 // buildAddOnLogs constructs a Mk8sLogsAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnLogs(state types.List) *client.Mk8sLogsAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnLogs(state types.List) *client.Mk8sLogsAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnsLogsModel](mro.Ctx, mro.Diags, state)
 
@@ -2811,7 +3452,7 @@ func (mro *Mk8sResourceOperator) buildAddOnLogs(state types.List) *client.Mk8sLo
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sLogsAddOnConfig{
+	return &client.Mk8sLogsAddOn{
 		AuditEnabled:      BuildBool(block.AuditEnabled),
 		IncludeNamespaces: BuildString(block.IncludeNamespaaces),
 		ExcludeNamespaces: BuildString(block.ExcludeNamespaces),
@@ -2823,7 +3464,7 @@ func (mro *Mk8sResourceOperator) buildAddOnLogs(state types.List) *client.Mk8sLo
 }
 
 // buildAddOnRegistryMirror constructs a Mk8sRegistryMirrorAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnRegistryMirror(state types.List) *client.Mk8sRegistryMirrorAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnRegistryMirror(state types.List) *client.Mk8sRegistryMirrorAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnsRegistryMirror](mro.Ctx, mro.Diags, state)
 
@@ -2836,13 +3477,13 @@ func (mro *Mk8sResourceOperator) buildAddOnRegistryMirror(state types.List) *cli
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sRegistryMirrorAddOnConfig{
+	return &client.Mk8sRegistryMirrorAddOn{
 		Mirrors: mro.buildAddOnRegistryConfig(block.Mirrors),
 	}
 }
 
 // buildAddOnRegistryConfig constructs a []client.Mk8sAddOnRegistryConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state types.Set) *[]client.Mk8sAddOnRegistryConfig {
+func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state types.Set) *[]client.Mk8sAddOnRegistry {
 	// Convert Terraform set into model blocks using generic helper
 	blocks, ok := BuildSet[models.AddOnsRegistryConfig](mro.Ctx, mro.Diags, state)
 
@@ -2852,12 +3493,12 @@ func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state types.Set) *[]cl
 	}
 
 	// Prepare the output slice
-	output := []client.Mk8sAddOnRegistryConfig{}
+	output := []client.Mk8sAddOnRegistry{}
 
 	// Iterate over each block and construct an output item
 	for _, block := range blocks {
 		// Construct the item
-		item := client.Mk8sAddOnRegistryConfig{
+		item := client.Mk8sAddOnRegistry{
 			Registry: BuildString(block.Registry),
 			Mirrors:  mro.BuildSetString(block.Mirrors),
 		}
@@ -2871,7 +3512,7 @@ func (mro *Mk8sResourceOperator) buildAddOnRegistryConfig(state types.Set) *[]cl
 }
 
 // buildAddOnNvidia constructs a Mk8sNvidiaAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnNvidia(state types.List) *client.Mk8sNvidiaAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnNvidia(state types.List) *client.Mk8sNvidiaAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnsNvidiaModel](mro.Ctx, mro.Diags, state)
 
@@ -2884,13 +3525,13 @@ func (mro *Mk8sResourceOperator) buildAddOnNvidia(state types.List) *client.Mk8s
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sNvidiaAddOnConfig{
+	return &client.Mk8sNvidiaAddOn{
 		TaintGPUNodes: BuildBool(block.TaintGpuNodes),
 	}
 }
 
 // buildAddOnAwsConfig constructs a Mk8sAwsAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnAwsConfig(state types.List) *client.Mk8sAwsAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnAwsConfig(state types.List) *client.Mk8sAwsAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnsHasRoleArnModel](mro.Ctx, mro.Diags, state)
 
@@ -2903,13 +3544,13 @@ func (mro *Mk8sResourceOperator) buildAddOnAwsConfig(state types.List) *client.M
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sAwsAddOnConfig{
+	return &client.Mk8sAwsAddOn{
 		RoleArn: BuildString(block.RoleArn),
 	}
 }
 
 // buildAddOnAzureAcr constructs a Mk8sAzureACRAddOnConfig from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnAzureAcr(state types.List) *client.Mk8sAzureACRAddOnConfig {
+func (mro *Mk8sResourceOperator) buildAddOnAzureAcr(state types.List) *client.Mk8sAzureACRAddOn {
 	// Convert Terraform list into model blocks using generic helper
 	blocks, ok := BuildList[models.AddOnsAzureAcrModel](mro.Ctx, mro.Diags, state)
 
@@ -2922,8 +3563,397 @@ func (mro *Mk8sResourceOperator) buildAddOnAzureAcr(state types.List) *client.Mk
 	block := blocks[0]
 
 	// Construct and return the output
-	return &client.Mk8sAzureACRAddOnConfig{
+	return &client.Mk8sAzureACRAddOn{
 		ClientId: BuildString(block.ClientId),
+	}
+}
+
+// buildAddOnByok constructs a Mk8sByokAddOn from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByok(state types.Object) *client.Mk8sByokAddOn {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOn{
+		IgnoreUpdates: BuildBool(block.IgnoreUpdates),
+		Location:      BuildString(block.Location),
+		Config:        mro.buildAddOnByokConfig(block.Config),
+	}
+}
+
+// buildAddOnByokConfig constructs a Mk8sByokAddOnConfig from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokConfig(state types.Object) *client.Mk8sByokAddOnConfig {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokConfigModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfig{
+		Actuator:      mro.buildAddOnByokActuator(block.Actuator),
+		Middlebox:     mro.buildAddOnByokMiddlebox(block.Middlebox),
+		Common:        mro.buildAddOnByokCommon(block.Common),
+		Longhorn:      mro.buildAddOnByokLonghorn(block.Longhorn),
+		Ingress:       mro.buildAddOnByokIngress(block.Ingress),
+		Istio:         mro.buildAddOnByokIstio(block.Istio),
+		LogSplitter:   mro.buildAddOnByokLogSplitter(block.LogSplitter),
+		Monitoring:    mro.buildAddOnByokMonitoring(block.Monitoring),
+		Redis:         mro.buildAddOnByokRedisString(block.Redis),
+		RedisHa:       mro.buildAddOnByokRedisInt(block.RedisHa),
+		RedisSentinel: mro.buildAddOnByokRedisInt(block.RedisSentinel),
+		TempoAgent:    mro.buildAddOnByokTempoAgent(block.TempoAgent),
+		InternalDns:   mro.buildAddOnByokInternalDns(block.InternalDns),
+	}
+}
+
+// buildAddOnByokActuator constructs a Mk8sByokAddOnConfigActuator from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokActuator(state types.Object) *client.Mk8sByokAddOnConfigActuator {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokActuatorModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigActuator{
+		MinCpu:    BuildString(block.MinCpu),
+		MaxCpu:    BuildString(block.MaxCpu),
+		MinMemory: BuildString(block.MinMemory),
+		MaxMemory: BuildString(block.MaxMemory),
+		LogLevel:  BuildString(block.LogLevel),
+		Env:       mro.BuildMapString(block.Env),
+	}
+}
+
+// buildAddOnByokMiddlebox constructs a Mk8sByokAddOnConfigMiddlebox from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMiddlebox(state types.Object) *client.Mk8sByokAddOnConfigMiddlebox {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMiddleboxModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMiddlebox{
+		Enabled:            BuildBool(block.Enabled),
+		BandwidthAlertMbps: BuildInt(block.BandwidthAlertMbps),
+	}
+}
+
+// buildAddOnByokCommon constructs a Mk8sByokAddOnConfigCommon from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokCommon(state types.Object) *client.Mk8sByokAddOnConfigCommon {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokCommonModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigCommon{
+		DeploymentReplicas: BuildInt(block.DeploymentReplicas),
+		Pbd:                mro.buildAddOnByokCommonPbd(block.Pbd),
+	}
+}
+
+// buildAddOnByokCommonPbd constructs a Mk8sByokAddOnConfigCommonPbd from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokCommonPbd(state types.Object) *client.Mk8sByokAddOnConfigCommonPbd {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokCommonPbdModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigCommonPbd{
+		MaxUnavailable: BuildInt(block.MaxUnavailable),
+	}
+}
+
+// buildAddOnByokLonghorn constructs a Mk8sByokAddOnConfigLonghorn from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokLonghorn(state types.Object) *client.Mk8sByokAddOnConfigLonghorn {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokLonghornModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigLonghorn{
+		Replicas: BuildInt(block.Replicas),
+	}
+}
+
+// buildAddOnByokIngress constructs a Mk8sByokAddOnConfigIngress from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokIngress(state types.Object) *client.Mk8sByokAddOnConfigIngress {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokIngressModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigIngress{
+		Cpu:           BuildString(block.Cpu),
+		Memory:        BuildString(block.Memory),
+		TargetPercent: BuildFloat32(block.TargetPercent),
+	}
+}
+
+// buildAddOnByokIstio constructs a Mk8sByokAddOnConfigIstio from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokIstio(state types.Object) *client.Mk8sByokAddOnConfigIstio {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokIstioModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigIstio{
+		Istiod:         mro.buildAddOnByokIstioIstiod(block.Istiod),
+		IngressGateway: mro.buildAddOnByokIstioIngressGateway(block.IngressGateway),
+		Sidecar:        mro.buildAddOnByokIstioSidecar(block.Sidecar),
+	}
+}
+
+// buildAddOnByokIstioIstiod constructs a Mk8sByokAddOnConfigIstioIstiod from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokIstioIstiod(state types.Object) *client.Mk8sByokAddOnConfigIstioIstiod {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokIstioIstiodModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigIstioIstiod{
+		Replicas:  BuildInt(block.Replicas),
+		MinCpu:    BuildString(block.MinCpu),
+		MaxCpu:    BuildString(block.MaxCpu),
+		MinMemory: BuildString(block.MinMemory),
+		MaxMemory: BuildString(block.MaxMemory),
+		Pbd:       BuildInt(block.Pbd),
+	}
+}
+
+// buildAddOnByokIstioIngressGateway constructs a Mk8sByokAddOnConfigIstioIngressGateway from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokIstioIngressGateway(state types.Object) *client.Mk8sByokAddOnConfigIstioIngressGateway {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokIstioIngressGatewayModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigIstioIngressGateway{
+		Replicas:  BuildInt(block.Replicas),
+		MaxCpu:    BuildString(block.MaxCpu),
+		MaxMemory: BuildString(block.MaxMemory),
+	}
+}
+
+// buildAddOnByokIstioSidecar constructs a Mk8sByokAddOnConfigIstioSidecar from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokIstioSidecar(state types.Object) *client.Mk8sByokAddOnConfigIstioSidecar {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokIstioSidecarModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigIstioSidecar{
+		MinCpu:    BuildString(block.MinCpu),
+		MinMemory: BuildString(block.MinMemory),
+	}
+}
+
+// buildAddOnByokLogSplitter constructs a Mk8sByokAddOnConfigLogSplitter from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokLogSplitter(state types.Object) *client.Mk8sByokAddOnConfigLogSplitter {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokLogSplitterModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigLogSplitter{
+		MinCpu:        BuildString(block.MinCpu),
+		MaxCpu:        BuildString(block.MaxCpu),
+		MinMemory:     BuildString(block.MinMemory),
+		MaxMemory:     BuildString(block.MaxMemory),
+		MemBufferSize: BuildString(block.MemBufferSize),
+		PerPodRate:    BuildInt(block.PerPodRate),
+	}
+}
+
+// buildAddOnByokMonitoring constructs a Mk8sByokAddOnConfigMonitoring from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoring(state types.Object) *client.Mk8sByokAddOnConfigMonitoring {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMonitoringModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMonitoring{
+		MinMemory:        BuildString(block.MinMemory),
+		MaxMemory:        BuildString(block.MaxMemory),
+		KubeStateMetrics: mro.buildAddOnByokMonitoringKubeStateMetrics(block.KubeStateMetrics),
+		Prometheus:       mro.buildAddOnByokMonitoringPrometheus(block.Prometheus),
+	}
+}
+
+// buildAddOnByokMonitoringKubeStateMetrics constructs a Mk8sByokAddOnConfigMonitoringKubeStateMetrics from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringKubeStateMetrics(state types.Object) *client.Mk8sByokAddOnConfigMonitoringKubeStateMetrics {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMonitoringKubeStateMetricsModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMonitoringKubeStateMetrics{
+		MinMemory: BuildString(block.MinMemory),
+	}
+}
+
+// buildAddOnByokMonitoringPrometheus constructs a Mk8sByokAddOnConfigMonitoringPrometheus from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringPrometheus(state types.Object) *client.Mk8sByokAddOnConfigMonitoringPrometheus {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMonitoringPrometheusModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMonitoringPrometheus{
+		Main: mro.buildAddOnByokMonitoringPrometheusMain(block.Main),
+	}
+}
+
+// buildAddOnByokMonitoringPrometheusMain constructs a Mk8sByokAddOnConfigMonitoringPrometheusMain from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringPrometheusMain(state types.Object) *client.Mk8sByokAddOnConfigMonitoringPrometheusMain {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMonitoringPrometheusMainModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMonitoringPrometheusMain{
+		Storage: BuildString(block.Storage),
+	}
+}
+
+// buildAddOnByokRedisString constructs a Mk8sByokAddOnConfigRedisString from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokRedisString(state types.Object) *client.Mk8sByokAddOnConfigRedisString {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokRedisStringModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigRedisString{
+		MinCpu:    BuildString(block.MinCpu),
+		MaxCpu:    BuildString(block.MaxCpu),
+		MinMemory: BuildString(block.MinMemory),
+		MaxMemory: BuildString(block.MaxMemory),
+		Storage:   BuildString(block.Storage),
+	}
+}
+
+// buildAddOnByokRedisInt constructs a Mk8sByokAddOnConfigRedisInt from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokRedisInt(state types.Object) *client.Mk8sByokAddOnConfigRedisInt {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokRedisIntModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigRedisInt{
+		MinCpu:    BuildString(block.MinCpu),
+		MaxCpu:    BuildString(block.MaxCpu),
+		MinMemory: BuildString(block.MinMemory),
+		MaxMemory: BuildString(block.MaxMemory),
+		Storage:   BuildInt(block.Storage),
+	}
+}
+
+// buildAddOnByokTempoAgent constructs a Mk8sByokAddOnConfigTempoAgent from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokTempoAgent(state types.Object) *client.Mk8sByokAddOnConfigTempoAgent {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokTempoAgentModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigTempoAgent{
+		MinCpu:    BuildString(block.MinCpu),
+		MinMemory: BuildString(block.MinMemory),
+	}
+}
+
+// buildAddOnByokInternalDns constructs a Mk8sByokAddOnConfigInternalDns from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokInternalDns(state types.Object) *client.Mk8sByokAddOnConfigInternalDns {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokInternalDnsModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigInternalDns{
+		MinCpu:    BuildString(block.MinCpu),
+		MaxCpu:    BuildString(block.MaxCpu),
+		MinMemory: BuildString(block.MinMemory),
+		MaxMemory: BuildString(block.MaxMemory),
 	}
 }
 
@@ -4008,6 +5038,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		AwsECR:                mro.flattenAddOnAwsConfig(input.AwsECR),
 		AwsELB:                mro.flattenAddOnAwsConfig(input.AwsELB),
 		AzureACR:              mro.flattenAddOnAzureAcr(input.AzureACR),
+		Byok:                  mro.flattenAddOnByok(input.Byok),
 		Sysbox:                mro.flattenAddOnConfig(plannedSysbox, input.Sysbox),
 	}
 
@@ -4033,7 +5064,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnConfig(state *bool, input *client.M
 }
 
 // flattenAddOnAzureWorkloadIdentity transforms *client.Mk8sAzureWorkloadIdentityAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnAzureWorkloadIdentity(input *client.Mk8sAzureWorkloadIdentityAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnAzureWorkloadIdentity(input *client.Mk8sAzureWorkloadIdentityAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnAzureWorkloadIdentityModel{}.AttributeTypes()
 
@@ -4053,7 +5084,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnAzureWorkloadIdentity(input *client
 }
 
 // flattenAddOnMetrics transforms *client.Mk8sMetricsAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnMetrics(input *client.Mk8sMetricsAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnMetrics(input *client.Mk8sMetricsAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnsMetricsModel{}.AttributeTypes()
 
@@ -4102,7 +5133,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnMetricsScrapeAnnotated(input *clien
 }
 
 // flattenAddOnLogs transforms *client.Mk8sLogsAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnLogs(input *client.Mk8sLogsAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnLogs(input *client.Mk8sLogsAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnsLogsModel{}.AttributeTypes()
 
@@ -4128,7 +5159,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnLogs(input *client.Mk8sLogsAddOnCon
 }
 
 // flattenAddOnRegistryMirror transforms *client.Mk8sRegistryMirrorAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnRegistryMirror(input *client.Mk8sRegistryMirrorAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryMirror(input *client.Mk8sRegistryMirrorAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnsRegistryMirror{}.AttributeTypes()
 
@@ -4148,7 +5179,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnRegistryMirror(input *client.Mk8sRe
 }
 
 // flattenAddOnRegistryConfig transforms *[]client.Mk8sAddOnRegistryConfig into a types.Set.
-func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8sAddOnRegistryConfig) types.Set {
+func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8sAddOnRegistry) types.Set {
 	// Get attribute types
 	elementType := models.AddOnsRegistryConfig{}.AttributeTypes()
 
@@ -4178,7 +5209,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnRegistryConfig(input *[]client.Mk8s
 }
 
 // flattenAddOnNvidia transforms *client.Mk8sNvidiaAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnNvidia(input *client.Mk8sNvidiaAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnNvidia(input *client.Mk8sNvidiaAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnsNvidiaModel{}.AttributeTypes()
 
@@ -4198,7 +5229,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnNvidia(input *client.Mk8sNvidiaAddO
 }
 
 // flattenAddOnAwsConfig transforms *client.Mk8sAwsAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnAwsConfig(input *client.Mk8sAwsAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnAwsConfig(input *client.Mk8sAwsAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnsHasRoleArnModel{}.AttributeTypes()
 
@@ -4218,7 +5249,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnAwsConfig(input *client.Mk8sAwsAddO
 }
 
 // flattenAddOnAzureAcr transforms *client.Mk8sAzureACRAddOnConfig into a types.List.
-func (mro *Mk8sResourceOperator) flattenAddOnAzureAcr(input *client.Mk8sAzureACRAddOnConfig) types.List {
+func (mro *Mk8sResourceOperator) flattenAddOnAzureAcr(input *client.Mk8sAzureACRAddOn) types.List {
 	// Get attribute types
 	elementType := models.AddOnsAzureAcrModel{}.AttributeTypes()
 
@@ -4235,6 +5266,479 @@ func (mro *Mk8sResourceOperator) flattenAddOnAzureAcr(input *client.Mk8sAzureACR
 
 	// Return the successfully created types.List
 	return FlattenList(mro.Ctx, mro.Diags, []models.AddOnsAzureAcrModel{block})
+}
+
+// flattenAddOnByok transforms *client.Mk8sByokAddOn into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByok(input *client.Mk8sByokAddOn) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokModel{
+		IgnoreUpdates: types.BoolPointerValue(input.IgnoreUpdates),
+		Location:      types.StringPointerValue(input.Location),
+		Config:        mro.flattenAddOnByokConfig(input.Config),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokConfig transforms *client.Mk8sByokAddOnConfig into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokConfig(input *client.Mk8sByokAddOnConfig) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokConfigModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokConfigModel{
+		Actuator:      mro.flattenAddOnByokActuator(input.Actuator),
+		Middlebox:     mro.flattenAddOnByokMiddlebox(input.Middlebox),
+		Common:        mro.flattenAddOnByokCommon(input.Common),
+		Longhorn:      mro.flattenAddOnByokLonghorn(input.Longhorn),
+		Ingress:       mro.flattenAddOnByokIngress(input.Ingress),
+		Istio:         mro.flattenAddOnByokIstio(input.Istio),
+		LogSplitter:   mro.flattenAddOnByokLogSplitter(input.LogSplitter),
+		Monitoring:    mro.flattenAddOnByokMonitoring(input.Monitoring),
+		Redis:         mro.flattenAddOnByokRedisString(input.Redis),
+		RedisHa:       mro.flattenAddOnByokRedisInt(input.RedisHa),
+		RedisSentinel: mro.flattenAddOnByokRedisInt(input.RedisSentinel),
+		TempoAgent:    mro.flattenAddOnByokTempoAgent(input.TempoAgent),
+		InternalDns:   mro.flattenAddOnByokInternalDns(input.InternalDns),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokActuator transforms *client.Mk8sByokAddOnConfigActuator into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokActuator(input *client.Mk8sByokAddOnConfigActuator) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokActuatorModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokActuatorModel{
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MaxCpu:    types.StringPointerValue(input.MaxCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+		MaxMemory: types.StringPointerValue(input.MaxMemory),
+		LogLevel:  types.StringPointerValue(input.LogLevel),
+		Env:       FlattenMapString(input.Env),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMiddlebox transforms *client.Mk8sByokAddOnConfigMiddlebox into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMiddlebox(input *client.Mk8sByokAddOnConfigMiddlebox) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMiddleboxModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMiddleboxModel{
+		Enabled:            types.BoolPointerValue(input.Enabled),
+		BandwidthAlertMbps: FlattenInt(input.BandwidthAlertMbps),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokCommon transforms *client.Mk8sByokAddOnConfigCommon into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokCommon(input *client.Mk8sByokAddOnConfigCommon) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokCommonModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokCommonModel{
+		DeploymentReplicas: FlattenInt(input.DeploymentReplicas),
+		Pbd:                mro.flattenAddOnByokCommonPbd(input.Pbd),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokCommonPbd transforms *client.Mk8sByokAddOnConfigCommonPbd into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokCommonPbd(input *client.Mk8sByokAddOnConfigCommonPbd) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokCommonPbdModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokCommonPbdModel{
+		MaxUnavailable: FlattenInt(input.MaxUnavailable),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokLonghorn transforms *client.Mk8sByokAddOnConfigLonghorn into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokLonghorn(input *client.Mk8sByokAddOnConfigLonghorn) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokLonghornModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokLonghornModel{
+		Replicas: FlattenInt(input.Replicas),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokIngress transforms *client.Mk8sByokAddOnConfigIngress into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokIngress(input *client.Mk8sByokAddOnConfigIngress) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokIngressModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokIngressModel{
+		Cpu:           types.StringPointerValue(input.Cpu),
+		Memory:        types.StringPointerValue(input.Memory),
+		TargetPercent: types.Float32PointerValue(input.TargetPercent),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokIstio transforms *client.Mk8sByokAddOnConfigIstio into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokIstio(input *client.Mk8sByokAddOnConfigIstio) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokIstioModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokIstioModel{
+		Istiod:         mro.flattenAddOnByokIstioIstiod(input.Istiod),
+		IngressGateway: mro.flattenAddOnByokIstioIngressGateway(input.IngressGateway),
+		Sidecar:        mro.flattenAddOnByokIstioSidecar(input.Sidecar),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokIstioIstiod transforms *client.Mk8sByokAddOnConfigIstioIstiod into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokIstioIstiod(input *client.Mk8sByokAddOnConfigIstioIstiod) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokIstioIstiodModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokIstioIstiodModel{
+		Replicas:  FlattenInt(input.Replicas),
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MaxCpu:    types.StringPointerValue(input.MaxCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+		MaxMemory: types.StringPointerValue(input.MaxMemory),
+		Pbd:       FlattenInt(input.Pbd),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokIstioIngressGateway transforms *client.Mk8sByokAddOnConfigIstioIngressGateway into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokIstioIngressGateway(input *client.Mk8sByokAddOnConfigIstioIngressGateway) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokIstioIngressGatewayModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokIstioIngressGatewayModel{
+		Replicas:  FlattenInt(input.Replicas),
+		MaxCpu:    types.StringPointerValue(input.MaxCpu),
+		MaxMemory: types.StringPointerValue(input.MaxMemory),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokIstioSidecar transforms *client.Mk8sByokAddOnConfigIstioSidecar into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokIstioSidecar(input *client.Mk8sByokAddOnConfigIstioSidecar) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokIstioSidecarModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokIstioSidecarModel{
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokLogSplitter transforms *client.Mk8sByokAddOnConfigLogSplitter into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokLogSplitter(input *client.Mk8sByokAddOnConfigLogSplitter) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokLogSplitterModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokLogSplitterModel{
+		MinCpu:        types.StringPointerValue(input.MinCpu),
+		MaxCpu:        types.StringPointerValue(input.MaxCpu),
+		MinMemory:     types.StringPointerValue(input.MinMemory),
+		MaxMemory:     types.StringPointerValue(input.MaxMemory),
+		MemBufferSize: types.StringPointerValue(input.MemBufferSize),
+		PerPodRate:    FlattenInt(input.PerPodRate),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoring transforms *client.Mk8sByokAddOnConfigMonitoring into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoring(input *client.Mk8sByokAddOnConfigMonitoring) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMonitoringModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMonitoringModel{
+		MinMemory:        types.StringPointerValue(input.MinMemory),
+		MaxMemory:        types.StringPointerValue(input.MaxMemory),
+		KubeStateMetrics: mro.flattenAddOnByokMonitoringKubeStateMetrics(input.KubeStateMetrics),
+		Prometheus:       mro.flattenAddOnByokMonitoringPrometheus(input.Prometheus),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoringKubeStateMetrics transforms *client.Mk8sByokAddOnConfigMonitoringKubeStateMetrics into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringKubeStateMetrics(input *client.Mk8sByokAddOnConfigMonitoringKubeStateMetrics) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMonitoringKubeStateMetricsModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMonitoringKubeStateMetricsModel{
+		MinMemory: types.StringPointerValue(input.MinMemory),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoringPrometheus transforms *client.Mk8sByokAddOnConfigMonitoringPrometheus into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringPrometheus(input *client.Mk8sByokAddOnConfigMonitoringPrometheus) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMonitoringPrometheusModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMonitoringPrometheusModel{
+		Main: mro.flattenAddOnByokMonitoringPrometheusMain(input.Main),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoringPrometheusMain transforms *client.Mk8sByokAddOnConfigMonitoringPrometheusMain into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringPrometheusMain(input *client.Mk8sByokAddOnConfigMonitoringPrometheusMain) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMonitoringPrometheusMainModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMonitoringPrometheusMainModel{
+		Storage: types.StringPointerValue(input.Storage),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokRedisString transforms *client.Mk8sByokAddOnConfigRedisString into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokRedisString(input *client.Mk8sByokAddOnConfigRedisString) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokRedisStringModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokRedisStringModel{
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MaxCpu:    types.StringPointerValue(input.MaxCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+		MaxMemory: types.StringPointerValue(input.MaxMemory),
+		Storage:   types.StringPointerValue(input.Storage),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokRedisInt transforms *client.Mk8sByokAddOnConfigRedisInt into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokRedisInt(input *client.Mk8sByokAddOnConfigRedisInt) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokRedisIntModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokRedisIntModel{
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MaxCpu:    types.StringPointerValue(input.MaxCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+		MaxMemory: types.StringPointerValue(input.MaxMemory),
+		Storage:   FlattenInt(input.Storage),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokTempoAgent transforms *client.Mk8sByokAddOnConfigTempoAgent into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokTempoAgent(input *client.Mk8sByokAddOnConfigTempoAgent) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokTempoAgentModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokTempoAgentModel{
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokInternalDns transforms *client.Mk8sByokAddOnConfigInternalDns into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokInternalDns(input *client.Mk8sByokAddOnConfigInternalDns) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokInternalDnsModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokInternalDnsModel{
+		MinCpu:    types.StringPointerValue(input.MinCpu),
+		MaxCpu:    types.StringPointerValue(input.MaxCpu),
+		MinMemory: types.StringPointerValue(input.MinMemory),
+		MaxMemory: types.StringPointerValue(input.MaxMemory),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
 }
 
 // flattenStatus transforms *client.Mk8sStatus into a Terraform types.List.

@@ -914,6 +914,7 @@ type AddOnsModel struct {
 	AwsECR                types.List `tfsdk:"aws_ecr"`
 	AwsELB                types.List `tfsdk:"aws_elb"`
 	AzureACR              types.List `tfsdk:"azure_acr"`
+	Byok                  types.Object `tfsdk:"byok"`
 	Sysbox                types.Bool `tfsdk:"sysbox"`
 }
 
@@ -932,6 +933,7 @@ func (a AddOnsModel) AttributeTypes() attr.Type {
 			"aws_ecr":                 types.ListType{ElemType: AddOnsHasRoleArnModel{}.AttributeTypes()},
 			"aws_elb":                 types.ListType{ElemType: AddOnsHasRoleArnModel{}.AttributeTypes()},
 			"azure_acr":               types.ListType{ElemType: AddOnsAzureAcrModel{}.AttributeTypes()},
+			"byok":                    AddOnsByokModel{}.AttributeTypes(),
 			"sysbox":                  types.BoolType,
 		},
 	}
@@ -1091,6 +1093,404 @@ func (a AddOnsAzureAcrModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"client_id": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok //
+
+type AddOnsByokModel struct {
+	IgnoreUpdates types.Bool   `tfsdk:"ignore_updates"`
+	Location      types.String `tfsdk:"location"`
+	Config        types.Object `tfsdk:"config"`
+}
+
+func (a AddOnsByokModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"ignore_updates": types.BoolType,
+			"location":       types.StringType,
+			"config":         AddOnsByokConfigModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config //
+
+type AddOnsByokConfigModel struct {
+	Actuator      types.Object `tfsdk:"actuator"`
+	Middlebox     types.Object `tfsdk:"middlebox"`
+	Common        types.Object `tfsdk:"common"`
+	Longhorn      types.Object `tfsdk:"longhorn"`
+	Ingress       types.Object `tfsdk:"ingress"`
+	Istio         types.Object `tfsdk:"istio"`
+	LogSplitter   types.Object `tfsdk:"log_splitter"`
+	Monitoring    types.Object `tfsdk:"monitoring"`
+	Redis         types.Object `tfsdk:"redis"`
+	RedisHa       types.Object `tfsdk:"redis_ha"`
+	RedisSentinel types.Object `tfsdk:"redis_sentinel"`
+	TempoAgent    types.Object `tfsdk:"tempo_agent"`
+	InternalDns   types.Object `tfsdk:"internal_dns"`
+}
+
+func (a AddOnsByokConfigModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"actuator":       AddOnsByokActuatorModel{}.AttributeTypes(),
+			"middlebox":      AddOnsByokMiddleboxModel{}.AttributeTypes(),
+			"common":         AddOnsByokCommonModel{}.AttributeTypes(),
+			"longhorn":       AddOnsByokLonghornModel{}.AttributeTypes(),
+			"ingress":        AddOnsByokIngressModel{}.AttributeTypes(),
+			"istio":          AddOnsByokIstioModel{}.AttributeTypes(),
+			"log_splitter":   AddOnsByokLogSplitterModel{}.AttributeTypes(),
+			"monitoring":     AddOnsByokMonitoringModel{}.AttributeTypes(),
+			"redis":          AddOnsByokRedisStringModel{}.AttributeTypes(),
+			"redis_ha":       AddOnsByokRedisIntModel{}.AttributeTypes(),
+			"redis_sentinel": AddOnsByokRedisIntModel{}.AttributeTypes(),
+			"tempo_agent":    AddOnsByokTempoAgentModel{}.AttributeTypes(),
+			"internal_dns":   AddOnsByokInternalDnsModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Actuator //
+
+type AddOnsByokActuatorModel struct {
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MaxCpu    types.String `tfsdk:"max_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+	MaxMemory types.String `tfsdk:"max_memory"`
+	LogLevel  types.String `tfsdk:"log_level"`
+	Env       types.Map    `tfsdk:"env"`
+}
+
+func (a AddOnsByokActuatorModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":    types.StringType,
+			"max_cpu":    types.StringType,
+			"min_memory": types.StringType,
+			"max_memory": types.StringType,
+			"log_level":  types.StringType,
+			"env":        types.MapType{ElemType: types.StringType},
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Middlebox //
+
+type AddOnsByokMiddleboxModel struct {
+	Enabled            types.Bool  `tfsdk:"enabled"`
+	BandwidthAlertMbps types.Int32 `tfsdk:"bandwidth_alert_mbps"`
+}
+
+func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"enabled":              types.BoolType,
+			"bandwidth_alert_mbps": types.Int32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Common //
+
+type AddOnsByokCommonModel struct {
+	DeploymentReplicas types.Int32 `tfsdk:"deployment_replicas"`
+	Pbd                types.Object `tfsdk:"pbd"`
+}
+
+func (a AddOnsByokCommonModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"deployment_replicas": types.Int32Type,
+			"pbd":                 AddOnsByokCommonPbdModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Common -> Pbd //
+
+type AddOnsByokCommonPbdModel struct {
+	MaxUnavailable types.Int32 `tfsdk:"max_unavailable"`
+}
+
+func (a AddOnsByokCommonPbdModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"max_unavailable": types.Int32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Longhorn //
+
+type AddOnsByokLonghornModel struct {
+	Replicas types.Int32 `tfsdk:"replicas"`
+}
+
+func (a AddOnsByokLonghornModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"replicas": types.Int32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Ingress //
+
+type AddOnsByokIngressModel struct {
+	Cpu           types.String  `tfsdk:"cpu"`
+	Memory        types.String  `tfsdk:"memory"`
+	TargetPercent types.Float32 `tfsdk:"target_percent"`
+}
+
+func (a AddOnsByokIngressModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"cpu":            types.StringType,
+			"memory":         types.StringType,
+			"target_percent": types.Float32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Istio //
+
+type AddOnsByokIstioModel struct {
+	Istiod         types.Object `tfsdk:"istiod"`
+	IngressGateway types.Object `tfsdk:"ingress_gateway"`
+	Sidecar        types.Object `tfsdk:"sidecar"`
+}
+
+func (a AddOnsByokIstioModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"istiod":          AddOnsByokIstioIstiodModel{}.AttributeTypes(),
+			"ingress_gateway": AddOnsByokIstioIngressGatewayModel{}.AttributeTypes(),
+			"sidecar":         AddOnsByokIstioSidecarModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Istio -> Istiod //
+
+type AddOnsByokIstioIstiodModel struct {
+	Replicas  types.Int32  `tfsdk:"replicas"`
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MaxCpu    types.String `tfsdk:"max_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+	MaxMemory types.String `tfsdk:"max_memory"`
+	Pbd       types.Int32  `tfsdk:"pbd"`
+}
+
+func (a AddOnsByokIstioIstiodModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"replicas":   types.Int32Type,
+			"min_cpu":    types.StringType,
+			"max_cpu":    types.StringType,
+			"min_memory": types.StringType,
+			"max_memory": types.StringType,
+			"pbd":        types.Int32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Istio -> Ingress Gateway //
+
+type AddOnsByokIstioIngressGatewayModel struct {
+	Replicas  types.Int32  `tfsdk:"replicas"`
+	MaxCpu    types.String `tfsdk:"max_cpu"`
+	MaxMemory types.String `tfsdk:"max_memory"`
+}
+
+func (a AddOnsByokIstioIngressGatewayModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"replicas":   types.Int32Type,
+			"max_cpu":    types.StringType,
+			"max_memory": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Istio -> Sidecar //
+
+type AddOnsByokIstioSidecarModel struct {
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+}
+
+func (a AddOnsByokIstioSidecarModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":    types.StringType,
+			"min_memory": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Log Splitter //
+
+type AddOnsByokLogSplitterModel struct {
+	MinCpu        types.String `tfsdk:"min_cpu"`
+	MaxCpu        types.String `tfsdk:"max_cpu"`
+	MinMemory     types.String `tfsdk:"min_memory"`
+	MaxMemory     types.String `tfsdk:"max_memory"`
+	MemBufferSize types.String `tfsdk:"mem_buffer_size"`
+	PerPodRate    types.Int32  `tfsdk:"per_pod_rate"`
+}
+
+func (a AddOnsByokLogSplitterModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":         types.StringType,
+			"max_cpu":         types.StringType,
+			"min_memory":      types.StringType,
+			"max_memory":      types.StringType,
+			"mem_buffer_size": types.StringType,
+			"per_pod_rate":    types.Int32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring //
+
+type AddOnsByokMonitoringModel struct {
+	MinMemory        types.String `tfsdk:"min_memory"`
+	MaxMemory        types.String `tfsdk:"max_memory"`
+	KubeStateMetrics types.Object `tfsdk:"kube_state_metrics"`
+	Prometheus       types.Object `tfsdk:"prometheus"`
+}
+
+func (a AddOnsByokMonitoringModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_memory":         types.StringType,
+			"max_memory":         types.StringType,
+			"kube_state_metrics": AddOnsByokMonitoringKubeStateMetricsModel{}.AttributeTypes(),
+			"prometheus":         AddOnsByokMonitoringPrometheusModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring -> Kube State Metrics //
+
+type AddOnsByokMonitoringKubeStateMetricsModel struct {
+	MinMemory types.String `tfsdk:"min_memory"`
+}
+
+func (a AddOnsByokMonitoringKubeStateMetricsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_memory": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring -> Prometheus //
+
+type AddOnsByokMonitoringPrometheusModel struct {
+	Main types.Object `tfsdk:"main"`
+}
+
+func (a AddOnsByokMonitoringPrometheusModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"main": AddOnsByokMonitoringPrometheusMainModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring -> Prometheus -> Main //
+
+type AddOnsByokMonitoringPrometheusMainModel struct {
+	Storage types.String `tfsdk:"storage"`
+}
+
+func (a AddOnsByokMonitoringPrometheusMainModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"storage": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Redis //
+
+type AddOnsByokRedisStringModel struct {
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MaxCpu    types.String `tfsdk:"max_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+	MaxMemory types.String `tfsdk:"max_memory"`
+	Storage   types.String `tfsdk:"storage"`
+}
+
+func (a AddOnsByokRedisStringModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":    types.StringType,
+			"max_cpu":    types.StringType,
+			"min_memory": types.StringType,
+			"max_memory": types.StringType,
+			"storage":    types.StringType,
+		},
+	}
+}
+
+type AddOnsByokRedisIntModel struct {
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MaxCpu    types.String `tfsdk:"max_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+	MaxMemory types.String `tfsdk:"max_memory"`
+	Storage   types.Int32  `tfsdk:"storage"`
+}
+
+func (a AddOnsByokRedisIntModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":    types.StringType,
+			"max_cpu":    types.StringType,
+			"min_memory": types.StringType,
+			"max_memory": types.StringType,
+			"storage":    types.Int32Type,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Tempo Agent //
+
+type AddOnsByokTempoAgentModel struct {
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+}
+
+func (a AddOnsByokTempoAgentModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":    types.StringType,
+			"min_memory": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Internal DNS //
+
+type AddOnsByokInternalDnsModel struct {
+	MinCpu    types.String `tfsdk:"min_cpu"`
+	MaxCpu    types.String `tfsdk:"max_cpu"`
+	MinMemory types.String `tfsdk:"min_memory"`
+	MaxMemory types.String `tfsdk:"max_memory"`
+}
+
+func (a AddOnsByokInternalDnsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_cpu":    types.StringType,
+			"max_cpu":    types.StringType,
+			"min_memory": types.StringType,
+			"max_memory": types.StringType,
 		},
 	}
 }

@@ -68,19 +68,20 @@ type Mk8sProvider struct {
 }
 
 type Mk8sSpecAddOns struct {
-	Dashboard             *Mk8sNonCustomizableAddonConfig       `json:"dashboard,omitempty"`
-	AzureWorkloadIdentity *Mk8sAzureWorkloadIdentityAddOnConfig `json:"azureWorkloadIdentity,omitempty"`
-	AwsWorkloadIdentity   *Mk8sNonCustomizableAddonConfig       `json:"awsWorkloadIdentity,omitempty"`
-	LocalPathStorage      *Mk8sNonCustomizableAddonConfig       `json:"localPathStorage,omitempty"`
-	Metrics               *Mk8sMetricsAddOnConfig               `json:"metrics,omitempty"`
-	Logs                  *Mk8sLogsAddOnConfig                  `json:"logs,omitempty"`
-	RegistryMirror        *Mk8sRegistryMirrorAddOnConfig        `json:"registryMirror,omitempty"`
-	Nvidia                *Mk8sNvidiaAddOnConfig                `json:"nvidia,omitempty"`
-	AwsEFS                *Mk8sAwsAddOnConfig                   `json:"awsEFS,omitempty"`
-	AwsECR                *Mk8sAwsAddOnConfig                   `json:"awsECR,omitempty"`
-	AwsELB                *Mk8sAwsAddOnConfig                   `json:"awsELB,omitempty"`
-	AzureACR              *Mk8sAzureACRAddOnConfig              `json:"azureACR,omitempty"`
-	Sysbox                *Mk8sNonCustomizableAddonConfig       `json:"sysbox,omitempty"`
+	Dashboard             *Mk8sNonCustomizableAddonConfig `json:"dashboard,omitempty"`
+	AzureWorkloadIdentity *Mk8sAzureWorkloadIdentityAddOn `json:"azureWorkloadIdentity,omitempty"`
+	AwsWorkloadIdentity   *Mk8sNonCustomizableAddonConfig `json:"awsWorkloadIdentity,omitempty"`
+	LocalPathStorage      *Mk8sNonCustomizableAddonConfig `json:"localPathStorage,omitempty"`
+	Metrics               *Mk8sMetricsAddOn               `json:"metrics,omitempty"`
+	Logs                  *Mk8sLogsAddOn                  `json:"logs,omitempty"`
+	RegistryMirror        *Mk8sRegistryMirrorAddOn        `json:"registryMirror,omitempty"`
+	Nvidia                *Mk8sNvidiaAddOn                `json:"nvidia,omitempty"`
+	AwsEFS                *Mk8sAwsAddOn                   `json:"awsEFS,omitempty"`
+	AwsECR                *Mk8sAwsAddOn                   `json:"awsECR,omitempty"`
+	AwsELB                *Mk8sAwsAddOn                   `json:"awsELB,omitempty"`
+	AzureACR              *Mk8sAzureACRAddOn              `json:"azureACR,omitempty"`
+	Sysbox                *Mk8sNonCustomizableAddonConfig `json:"sysbox,omitempty"`
+	Byok                  *Mk8sByokAddOn                  `json:"byok,omitempty"`
 }
 
 // Providers //
@@ -408,11 +409,11 @@ type Mk8sAzureImageReference struct {
 
 // Add Ons //
 
-type Mk8sAzureWorkloadIdentityAddOnConfig struct {
+type Mk8sAzureWorkloadIdentityAddOn struct {
 	TenantId *string `json:"tenantId,omitempty"`
 }
 
-type Mk8sMetricsAddOnConfig struct {
+type Mk8sMetricsAddOn struct {
 	KubeState       *bool                       `json:"kubeState,omitempty"`
 	CoreDns         *bool                       `json:"coreDns,omitempty"`
 	Kubelet         *bool                       `json:"kubelet,omitempty"`
@@ -429,7 +430,7 @@ type Mk8sMetricsScrapeAnnotated struct {
 	RetainLabels      *string `json:"retainLabels,omitempty"`
 }
 
-type Mk8sLogsAddOnConfig struct {
+type Mk8sLogsAddOn struct {
 	AuditEnabled      *bool   `json:"auditEnabled,omitempty"`
 	IncludeNamespaces *string `json:"includeNamespaces,omitempty"`
 	ExcludeNamespaces *string `json:"excludeNamespaces,omitempty"`
@@ -439,25 +440,162 @@ type Mk8sLogsAddOnConfig struct {
 	Events            *bool   `json:"events,omitempty"`
 }
 
-type Mk8sRegistryMirrorAddOnConfig struct {
-	Mirrors *[]Mk8sAddOnRegistryConfig `json:"mirrors,omitempty"`
+type Mk8sRegistryMirrorAddOn struct {
+	Mirrors *[]Mk8sAddOnRegistry `json:"mirrors,omitempty"`
 }
 
-type Mk8sAddOnRegistryConfig struct {
+type Mk8sAddOnRegistry struct {
 	Registry *string   `json:"registry,omitempty"`
 	Mirrors  *[]string `json:"mirrors,omitempty"`
 }
 
-type Mk8sNvidiaAddOnConfig struct {
+type Mk8sNvidiaAddOn struct {
 	TaintGPUNodes *bool `json:"taintGPUNodes,omitempty"`
 }
 
-type Mk8sAwsAddOnConfig struct {
+type Mk8sAwsAddOn struct {
 	RoleArn *string `json:"roleArn,omitempty"`
 }
 
-type Mk8sAzureACRAddOnConfig struct {
+type Mk8sAzureACRAddOn struct {
 	ClientId *string `json:"clientId,omitempty"`
+}
+
+type Mk8sByokAddOn struct {
+	IgnoreUpdates *bool                `json:"ignoreUpdates,omitempty"`
+	Location      *string              `json:"location,omitempty"`
+	Config        *Mk8sByokAddOnConfig `json:"config,omitempty"`
+}
+
+type Mk8sByokAddOnConfig struct {
+	Actuator      *Mk8sByokAddOnConfigActuator    `json:"actuator,omitempty"`
+	Middlebox     *Mk8sByokAddOnConfigMiddlebox   `json:"middlebox,omitempty"`
+	Common        *Mk8sByokAddOnConfigCommon      `json:"common,omitempty"`
+	Longhorn      *Mk8sByokAddOnConfigLonghorn    `json:"longhorn,omitempty"`
+	Ingress       *Mk8sByokAddOnConfigIngress     `json:"ingress,omitempty"`
+	Istio         *Mk8sByokAddOnConfigIstio       `json:"istio,omitempty"`
+	LogSplitter   *Mk8sByokAddOnConfigLogSplitter `json:"logSplitter,omitempty"`
+	Monitoring    *Mk8sByokAddOnConfigMonitoring  `json:"monitoring,omitempty"`
+	Redis         *Mk8sByokAddOnConfigRedisString `json:"redis,omitempty"`
+	RedisHa       *Mk8sByokAddOnConfigRedisInt    `json:"redisHa,omitempty"`
+	RedisSentinel *Mk8sByokAddOnConfigRedisInt    `json:"redisSentinel,omitempty"`
+	TempoAgent    *Mk8sByokAddOnConfigTempoAgent  `json:"tempoAgent,omitempty"`
+	InternalDns   *Mk8sByokAddOnConfigInternalDns `json:"internalDns,omitempty"`
+}
+
+type Mk8sByokAddOnConfigActuator struct {
+	MinCpu    *string                 `json:"minCpu,omitempty"`
+	MaxCpu    *string                 `json:"maxCpu,omitempty"`
+	MinMemory *string                 `json:"minMemory,omitempty"`
+	MaxMemory *string                 `json:"maxMemory,omitempty"`
+	LogLevel  *string                 `json:"logLevel,omitempty"`
+	Env       *map[string]interface{} `json:"env,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMiddlebox struct {
+	Enabled            *bool `json:"enabled,omitempty"`
+	BandwidthAlertMbps *int  `json:"bandwidthAlertMbps,omitempty"`
+}
+
+type Mk8sByokAddOnConfigCommon struct {
+	DeploymentReplicas *int                          `json:"deploymentReplicas,omitempty"`
+	Pbd                *Mk8sByokAddOnConfigCommonPbd `json:"pbd,omitempty"`
+}
+
+type Mk8sByokAddOnConfigCommonPbd struct {
+	MaxUnavailable *int `json:"maxUnavailable,omitempty"`
+}
+
+type Mk8sByokAddOnConfigLonghorn struct {
+	Replicas *int `json:"replicas,omitempty"`
+}
+
+type Mk8sByokAddOnConfigIngress struct {
+	Cpu           *string  `json:"cpu,omitempty"`
+	Memory        *string  `json:"memory,omitempty"`
+	TargetPercent *float32 `json:"targetPercent,omitempty"`
+}
+
+type Mk8sByokAddOnConfigIstio struct {
+	Istiod         *Mk8sByokAddOnConfigIstioIstiod         `json:"istiod,omitempty"`
+	IngressGateway *Mk8sByokAddOnConfigIstioIngressGateway `json:"ingressgateway,omitempty"`
+	Sidecar        *Mk8sByokAddOnConfigIstioSidecar        `json:"sidecar,omitempty"`
+}
+
+type Mk8sByokAddOnConfigIstioIstiod struct {
+	Replicas  *int    `json:"replicas,omitempty"`
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MaxCpu    *string `json:"maxCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+	MaxMemory *string `json:"maxMemory,omitempty"`
+	Pbd       *int    `json:"pbd,omitempty"`
+}
+
+type Mk8sByokAddOnConfigIstioIngressGateway struct {
+	Replicas  *int    `json:"replicas,omitempty"`
+	MaxCpu    *string `json:"maxCpu,omitempty"`
+	MaxMemory *string `json:"maxMemory,omitempty"`
+}
+
+type Mk8sByokAddOnConfigIstioSidecar struct {
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+}
+
+type Mk8sByokAddOnConfigLogSplitter struct {
+	MinCpu        *string `json:"minCpu,omitempty"`
+	MaxCpu        *string `json:"maxCpu,omitempty"`
+	MinMemory     *string `json:"minMemory,omitempty"`
+	MaxMemory     *string `json:"maxMemory,omitempty"`
+	MemBufferSize *string `json:"memBufferSize,omitempty"`
+	PerPodRate    *int    `json:"perPodRate,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMonitoring struct {
+	MinMemory        *string                                        `json:"minMemory,omitempty"`
+	MaxMemory        *string                                        `json:"maxMemory,omitempty"`
+	KubeStateMetrics *Mk8sByokAddOnConfigMonitoringKubeStateMetrics `json:"kubeStateMetrics,omitempty"`
+	Prometheus       *Mk8sByokAddOnConfigMonitoringPrometheus       `json:"prometheus,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMonitoringKubeStateMetrics struct {
+	MinMemory *string `json:"minMemory,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMonitoringPrometheus struct {
+	Main *Mk8sByokAddOnConfigMonitoringPrometheusMain `json:"main,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMonitoringPrometheusMain struct {
+	Storage *string `json:"storage"`
+}
+
+type Mk8sByokAddOnConfigRedisString struct {
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MaxCpu    *string `json:"maxCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+	MaxMemory *string `json:"maxMemory,omitempty"`
+	Storage   *string `json:"storage,omitempty"`
+}
+
+type Mk8sByokAddOnConfigRedisInt struct {
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MaxCpu    *string `json:"maxCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+	MaxMemory *string `json:"maxMemory,omitempty"`
+	Storage   *int    `json:"storage,omitempty"`
+}
+
+type Mk8sByokAddOnConfigTempoAgent struct {
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+}
+
+type Mk8sByokAddOnConfigInternalDns struct {
+	MinCpu    *string `json:"minCpu,omitempty"`
+	MaxCpu    *string `json:"maxCpu,omitempty"`
+	MinMemory *string `json:"minMemory,omitempty"`
+	MaxMemory *string `json:"maxMemory,omitempty"`
 }
 
 /*** Status ***/
