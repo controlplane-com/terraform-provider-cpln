@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/float32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
@@ -55,6 +56,7 @@ type Mk8sResourceModel struct {
 	TritonProvider       types.List   `tfsdk:"triton_provider"`
 	AzureProvider        types.List   `tfsdk:"azure_provider"`
 	DigitalOceanProvider types.List   `tfsdk:"digital_ocean_provider"`
+	GcpProvider          types.List   `tfsdk:"gcp_provider"`
 	AddOns               types.List   `tfsdk:"add_ons"`
 	Status               types.List   `tfsdk:"status"`
 }
@@ -1073,6 +1075,83 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					listvalidator.SizeAtMost(1),
 				},
 			},
+			"gcp_provider": schema.ListNestedBlock{
+				Description: "",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"project_id": schema.StringAttribute{
+							Description: "GCP project ID that hosts the cluster infrastructure.",
+							Required:    true,
+						},
+						"region": schema.StringAttribute{
+							Description: "Region where the cluster nodes will live.",
+							Required:    true,
+						},
+						"gcp_labels": schema.MapAttribute{
+							Description: "Extra tags to attach to all created objects.",
+							ElementType: types.StringType,
+							Optional:    true,
+							Validators: []validator.Map{
+								mapvalidator.SizeAtMost(10),
+							},
+						},
+						"network": schema.StringAttribute{
+							Description: "VPC network used by the cluster.",
+							Required:    true,
+						},
+						"sa_key_link": schema.StringAttribute{
+							Description: "Link to a secret containing the service account JSON key.",
+							Required:    true,
+							Validators: []validator.String{
+								validators.LinkValidator{},
+							},
+						},
+						"pre_install_script": mr.PreInstallScriptSchema(),
+					},
+					Blocks: map[string]schema.Block{
+						"networking": mr.NetworkingSchema(),
+						"image":      mr.GcpImageSchema("Default image for all nodes.", true),
+						"node_pool": schema.SetNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name":   mr.GenericNodePoolNameSchema(),
+									"labels": mr.GenericNodePoolLabelsSchema(),
+									"machine_type": schema.StringAttribute{
+										Description: "GCE machine type for nodes in this pool.",
+										Required:    true,
+									},
+									"zone": schema.StringAttribute{
+										Description: "Zone where the pool nodes run.",
+										Required:    true,
+									},
+									"boot_disk_size": schema.Int32Attribute{
+										Description: "Size in GB.",
+										Required:    true,
+										Validators: []validator.Int32{
+											int32validator.AtLeast(20),
+										},
+									},
+									"min_size": mr.GenericNodePoolMinSizeSchema(),
+									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+									"subnet": schema.StringAttribute{
+										Description: "Subnet within the selected network.",
+										Required:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"taint":          mr.GenericNodePoolTaintsSchema(),
+									"override_image": mr.GcpImageSchema("", false),
+								},
+							},
+						},
+						"autoscaler": mr.AutoscalerSchema(),
+					},
+				},
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
 			"add_ons": schema.ListNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
@@ -1650,6 +1729,7 @@ func (mr *Mk8sResource) ConfigValidators(ctx context.Context) []resource.ConfigV
 		path.MatchRoot("triton_provider"),
 		path.MatchRoot("azure_provider"),
 		path.MatchRoot("digital_ocean_provider"),
+		path.MatchRoot("gcp_provider"),
 	}
 
 	return []resource.ConfigValidator{
@@ -1945,6 +2025,36 @@ func (mr *Mk8sResource) AzureImageSchema(description string) schema.ListNestedBl
 			),
 		},
 	}
+}
+
+// GcpImageSchema returns a ListNestedBlock describing GCP image configuration with a recommended image.
+func (mr *Mk8sResource) GcpImageSchema(description string, isRequired bool) schema.ListNestedBlock {
+	blockSchema := schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"recommended": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
+					Validators: []validator.String{
+						stringvalidator.OneOf("ubuntu/jammy-22.04", "ubuntu/noble-24.04"),
+					},
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtMost(1),
+		},
+	}
+
+	if isRequired {
+		blockSchema.Validators = append(
+			blockSchema.Validators,
+			listvalidator.IsRequired(),
+		)
+	}
+
+	return blockSchema
 }
 
 // ByokAddOnRedisIntSchema returns the attributes definition used by Redis HA/Sentinel add-ons where storage is numeric.
@@ -2266,6 +2376,7 @@ func (mro *Mk8sResourceOperator) NewAPIRequest(isUpdate bool) client.Mk8s {
 	spec.Provider.Triton = mro.buildTritonProvider(mro.Plan.TritonProvider)
 	spec.Provider.Azure = mro.buildAzureProvider(mro.Plan.AzureProvider)
 	spec.Provider.DigitalOcean = mro.buildDigitalOceanProvider(mro.Plan.DigitalOceanProvider)
+	spec.Provider.Gcp = mro.buildGcpProvider(mro.Plan.GcpProvider)
 	spec.AddOns = mro.buildAddOns(mro.Plan.AddOns)
 
 	// Return constructed request payload
@@ -2295,6 +2406,7 @@ func (mro *Mk8sResourceOperator) MapResponseToState(apiResp *client.Mk8s, isCrea
 	state.TritonProvider = mro.flattenTritonProvider(apiResp.Spec.Provider.Triton)
 	state.AzureProvider = mro.flattenAzureProvider(apiResp.Spec.Provider.Azure)
 	state.DigitalOceanProvider = mro.flattenDigitalOceanProvider(apiResp.Spec.Provider.DigitalOcean)
+	state.GcpProvider = mro.flattenGcpProvider(apiResp.Spec.Provider.Gcp)
 	state.AddOns = mro.flattenAddOns(apiResp.Spec.AddOns)
 	state.Status = mro.flattenStatus(apiResp.Status)
 
@@ -3311,6 +3423,92 @@ func (mro *Mk8sResourceOperator) buildDigitalOceanProviderNodePools(state types.
 			OverrideImage: BuildString(block.OverrideImage),
 			MinSize:       BuildInt(block.MinSize),
 			MaxSize:       BuildInt(block.MaxSize),
+		}
+
+		// Set embedded attributes
+		item.Name = BuildString(block.Name)
+		item.Labels = mro.BuildMapString(block.Labels)
+		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildGcpProvider constructs a Mk8sGcpProvider from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGcpProvider(state types.List) *client.Mk8sGcpProvider {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.GcpProviderModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.Mk8sGcpProvider{
+		ProjectId:        BuildString(block.ProjectId),
+		Region:           BuildString(block.Region),
+		GcpLabels:        mro.BuildMapString(block.GcpLabels),
+		Network:          BuildString(block.Network),
+		SaKeyLink:        BuildString(block.SaKeyLink),
+		Networking:       mro.buildNetworking(block.Networking),
+		PreInstallScript: BuildString(block.PreInstallScript),
+		Image:            mro.buildGcpProviderImage(block.Image),
+		NodePools:        mro.buildGcpProviderNodePools(block.NodePools),
+		Autoscaler:       mro.buildAutoscaler(block.Autoscaler),
+	}
+}
+
+// buildGcpProviderImage constructs a Mk8sGcpImage from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGcpProviderImage(state types.List) *client.Mk8sGcpImage {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.GcpProviderImageModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.Mk8sGcpImage{
+		Recommended: BuildString(block.Recommended),
+	}
+}
+
+// buildGcpProviderNodePools constructs a []client.Mk8sGcpPool from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGcpProviderNodePools(state types.Set) *[]client.Mk8sGcpPool {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.GcpProviderNodePoolModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or set was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sGcpPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.Mk8sGcpPool{
+			MachineType:   BuildString(block.MachineType),
+			Zone:          BuildString(block.Zone),
+			OverrideImage: mro.buildGcpProviderImage(block.OverrideImage),
+			BootDiskSize:  BuildInt(block.BootDiskSize),
+			MinSize:       BuildInt(block.MinSize),
+			MaxSize:       BuildInt(block.MaxSize),
+			Subnet:        BuildString(block.Subnet),
 		}
 
 		// Set embedded attributes
@@ -4981,6 +5179,95 @@ func (mro *Mk8sResourceOperator) flattenDigitalOceanProviderNodePools(input *[]c
 			OverrideImage: types.StringPointerValue(item.OverrideImage),
 			MinSize:       FlattenInt(item.MinSize),
 			MaxSize:       FlattenInt(item.MaxSize),
+		}
+
+		// Set embedded attributes
+		block.Name = types.StringPointerValue(item.Name)
+		block.Labels = FlattenMapString(item.Labels)
+		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.Set
+	return FlattenSet(mro.Ctx, mro.Diags, blocks)
+}
+
+// flattenGcpProvider transforms *client.Mk8sGcpProvider into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenGcpProvider(input *client.Mk8sGcpProvider) types.List {
+	// Get attribute types
+	elementType := models.GcpProviderModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.GcpProviderModel{
+		ProjectId:        types.StringPointerValue(input.ProjectId),
+		Region:           types.StringPointerValue(input.Region),
+		GcpLabels:        FlattenMapString(input.GcpLabels),
+		Network:          types.StringPointerValue(input.Network),
+		SaKeyLink:        types.StringPointerValue(input.SaKeyLink),
+		Networking:       mro.flattenNetworking(input.Networking),
+		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
+		Image:            mro.flattenGcpProviderImage(input.Image),
+		NodePools:        mro.flattenGcpProviderNodePools(input.NodePools),
+		Autoscaler:       mro.flattenAutoscaler(input.Autoscaler),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.GcpProviderModel{block})
+}
+
+// flattenGcpProviderImage transforms *client.Mk8sGcpImage into a Terraform types.List.
+func (mro *Mk8sResourceOperator) flattenGcpProviderImage(input *client.Mk8sGcpImage) types.List {
+	// Get attribute types
+	elementType := models.GcpProviderImageModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.GcpProviderImageModel{
+		Recommended: types.StringPointerValue(input.Recommended),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.GcpProviderImageModel{block})
+}
+
+// flattenGcpProviderNodePools transforms *[]client.Mk8sGcpPool into a Terraform types.Set.
+func (mro *Mk8sResourceOperator) flattenGcpProviderNodePools(input *[]client.Mk8sGcpPool) types.Set {
+	// Get attribute types
+	elementType := models.GcpProviderNodePoolModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null set
+		return types.SetNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.GcpProviderNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.GcpProviderNodePoolModel{
+			MachineType:   types.StringPointerValue(item.MachineType),
+			Zone:          types.StringPointerValue(item.Zone),
+			OverrideImage: mro.flattenGcpProviderImage(item.OverrideImage),
+			BootDiskSize:  FlattenInt(item.BootDiskSize),
+			MinSize:       FlattenInt(item.MinSize),
+			MaxSize:       FlattenInt(item.MaxSize),
+			Subnet:        types.StringPointerValue(item.Subnet),
 		}
 
 		// Set embedded attributes

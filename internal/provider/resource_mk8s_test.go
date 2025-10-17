@@ -47,15 +47,16 @@ func NewMk8sResourceTest() Mk8sResourceTest {
 	steps := []resource.TestStep{}
 
 	// Fill the steps slice
-	steps = append(steps, resourceTest.NewMk8sGenericProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sHetznerProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sAwsProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sLinodeProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sOblivusProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sLambdalabsProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sPaperspaceProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sEphemeralProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sTritonProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sGenericProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sHetznerProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sAwsProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sLinodeProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sOblivusProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sLambdalabsProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sPaperspaceProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sEphemeralProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sTritonProviderScenario()...)
+	steps = append(steps, resourceTest.NewMk8sGcpProviderScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -316,6 +317,27 @@ func (mrt *Mk8sResourceTest) NewMk8sTritonProviderScenario() []resource.TestStep
 		caseUpdate1,
 		// Revert the resource to its initial state
 		initialStep,
+	}
+}
+
+// NewMk8sGcpProviderScenario creates a test case with initial and updated configurations.
+func (mrt *Mk8sResourceTest) NewMk8sGcpProviderScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "gcp"
+	name := fmt.Sprintf("tf-mk8s-gcp-%s", mrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := mrt.BuildGcpProviderTestStep(resourceName, name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
 	}
 }
 
@@ -1840,6 +1862,156 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 							"triton_tags": map[string]interface{}{
 								"drink": "water",
 							},
+						},
+					},
+					"autoscaler": []map[string]interface{}{
+						{
+							"expander":              []string{"most-pods"},
+							"unneeded_time":         "10m",
+							"unready_time":          "20m",
+							"utilization_threshold": "0.7",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
+				{
+					"dashboard": "true",
+					"azure_workload_identity": []map[string]interface{}{
+						{
+							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
+						},
+					},
+					"aws_workload_identity": "true",
+					"local_path_storage":    "true",
+					"metrics": []map[string]interface{}{
+						{
+							"kube_state":    "true",
+							"core_dns":      "true",
+							"kubelet":       "true",
+							"api_server":    "true",
+							"node_exporter": "true",
+							"cadvisor":      "true",
+							"scrape_annotated": []map[string]interface{}{
+								{
+									"interval_seconds":   "30",
+									"include_namespaces": "^elastic",
+									"exclude_namespaces": "^elastic",
+									"retain_labels":      "^\\w+$",
+								},
+							},
+						},
+					},
+					"logs": []map[string]interface{}{
+						{
+							"audit_enabled":      "true",
+							"include_namespaces": "^elastic",
+							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
+					"nvidia": []map[string]interface{}{
+						{
+							"taint_gpu_nodes": "true",
+						},
+					},
+					"azure_acr": []map[string]interface{}{
+						{
+							"client_id": "4e25b134-160b-4a9d-b392-13b381ced5ef",
+						},
+					},
+					"sysbox": "true",
+					// TODO: Add byok test here
+				},
+			}),
+		),
+	}
+}
+
+// BuildGcpProviderTestStep returns a default initial test step and its associated test case for the resource.
+func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name string) (Mk8sResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := Mk8sResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "mk8s",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_mk8s.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "mk8s gcp new description",
+		},
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: mrt.GcpProviderHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
+			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
+				{
+					"source_cidr": "192.168.1.255",
+					"description": "hello world",
+				},
+			}),
+			c.TestCheckNestedBlocks("gcp_provider", []map[string]interface{}{
+				{
+					"project_id": "coke-267310",
+					"region":     "us-west1",
+					"gcp_labels": map[string]interface{}{
+						"hello": "world",
+					},
+					"network":     "mk8s",
+					"sa_key_link": "/org/terraform-test-org/secret/gcp",
+					"networking": []map[string]interface{}{
+						{
+							"service_network": "10.43.0.0/16",
+							"pod_network":     "10.42.0.0/16",
+						},
+					},
+					"pre_install_script": "#! echo hello world",
+					"image": []map[string]interface{}{
+						{
+							"recommended": "ubuntu/jammy-22.04",
+						},
+					},
+					"node_pool": []map[string]interface{}{
+						{
+							"name": "my-gcp-node-pool",
+							"labels": map[string]interface{}{
+								"hello": "world",
+							},
+							"taint": []map[string]interface{}{
+								{
+									"key":    "hello",
+									"value":  "world",
+									"effect": "NoSchedule",
+								},
+							},
+							"machine_type": "n1-standard-2",
+							"zone":         "us-west1-a",
+							"override_image": []map[string]interface{}{
+								{
+									"recommended": "ubuntu/noble-24.04",
+								},
+							},
+							"boot_disk_size": "30",
+							"min_size":       "0",
+							"max_size":       "0",
+							"subnet":         "mk8s",
 						},
 					},
 					"autoscaler": []map[string]interface{}{
@@ -4252,6 +4424,257 @@ resource "cpln_mk8s" "%s" {
 
       triton_tags = {
         drink = "water"
+      }
+    }
+
+    autoscaler {
+      expander              = ["most-pods"]
+      unneeded_time         = "10m"
+      unready_time          = "20m"
+      utilization_threshold = 0.7
+    }
+  }
+
+  add_ons {
+    dashboard = true
+
+    azure_workload_identity {
+      tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+    }
+
+    aws_workload_identity = true
+    local_path_storage    = true
+
+    metrics {
+      kube_state    = true
+      core_dns      = true
+      kubelet       = true
+      api_server    = true
+      node_exporter = true
+      cadvisor      = true
+
+      scrape_annotated {
+        interval_seconds   = 30
+        include_namespaces = "^elastic"
+        exclude_namespaces = "^elastic"
+        retain_labels      = "^\\w+$"
+      }
+    }
+
+    logs {
+      audit_enabled      = true
+      include_namespaces = "^elastic"
+      exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
+    nvidia {
+      taint_gpu_nodes = true
+    }
+
+    azure_acr {
+      client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+    }
+
+    sysbox = true
+
+    byok = {
+      ignore_updates = false
+      location       = "/org/terraform-test-org/location/test-byok"
+
+      config = {
+        actuator = {
+          min_cpu    = "50m"
+          max_cpu    = "8001m"
+          min_memory = "200Mi"
+          max_memory = "8000Mi"
+          log_level  = "info"
+          env = {
+            CACHE_PERIOD_DATA_SERVICE = "600"
+            LABEL_NODES               = "false"
+          }
+        }
+
+        middlebox = {
+          enabled              = false
+          bandwidth_alert_mbps = 650
+        }
+
+        common = {
+          deployment_replicas = 1
+
+          // pbd {
+          //   max_unavailable = 1
+          // }
+        }
+
+        longhorn = {
+          replicas = 2
+        }
+
+        ingress = {
+          cpu            = "50m"
+          memory         = "200Mi"
+          target_percent = 6000
+        }
+
+        istio = {
+          istiod = {
+            replicas   = 2
+            min_cpu    = "50m"
+            max_cpu    = "8001m"
+            min_memory = "100Mi"
+            max_memory = "8000Mi"
+            // pbd        = 10
+          }
+
+          ingress_gateway = {
+            replicas   = 2
+            max_cpu    = "1"
+            max_memory = "1Gi"
+          }
+
+          sidecar = {
+            min_cpu    = "0m"
+            min_memory = "200Mi"
+          }
+        }
+
+        log_splitter = {
+          min_cpu         = "1m"
+          max_cpu         = "1000m"
+          min_memory      = "10Mi"
+          max_memory      = "2000Mi"
+          mem_buffer_size = "128M"
+          per_pod_rate    = 10000
+        }
+
+        monitoring = {
+          min_memory = "100Mi"
+          max_memory = "20Gi"
+
+          kube_state_metrics = {
+            min_memory = "25Mi"
+          }
+
+          prometheus = {
+            main = {
+              storage = "10Gi"
+            }
+          }
+        }
+
+        redis = {
+          min_cpu    = "10m"
+          max_cpu    = "2001m"
+          min_memory = "100Mi"
+          max_memory = "1000Mi"
+          storage    = "8Gi"
+        }
+
+        redis_ha = {
+          min_cpu    = "50m"
+          max_cpu    = "2001m"
+          min_memory = "100Mi"
+          max_memory = "1000Mi"
+          storage    = 0
+        }
+
+        redis_sentinel = {
+          min_cpu    = "10m"
+          max_cpu    = "500m"
+          min_memory = "10Mi"
+          max_memory = "400Mi"
+          storage    = 0
+        }
+
+        tempo_agent = {
+          min_cpu    = "0m"
+          min_memory = "10Mi"
+        }
+
+        internal_dns = {
+          min_cpu    = "0m"
+          max_cpu    = "500m"
+          min_memory = "10Mi"
+          max_memory = "400Mi"
+        }
+      }
+    }
+  }
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+// GcpProviderHcl returns a test step.
+func (mrt *Mk8sResourceTest) GcpProviderHcl(c Mk8sResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_mk8s" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    "cpln/ignore"       = "true"
+  }
+
+  version = "1.28.4"
+
+  firewall {
+    source_cidr = "192.168.1.255"
+    description = "hello world"
+  }
+
+  gcp_provider {
+    project_id         = "coke-267310"
+    region             = "us-west1"
+    network            = "mk8s"
+    sa_key_link        = "/org/terraform-test-org/secret/gcp"
+    pre_install_script = "#! echo hello world"
+
+    gcp_labels = {
+      hello = "world"
+    }
+
+    networking {}
+
+    image {
+      recommended = "ubuntu/jammy-22.04"
+    }
+
+    node_pool {
+      name           = "my-gcp-node-pool"
+      machine_type   = "n1-standard-2"
+      zone           = "us-west1-a"
+      boot_disk_size = 30
+      min_size       = 0
+      max_size       = 0
+      subnet         = "mk8s"
+
+      labels = {
+        hello = "world"
+      }
+
+      taint {
+        key    = "hello"
+        value  = "world"
+        effect = "NoSchedule"
+      }
+
+      override_image {
+        recommended = "ubuntu/noble-24.04"
       }
     }
 

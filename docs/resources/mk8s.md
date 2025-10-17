@@ -26,6 +26,7 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **paperspace_provider** (Block List, Max: 1) ([see below](#nestedblock--paperspace_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 - **triton_provider** (Block List, Max: 1) ([see below](#nestedblock--triton_provider))
+- **gcp_provider** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider))
 - **digital_ocean_provider** (Block List, Max: 1) ([see below](#nestedblock--digital_ocean_provider))
 
 ### Optional
@@ -602,6 +603,58 @@ Optional:
 - **override_image** (Block List, Max: 1) ([see below](#nestedblock--azure_provider--image))
 - **min_size** (Number) Default: 0
 - **max_size** (Number) Default: 0
+
+<a id="nestedblock--gcp_provider"></a>
+
+### `gcp_provider`
+
+Required:
+
+- **project_id** (String) GCP project ID that hosts the cluster infrastructure.
+- **region** (String) Region where the cluster nodes will live.
+- **network** (String) VPC network used by the cluster.
+- **sa_key_link** (String) Link to a secret containing the service account JSON key.
+- **networking** (Block List, Max: 1) ([see below](#nestedblock--generic_provider--networking))
+
+Optional:
+
+- **gcp_labels** (Map of String) Extra labels to attach to all created objects. Maximum: `10`.
+- **pre_install_script** (String) Optional shell script that runs before K8s is installed.
+- **image** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider--image))
+- **node_pool** (Block List) ([see below](#nestedblock--gcp_provider--node_pool))
+- **autoscaler** (Block List, Max: 1) ([see below](#nestedblock--autoscaler))
+
+<a id="nestedblock--gcp_provider--image"></a>
+
+### `gcp_provider.image`
+
+Default image for all nodes.
+
+Optional:
+
+- **recommended** (String) Recommended image alias. Valid values: `ubuntu/jammy-22.04`, `ubuntu/noble-24.04`.
+
+<a id="nestedblock--gcp_provider--node_pool"></a>
+
+### `gcp_provider.node_pool`
+
+List of node pools.
+
+Required:
+
+- **name** (String)
+- **machine_type** (String) GCE machine type for nodes in this pool.
+- **zone** (String) Zone where the pool nodes run.
+- **boot_disk_size** (Number) Size in GB. Minimum: `20`.
+- **subnet** (String) Subnet within the selected network.
+
+Optional:
+
+- **labels** (Map of String) Labels to attach to nodes of a node pool.
+- **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **override_image** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider--image))
+- **min_size** (Number)
+- **max_size** (Number)
 
 <a id="nestedblock--digital_ocean_provider"></a>
 
@@ -3491,6 +3544,257 @@ resource "cpln_mk8s" "triton" {
             expander 	  		  = ["most-pods"]
             unneeded_time         = "10m"
             unready_time  		  = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        byok = {
+            ignore_updates = false
+            location       = "/org/terraform-test-org/location/test-byok"
+
+            config = {
+                actuator = {
+                    min_cpu    = "50m"
+                    max_cpu    = "8001m"
+                    min_memory = "200Mi"
+                    max_memory = "8000Mi"
+                    log_level  = "info"
+                    env = {
+                        CACHE_PERIOD_DATA_SERVICE = "600"
+                        LABEL_NODES               = "false"
+                    }
+                }
+
+                middlebox = {
+                    enabled              = false
+                    bandwidth_alert_mbps = 650
+                }
+
+                common = {
+                    deployment_replicas = 1
+
+                    pbd {
+                        max_unavailable = 1
+                    }
+                }
+
+                longhorn = {
+                    replicas = 2
+                }
+
+                ingress = {
+                    cpu            = "50m"
+                    memory         = "200Mi"
+                    target_percent = 6000
+                }
+
+                istio = {
+                    istiod = {
+                        replicas   = 2
+                        min_cpu    = "50m"
+                        max_cpu    = "8001m"
+                        min_memory = "100Mi"
+                        max_memory = "8000Mi"
+                        pbd        = 10
+                    }
+
+                    ingress_gateway = {
+                        replicas   = 2
+                        max_cpu    = "1"
+                        max_memory = "1Gi"
+                    }
+
+                    sidecar = {
+                        min_cpu    = "0m"
+                        min_memory = "200Mi"
+                    }
+                }
+
+                log_splitter = {
+                    min_cpu         = "1m"
+                    max_cpu         = "1000m"
+                    min_memory      = "10Mi"
+                    max_memory      = "2000Mi"
+                    mem_buffer_size = "128M"
+                    per_pod_rate    = 10000
+                }
+
+                monitoring = {
+                    min_memory = "100Mi"
+                    max_memory = "20Gi"
+
+                    kube_state_metrics = {
+                        min_memory = "25Mi"
+                    }
+
+                    prometheus = {
+                        main = {
+                            storage = "10Gi"
+                        }
+                    }
+                }
+
+                redis = {
+                    min_cpu    = "10m"
+                    max_cpu    = "2001m"
+                    min_memory = "100Mi"
+                    max_memory = "1000Mi"
+                    storage    = "8Gi"
+                }
+
+                redis_ha = {
+                    min_cpu    = "50m"
+                    max_cpu    = "2001m"
+                    min_memory = "100Mi"
+                    max_memory = "1000Mi"
+                    storage    = 0
+                }
+
+                redis_sentinel = {
+                    min_cpu    = "10m"
+                    max_cpu    = "500m"
+                    min_memory = "10Mi"
+                    max_memory = "400Mi"
+                    storage    = 0
+                }
+
+                tempo_agent = {
+                    min_cpu    = "0m"
+                    min_memory = "10Mi"
+                }
+
+                internal_dns = {
+                    min_cpu    = "0m"
+                    max_cpu    = "500m"
+                    min_memory = "10Mi"
+                    max_memory = "400Mi"
+                }
+            }
+        }
+
+        sysbox = true
+    }
+}
+```
+
+## Example Usage - GCP Provider
+
+```terraform
+resource "cpln_mk8s" "gcp-provider" {
+
+    name        = "demo-mk8s-gcp-provider"
+    description = "demo-mk8s-gcp-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+        "cpln/ignore"       = "true"
+    }
+
+    version = "1.28.4"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    gcp_provider {
+        project_id         = "coke-267310"
+        region             = "us-west1"
+        network            = "mk8s"
+        sa_key_link        = "/org/terraform-test-org/secret/gcp"
+        pre_install_script = "#! echo hello world"
+
+        gcp_labels = {
+            hello = "world"
+        }
+
+        networking {}
+
+        image {
+            recommended = "ubuntu/jammy-22.04"
+        }
+
+        node_pool {
+            name           = "my-gcp-node-pool"
+            machine_type   = "n1-standard-2"
+            zone           = "us-west1-a"
+            boot_disk_size = 30
+            min_size       = 0
+            max_size       = 0
+            subnet         = "mk8s"
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+
+            override_image {
+                recommended = "ubuntu/noble-24.04"
+            }
+        }
+
+        autoscaler {
+            expander              = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time          = "20m"
             utilization_threshold = 0.7
         }
     }

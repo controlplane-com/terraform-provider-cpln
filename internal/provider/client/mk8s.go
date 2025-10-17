@@ -65,6 +65,7 @@ type Mk8sProvider struct {
 	Triton       *Mk8sTritonProvider       `json:"triton,omitempty"`
 	Azure        *Mk8sAzureProvider        `json:"azure,omitempty"`
 	DigitalOcean *Mk8sDigitalOceanProvider `json:"digitalocean,omitempty"`
+	Gcp          *Mk8sGcpProvider          `json:"gcp,omitempty"`
 }
 
 type Mk8sSpecAddOns struct {
@@ -222,6 +223,19 @@ type Mk8sDigitalOceanProvider struct {
 	ReservedIps      *[]string               `json:"reservedIps,omitempty"`
 }
 
+type Mk8sGcpProvider struct {
+	ProjectId        *string                 `json:"projectId,omitempty"`
+	Region           *string                 `json:"region,omitempty"`
+	GcpLabels        *map[string]interface{} `json:"gcpLabels,omitempty"`
+	Network          *string                 `json:"network,omitempty"`
+	SaKeyLink        *string                 `json:"saKeyLink,omitempty"`
+	Networking       *Mk8sNetworkingConfig   `json:"networking,omitempty"`
+	PreInstallScript *string                 `json:"preInstallScript,omitempty"`
+	Image            *Mk8sGcpImage           `json:"image,omitempty"`
+	NodePools        *[]Mk8sGcpPool          `json:"nodePools,omitempty"`
+	Autoscaler       *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
+}
+
 // Node Pools //
 
 type Mk8sGenericPool struct {
@@ -325,6 +339,17 @@ type Mk8sDigitalOceanPool struct {
 	MaxSize       *int    `json:"maxSize,omitempty"`
 }
 
+type Mk8sGcpPool struct {
+	Mk8sGenericPool
+	MachineType   *string       `json:"machineType,omitempty"`
+	Zone          *string       `json:"zone,omitempty"`
+	OverrideImage *Mk8sGcpImage `json:"overrideImage,omitempty"`
+	BootDiskSize  *int          `json:"bootDiskSize,omitempty"`
+	MinSize       *int          `json:"minSize,omitempty"`
+	MaxSize       *int          `json:"maxSize,omitempty"`
+	Subnet        *string       `json:"subnet,omitempty"`
+}
+
 // Provider Common //
 
 type Mk8sNetworkingConfig struct {
@@ -405,6 +430,12 @@ type Mk8sAzureImageReference struct {
 	Offer     *string `json:"offer,omitempty"`
 	Sku       *string `json:"sku,omitempty"`
 	Version   *string `json:"version,omitempty"`
+}
+
+// Gcp //
+
+type Mk8sGcpImage struct {
+	Recommended *string `json:"recommended,omitempty"`
 }
 
 // Add Ons //

@@ -899,23 +899,106 @@ func (d DigitalOceanProviderNodePoolModel) AttributeTypes() attr.Type {
 	}
 }
 
+// Gcp Provider //
+
+type GcpProviderModel struct {
+	ProjectId        types.String `tfsdk:"project_id"`
+	Region           types.String `tfsdk:"region"`
+	GcpLabels        types.Map    `tfsdk:"gcp_labels"`
+	Network          types.String `tfsdk:"network"`
+	SaKeyLink        types.String `tfsdk:"sa_key_link"`
+	Networking       types.List   `tfsdk:"networking"`
+	PreInstallScript types.String `tfsdk:"pre_install_script"`
+	Image            types.List   `tfsdk:"image"`
+	NodePools        types.Set    `tfsdk:"node_pool"`
+	Autoscaler       types.List   `tfsdk:"autoscaler"`
+}
+
+func (g GcpProviderModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"project_id":         types.StringType,
+			"region":             types.StringType,
+			"gcp_labels":         types.MapType{ElemType: types.StringType},
+			"network":            types.StringType,
+			"sa_key_link":        types.StringType,
+			"networking":         types.ListType{ElemType: NetworkingModel{}.AttributeTypes()},
+			"pre_install_script": types.StringType,
+			"image":              types.ListType{ElemType: GcpProviderImageModel{}.AttributeTypes()},
+			"node_pool":          types.SetType{ElemType: GcpProviderNodePoolModel{}.AttributeTypes()},
+			"autoscaler":         types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Gcp Provider -> Image //
+
+type GcpProviderImageModel struct {
+	Recommended types.String `tfsdk:"recommended"`
+}
+
+func (g GcpProviderImageModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"recommended": types.StringType,
+		},
+	}
+}
+
+// Gcp Provider -> Node Pool //
+
+type GcpProviderNodePoolModel struct {
+	GenericProviderNodePoolModel
+	MachineType   types.String `tfsdk:"machine_type"`
+	Zone          types.String `tfsdk:"zone"`
+	OverrideImage types.List   `tfsdk:"override_image"`
+	BootDiskSize  types.Int32  `tfsdk:"boot_disk_size"`
+	MinSize       types.Int32  `tfsdk:"min_size"`
+	MaxSize       types.Int32  `tfsdk:"max_size"`
+	Subnet        types.String `tfsdk:"subnet"`
+}
+
+func (g GcpProviderNodePoolModel) AttributeTypes() attr.Type {
+	// Get the attribute types from GenericProviderNodePoolModel
+	base := GenericProviderNodePoolModel{}.AttributeTypes().(types.ObjectType)
+
+	// Copy the map to avoid mutating the original
+	merged := map[string]attr.Type{
+		"machine_type":   types.StringType,
+		"zone":           types.StringType,
+		"override_image": types.ListType{ElemType: GcpProviderImageModel{}.AttributeTypes()},
+		"boot_disk_size": types.Int32Type,
+		"min_size":       types.Int32Type,
+		"max_size":       types.Int32Type,
+		"subnet":         types.StringType,
+	}
+
+	// Add the attributes from base
+	maps.Copy(merged, base.AttrTypes)
+
+	// Return merged object type
+	return types.ObjectType{
+		AttrTypes: merged,
+	}
+}
+
 // Add Ons //
 
 type AddOnsModel struct {
-	Dashboard             types.Bool `tfsdk:"dashboard"`
-	AzureWorkloadIdentity types.List `tfsdk:"azure_workload_identity"`
-	AwsWorkloadIdentity   types.Bool `tfsdk:"aws_workload_identity"`
-	LocalPathStorage      types.Bool `tfsdk:"local_path_storage"`
-	Metrics               types.List `tfsdk:"metrics"`
-	Logs                  types.List `tfsdk:"logs"`
-	RegistryMirror        types.List `tfsdk:"registry_mirror"`
-	Nvidia                types.List `tfsdk:"nvidia"`
-	AwsEFS                types.List `tfsdk:"aws_efs"`
-	AwsECR                types.List `tfsdk:"aws_ecr"`
-	AwsELB                types.List `tfsdk:"aws_elb"`
-	AzureACR              types.List `tfsdk:"azure_acr"`
+	Dashboard             types.Bool   `tfsdk:"dashboard"`
+	AzureWorkloadIdentity types.List   `tfsdk:"azure_workload_identity"`
+	AwsWorkloadIdentity   types.Bool   `tfsdk:"aws_workload_identity"`
+	LocalPathStorage      types.Bool   `tfsdk:"local_path_storage"`
+	Metrics               types.List   `tfsdk:"metrics"`
+	Logs                  types.List   `tfsdk:"logs"`
+	RegistryMirror        types.List   `tfsdk:"registry_mirror"`
+	Nvidia                types.List   `tfsdk:"nvidia"`
+	AwsEFS                types.List   `tfsdk:"aws_efs"`
+	AwsECR                types.List   `tfsdk:"aws_ecr"`
+	AwsELB                types.List   `tfsdk:"aws_elb"`
+	AzureACR              types.List   `tfsdk:"azure_acr"`
 	Byok                  types.Object `tfsdk:"byok"`
-	Sysbox                types.Bool `tfsdk:"sysbox"`
+	Sysbox                types.Bool   `tfsdk:"sysbox"`
 }
 
 func (a AddOnsModel) AttributeTypes() attr.Type {
@@ -1196,7 +1279,7 @@ func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
 // Add Ons -> Byok -> Config -> Common //
 
 type AddOnsByokCommonModel struct {
-	DeploymentReplicas types.Int32 `tfsdk:"deployment_replicas"`
+	DeploymentReplicas types.Int32  `tfsdk:"deployment_replicas"`
 	Pbd                types.Object `tfsdk:"pbd"`
 }
 
