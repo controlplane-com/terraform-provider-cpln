@@ -790,10 +790,11 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 			}),
 			c.TestCheckNestedBlocks("options", []map[string]interface{}{
 				{
-					"timeout_seconds": "30",
-					"capacity_ai":     "false",
-					"debug":           "true",
-					"suspend":         "true",
+					"timeout_seconds":            "30",
+					"capacity_ai":                "false",
+					"capacity_ai_update_minutes": "5",
+					"debug":                      "true",
+					"suspend":                    "true",
 					"autoscaling": []map[string]interface{}{
 						{
 							"metric":              "concurrency",
@@ -1057,10 +1058,11 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 			}),
 			c.TestCheckNestedBlocks("options", []map[string]interface{}{
 				{
-					"timeout_seconds": "30",
-					"capacity_ai":     "false",
-					"debug":           "true",
-					"suspend":         "true",
+					"timeout_seconds":            "30",
+					"capacity_ai":                "false",
+					"capacity_ai_update_minutes": "10",
+					"debug":                      "true",
+					"suspend":                    "true",
 					"autoscaling": []map[string]interface{}{
 						{
 							"metric":              "concurrency",
@@ -3165,10 +3167,11 @@ resource "cpln_workload" "%s" {
   }
 
   options {
-    timeout_seconds = 30
-    capacity_ai     = false
-    debug           = true
-    suspend         = true
+    timeout_seconds            = 30
+    capacity_ai                = false
+		capacity_ai_update_minutes = 5
+    debug                      = true
+    suspend                    = true
 
     autoscaling {
       metric              = "concurrency"
@@ -3414,10 +3417,11 @@ resource "cpln_workload" "%s" {
   }
 
   options {
-    timeout_seconds = 30
-    capacity_ai     = false
-    debug           = true
-    suspend         = true
+    timeout_seconds            = 30
+    capacity_ai                = false
+		capacity_ai_update_minutes = 10
+    debug                      = true
+    suspend                    = true
 
     autoscaling {
       metric              = "concurrency"

@@ -1344,6 +1344,13 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 					Computed:    true,
 					Default:     booldefault.StaticBool(true),
 				},
+				"capacity_ai_update_minutes": schema.Int32Attribute{
+					Description: "The highest frequency capacity AI is allowed to update resource reservations when CapacityAI is enabled.",
+					Optional:    true,
+					Validators: []validator.Int32{
+						int32validator.AtLeast(2),
+					},
+				},
 				"debug": schema.BoolAttribute{
 					Description: "Debug mode. Default: `false`.",
 					Optional:    true,
@@ -2674,12 +2681,13 @@ func (wro *WorkloadResourceOperator) buildOptions(state types.List) *client.Work
 
 	// Construct and return the output
 	return &client.WorkloadOptions{
-		AutoScaling:    wro.buildOptionsAutoscaling(block.Autoscaling),
-		TimeoutSeconds: BuildInt(block.TimeoutSeconds),
-		CapacityAI:     BuildBool(block.CapacityAI),
-		Debug:          BuildBool(block.Debug),
-		Suspend:        BuildBool(block.Suspend),
-		MultiZone:      wro.buildOptionsMultiZone(block.MultiZone),
+		AutoScaling:             wro.buildOptionsAutoscaling(block.Autoscaling),
+		TimeoutSeconds:          BuildInt(block.TimeoutSeconds),
+		CapacityAI:              BuildBool(block.CapacityAI),
+		CapacityAIUpdateMinutes: BuildInt(block.CapacityAIUpdateMinutes),
+		Debug:                   BuildBool(block.Debug),
+		Suspend:                 BuildBool(block.Suspend),
+		MultiZone:               wro.buildOptionsMultiZone(block.MultiZone),
 	}
 }
 
@@ -3793,12 +3801,13 @@ func (wro *WorkloadResourceOperator) flattenOptions(input *client.WorkloadOption
 
 	// Build a single block
 	block := models.OptionsModel{
-		Autoscaling:    wro.flattenOptionsAutoscaling(input.AutoScaling),
-		TimeoutSeconds: FlattenInt(input.TimeoutSeconds),
-		CapacityAI:     types.BoolPointerValue(input.CapacityAI),
-		Debug:          types.BoolPointerValue(input.Debug),
-		Suspend:        types.BoolPointerValue(input.Suspend),
-		MultiZone:      wro.flattenOptionsMultiZone(input.MultiZone),
+		Autoscaling:             wro.flattenOptionsAutoscaling(input.AutoScaling),
+		TimeoutSeconds:          FlattenInt(input.TimeoutSeconds),
+		CapacityAI:              types.BoolPointerValue(input.CapacityAI),
+		CapacityAIUpdateMinutes: FlattenInt(input.CapacityAIUpdateMinutes),
+		Debug:                   types.BoolPointerValue(input.Debug),
+		Suspend:                 types.BoolPointerValue(input.Suspend),
+		MultiZone:               wro.flattenOptionsMultiZone(input.MultiZone),
 	}
 
 	// Return the successfully created types.List

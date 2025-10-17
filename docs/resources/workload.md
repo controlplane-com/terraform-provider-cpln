@@ -347,6 +347,7 @@ Optional:
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling)).
 - **timeout_seconds** (Number) Timeout in seconds. Default: `5`.
 - **capacity_ai** (Boolean) Capacity AI. Default: `true`.
+- **capacity_ai_update_minutes** (Number) The highest frequency capacity AI is allowed to update resource reservations when CapacityAI is enabled.
 - **debug** (Boolean) Debug mode. Default: `false`
 - **suspend** (Boolean) Workload suspend. Default: `false`
 - **multi_zone** (Block List, Max: 1) ([see below](#nestedblock--options--multi_zone)).
@@ -769,9 +770,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = true
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = true
+    capacity_ai_update_minutes = 2
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric          = "concurrency"
@@ -784,10 +786,11 @@ resource "cpln_workload" "new" {
 
   local_options {
 
-    location        = "aws-us-west-2"
-    capacity_ai     = true
-    timeout_seconds = 30
-    suspend         = false
+    location                   = "aws-us-west-2"
+    capacity_ai                = true
+    capacity_ai_update_minutes = 2
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric          = "concurrency"
@@ -951,9 +954,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = false
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = false
+    capacity_ai_update_minutes = 3
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric          = "keda"
@@ -1184,9 +1188,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = false
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = false
+    capacity_ai_update_minutes = 3
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric_percentile = "p50" 
@@ -1520,9 +1525,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = false
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = false
+    capacity_ai_update_minutes = 2
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric              = "concurrency"
@@ -1719,9 +1725,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = false
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = false
+    capacity_ai_update_minutes = 2
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric              = "concurrency"
@@ -1894,9 +1901,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = false
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = false
+    capacity_ai_update_minutes = 2
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric    = "keda"
@@ -2144,9 +2152,10 @@ resource "cpln_workload" "new" {
   }
 
   options {
-    capacity_ai     = true
-    timeout_seconds = 30
-    suspend         = false
+    capacity_ai                = true
+    capacity_ai_update_minutes = 2
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric          = "concurrency"
@@ -2159,10 +2168,11 @@ resource "cpln_workload" "new" {
 
   local_options {
 
-    location        = "aws-us-west-2"
-    capacity_ai     = true
-    timeout_seconds = 30
-    suspend         = false
+    location                   = "aws-us-west-2"
+    capacity_ai                = true
+    capacity_ai_update_minutes = 3
+    timeout_seconds            = 30
+    suspend                    = false
 
     autoscaling {
       metric          = "concurrency"

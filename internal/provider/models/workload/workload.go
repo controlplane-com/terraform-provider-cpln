@@ -374,23 +374,25 @@ func (f FirewallInternalModel) AttributeTypes() attr.Type {
 // Options //
 
 type OptionsModel struct {
-	Autoscaling    types.List  `tfsdk:"autoscaling"`
-	TimeoutSeconds types.Int32 `tfsdk:"timeout_seconds"`
-	CapacityAI     types.Bool  `tfsdk:"capacity_ai"`
-	Debug          types.Bool  `tfsdk:"debug"`
-	Suspend        types.Bool  `tfsdk:"suspend"`
-	MultiZone      types.List  `tfsdk:"multi_zone"`
+	Autoscaling             types.List  `tfsdk:"autoscaling"`
+	TimeoutSeconds          types.Int32 `tfsdk:"timeout_seconds"`
+	CapacityAI              types.Bool  `tfsdk:"capacity_ai"`
+	CapacityAIUpdateMinutes types.Int32 `tfsdk:"capacity_ai_update_minutes"`
+	Debug                   types.Bool  `tfsdk:"debug"`
+	Suspend                 types.Bool  `tfsdk:"suspend"`
+	MultiZone               types.List  `tfsdk:"multi_zone"`
 }
 
 func (o OptionsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"autoscaling":     types.ListType{ElemType: OptionsAutoscalingModel{}.AttributeTypes()},
-			"timeout_seconds": types.Int32Type,
-			"capacity_ai":     types.BoolType,
-			"debug":           types.BoolType,
-			"suspend":         types.BoolType,
-			"multi_zone":      types.ListType{ElemType: OptionsMultiZoneModel{}.AttributeTypes()},
+			"autoscaling":                types.ListType{ElemType: OptionsAutoscalingModel{}.AttributeTypes()},
+			"timeout_seconds":            types.Int32Type,
+			"capacity_ai":                types.BoolType,
+			"capacity_ai_update_minutes": types.Int32Type,
+			"debug":                      types.BoolType,
+			"suspend":                    types.BoolType,
+			"multi_zone":                 types.ListType{ElemType: OptionsMultiZoneModel{}.AttributeTypes()},
 		},
 	}
 }
