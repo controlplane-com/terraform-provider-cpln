@@ -25,6 +25,36 @@ func (s StatusModel) AttributeTypes() attr.Type {
 	}
 }
 
+// Custom Encryption //
+
+type CustomEncryptionModel struct {
+	Regions types.Map `tfsdk:"regions"`
+}
+
+func (c CustomEncryptionModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"regions": types.MapType{
+				ElemType: CustomEncryptionRegionModel{}.AttributeTypes(),
+			},
+		},
+	}
+}
+
+// Custom Encryption -> Region //
+
+type CustomEncryptionRegionModel struct {
+	KeyId types.String `tfsdk:"key_id"`
+}
+
+func (c CustomEncryptionRegionModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"key_id": types.StringType,
+		},
+	}
+}
+
 // Snapshots //
 
 type SnapshotsModel struct {
