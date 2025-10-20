@@ -166,6 +166,13 @@ func (ptc *ProviderTestCase) TestCheckMapAttr(key string, expected map[string]st
 	return resource.ComposeAggregateTestCheckFunc(checks...)
 }
 
+// TestCheckObjectAttr verifies a nested object attribute.
+func (ptc *ProviderTestCase) TestCheckObjectAttr(key string, expected map[string]interface{}) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		return ptc.checkNestedChildrenRecursively(state, key, expected)
+	}
+}
+
 // TestCheckNestedBlocks verifies that a nested block attribute contains the expected values
 func (ptc *ProviderTestCase) TestCheckNestedBlocks(key string, expected []map[string]interface{}) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
@@ -306,91 +313,172 @@ func (ptc *ProviderTestCase) MatchesElementAtIndex(attrs map[string]string, base
 	return ptc.StateTokenBagCoversExpected(stateTokens, expectTokens)
 }
 
-// CheckNestedChildrenRecursively walks all fields of an expected element under a resolved index and validates them against state.
+// CheckNestedChildrenRecursively walks all fields of an expected element under a resolved index and validates them against the Terraform state.
 func (ptc *ProviderTestCase) checkNestedChildrenRecursively(state *terraform.State, base string, elem map[string]interface{}) error {
-	// Get the resource attributes from Terraform state
+	// Retrieve the resource and its attribute map from the Terraform state
 	rs := state.RootModule().Resources[ptc.ResourceAddress]
 	attrs := rs.Primary.Attributes
 
-	// Iterate through each expected field
+	// Iterate through each expected field within the current element
 	for fieldName, fieldVal := range elem {
-		// Build the full key path for the field
+		// Construct the fully qualified Terraform attribute path (e.g. "container.0.env")
 		childKey := fmt.Sprintf("%s.%s", base, fieldName)
 
-		// Dispatch by type of the expected value
+		// Handle nil fields — ensure there are no matching attributes under this prefix
+		if fieldVal == nil {
+			// Build a prefix to scan for any attributes under the expected nil branch
+			prefix := childKey + "."
+			// Iterate over all attributes to detect unexpected ones under the prefix
+			for k := range attrs {
+				if strings.HasPrefix(k, prefix) {
+					return fmt.Errorf("expected %s to be absent/null, but found %s", childKey, k)
+				}
+			}
+			// Continue since nil values require no further validation
+			continue
+		}
+
+		// Dispatch validation logic based on the expected value's type
 		switch v := fieldVal.(type) {
 
-		// Validate primitive values by direct equality
+		// ---------- PRIMITIVE VALUES ----------
+		// Compare direct attribute values such as strings, numbers, or booleans
 		case string, bool, int, int32, int64, float64:
+			// Convert expected value to string form for comparison
 			expected := ptc.PrimToString(v)
-			got := attrs[childKey]
-			if got != expected {
-				return fmt.Errorf("%s = %q; expected %q", childKey, got, expected)
+			// Lookup the actual value in the Terraform state
+			actual, ok := attrs[childKey]
+			if !ok {
+				return fmt.Errorf("missing %s", childKey)
+			}
+			// Normalize number formatting (e.g. "1" vs "1.0") before comparing
+			actual = ptc.NormalizeNumberString(actual)
+			// Fail if values do not match exactly
+			if actual != expected {
+				return fmt.Errorf("%s = %q; expected %q", childKey, actual, expected)
 			}
 
-		// Validate a slice of strings as a set (order-independent)
+		// ---------- LIST OR SET OF STRINGS ----------
 		case []string:
+			// Validate that all expected elements exist, order-insensitive
 			if err := ptc.TestCheckSetAttr(childKey, v)(state); err != nil {
 				return err
 			}
 
-		// Validate a slice of ints as a set (converted to strings)
+		// ---------- LIST OR SET OF INTEGERS ----------
 		case []int:
-			intAsStr := IntSliceToStringSlice(v)
-			if err := ptc.TestCheckSetAttr(childKey, intAsStr)(state); err != nil {
+			// Convert ints to strings and compare using the same logic as strings
+			if err := ptc.TestCheckSetAttr(childKey, IntSliceToStringSlice(v))(state); err != nil {
 				return err
 			}
 
-		// Validate nested block collections recursively
+		// ---------- LIST OF NESTED BLOCKS OR OBJECTS ----------
 		case []map[string]interface{}:
+			// Recursively validate each nested block using the existing helper
 			if err := ptc.TestCheckNestedBlocks(childKey, v)(state); err != nil {
 				return err
 			}
 
-		// Validate map attributes with null-sentinel semantics
+		// ---------- MAP OR OBJECT ATTRIBUTES ----------
 		case map[string]interface{}:
-			// Convert expected map values to string form
-			expectedMap := ConvertMapToStringMap(v)
+			// Build the meta key used by Terraform to indicate map element counts (e.g. "env.%")
+			metaCountKey := fmt.Sprintf("%s.%%", childKey)
+			// Check whether the meta count key exists in the state
+			_, hasMeta := attrs[metaCountKey]
 
-			// Read actual map entries from state
-			actualMap := ptc.ReadMapEntries(attrs, childKey)
-
-			// Ensure no unexpected keys are present
-			for actualKey := range actualMap {
-				if _, ok := expectedMap[actualKey]; !ok {
-					return fmt.Errorf("%s has unexpected key %q (value %q)", childKey, actualKey, actualMap[actualKey])
+			// Determine whether the map is "flat" (contains only primitives)
+			isFlat := true
+			for _, mv := range v {
+				switch mv.(type) {
+				case string, bool, int, int32, int64, float64, nil:
+					// Allowed flat types
+				default:
+					isFlat = false
+				}
+				if !isFlat {
+					break
 				}
 			}
 
-			// Validate all expected keys
-			for expKey, expVal := range expectedMap {
-				fullKey := fmt.Sprintf("%s.%s", childKey, expKey)
-				gotVal, present := actualMap[expKey]
+			// ---------- MAP ATTRIBUTE PATH ----------
+			// Only treat as a map if the meta count key exists and contents are flat
+			if hasMeta && isFlat {
+				// Retrieve all key/value pairs for the map attribute from state
+				actualMap := ptc.ReadMapEntries(attrs, childKey)
 
-				// Null sentinel means key should be absent or empty
-				if expVal == "null" {
-					if present && gotVal != "" {
-						return fmt.Errorf("%s should be absent or empty (expected null), but found %q", fullKey, gotVal)
+				// Fail if any unexpected keys are found in the state
+				for actualKey := range actualMap {
+					if _, ok := v[actualKey]; !ok {
+						return fmt.Errorf("unexpected map key present %s.%s", childKey, actualKey)
 					}
-					continue
 				}
 
-				// Non-null entries must be present and match exactly
-				if !present {
-					return fmt.Errorf("missing required map entry %s", fullKey)
+				// Validate each expected map entry
+				for k, exp := range v {
+					// Build the full path for the current key
+					fullKey := fmt.Sprintf("%s.%s", childKey, k)
+
+					// Handle optional or null-sentinel map values
+					if exp == nil {
+						if _, present := actualMap[k]; present {
+							return fmt.Errorf("expected absent/null map entry %s but found one", fullKey)
+						}
+						continue
+					}
+
+					if s, ok := exp.(string); ok && s == "null" {
+						// String "null" is treated as an optional/absent value
+						continue
+					}
+
+					// For non-null values, enforce key presence and equality
+					gotVal, present := actualMap[k]
+
+					if !present {
+						return fmt.Errorf("missing required map entry %s", fullKey)
+					}
+
+					expected := ptc.PrimToString(exp)
+					gotVal = ptc.NormalizeNumberString(gotVal)
+
+					if gotVal != expected {
+						return fmt.Errorf("%s = %q; expected %q", fullKey, gotVal, expected)
+					}
 				}
-				if gotVal != expVal {
-					return fmt.Errorf("%s = %q; expected %q", fullKey, gotVal, expVal)
+
+				// Proceed to next field after completing map validation
+				continue
+			}
+
+			// ---------- OBJECT ATTRIBUTE PATH ----------
+			// Ensure that at least one attribute exists under this object prefix
+			hasAny := false
+			prefix := childKey + "."
+
+			for k := range attrs {
+				if strings.HasPrefix(k, prefix) {
+					hasAny = true
+					break
 				}
 			}
 
-		// Reject unsupported nested types
+			if !hasAny {
+				return fmt.Errorf("missing %s", childKey)
+			}
+
+			// Recurse into nested object fields for deeper validation
+			if err := ptc.checkNestedChildrenRecursively(state, childKey, v); err != nil {
+				return err
+			}
+
+		// ---------- UNSUPPORTED TYPES ----------
 		default:
+			// Catch-all for unexpected data types in the expected structure
 			return fmt.Errorf("unsupported nested type at %s: %T", childKey, v)
 		}
 	}
 
-	// Return success if all fields validated
+	// Return success when all nested attributes are validated
 	return nil
 }
 
