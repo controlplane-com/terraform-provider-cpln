@@ -95,6 +95,10 @@ func (d *OrgDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 							Description: "Indicates whether the org is active or not.",
 							Computed:    true,
 						},
+						"endpoint_prefix": schema.StringAttribute{
+							Description: "",
+							Computed:    true,
+						},
 					},
 				},
 			},
