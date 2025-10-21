@@ -101,7 +101,15 @@ type IdentityGcpServiceConnect struct {
 }
 
 type IdentityStatus struct {
-	ObjectName *string `json:"objectName,omitempty"`
+	ObjectName *string                 `json:"objectName,omitempty"`
+	Aws        *IdentityStatusProvider `json:"aws,omitempty"`
+	Gcp        *IdentityStatusProvider `json:"gcp,omitempty"`
+	Azure      *IdentityStatusProvider `json:"azure,omitempty"`
+}
+
+type IdentityStatusProvider struct {
+	LastError *string `json:"lastError,omitempty"`
+	Usable    *bool   `json:"usable,omitempty"`
 }
 
 // GetIdentity - Get Identity by name
