@@ -394,8 +394,9 @@ type Mk8sTritonConnection struct {
 }
 
 type Mk8sTritonLoadBalancer struct {
-	Manual  *Mk8sTritonManual  `json:"manual,omitempty"`
-	Gateway *Mk8sTritonGateway `json:"gateway,omitempty"`
+	Manual  *Mk8sTritonManual           `json:"manual,omitempty"`
+	None    *Mk8sTritonLoadBalancerNone `json:"none,omitempty"`
+	Gateway *Mk8sTritonGateway          `json:"gateway,omitempty"`
 }
 
 type Mk8sTritonManual struct {
@@ -417,6 +418,8 @@ type Mk8sTritonManualLogging struct {
 }
 
 type Mk8sTritonGateway struct{}
+
+type Mk8sTritonLoadBalancerNone struct{}
 
 // Azure Provider //
 

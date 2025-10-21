@@ -854,10 +854,24 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 											},
 											Validators: []validator.Object{
 												objectvalidator.ConflictsWith(
+													path.MatchRelative().AtParent().AtParent().AtName("none"),
 													path.MatchRelative().AtParent().AtParent().AtName("gateway"),
 												),
 											},
 										},
+										Validators: []validator.List{
+											listvalidator.SizeAtMost(1),
+										},
+									},
+									"none": schema.ListNestedBlock{
+										Description: "",
+										NestedObject: schema.NestedBlockObject{
+											Validators: []validator.Object{
+												objectvalidator.ConflictsWith(
+													path.MatchRelative().AtParent().AtParent().AtName("manual"),
+													path.MatchRelative().AtParent().AtParent().AtName("gateway"),
+												),
+											}},
 										Validators: []validator.List{
 											listvalidator.SizeAtMost(1),
 										},
@@ -868,6 +882,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 											Validators: []validator.Object{
 												objectvalidator.ConflictsWith(
 													path.MatchRelative().AtParent().AtParent().AtName("manual"),
+													path.MatchRelative().AtParent().AtParent().AtName("none"),
 												),
 											}},
 										Validators: []validator.List{
@@ -3156,6 +3171,7 @@ func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancer(state types.Lis
 	// Construct and return the output
 	return &client.Mk8sTritonLoadBalancer{
 		Manual:  mro.buildTritonProviderLoadBalancerManual(block.Manual),
+		None:    mro.buildTritonProviderLoadBalancerNone(block.None),
 		Gateway: mro.buildTritonProviderLoadBalancerGateway(block.Gateway),
 	}
 }
@@ -3206,6 +3222,20 @@ func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerManualLogging(st
 		NodePort:       BuildInt(block.NodePort),
 		ExternalSyslog: BuildString(block.ExternalSyslog),
 	}
+}
+
+// buildTritonProviderLoadBalancerNone constructs a Mk8sTritonLoadBalancerNone from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildTritonProviderLoadBalancerNone(state types.List) *client.Mk8sTritonLoadBalancerNone {
+	// Convert Terraform list into model blocks using generic helper
+	_, ok := BuildList[models.TritonProviderLoadBalancerNoneModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sTritonLoadBalancerNone{}
 }
 
 // buildTritonProviderLoadBalancerGateway constructs a Mk8sTritonGateway from the given Terraform state.
@@ -4899,6 +4929,7 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancer(input *client
 	// Build a single block
 	block := models.TritonProviderLoadBalancerModel{
 		Manual:  mro.flattenTritonProviderLoadBalancerManual(input.Manual),
+		None:    mro.flattenTritonProviderLoadBalancerNone(input.None),
 		Gateway: mro.flattenTritonProviderLoadBalancerGateway(input.Gateway),
 	}
 
@@ -4954,6 +4985,21 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerManualLogging(
 
 	// Return the successfully created types.List
 	return FlattenList(mro.Ctx, mro.Diags, []models.TritonProviderLoadBalancerManualLoggingModel{block})
+}
+
+// flattenTritonProviderLoadBalancerNone transforms *client.Mk8sTritonLoadBalancerNone into a types.List.
+func (mro *Mk8sResourceOperator) flattenTritonProviderLoadBalancerNone(input *client.Mk8sTritonLoadBalancerNone) types.List {
+	// Get attribute types
+	elementType := models.TritonProviderLoadBalancerNoneModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, []models.TritonProviderLoadBalancerNoneModel{{}})
 }
 
 // flattenTritonProviderLoadBalancerGateway transforms *client.Mk8sTritonGateway into a types.List.
