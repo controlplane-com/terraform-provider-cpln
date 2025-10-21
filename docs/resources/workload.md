@@ -587,6 +587,7 @@ Read-Only:
 - **canonical_endpoint** (String) Canonical endpoint for the workload.
 - **endpoint** (String) Endpoint for the workload.
 - **internal_name** (String) Internal hostname for the workload. Used for service-to-service requests.
+- **replica_internal_names** (List of String)
 - **health_check** (Block List) ([see below](#nestedblock--status--health_check)).
 - **current_replica_count** (Number) Current amount of replicas deployed.
 - **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
@@ -619,6 +620,7 @@ Read-Only:
 - **resolved_for_version** (Number) Workload version the images were resolved for.
 - **resolved_at** (String) UTC Time when the images were resolved.
 - **error_messages** (List of String)
+- **next_retry_at** (String)
 - **images** (Block List) ([see below](#nestedblock--status--resolved_images--images)).
 
 <a id="nestedblock--status--resolved_images--images"></a>

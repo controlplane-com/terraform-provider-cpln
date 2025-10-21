@@ -322,14 +322,15 @@ type WorkloadRequestRetryPolicy struct {
 
 // WorkloadStatus - Workload Status
 type WorkloadStatus struct {
-	ParentId            *string                       `json:"parentId,omitempty"`
-	CanonicalEndpoint   *string                       `json:"canonicalEndpoint,omitempty"`
-	Endpoint            *string                       `json:"endpoint,omitempty"`
-	InternalName        *string                       `json:"internalName,omitempty"`
-	HealthCheck         *WorkloadStatusHealthCheck    `json:"healthCheck,omitempty"`
-	CurrentReplicaCount *int                          `json:"currentReplicaCount,omitempty"`
-	ResolvedImages      *WorkloadStatusResolvedImages `json:"resolvedImages,omitempty"`
-	LoadBalancer        *[]WorkloadStatusLoadBalancer `json:"loadBalancer,omitempty"`
+	ParentId             *string                       `json:"parentId,omitempty"`
+	CanonicalEndpoint    *string                       `json:"canonicalEndpoint,omitempty"`
+	Endpoint             *string                       `json:"endpoint,omitempty"`
+	InternalName         *string                       `json:"internalName,omitempty"`
+	ReplicaInternalNames *[]string                     `json:"replicaInternalNames,omitempty"`
+	HealthCheck          *WorkloadStatusHealthCheck    `json:"healthCheck,omitempty"`
+	CurrentReplicaCount  *int                          `json:"currentReplicaCount,omitempty"`
+	ResolvedImages       *WorkloadStatusResolvedImages `json:"resolvedImages,omitempty"`
+	LoadBalancer         *[]WorkloadStatusLoadBalancer `json:"loadBalancer,omitempty"`
 }
 
 // WorkloadStatusHealthCheck - Health Check Status
@@ -347,6 +348,7 @@ type WorkloadStatusResolvedImages struct {
 	ResolvedForVersion *int                           `json:"resolvedForVersion,omitempty"`
 	ResolvedAt         *string                        `json:"resolvedAt,omitempty"`
 	ErrorMessages      *[]string                      `json:"errorMessages,omitempty"`
+	NextRetryAt        *string                        `json:"nextRetryAt,omitempty"`
 	Images             *[]WorkloadStatusResolvedImage `json:"images,omitempty"`
 }
 
