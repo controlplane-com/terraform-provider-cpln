@@ -10,6 +10,7 @@ import (
 type StatusModel struct {
 	ParentId       types.String `tfsdk:"parent_id"`
 	UsedByWorkload types.String `tfsdk:"used_by_workload"`
+	WorkloadLinks  types.Set    `tfsdk:"workload_links"`
 	BindingId      types.String `tfsdk:"binding_id"`
 	Locations      types.Set    `tfsdk:"locations"`
 }
@@ -19,6 +20,7 @@ func (s StatusModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"parent_id":        types.StringType,
 			"used_by_workload": types.StringType,
+			"workload_links":   types.SetType{ElemType: types.StringType},
 			"binding_id":       types.StringType,
 			"locations":        types.SetType{ElemType: types.StringType},
 		},

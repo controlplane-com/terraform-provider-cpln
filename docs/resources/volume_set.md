@@ -85,6 +85,7 @@ Optionals:
 
 - **parent_id** (String) The GVC ID.
 - **used_by_workload** (String) The url of the workload currently using this volume set (if any).
+- **workload_links** (List of String) Contains a list of workload links that are using this volume set.
 - **binding_id** (String) Uniquely identifies the connection between the volume set and its workload. Every time a new connection is made, a new id is generated (e.g., If a workload is updated to remove the volume set, then updated again to reattach it, the volume set will have a new binding id).
 - **locations** (List of String) Contains a list of actual volumes grouped by location.
 
