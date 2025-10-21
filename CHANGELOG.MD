@@ -1,3 +1,15 @@
+## 1.2.14
+
+- Improve error message on retried API requests.
+- Add byok addon to mk8s resource.
+- Add gcp provider to mk8s resource.
+- Add `capacity_ai_update_minutes` to workload resource options.
+- Add `drop_metrics` to workload resource container.
+- Add workload data source.
+- Add `custom_encryption` to volume set resource.
+- Add missing status and origin attributes to resources and data sources.
+- Add `none` load balancer option to mk8s resource triton provider.
+
 ## 1.2.13
 
 - Fix order of values in command array in workload resource.
