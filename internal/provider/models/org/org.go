@@ -96,15 +96,17 @@ func (s SecurityThreatDetectionSyslogModel) AttributeTypes() attr.Type {
 // Status //
 
 type StatusModel struct {
-	AccountLink types.String `tfsdk:"account_link"`
-	Active      types.Bool   `tfsdk:"active"`
+	AccountLink    types.String `tfsdk:"account_link"`
+	Active         types.Bool   `tfsdk:"active"`
+	EndpointPrefix types.String `tfsdk:"endpoint_prefix"`
 }
 
 func (s StatusModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"account_link": types.StringType,
-			"active":       types.BoolType,
+			"account_link":    types.StringType,
+			"active":          types.BoolType,
+			"endpoint_prefix": types.StringType,
 		},
 	}
 }

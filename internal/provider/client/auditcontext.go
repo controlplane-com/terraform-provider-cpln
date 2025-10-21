@@ -6,6 +6,7 @@ import (
 
 type AuditContext struct {
 	Base
+	Origin *string `json:"origin,omitempty"`
 }
 
 // GetAuditContext - Get Audit Context by name

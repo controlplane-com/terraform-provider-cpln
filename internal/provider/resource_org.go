@@ -119,6 +119,10 @@ func (or *OrgResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 							Description: "Indicates whether the org is active or not.",
 							Computed:    true,
 						},
+						"endpoint_prefix": schema.StringAttribute{
+							Description: "",
+							Computed:    true,
+						},
 					},
 				},
 			},
@@ -700,8 +704,9 @@ func (oro *OrgResourceOperator) flattenStatus(input *client.OrgStatus) types.Lis
 
 	// Build a single block
 	block := models.StatusModel{
-		AccountLink: types.StringPointerValue(input.AccountLink),
-		Active:      types.BoolPointerValue(input.Active),
+		AccountLink:    types.StringPointerValue(input.AccountLink),
+		Active:         types.BoolPointerValue(input.Active),
+		EndpointPrefix: types.StringPointerValue(input.EndpointPrefix),
 	}
 
 	// Return the successfully created types.List

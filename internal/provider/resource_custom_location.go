@@ -25,6 +25,7 @@ var (
 // CustomLocationResourceModel holds the Terraform state for the resource.
 type CustomLocationResourceModel struct {
 	EntityBaseModel
+	Origin        types.String `tfsdk:"origin"`
 	CloudProvider types.String `tfsdk:"cloud_provider"`
 	Region        types.String `tfsdk:"region"`
 	Enabled       types.Bool   `tfsdk:"enabled"`
@@ -63,6 +64,10 @@ func (clr *CustomLocationResource) Metadata(ctx context.Context, req resource.Me
 func (clr *CustomLocationResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: MergeAttributes(clr.EntityBaseAttributes("Custom Location"), map[string]schema.Attribute{
+			"origin": schema.StringAttribute{
+				Description: "",
+				Computed:    true,
+			},
 			"cloud_provider": schema.StringAttribute{
 				Description: "Cloud Provider of the custom location.",
 				Required:    true,
@@ -141,6 +146,7 @@ func (clro *CustomLocationResourceOperator) MapResponseToState(location *client.
 	state.From(location.Base)
 
 	// Set specific attributes
+	state.Origin = types.StringPointerValue(location.Origin)
 	state.CloudProvider = types.StringPointerValue(location.Provider)
 	state.Region = types.StringPointerValue(location.Region)
 	state.Enabled = types.BoolPointerValue(location.Spec.Enabled) // Spec is always defined, no need to check for nil

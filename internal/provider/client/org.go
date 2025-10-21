@@ -22,8 +22,9 @@ type CreateOrgRequest struct {
 
 // OrgStatus - Organization Status
 type OrgStatus struct {
-	AccountLink *string `json:"accountLink,omitempty"`
-	Active      *bool   `json:"active,omitempty"`
+	AccountLink    *string `json:"accountLink,omitempty"`
+	Active         *bool   `json:"active,omitempty"`
+	EndpointPrefix *string `json:"endpointPrefix,omitempty"`
 }
 
 // S3Logging - S3Logging

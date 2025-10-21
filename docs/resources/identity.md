@@ -194,7 +194,7 @@ The following attributes are exported:
 
 - **cpln_id** (String) ID, in GUID format, of the Identity.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
-- **status** (Map of String) Key-value map of identity status. Available fields: `objectName`.
+- **status** (Map of String) Key-value map of identity status. Available fields: `objectName`, `aws`, `gcp`, `azure`.
 
 ## Example Usage
 

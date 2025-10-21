@@ -760,27 +760,29 @@ func (r RequestRetryPolicyModel) AttributeTypes() attr.Type {
 // Status //
 
 type StatusModel struct {
-	ParentId            types.String `tfsdk:"parent_id"`
-	CanonicalEndpoint   types.String `tfsdk:"canonical_endpoint"`
-	Endpoint            types.String `tfsdk:"endpoint"`
-	InternalName        types.String `tfsdk:"internal_name"`
-	HealthCheck         types.List   `tfsdk:"health_check"`
-	CurrentReplicaCount types.Int32  `tfsdk:"current_replica_count"`
-	ResolvedImages      types.List   `tfsdk:"resolved_images"`
-	LoadBalancer        types.List   `tfsdk:"load_balancer"`
+	ParentId             types.String `tfsdk:"parent_id"`
+	CanonicalEndpoint    types.String `tfsdk:"canonical_endpoint"`
+	Endpoint             types.String `tfsdk:"endpoint"`
+	InternalName         types.String `tfsdk:"internal_name"`
+	ReplicaInternalNames types.Set    `tfsdk:"replica_internal_names"`
+	HealthCheck          types.List   `tfsdk:"health_check"`
+	CurrentReplicaCount  types.Int32  `tfsdk:"current_replica_count"`
+	ResolvedImages       types.List   `tfsdk:"resolved_images"`
+	LoadBalancer         types.List   `tfsdk:"load_balancer"`
 }
 
 func (s StatusModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"parent_id":             types.StringType,
-			"canonical_endpoint":    types.StringType,
-			"endpoint":              types.StringType,
-			"internal_name":         types.StringType,
-			"health_check":          types.ListType{ElemType: StatusHealthCheckModel{}.AttributeTypes()},
-			"current_replica_count": types.Int32Type,
-			"resolved_images":       types.ListType{ElemType: StatusResolvedImagesModel{}.AttributeTypes()},
-			"load_balancer":         types.ListType{ElemType: StatusLoadBalancerModel{}.AttributeTypes()},
+			"parent_id":              types.StringType,
+			"canonical_endpoint":     types.StringType,
+			"endpoint":               types.StringType,
+			"internal_name":          types.StringType,
+			"replica_internal_names": types.SetType{ElemType: types.StringType},
+			"health_check":           types.ListType{ElemType: StatusHealthCheckModel{}.AttributeTypes()},
+			"current_replica_count":  types.Int32Type,
+			"resolved_images":        types.ListType{ElemType: StatusResolvedImagesModel{}.AttributeTypes()},
+			"load_balancer":          types.ListType{ElemType: StatusLoadBalancerModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -817,6 +819,7 @@ type StatusResolvedImagesModel struct {
 	ResolvedForVersion types.Int32  `tfsdk:"resolved_for_version"`
 	ResolvedAt         types.String `tfsdk:"resolved_at"`
 	ErrorMessages      types.Set    `tfsdk:"error_messages"`
+	NextRetryAt        types.String `tfsdk:"next_retry_at"`
 	Images             types.List   `tfsdk:"images"`
 }
 
@@ -826,6 +829,7 @@ func (s StatusResolvedImagesModel) AttributeTypes() attr.Type {
 			"resolved_for_version": types.Int32Type,
 			"resolved_at":          types.StringType,
 			"error_messages":       types.SetType{ElemType: types.StringType},
+			"next_retry_at":        types.StringType,
 			"images":               types.ListType{ElemType: StatusResolvedImageModel{}.AttributeTypes()},
 		},
 	}

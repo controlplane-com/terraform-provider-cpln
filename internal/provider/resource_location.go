@@ -27,6 +27,7 @@ var (
 // LocationResourceModel holds the Terraform state for the resource.
 type LocationResourceModel struct {
 	EntityBaseModel
+	Origin        types.String `tfsdk:"origin"`
 	CloudProvider types.String `tfsdk:"cloud_provider"`
 	Region        types.String `tfsdk:"region"`
 	Enabled       types.Bool   `tfsdk:"enabled"`
@@ -71,6 +72,10 @@ func (lr *LocationResource) Metadata(ctx context.Context, req resource.MetadataR
 func (lr *LocationResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: MergeAttributes(lr.EntityBaseAttributes("location"), map[string]schema.Attribute{
+			"origin": schema.StringAttribute{
+				Description: "",
+				Computed:    true,
+			},
 			"cloud_provider": schema.StringAttribute{
 				Description: "Cloud Provider of the location.",
 				Computed:    true,
@@ -186,6 +191,7 @@ func (leo *LocationResourceOperator) MapResponseToState(apiResp *client.Location
 	state.From(apiResp.Base)
 
 	// Set specific attributes
+	state.Origin = types.StringPointerValue(apiResp.Origin)
 	state.CloudProvider = types.StringPointerValue(apiResp.Provider)
 	state.Region = types.StringPointerValue(apiResp.Region)
 	state.Enabled = types.BoolPointerValue(apiResp.Spec.Enabled)

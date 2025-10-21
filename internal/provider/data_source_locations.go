@@ -77,6 +77,10 @@ func (d *LocationsDataSource) Schema(ctx context.Context, req datasource.SchemaR
 							Description: "Full link to this resource. Can be referenced by other resources.",
 							Computed:    true,
 						},
+						"origin": schema.StringAttribute{
+							Description: "",
+							Computed:    true,
+						},
 						"cloud_provider": schema.StringAttribute{
 							Description: "Cloud Provider of the location.",
 							Computed:    true,
@@ -231,6 +235,7 @@ func (leo *LocationsDataSourceOperator) flattenLocations(input *client.Locations
 			Description:   types.StringPointerValue(item.Description),
 			Tags:          FlattenTags(item.Tags),
 			SelfLink:      FlattenSelfLink(item.Links),
+			Origin:        types.StringPointerValue(item.Origin),
 			CloudProvider: types.StringPointerValue(item.Provider),
 			Region:        types.StringPointerValue(item.Region),
 		}

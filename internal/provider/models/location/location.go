@@ -13,6 +13,7 @@ type LocationModel struct {
 	Description   types.String `tfsdk:"description"`
 	Tags          types.Map    `tfsdk:"tags"`
 	SelfLink      types.String `tfsdk:"self_link"`
+	Origin        types.String `tfsdk:"origin"`
 	CloudProvider types.String `tfsdk:"cloud_provider"`
 	Region        types.String `tfsdk:"region"`
 	Enabled       types.Bool   `tfsdk:"enabled"`
@@ -28,6 +29,7 @@ func (l LocationModel) AttributeTypes() attr.Type {
 			"description":    types.StringType,
 			"tags":           types.MapType{ElemType: types.StringType},
 			"self_link":      types.StringType,
+			"origin":         types.StringType,
 			"cloud_provider": types.StringType,
 			"region":         types.StringType,
 			"enabled":        types.BoolType,

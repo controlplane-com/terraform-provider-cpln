@@ -69,6 +69,10 @@ func (d *LocationDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				Description: "Full link to this resource. Can be referenced by other resources.",
 				Computed:    true,
 			},
+			"origin": schema.StringAttribute{
+				Description: "",
+				Computed:    true,
+			},
 			"cloud_provider": schema.StringAttribute{
 				Description: "Cloud Provider of the location.",
 				Computed:    true,

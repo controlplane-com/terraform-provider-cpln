@@ -184,6 +184,11 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Description: "Internal hostname for the workload. Used for service-to-service requests.",
 							Computed:    true,
 						},
+						"replica_internal_names": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Computed:    true,
+						},
 						"health_check": schema.ListNestedAttribute{
 							Description: "Current health status.",
 							Computed:    true,
@@ -240,6 +245,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									"error_messages": schema.SetAttribute{
 										Description: "",
 										ElementType: types.StringType,
+										Computed:    true,
+									},
+									"next_retry_at": schema.StringAttribute{
+										Description: "",
 										Computed:    true,
 									},
 									"images": schema.ListNestedAttribute{
@@ -4378,14 +4387,15 @@ func (wro *WorkloadResourceOperator) flattenStatus(input *client.WorkloadStatus)
 
 	// Build a single block
 	block := models.StatusModel{
-		ParentId:            types.StringPointerValue(input.ParentId),
-		CanonicalEndpoint:   types.StringPointerValue(input.CanonicalEndpoint),
-		Endpoint:            types.StringPointerValue(input.Endpoint),
-		InternalName:        types.StringPointerValue(input.InternalName),
-		HealthCheck:         wro.flattenStatusHealthCheck(input.HealthCheck),
-		CurrentReplicaCount: FlattenInt(input.CurrentReplicaCount),
-		ResolvedImages:      wro.flattenStatusResolvedImages(input.ResolvedImages),
-		LoadBalancer:        wro.flattenStatusLoadBalancer(input.LoadBalancer),
+		ParentId:             types.StringPointerValue(input.ParentId),
+		CanonicalEndpoint:    types.StringPointerValue(input.CanonicalEndpoint),
+		Endpoint:             types.StringPointerValue(input.Endpoint),
+		InternalName:         types.StringPointerValue(input.InternalName),
+		ReplicaInternalNames: FlattenSetString(input.ReplicaInternalNames),
+		HealthCheck:          wro.flattenStatusHealthCheck(input.HealthCheck),
+		CurrentReplicaCount:  FlattenInt(input.CurrentReplicaCount),
+		ResolvedImages:       wro.flattenStatusResolvedImages(input.ResolvedImages),
+		LoadBalancer:         wro.flattenStatusLoadBalancer(input.LoadBalancer),
 	}
 
 	// Return the successfully created types.List
@@ -4434,6 +4444,7 @@ func (wro *WorkloadResourceOperator) flattenStatusResolvedImages(input *client.W
 		ResolvedForVersion: FlattenInt(input.ResolvedForVersion),
 		ResolvedAt:         types.StringPointerValue(input.ResolvedAt),
 		ErrorMessages:      FlattenSetString(input.ErrorMessages),
+		NextRetryAt:        types.StringPointerValue(input.NextRetryAt),
 		Images:             wro.flattenStatusResolvedImage(input.Images),
 	}
 

@@ -2,6 +2,7 @@ package cpln
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -120,7 +121,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"status": schema.MapAttribute{
-				Description: "Key-value map of identity status. Available fields: `objectName`.",
+				Description: "Key-value map of identity status. Available fields: `objectName`, `aws`, `gcp`, `azure`.",
 				ElementType: types.StringType,
 				Computed:    true,
 			},
@@ -1382,6 +1383,40 @@ func (iro *IdentityResourceOperator) flattenStatus(input *client.IdentityStatus)
 		"objectName": input.ObjectName,
 	}
 
+	// Set aws if specified
+	if input.Aws != nil {
+		statusMap["aws"] = iro.serializeIdentityStatusProvider(*input.Aws)
+	}
+
+	// Set gcp if specified
+	if input.Gcp != nil {
+		statusMap["gcp"] = iro.serializeIdentityStatusProvider(*input.Gcp)
+	}
+
+	// Set azure if specified
+	if input.Azure != nil {
+		statusMap["azure"] = iro.serializeIdentityStatusProvider(*input.Azure)
+	}
+
 	// Return the successfully created types.List
 	return FlattenMapString(&statusMap)
+}
+
+// Helpers //
+
+// serializeIdentityStatusProvider returns a JSON string representation of the IdentityStatusProvider.
+func (iro *IdentityResourceOperator) serializeIdentityStatusProvider(provider client.IdentityStatusProvider) string {
+	// Marshal the struct into JSON bytes while respecting omitempty tags
+	jsonBytes, err := json.Marshal(provider)
+
+	// If an error occurred during marshaling, return empty string and the error
+	if err != nil {
+		return "{}"
+	}
+
+	// Convert the JSON byte slice into a string
+	jsonString := string(jsonBytes)
+
+	// Return the JSON string along with a nil error
+	return jsonString
 }

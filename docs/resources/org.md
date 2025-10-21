@@ -108,6 +108,7 @@ Read-Only:
 
 - **account_link** (String) The link of the account the org belongs to.
 - **active** (Boolean) Indicates whether the org is active or not.
+- **endpoint_prefix** (String)
 
 ## Example Usage
 

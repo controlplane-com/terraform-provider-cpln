@@ -113,6 +113,11 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Description: "Internal hostname for the workload. Used for service-to-service requests.",
 							Computed:    true,
 						},
+						"replica_internal_names": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Computed:    true,
+						},
 						"health_check": schema.ListNestedAttribute{
 							Description: "Current health status.",
 							Computed:    true,
@@ -169,6 +174,10 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 									"error_messages": schema.SetAttribute{
 										Description: "",
 										ElementType: types.StringType,
+										Computed:    true,
+									},
+									"next_retry_at": schema.StringAttribute{
+										Description: "",
 										Computed:    true,
 									},
 									"images": schema.ListNestedAttribute{
