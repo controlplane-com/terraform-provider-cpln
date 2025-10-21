@@ -18,6 +18,7 @@ type Locations struct {
 // Location
 type Location struct {
 	Base
+	Origin   *string         `json:"origin,omitempty"`
 	Provider *string         `json:"provider,omitempty"`
 	Region   *string         `json:"region,omitempty"`
 	Spec     *LocationSpec   `json:"spec,omitempty"`
