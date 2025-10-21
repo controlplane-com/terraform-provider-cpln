@@ -616,6 +616,7 @@ func (t TritonProviderConnectionModel) AttributeTypes() attr.Type {
 
 type TritonProviderLoadBalancerModel struct {
 	Manual  types.List `tfsdk:"manual"`
+	None    types.List `tfsdk:"none"`
 	Gateway types.List `tfsdk:"gateway"`
 }
 
@@ -623,6 +624,7 @@ func (t TritonProviderLoadBalancerModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"manual":  types.ListType{ElemType: TritonProviderLoadBalancerManualModel{}.AttributeTypes()},
+			"none":    types.ListType{ElemType: TritonProviderLoadBalancerNoneModel{}.AttributeTypes()},
 			"gateway": types.ListType{ElemType: TritonProviderLoadBalancerGatewayModel{}.AttributeTypes()},
 		},
 	}
@@ -673,6 +675,16 @@ func (t TritonProviderLoadBalancerManualLoggingModel) AttributeTypes() attr.Type
 			"node_port":       types.Int32Type,
 			"external_syslog": types.StringType,
 		},
+	}
+}
+
+// Triton Provider -> Load Balancer -> None //
+
+type TritonProviderLoadBalancerNoneModel struct{}
+
+func (t TritonProviderLoadBalancerNoneModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{},
 	}
 }
 
