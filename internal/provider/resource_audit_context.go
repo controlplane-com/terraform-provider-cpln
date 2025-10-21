@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 // Ensure resource implements required interfaces.
@@ -20,6 +21,7 @@ var (
 // AuditContextResourceModel holds the Terraform state for the resource.
 type AuditContextResourceModel struct {
 	EntityBaseModel
+	Origin types.String `tfsdk:"origin"`
 }
 
 /*** Resource Configuration ***/
@@ -54,7 +56,12 @@ func (acr *AuditContextResource) Metadata(ctx context.Context, req resource.Meta
 // Schema defines the schema for the resource.
 func (acr *AuditContextResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Attributes: acr.EntityBaseAttributes("Audit Context"),
+		Attributes: MergeAttributes(acr.EntityBaseAttributes("Audit Context"), map[string]schema.Attribute{
+			"origin": schema.StringAttribute{
+				Description: "",
+				Computed:    true,
+			},
+		}),
 	}
 }
 
@@ -105,6 +112,9 @@ func (acro *AuditContextResourceOperator) MapResponseToState(auditctx *client.Au
 
 	// Populate common fields from base resource data
 	state.From(auditctx.Base)
+
+	// Set origin
+	state.Origin = types.StringPointerValue(auditctx.Origin)
 
 	// Return completed state model
 	return state
