@@ -48,7 +48,7 @@ Optional:
 ### `aws_access_policy.trust_policy`
 
 - **version** (String) Version of the policy. Default: `2012-10-17`.
-- **statement** (List of Map of String) List of statements.
+- **statement** (List of Map of String) List of statements. Nested data can be provided by encoding JSON strings (for example with `jsonencode(...)`) which the provider expands when calling the API.
 
 <a id="nestedblock--gcp_access_policy"></a>
 

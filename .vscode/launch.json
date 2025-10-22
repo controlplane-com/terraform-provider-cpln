@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneDataSourceLocations_basic",
+        "TestAccControlPlaneIdentity_basic",
         "-test.v"
       ]
     }

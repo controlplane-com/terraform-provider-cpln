@@ -300,6 +300,7 @@ func (irt *IdentityResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCa
 			}),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "aws_access_policy.0.trust_policy.0.version", "2012-10-17"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "aws_access_policy.0.trust_policy.0.statement.0.Effect", "Allow"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "aws_access_policy.0.trust_policy.0.statement.0.Principal", "{\"Service\":\"ec2.amazonaws.com\"}"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "aws_access_policy.0.trust_policy.0.statement.0.Action", "sts:AssumeRole"),
 			c.TestCheckNestedBlocks("gcp_access_policy", []map[string]interface{}{
 				{
@@ -558,7 +559,9 @@ resource "cpln_identity" "%s" {
       version   = "2012-10-17"
       statement = [{
           Effect    = "Allow"
-          Principal = jsonencode({ Service = "ec2.amazonaws.com" })
+          Principal = jsonencode({
+            Service = "ec2.amazonaws.com"
+          })
           Action    = "sts:AssumeRole"
       }]
     }
