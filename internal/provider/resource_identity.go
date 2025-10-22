@@ -641,8 +641,9 @@ func (iro *IdentityResourceOperator) buildAwsTrustPolicyStatement(state types.Se
 			continue
 		}
 
-		// Add the element to the output slice
-		output = append(output, *iro.BuildMapString(elem))
+		if statement := iro.BuildMapString(elem); statement != nil {
+			output = append(output, expandAwsTrustPolicyStatement(*statement))
+		}
 	}
 
 	// Return a pointer to the output
@@ -1001,8 +1002,11 @@ func (iro *IdentityResourceOperator) flattenAwsTrustPolicyStatement(input *[]map
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
+		// Convert the statement item before flattening the map
+		converted := flattenAwsTrustPolicyStatementItem(item)
+
 		// Construct a block
-		block := FlattenMapString(&item)
+		block := FlattenMapString(&converted)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -1021,6 +1025,30 @@ func (iro *IdentityResourceOperator) flattenAwsTrustPolicyStatement(input *[]map
 
 	// Return the successfully created types.List
 	return l
+}
+
+// flattenAwsTrustPolicyStatementItem converts structured data into JSON strings for Terraform state.
+func flattenAwsTrustPolicyStatementItem(input map[string]interface{}) map[string]interface{} {
+	output := make(map[string]interface{}, len(input))
+
+	for key, value := range input {
+		switch v := value.(type) {
+		case nil:
+			output[key] = nil
+		case string:
+			output[key] = v
+		default:
+			bytes, err := json.Marshal(v)
+			if err != nil {
+				output[key] = fmt.Sprintf("%v", v)
+				continue
+			}
+
+			output[key] = string(bytes)
+		}
+	}
+
+	return output
 }
 
 // flattenGcp transforms *client.IdentityGcp into a Terraform types.List.
@@ -1419,4 +1447,52 @@ func (iro *IdentityResourceOperator) serializeIdentityStatusProvider(provider cl
 
 	// Return the JSON string along with a nil error
 	return jsonString
+}
+
+// expandAwsTrustPolicyStatement converts JSON string values into structured data.
+func expandAwsTrustPolicyStatement(input map[string]interface{}) map[string]interface{} {
+	output := make(map[string]interface{}, len(input))
+
+	for key, value := range input {
+		// Preserve nil values
+		if value == nil {
+			output[key] = nil
+			continue
+		}
+
+		strVal, ok := value.(string)
+		if !ok {
+			output[key] = value
+			continue
+		}
+
+		if parsed, ok := tryUnmarshalJSONMapOrArray(strVal); ok {
+			output[key] = parsed
+			continue
+		}
+
+		output[key] = strVal
+	}
+
+	return output
+}
+
+// tryUnmarshalJSONMapOrArray attempts to unmarshal JSON objects or arrays.
+func tryUnmarshalJSONMapOrArray(value string) (interface{}, bool) {
+	var parsed interface{}
+	trimmed := strings.TrimSpace(value)
+
+	if len(trimmed) == 0 {
+		return nil, false
+	}
+
+	if trimmed[0] != '{' && trimmed[0] != '[' {
+		return nil, false
+	}
+
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return nil, false
+	}
+
+	return parsed, true
 }
