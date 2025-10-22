@@ -22,6 +22,7 @@ The following attributes are exported:
 - **name** (String) Name of the location.
 - **description** (String) Description of the location.
 - **tags** (Map of String) Key-value map of resource tags.
+- **origin** (String)
 - **cloud_provider** (String) Cloud Provider of the location.
 - **region** (String) Region of the location.
 - **enabled** (Boolean) Indication if location is enabled.
