@@ -1998,15 +1998,6 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 					"KEDA is only supported for 'standard' and 'stateful' workload types. Please remove the 'keda' block.",
 				)
 			}
-
-			// Report error if target is set alongside keda metric strategy
-			if !asc.Target.IsNull() && !asc.Target.IsUnknown() {
-				wrv.Diags.AddAttributeError(
-					ascPath.AtName("target"),
-					"Target conflicts with Keda",
-					"'target' must not exist simultaneously with metric 'keda'",
-				)
-			}
 		}
 	}
 }

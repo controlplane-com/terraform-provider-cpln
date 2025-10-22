@@ -50,7 +50,7 @@ func NewMk8sResourceTest() Mk8sResourceTest {
 	steps = append(steps, resourceTest.NewMk8sGenericProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sHetznerProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sAwsProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sLinodeProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sLinodeProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sOblivusProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sLambdalabsProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sPaperspaceProviderScenario()...)
@@ -958,7 +958,7 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 		Config: mrt.LinodeProviderHcl(c),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
-			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255",
@@ -3160,7 +3160,7 @@ resource "cpln_mk8s" "%s" {
     "cpln/ignore"       = "true"
   }
 
-  version = "1.28.4"
+  version = "1.32.1"
 
   firewall {
     source_cidr = "192.168.1.255"

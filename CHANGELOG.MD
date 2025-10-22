@@ -9,6 +9,8 @@
 - Add `custom_encryption` to volume set resource.
 - Add missing status and origin attributes to resources and data sources.
 - Add `none` load balancer option to mk8s resource triton provider.
+- Fix trust policy statement format in identity resource.
+- Allow autoscaling target to be defined alongside keda in workload options.
 
 ## 1.2.13
 
