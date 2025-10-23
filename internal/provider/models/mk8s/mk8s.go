@@ -1292,25 +1292,25 @@ func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
 
 type AddOnsByokCommonModel struct {
 	DeploymentReplicas types.Int32  `tfsdk:"deployment_replicas"`
-	Pbd                types.Object `tfsdk:"pbd"`
+	Pdb                types.Object `tfsdk:"pdb"`
 }
 
 func (a AddOnsByokCommonModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"deployment_replicas": types.Int32Type,
-			"pbd":                 AddOnsByokCommonPbdModel{}.AttributeTypes(),
+			"pdb":                 AddOnsByokCommonPdbModel{}.AttributeTypes(),
 		},
 	}
 }
 
-// Add Ons -> Byok -> Config -> Common -> Pbd //
+// Add Ons -> Byok -> Config -> Common -> pdb //
 
-type AddOnsByokCommonPbdModel struct {
+type AddOnsByokCommonPdbModel struct {
 	MaxUnavailable types.Int32 `tfsdk:"max_unavailable"`
 }
 
-func (a AddOnsByokCommonPbdModel) AttributeTypes() attr.Type {
+func (a AddOnsByokCommonPdbModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"max_unavailable": types.Int32Type,
@@ -1376,7 +1376,7 @@ type AddOnsByokIstioIstiodModel struct {
 	MaxCpu    types.String `tfsdk:"max_cpu"`
 	MinMemory types.String `tfsdk:"min_memory"`
 	MaxMemory types.String `tfsdk:"max_memory"`
-	Pbd       types.Int32  `tfsdk:"pbd"`
+	Pdb       types.Int32  `tfsdk:"pdb"`
 }
 
 func (a AddOnsByokIstioIstiodModel) AttributeTypes() attr.Type {
@@ -1387,7 +1387,7 @@ func (a AddOnsByokIstioIstiodModel) AttributeTypes() attr.Type {
 			"max_cpu":    types.StringType,
 			"min_memory": types.StringType,
 			"max_memory": types.StringType,
-			"pbd":        types.Int32Type,
+			"pdb":        types.Int32Type,
 		},
 	}
 }

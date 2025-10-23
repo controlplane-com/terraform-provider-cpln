@@ -533,10 +533,10 @@ type Mk8sByokAddOnConfigMiddlebox struct {
 
 type Mk8sByokAddOnConfigCommon struct {
 	DeploymentReplicas *int                          `json:"deploymentReplicas,omitempty"`
-	Pbd                *Mk8sByokAddOnConfigCommonPbd `json:"pbd,omitempty"`
+	Pdb                *Mk8sByokAddOnConfigCommonPdb `json:"pdb,omitempty"`
 }
 
-type Mk8sByokAddOnConfigCommonPbd struct {
+type Mk8sByokAddOnConfigCommonPdb struct {
 	MaxUnavailable *int `json:"maxUnavailable,omitempty"`
 }
 
@@ -562,7 +562,7 @@ type Mk8sByokAddOnConfigIstioIstiod struct {
 	MaxCpu    *string `json:"maxCpu,omitempty"`
 	MinMemory *string `json:"minMemory,omitempty"`
 	MaxMemory *string `json:"maxMemory,omitempty"`
-	Pbd       *int    `json:"pbd,omitempty"`
+	Pdb       *int    `json:"pdb,omitempty"`
 }
 
 type Mk8sByokAddOnConfigIstioIngressGateway struct {

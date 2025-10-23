@@ -50,7 +50,7 @@ func NewMk8sResourceTest() Mk8sResourceTest {
 	steps = append(steps, resourceTest.NewMk8sGenericProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sHetznerProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sAwsProviderScenario()...)
-	// steps = append(steps, resourceTest.NewMk8sLinodeProviderScenario()...)
+	steps = append(steps, resourceTest.NewMk8sLinodeProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sOblivusProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sLambdalabsProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sPaperspaceProviderScenario()...)
@@ -2505,9 +2505,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -2527,7 +2527,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -2772,9 +2772,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -2794,7 +2794,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -3044,9 +3044,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -3066,7 +3066,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -3289,9 +3289,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -3311,7 +3311,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -3535,9 +3535,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -3557,7 +3557,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -3780,9 +3780,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -3802,7 +3802,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -4030,9 +4030,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -4052,7 +4052,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -4384,9 +4384,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -4406,7 +4406,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -4639,9 +4639,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -4661,7 +4661,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -4917,9 +4917,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -4939,7 +4939,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -5168,9 +5168,9 @@ resource "cpln_mk8s" "%s" {
         common = {
           deployment_replicas = 1
 
-          // pbd {
-          //   max_unavailable = 1
-          // }
+          pdb = {
+            max_unavailable = 1
+          }
         }
 
         longhorn = {
@@ -5190,7 +5190,7 @@ resource "cpln_mk8s" "%s" {
             max_cpu    = "8001m"
             min_memory = "100Mi"
             max_memory = "8000Mi"
-            // pbd        = 10
+            pdb        = 0
           }
 
           ingress_gateway = {
@@ -5334,7 +5334,9 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 			},
 			"common": map[string]interface{}{
 				"deployment_replicas": 1,
-				// "pbd" is optional in your HCL and defaulted in provider; we don't assert it here.
+				"pdb": map[string]interface{}{
+					"max_unavailable": "1",
+				},
 			},
 			"longhorn": map[string]interface{}{
 				"replicas": 2,
@@ -5351,7 +5353,7 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 					"max_cpu":    "8001m",
 					"min_memory": "100Mi",
 					"max_memory": "8000Mi",
-					// "pbd" may be defaulted; we skip it to keep test resilient.
+					"pdb":        "0",
 				},
 				"ingress_gateway": map[string]interface{}{
 					"replicas":   2,
