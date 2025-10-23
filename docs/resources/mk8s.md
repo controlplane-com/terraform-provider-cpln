@@ -925,11 +925,11 @@ Shared rollout settings for BYOK workloads.
 Optional:
 
 - **deployment_replicas** (Number) Replica count shared by BYOK control plane deployments.
-- **pbd** (Object) ([see below](#nestedblock--add_ons--byok--config--common--pbd))
+- **pdb** (Object) ([see below](#nestedblock--add_ons--byok--config--common--pdb))
 
-<a id="nestedblock--add_ons--byok--config--common--pbd"></a>
+<a id="nestedblock--add_ons--byok--config--common--pdb"></a>
 
-### `add_ons.byok.config.common.pbd`
+### `add_ons.byok.config.common.pdb`
 
 Pod disruption budget limits for BYOK workloads.
 
@@ -984,7 +984,7 @@ Optional:
 - **max_cpu** (String) CPU limit applied to istiod pods.
 - **min_memory** (String) Memory request applied to istiod pods.
 - **max_memory** (String) Memory limit applied to istiod pods.
-- **pbd** (Number) Pod disruption budget `max_unavailable` for istiod.
+- **pdb** (Number) Pod disruption budget `max_unavailable` for istiod.
 
 <a id="nestedblock--add_ons--byok--config--istio--ingress_gateway"></a>
 
@@ -1340,7 +1340,7 @@ resource "cpln_mk8s" "generic" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -1362,7 +1362,7 @@ resource "cpln_mk8s" "generic" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -1607,7 +1607,7 @@ resource "cpln_mk8s" "hetzner" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -1629,7 +1629,7 @@ resource "cpln_mk8s" "hetzner" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -1890,7 +1890,7 @@ resource "cpln_mk8s" "aws" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -1912,7 +1912,7 @@ resource "cpln_mk8s" "aws" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -2134,7 +2134,7 @@ resource "cpln_mk8s" "linode" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -2156,7 +2156,7 @@ resource "cpln_mk8s" "linode" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -2379,7 +2379,7 @@ resource "cpln_mk8s" "oblivus" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -2401,7 +2401,7 @@ resource "cpln_mk8s" "oblivus" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -2623,7 +2623,7 @@ resource "cpln_mk8s" "lambdalabs" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -2645,7 +2645,7 @@ resource "cpln_mk8s" "lambdalabs" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -2872,7 +2872,7 @@ resource "cpln_mk8s" "paperspace" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -2894,7 +2894,7 @@ resource "cpln_mk8s" "paperspace" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -3097,7 +3097,7 @@ resource "cpln_mk8s" "ephemeral" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -3119,7 +3119,7 @@ resource "cpln_mk8s" "ephemeral" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -3349,7 +3349,7 @@ resource "cpln_mk8s" "triton" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -3371,7 +3371,7 @@ resource "cpln_mk8s" "triton" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -3603,7 +3603,7 @@ resource "cpln_mk8s" "triton" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -3625,7 +3625,7 @@ resource "cpln_mk8s" "triton" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -3880,7 +3880,7 @@ resource "cpln_mk8s" "triton" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -3902,7 +3902,7 @@ resource "cpln_mk8s" "triton" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -4131,7 +4131,7 @@ resource "cpln_mk8s" "gcp-provider" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -4153,7 +4153,7 @@ resource "cpln_mk8s" "gcp-provider" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {
@@ -4372,7 +4372,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                 common = {
                     deployment_replicas = 1
 
-                    pbd {
+                    pdb = {
                         max_unavailable = 1
                     }
                 }
@@ -4394,7 +4394,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                         max_cpu    = "8001m"
                         min_memory = "100Mi"
                         max_memory = "8000Mi"
-                        pbd        = 10
+                        pdb        = 0
                     }
 
                     ingress_gateway = {

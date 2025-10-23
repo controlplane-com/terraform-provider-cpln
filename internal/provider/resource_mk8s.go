@@ -1270,7 +1270,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 														int32validator.AtLeast(0),
 													},
 												},
-												"pbd": schema.SingleNestedAttribute{
+												"pdb": schema.SingleNestedAttribute{
 													Description: "Pod disruption budget limits for BYOK workloads.",
 													Optional:    true,
 													Attributes: map[string]schema.Attribute{
@@ -1350,7 +1350,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 															Description: "Memory limit applied to istiod pods.",
 															Optional:    true,
 														},
-														"pbd": schema.Int32Attribute{
+														"pdb": schema.Int32Attribute{
 															Description: "Pod disruption budget maxUnavailable for istiod.",
 															Optional:    true,
 															Validators: []validator.Int32{
@@ -2135,14 +2135,14 @@ func defaultByokConfigValue() types.Object {
 		},
 	)
 
-	// Build the nested object for common.pbd
-	commonPbdTypes := models.AddOnsByokCommonPbdModel{}.AttributeTypes().(types.ObjectType).AttrTypes
-	// commonPbd := types.ObjectValueMust(
-	// 	commonPbdTypes,
-	// 	map[string]attr.Value{
-	// 		"max_unavailable": types.Int32Value(1),
-	// 	},
-	// )
+	// Build the nested object for common.pdb
+	commonPdbTypes := models.AddOnsByokCommonPdbModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	commonPdb := types.ObjectValueMust(
+		commonPdbTypes,
+		map[string]attr.Value{
+			"max_unavailable": types.Int32Value(1),
+		},
+	)
 
 	// Build the nested object for common
 	commonTypes := models.AddOnsByokCommonModel{}.AttributeTypes().(types.ObjectType).AttrTypes
@@ -2150,8 +2150,7 @@ func defaultByokConfigValue() types.Object {
 		commonTypes,
 		map[string]attr.Value{
 			"deployment_replicas": types.Int32Value(1),
-			// "pbd":                 commonPbd,
-			"pbd": types.ObjectNull(commonPbdTypes),
+			"pdb":                 commonPdb,
 		},
 	)
 
@@ -2185,8 +2184,7 @@ func defaultByokConfigValue() types.Object {
 			"max_cpu":    types.StringValue("8001m"),
 			"min_memory": types.StringValue("100Mi"),
 			"max_memory": types.StringValue("8000Mi"),
-			// "pbd":        types.Int32Value(0),
-			"pbd": types.Int32Null(),
+			"pdb":        types.Int32Value(0),
 		},
 	)
 
@@ -3893,14 +3891,14 @@ func (mro *Mk8sResourceOperator) buildAddOnByokCommon(state types.Object) *clien
 	// Construct and return the output
 	return &client.Mk8sByokAddOnConfigCommon{
 		DeploymentReplicas: BuildInt(block.DeploymentReplicas),
-		Pbd:                mro.buildAddOnByokCommonPbd(block.Pbd),
+		Pdb:                mro.buildAddOnByokCommonPdb(block.Pdb),
 	}
 }
 
-// buildAddOnByokCommonPbd constructs a Mk8sByokAddOnConfigCommonPbd from the given Terraform state.
-func (mro *Mk8sResourceOperator) buildAddOnByokCommonPbd(state types.Object) *client.Mk8sByokAddOnConfigCommonPbd {
+// buildAddOnByokCommonPdb constructs a Mk8sByokAddOnConfigCommonPdb from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokCommonPdb(state types.Object) *client.Mk8sByokAddOnConfigCommonPdb {
 	// Convert Terraform object into model blocks using generic helper
-	block, ok := BuildObject[models.AddOnsByokCommonPbdModel](mro.Ctx, mro.Diags, state)
+	block, ok := BuildObject[models.AddOnsByokCommonPdbModel](mro.Ctx, mro.Diags, state)
 
 	// Return nil if conversion failed or object was nil
 	if !ok || block == nil {
@@ -3908,7 +3906,7 @@ func (mro *Mk8sResourceOperator) buildAddOnByokCommonPbd(state types.Object) *cl
 	}
 
 	// Construct and return the output
-	return &client.Mk8sByokAddOnConfigCommonPbd{
+	return &client.Mk8sByokAddOnConfigCommonPdb{
 		MaxUnavailable: BuildInt(block.MaxUnavailable),
 	}
 }
@@ -3982,7 +3980,7 @@ func (mro *Mk8sResourceOperator) buildAddOnByokIstioIstiod(state types.Object) *
 		MaxCpu:    BuildString(block.MaxCpu),
 		MinMemory: BuildString(block.MinMemory),
 		MaxMemory: BuildString(block.MaxMemory),
-		Pbd:       BuildInt(block.Pbd),
+		Pdb:       BuildInt(block.Pdb),
 	}
 }
 
@@ -5715,17 +5713,17 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokCommon(input *client.Mk8sByokAd
 	// Build a single block
 	block := models.AddOnsByokCommonModel{
 		DeploymentReplicas: FlattenInt(input.DeploymentReplicas),
-		Pbd:                mro.flattenAddOnByokCommonPbd(input.Pbd),
+		Pdb:                mro.flattenAddOnByokCommonPdb(input.Pdb),
 	}
 
 	// Return the successfully created types.Object
 	return FlattenObject(mro.Ctx, mro.Diags, &block)
 }
 
-// flattenAddOnByokCommonPbd transforms *client.Mk8sByokAddOnConfigCommonPbd into a types.Object.
-func (mro *Mk8sResourceOperator) flattenAddOnByokCommonPbd(input *client.Mk8sByokAddOnConfigCommonPbd) types.Object {
+// flattenAddOnByokCommonPdb transforms *client.Mk8sByokAddOnConfigCommonPdb into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokCommonPdb(input *client.Mk8sByokAddOnConfigCommonPdb) types.Object {
 	// Get attribute types
-	elementType := models.AddOnsByokCommonPbdModel{}.AttributeTypes().(types.ObjectType)
+	elementType := models.AddOnsByokCommonPdbModel{}.AttributeTypes().(types.ObjectType)
 
 	// Check if the input is nil
 	if input == nil {
@@ -5734,7 +5732,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokCommonPbd(input *client.Mk8sByo
 	}
 
 	// Build a single block
-	block := models.AddOnsByokCommonPbdModel{
+	block := models.AddOnsByokCommonPdbModel{
 		MaxUnavailable: FlattenInt(input.MaxUnavailable),
 	}
 
@@ -5824,7 +5822,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokIstioIstiod(input *client.Mk8sB
 		MaxCpu:    types.StringPointerValue(input.MaxCpu),
 		MinMemory: types.StringPointerValue(input.MinMemory),
 		MaxMemory: types.StringPointerValue(input.MaxMemory),
-		Pbd:       FlattenInt(input.Pbd),
+		Pdb:       FlattenInt(input.Pdb),
 	}
 
 	// Return the successfully created types.Object
