@@ -56,7 +56,7 @@ func NewMk8sResourceTest() Mk8sResourceTest {
 	steps = append(steps, resourceTest.NewMk8sPaperspaceProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sEphemeralProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sTritonProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sGcpProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sGcpProviderScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps

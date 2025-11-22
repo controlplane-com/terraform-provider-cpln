@@ -1,3 +1,7 @@
+## 1.2.15
+
+- Fix org resource SpecReplace removing logging and tracing configured by separate resources, add mutex synchronization to prevent race conditions between org, org_logging, and org_tracing resources.
+
 ## 1.2.14
 
 - Improve error message on retried API requests.
