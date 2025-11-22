@@ -116,10 +116,21 @@ func (ort *OrgResourceTest) NewDefaultScenario() []resource.TestStep {
 	// Define necessary variables
 	resourceName := "new"
 
+	cLogging := OrgLoggingResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "org",
+			ResourceName:    "tf-logging",
+			ResourceAddress: "cpln_org_logging.tf-logging",
+			Name:            OrgName,
+			Description:     OrgName,
+		},
+	}
+
 	// Build test steps
 	initialConfig, initialStep := ort.BuildInitialTestStep(resourceName)
 	caseUpdate1 := ort.BuildUpdate1TestStep(initialConfig.ProviderTestCase)
-	caseUpdate2 := ort.BuildUpdate2TestStep(initialConfig.ProviderTestCase)
+	caseUpdate2 := ort.BuildUpdate2TestStep(initialConfig.ProviderTestCase, cLogging)
+	caseUpdate3 := ort.BuildUpdate3TestStep(initialConfig.ProviderTestCase, cLogging)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -133,6 +144,7 @@ func (ort *OrgResourceTest) NewDefaultScenario() []resource.TestStep {
 		// Update & Read
 		caseUpdate1,
 		caseUpdate2,
+		caseUpdate3,
 		// Revert the resource to its initial state
 		initialStep,
 	}
@@ -198,7 +210,7 @@ func (ort *OrgResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase) r
 }
 
 // BuildUpdate2TestStep returns a test step for the update.
-func (ort *OrgResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+func (ort *OrgResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, cLogging OrgLoggingResourceTestCase) resource.TestStep {
 	// Create the test case with metadata and descriptions
 	c := OrgResourceTestCase{
 		ProviderTestCase: initialCase,
@@ -206,7 +218,7 @@ func (ort *OrgResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase) r
 
 	// Initialize and return the inital test step
 	return resource.TestStep{
-		Config: ort.HclUpdateWithAllAttributes(c),
+		Config: ort.HclUpdateWithLogging(c, cLogging),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			c.TestCheckNestedBlocks("observability", []map[string]interface{}{
@@ -215,6 +227,51 @@ func (ort *OrgResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase) r
 					"metrics_retention_days": "65",
 					"traces_retention_days":  "75",
 					"default_alert_emails":   []string{"bob@example.com", "rob@example.com", "abby@example.com"},
+				},
+			}),
+			c.TestCheckNestedBlocks("security", []map[string]interface{}{
+				{},
+			}),
+			cLogging.TestCheckNestedBlocks("coralogix_logging", []map[string]interface{}{
+				{
+					"cluster":     "coralogix.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-coralogix-%s", ort.RandomName)),
+					"app":         "{workload}",
+					"subsystem":   "{org}",
+				},
+			}),
+			cLogging.TestCheckNestedBlocks("datadog_logging", []map[string]interface{}{
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-00-%s", ort.RandomName)),
+				},
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", ort.RandomName)),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate3TestStep returns a test step for the update.
+func (ort *OrgResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase, cLogging OrgLoggingResourceTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: ort.HclUpdateWithAllAttributes(c, cLogging),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckNestedBlocks("observability", []map[string]interface{}{
+				{
+					"logs_retention_days":    "55",
+					"metrics_retention_days": "65",
+					"traces_retention_days":  "75",
+					"default_alert_emails":   []string{"bob@example.com", "rob@example.com", "abby@example.com", "david@example.com"},
 				},
 			}),
 			c.TestCheckNestedBlocks("security", []map[string]interface{}{
@@ -232,6 +289,24 @@ func (ort *OrgResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase) r
 							},
 						},
 					},
+				},
+			}),
+			cLogging.TestCheckNestedBlocks("coralogix_logging", []map[string]interface{}{
+				{
+					"cluster":     "coralogix.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-coralogix-%s", ort.RandomName)),
+					"app":         "{workload}",
+					"subsystem":   "{org}",
+				},
+			}),
+			cLogging.TestCheckNestedBlocks("datadog_logging", []map[string]interface{}{
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-00-%s", ort.RandomName)),
+				},
+				{
+					"host":        "http-intake.logs.datadoghq.com",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", ort.RandomName)),
 				},
 			}),
 		),
@@ -277,9 +352,14 @@ resource "cpln_org" "%s" {
 `, c.ResourceName, c.DescriptionUpdate)
 }
 
-// HclUpdateWithAllAttributes returns a full update HCL block for an Org resource with threat detection and observability customizations.
-func (ort *OrgResourceTest) HclUpdateWithAllAttributes(c OrgResourceTestCase) string {
+// HclUpdateWithLogging returns a minimal update HCL block for an Org resource including description, tags, and observability tweaks and logging.
+func (ort *OrgResourceTest) HclUpdateWithLogging(c OrgResourceTestCase, cLogging OrgLoggingResourceTestCase) string {
 	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
 resource "cpln_org" "%s" {
   description             = "%s"
   session_timeout_seconds = 50000
@@ -296,6 +376,110 @@ resource "cpln_org" "%s" {
     default_alert_emails   = ["bob@example.com", "rob@example.com", "abby@example.com"]
   }
 
+  security {}
+}
+
+resource "cpln_secret" "opaque-coralogix" {
+  name        = "tf-opaque-random-coralogix-${var.random_name}"
+  description = "opaque description opaque-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog" {
+  name        = "tf-opaque-random-datadog-00-${var.random_name}"
+	description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog-1" {
+  name        = "tf-opaque-random-datadog-01-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test = "true"
+    secret_type = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  coralogix_logging {
+    cluster = "coralogix.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-coralogix.self_link
+
+    app       = "{workload}"
+    subsystem = "{org}"
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog.self_link
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog-1.self_link
+  }
+}
+`, ort.RandomName, c.ResourceName, c.DescriptionUpdate, cLogging.ResourceName)
+}
+
+// HclUpdateWithAllAttributes returns a full update HCL block for an Org resource with threat detection and observability customizations.
+func (ort *OrgResourceTest) HclUpdateWithAllAttributes(c OrgResourceTestCase, cLogging OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_org" "%s" {
+  description             = "%s"
+  session_timeout_seconds = 50000
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  observability {
+    logs_retention_days    = 55
+    metrics_retention_days = 65
+    traces_retention_days  = 75
+    default_alert_emails   = ["bob@example.com", "rob@example.com", "abby@example.com", "david@example.com"]
+  }
+
   security {
     threat_detection {
       enabled          = true
@@ -309,7 +493,82 @@ resource "cpln_org" "%s" {
     }
   }
 }
-`, c.ResourceName, c.DescriptionUpdate)
+
+resource "cpln_secret" "opaque-coralogix" {
+  name        = "tf-opaque-random-coralogix-${var.random_name}"
+  description = "opaque description opaque-random-tbd"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog" {
+  name        = "tf-opaque-random-datadog-00-${var.random_name}"
+	description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_secret" "opaque-datadog-1" {
+  name        = "tf-opaque-random-datadog-01-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test = "true"
+    secret_type = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  coralogix_logging {
+    cluster = "coralogix.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-coralogix.self_link
+
+    app       = "{workload}"
+    subsystem = "{org}"
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog.self_link
+  }
+
+  datadog_logging {
+    host = "http-intake.logs.datadoghq.com"
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque-datadog-1.self_link
+  }
+}
+`, ort.RandomName, c.ResourceName, c.DescriptionUpdate, cLogging.ResourceName)
 }
 
 /*** Resource Test Case ***/

@@ -3,6 +3,7 @@ package cpln
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/org"
@@ -22,6 +23,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// orgOperationLock synchronizes concurrent operations on org resources to prevent race conditions
+// between resource_org, resource_org_logging, and resource_org_tracing when they modify
+// the same underlying org spec via SpecReplace.
+var orgOperationLock = &sync.Mutex{}
 
 // Ensure resource implements required interfaces.
 var (
@@ -281,6 +287,11 @@ func (or *OrgResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 
 // Create creates the resource.
 func (or *OrgResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	// Acquire lock to ensure only one org operation modifies the resource at a time
+	// This prevents race conditions with resource_org_logging and resource_org_tracing
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	CreateGeneric(ctx, req, resp, or.Operations)
 }
 
@@ -291,11 +302,21 @@ func (or *OrgResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 // Update modifies the resource.
 func (or *OrgResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Acquire lock to ensure only one org operation modifies the resource at a time
+	// This prevents race conditions with resource_org_logging and resource_org_tracing
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	UpdateGeneric(ctx, req, resp, or.Operations)
 }
 
 // Delete removes the resource.
 func (or *OrgResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Acquire lock to ensure only one org operation modifies the resource at a time
+	// This prevents race conditions with resource_org_logging and resource_org_tracing
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	DeleteGeneric(ctx, req, resp, or.Operations)
 }
 
@@ -377,7 +398,7 @@ func (oro *OrgResourceOperator) InvokeCreate(req client.Org) (*client.Org, int, 
 			// Initialize a new Org struct for creation
 			org := client.Org{}
 
-			// Set the org name to the client’s configured Org name
+			// Set the org name to the client's configured Org name
 			org.Name = req.Name
 
 			// Set the org description from the planned state
@@ -415,11 +436,36 @@ func (oro *OrgResourceOperator) InvokeCreate(req client.Org) (*client.Org, int, 
 		}
 	}
 
+	// Preserve existing logging and tracing if they exist in the current org
+	// This ensures we don't remove logging/tracing set by resource_org_logging or resource_org_tracing
+	var existingLogging *client.Logging
+	var existingExtraLogging *[]client.Logging
+	var existingTracing *client.Tracing
+
+	if currentOrg != nil && currentOrg.Spec != nil {
+		existingLogging = currentOrg.Spec.Logging
+		existingExtraLogging = currentOrg.Spec.ExtraLogging
+		existingTracing = currentOrg.Spec.Tracing
+	}
+
 	// Copy spec from the request object to the currentOrg object
 	currentOrg.Description = req.Description
 	currentOrg.Tags = req.Tags
 	currentOrg.Spec = nil
 	currentOrg.SpecReplace = req.Spec
+
+	// Restore preserved logging and tracing if they existed
+	if currentOrg.SpecReplace != nil {
+		if existingLogging != nil {
+			currentOrg.SpecReplace.Logging = existingLogging
+		}
+		if existingExtraLogging != nil {
+			currentOrg.SpecReplace.ExtraLogging = existingExtraLogging
+		}
+		if existingTracing != nil {
+			currentOrg.SpecReplace.Tracing = existingTracing
+		}
+	}
 
 	// Update the org
 	updateOrg, code, err := oro.Client.UpdateOrg(*currentOrg)
@@ -440,11 +486,47 @@ func (oro *OrgResourceOperator) InvokeRead(name string) (*client.Org, int, error
 
 // InvokeUpdate invokes the Update API to update an existing resource.
 func (oro *OrgResourceOperator) InvokeUpdate(req client.Org) (*client.Org, int, error) {
+	// Fetch the current org to preserve logging and tracing set by other resources
+	currentOrg, _, err := oro.Client.GetOrg()
+	if err != nil {
+		// If we can't fetch the current org, proceed with the update anyway
+		return oro.Client.UpdateOrg(req)
+	}
+
+	// Preserve existing logging and tracing if they exist in the current org
+	// This ensures we don't remove logging/tracing set by resource_org_logging or resource_org_tracing
+	if currentOrg != nil && currentOrg.Spec != nil && req.SpecReplace != nil {
+		if currentOrg.Spec.Logging != nil {
+			req.SpecReplace.Logging = currentOrg.Spec.Logging
+		}
+		if currentOrg.Spec.ExtraLogging != nil {
+			req.SpecReplace.ExtraLogging = currentOrg.Spec.ExtraLogging
+		}
+		if currentOrg.Spec.Tracing != nil {
+			req.SpecReplace.Tracing = currentOrg.Spec.Tracing
+		}
+	}
+
 	return oro.Client.UpdateOrg(req)
 }
 
 // InvokeDelete invokes the Delete API to delete a resource by name.
 func (oro *OrgResourceOperator) InvokeDelete(name string) error {
+	// Fetch the current org to preserve logging and tracing set by other resources
+	currentOrg, _, err := oro.Client.GetOrg()
+
+	// Preserve existing logging and tracing if they exist in the current org
+	// This ensures we don't remove logging/tracing set by resource_org_logging or resource_org_tracing
+	var existingLogging *client.Logging
+	var existingExtraLogging *[]client.Logging
+	var existingTracing *client.Tracing
+
+	if err == nil && currentOrg != nil && currentOrg.Spec != nil {
+		existingLogging = currentOrg.Spec.Logging
+		existingExtraLogging = currentOrg.Spec.ExtraLogging
+		existingTracing = currentOrg.Spec.Tracing
+	}
+
 	// Initialize an Org struct with base and spec replacement fields
 	org := client.Org{
 		Base: client.Base{
@@ -461,11 +543,15 @@ func (oro *OrgResourceOperator) InvokeDelete(name string) error {
 			},
 			AuthConfig: nil,
 			Security:   nil,
+			// Preserve existing logging and tracing
+			Logging:      existingLogging,
+			ExtraLogging: existingExtraLogging,
+			Tracing:      existingTracing,
 		},
 	}
 
 	// Call UpdateOrg API to apply changes (deletion is represented by updating to default state)
-	_, _, err := oro.Client.UpdateOrg(org)
+	_, _, err = oro.Client.UpdateOrg(org)
 
 	// If an error occurred during the API call, return it
 	if err != nil {
