@@ -1101,6 +1101,21 @@ func (wr *WorkloadResource) ModifyPlan(ctx context.Context, req resource.ModifyP
 	// Update the plan with the modified local options
 	plan.LocalOptions = FlattenList(ctx, &resp.Diagnostics, localOptions)
 
+	// Build planned rollout options (at most one block)
+	rolloutOptions, roOk := BuildList[models.RolloutOptionsModel](ctx, &resp.Diagnostics, plan.RolloutOptions)
+
+	// Ensure rollout defaults are reflected during planning, not only apply
+	if roOk {
+		for i := range rolloutOptions {
+			if rolloutOptions[i].TerminationGracePeriodSeconds.IsNull() {
+				rolloutOptions[i].TerminationGracePeriodSeconds = types.Int32Value(90)
+			}
+		}
+	}
+
+	// Update the plan with the modified rollout options
+	plan.RolloutOptions = FlattenList(ctx, &resp.Diagnostics, rolloutOptions)
+
 	// Build planned containers
 	containers, ok := BuildList[models.ContainerModel](ctx, &resp.Diagnostics, plan.Containers)
 
