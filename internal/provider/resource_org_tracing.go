@@ -130,8 +130,8 @@ func (otr *OrgTracingResource) ConfigValidators(ctx context.Context) []resource.
 // Create creates the resource.
 func (otr *OrgTracingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Acquire lock to ensure only one operation modifies the resource at a time
-	resourceLock.Lock()
-	defer resourceLock.Unlock()
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
 
 	// Declare variable to hold the planned state from Terraform configuration
 	var plannedState OrgTracingResourceModel
@@ -215,6 +215,10 @@ func (otr *OrgTracingResource) Read(ctx context.Context, req resource.ReadReques
 
 // Update modifies the resource.
 func (otr *OrgTracingResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Acquire lock to ensure only one operation modifies the resource at a time
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	var plannedState OrgTracingResourceModel
 
 	// Retrieve the planned state from the Terraform configuration
@@ -256,6 +260,10 @@ func (otr *OrgTracingResource) Update(ctx context.Context, req resource.UpdateRe
 
 // Delete removes the resource.
 func (otr *OrgTracingResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Acquire lock to ensure only one operation modifies the resource at a time
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	var state OrgTracingResourceModel
 
 	// Retrieve the state from the Terraform configuration

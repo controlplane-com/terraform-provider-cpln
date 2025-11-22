@@ -3,7 +3,6 @@ package cpln
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/org"
@@ -20,7 +19,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-var resourceLock = &sync.Mutex{}
 var loggingTypes = []string{
 	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging",
 	"elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging",
@@ -407,8 +405,8 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 // Create creates the resource.
 func (olr *OrgLoggingResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Acquire lock to ensure only one operation modifies the resource at a time
-	resourceLock.Lock()
-	defer resourceLock.Unlock()
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
 
 	// Declare variable to hold the planned state from Terraform configuration
 	var plannedState OrgLoggingResourceModel
@@ -492,6 +490,10 @@ func (olr *OrgLoggingResource) Read(ctx context.Context, req resource.ReadReques
 
 // Update modifies the resource.
 func (olr *OrgLoggingResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Acquire lock to ensure only one operation modifies the resource at a time
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	var plannedState OrgLoggingResourceModel
 
 	// Retrieve the planned state from the Terraform configuration
@@ -533,6 +535,10 @@ func (olr *OrgLoggingResource) Update(ctx context.Context, req resource.UpdateRe
 
 // Delete removes the resource.
 func (olr *OrgLoggingResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Acquire lock to ensure only one operation modifies the resource at a time
+	orgOperationLock.Lock()
+	defer orgOperationLock.Unlock()
+
 	var state OrgLoggingResourceModel
 
 	// Retrieve the state from the Terraform configuration
