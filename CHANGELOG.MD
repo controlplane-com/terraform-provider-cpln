@@ -1,3 +1,8 @@
+## 1.2.16
+
+- Fix unnecessary plan diffs for domain resource.
+- Fix node pool block replacement on slight changes in mk8s resource.
+
 ## 1.2.15
 
 - Fix org resource SpecReplace removing logging and tracing configured by separate resources, add mutex synchronization to prevent race conditions between org, org_logging, and org_tracing resources.
