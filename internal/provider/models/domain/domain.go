@@ -16,7 +16,7 @@ type SpecModel struct {
 	WorkloadLink        types.String `tfsdk:"workload_link"`
 	AcceptAllHosts      types.Bool   `tfsdk:"accept_all_hosts"`
 	AcceptAllSubdomains types.Bool   `tfsdk:"accept_all_subdomains"`
-	Ports               types.Set    `tfsdk:"ports"`
+	Ports               types.List   `tfsdk:"ports"`
 }
 
 func (s SpecModel) AttributeTypes() attr.Type {
@@ -28,7 +28,7 @@ func (s SpecModel) AttributeTypes() attr.Type {
 			"workload_link":         types.StringType,
 			"accept_all_hosts":      types.BoolType,
 			"accept_all_subdomains": types.BoolType,
-			"ports":                 types.SetType{ElemType: SpecPortsModel{}.AttributeTypes()},
+			"ports":                 types.ListType{ElemType: SpecPortsModel{}.AttributeTypes()},
 		},
 	}
 }

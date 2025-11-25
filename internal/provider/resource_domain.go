@@ -7,7 +7,6 @@ import (
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -223,7 +222,7 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 						},
 					},
 					Blocks: map[string]schema.Block{
-						"ports": schema.SetNestedBlock{
+						"ports": schema.ListNestedBlock{
 							Description: "Domain port specifications.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
@@ -358,8 +357,8 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 									},
 								},
 							},
-							Validators: []validator.Set{
-								setvalidator.IsRequired(),
+							Validators: []validator.List{
+								listvalidator.IsRequired(),
 							},
 						},
 					},
@@ -550,11 +549,11 @@ func (dro *DomainResourceOperator) buildSpec(state types.List) *client.DomainSpe
 }
 
 // buildSpecPorts constructs a []client.DomainSpecPort slice from the given Terraform state.
-func (dro *DomainResourceOperator) buildSpecPorts(state types.Set) *[]client.DomainSpecPort {
-	// Convert Terraform set into model blocks using generic helper
-	blocks, ok := BuildSet[models.SpecPortsModel](dro.Ctx, dro.Diags, state)
+func (dro *DomainResourceOperator) buildSpecPorts(state types.List) *[]client.DomainSpecPort {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, state)
 
-	// Return nil if conversion failed or set was empty
+	// Return nil if conversion failed or list was empty
 	if !ok {
 		return nil
 	}
@@ -702,15 +701,15 @@ func (dro *DomainResourceOperator) flattenSpec(input *client.DomainSpec) types.L
 	return FlattenList(dro.Ctx, dro.Diags, []models.SpecModel{block})
 }
 
-// flattenSpecPorts transforms []client.DomainSpecPort into a Terraform types.Set.
-func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPort) types.Set {
+// flattenSpecPorts transforms []client.DomainSpecPort into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPort) types.List {
 	// Get attribute types
 	elementType := models.SpecPortsModel{}.AttributeTypes()
 
 	// Check if the input is nil
 	if input == nil {
-		// Return a null set
-		return types.SetNull(elementType)
+		// Return a null list
+		return types.ListNull(elementType)
 	}
 
 	// Define the blocks slice
@@ -730,8 +729,8 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 		blocks = append(blocks, block)
 	}
 
-	// Return the successfully created types.Set
-	return FlattenSet(dro.Ctx, dro.Diags, blocks)
+	// Return the successfully created types.List
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
 }
 
 // flattenSpecPortCors transforms client.DomainCors into a Terraform types.List.
