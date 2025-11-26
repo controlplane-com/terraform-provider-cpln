@@ -1407,8 +1407,11 @@ func (iro *IdentityResourceOperator) flattenStatus(input *client.IdentityStatus)
 	}
 
 	// Build a single block
-	statusMap := map[string]interface{}{
-		"objectName": input.ObjectName,
+	statusMap := map[string]interface{}{}
+
+	// Set objectName if specified
+	if input.ObjectName != nil {
+		statusMap["objectName"] = *input.ObjectName
 	}
 
 	// Set aws if specified
