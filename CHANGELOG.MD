@@ -1,3 +1,7 @@
+## 1.2.17
+
+- Fix `objectName` value being shown as a reference in identity resource.
+
 ## 1.2.16
 
 - Fix unnecessary plan diffs for domain resource.
