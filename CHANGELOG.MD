@@ -1,3 +1,7 @@
+## 1.2.18
+
+- Add `cpln_catalog_template` resource.
+
 ## 1.2.17
 
 - Fix `objectName` value being shown as a reference in identity resource.

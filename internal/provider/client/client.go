@@ -17,6 +17,12 @@ import (
 // DefaultClientEndpoint is the default data service endpoint.
 var DefaultClientEndpoint string = "https://api.cpln.io"
 
+// TestClientEndpoint is the test environment data service endpoint.
+const TestClientEndpoint = "https://api.test.cpln.io"
+
+// bearerPrefix is the standard authorization header prefix for bearer tokens.
+const bearerPrefix = "Bearer "
+
 // Client - Simple API Client
 type Client struct {
 	HostURL         string
@@ -92,6 +98,15 @@ func (c *Client) doRequest(req *http.Request, contentType string, optionalTokens
 	if len(optionalTokens) > 0 {
 		// Use the first provided override token
 		clientToken = optionalTokens[0]
+	}
+
+	// Ensure the token has the proper "Bearer " prefix
+	if len(clientToken) >= len(bearerPrefix) && strings.EqualFold(clientToken[:len(bearerPrefix)], bearerPrefix) {
+		// Token has "bearer " prefix (any case), normalize it to "Bearer "
+		clientToken = bearerPrefix + clientToken[len(bearerPrefix):]
+	} else {
+		// Token doesn't have "bearer " prefix, add it
+		clientToken = bearerPrefix + clientToken
 	}
 
 	// Set the Authorization header on the request

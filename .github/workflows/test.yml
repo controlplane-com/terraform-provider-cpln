@@ -30,7 +30,7 @@ jobs:
         run: go build -v ./...
 
       - name: Run Tests
-        run: go test -v ./... -timeout 30m
+        run: go test -v ./... -timeout 60m
         env:
           TF_ACC: true
           CPLN_ORG: terraform-test-org
