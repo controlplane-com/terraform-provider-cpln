@@ -4,6 +4,14 @@ import (
 	"fmt"
 )
 
+// Secrets
+type Secrets struct {
+	Kind  string   `json:"kind,omitempty"`
+	Items []Secret `json:"items,omitempty"`
+	Links []Link   `json:"links,omitempty"`
+	Query Query    `json:"query,omitempty"`
+}
+
 // Secret - Secret
 type Secret struct {
 	Base
