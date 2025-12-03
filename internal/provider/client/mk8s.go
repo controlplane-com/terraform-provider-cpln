@@ -226,7 +226,9 @@ type Mk8sDigitalOceanProvider struct {
 type Mk8sGcpProvider struct {
 	ProjectId        *string                 `json:"projectId,omitempty"`
 	Region           *string                 `json:"region,omitempty"`
-	GcpLabels        *map[string]interface{} `json:"gcpLabels,omitempty"`
+	Labels           *map[string]interface{} `json:"labels,omitempty"`
+	Tags             *[]string               `json:"tags,omitempty"`
+	Metadata         *map[string]interface{} `json:"metadata,omitempty"`
 	Network          *string                 `json:"network,omitempty"`
 	SaKeyLink        *string                 `json:"saKeyLink,omitempty"`
 	Networking       *Mk8sNetworkingConfig   `json:"networking,omitempty"`
@@ -341,13 +343,16 @@ type Mk8sDigitalOceanPool struct {
 
 type Mk8sGcpPool struct {
 	Mk8sGenericPool
-	MachineType   *string       `json:"machineType,omitempty"`
-	Zone          *string       `json:"zone,omitempty"`
-	OverrideImage *Mk8sGcpImage `json:"overrideImage,omitempty"`
-	BootDiskSize  *int          `json:"bootDiskSize,omitempty"`
-	MinSize       *int          `json:"minSize,omitempty"`
-	MaxSize       *int          `json:"maxSize,omitempty"`
-	Subnet        *string       `json:"subnet,omitempty"`
+	MachineType          *string       `json:"machineType,omitempty"`
+	AssignPublicIP       *bool         `json:"assignPublicIP,omitempty"`
+	Zone                 *string       `json:"zone,omitempty"`
+	OverrideImage        *Mk8sGcpImage `json:"overrideImage,omitempty"`
+	BootDiskSize         *int          `json:"bootDiskSize,omitempty"`
+	MinSize              *int          `json:"minSize,omitempty"`
+	MaxSize              *int          `json:"maxSize,omitempty"`
+	Preemptible          *bool         `json:"preemptible,omitempty"`
+	Subnet               *string       `json:"subnet,omitempty"`
+	LocalPersistentDisks *int          `json:"localPersistentDisks,omitempty"`
 }
 
 // Provider Common //
@@ -438,7 +443,14 @@ type Mk8sAzureImageReference struct {
 // Gcp //
 
 type Mk8sGcpImage struct {
-	Recommended *string `json:"recommended,omitempty"`
+	Recommended *string             `json:"recommended,omitempty"`
+	Family      *Mk8sGcpImageFamily `json:"family,omitempty"`
+	Exact       *string             `json:"exact,omitempty"`
+}
+
+type Mk8sGcpImageFamily struct {
+	Project *string `json:"project,omitempty"`
+	Family  *string `json:"family,omitempty"`
 }
 
 // Add Ons //
@@ -636,6 +648,7 @@ type Mk8sByokAddOnConfigInternalDns struct {
 
 type Mk8sStatusAddOns struct {
 	Dashboard           *Mk8sDashboardAddOnStatus           `json:"dashboard,omitempty"`
+	Headlamp            *Mk8sDashboardAddOnStatus           `json:"headlamp,omitempty"`
 	AwsWorkloadIdentity *Mk8sAwsWorkloadIdentityAddOnStatus `json:"awsWorkloadIdentity,omitempty"`
 	Metrics             *Mk8sMetricsAddOnStatus             `json:"metrics,omitempty"`
 	Logs                *Mk8sLogsAddOnStatus                `json:"logs,omitempty"`

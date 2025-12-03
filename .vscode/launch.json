@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneCatalogTemplate_basic",
+        "TestAccControlPlaneMk8s_basic",
         "-test.v"
       ]
     }

@@ -916,7 +916,9 @@ func (d DigitalOceanProviderNodePoolModel) AttributeTypes() attr.Type {
 type GcpProviderModel struct {
 	ProjectId        types.String `tfsdk:"project_id"`
 	Region           types.String `tfsdk:"region"`
-	GcpLabels        types.Map    `tfsdk:"gcp_labels"`
+	Labels           types.Map    `tfsdk:"labels"`
+	Tags             types.Set    `tfsdk:"tags"`
+	Metadata         types.Map    `tfsdk:"metadata"`
 	Network          types.String `tfsdk:"network"`
 	SaKeyLink        types.String `tfsdk:"sa_key_link"`
 	Networking       types.List   `tfsdk:"networking"`
@@ -931,7 +933,9 @@ func (g GcpProviderModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"project_id":         types.StringType,
 			"region":             types.StringType,
-			"gcp_labels":         types.MapType{ElemType: types.StringType},
+			"labels":             types.MapType{ElemType: types.StringType},
+			"tags":               types.SetType{ElemType: types.StringType},
+			"metadata":           types.MapType{ElemType: types.StringType},
 			"network":            types.StringType,
 			"sa_key_link":        types.StringType,
 			"networking":         types.ListType{ElemType: NetworkingModel{}.AttributeTypes()},
@@ -947,12 +951,32 @@ func (g GcpProviderModel) AttributeTypes() attr.Type {
 
 type GcpProviderImageModel struct {
 	Recommended types.String `tfsdk:"recommended"`
+	Family      types.Object `tfsdk:"family"`
+	Exact       types.String `tfsdk:"exact"`
 }
 
 func (g GcpProviderImageModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"recommended": types.StringType,
+			"family":      GcpProviderImageFamilyModel{}.AttributeTypes(),
+			"exact":       types.StringType,
+		},
+	}
+}
+
+// Gcp Provider -> Image -> Family //
+
+type GcpProviderImageFamilyModel struct {
+	Project types.String `tfsdk:"project"`
+	Family  types.String `tfsdk:"family"`
+}
+
+func (g GcpProviderImageFamilyModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"project": types.StringType,
+			"family":  types.StringType,
 		},
 	}
 }
@@ -961,13 +985,16 @@ func (g GcpProviderImageModel) AttributeTypes() attr.Type {
 
 type GcpProviderNodePoolModel struct {
 	GenericProviderNodePoolModel
-	MachineType   types.String `tfsdk:"machine_type"`
-	Zone          types.String `tfsdk:"zone"`
-	OverrideImage types.List   `tfsdk:"override_image"`
-	BootDiskSize  types.Int32  `tfsdk:"boot_disk_size"`
-	MinSize       types.Int32  `tfsdk:"min_size"`
-	MaxSize       types.Int32  `tfsdk:"max_size"`
-	Subnet        types.String `tfsdk:"subnet"`
+	MachineType          types.String `tfsdk:"machine_type"`
+	AssignPublicIP       types.Bool   `tfsdk:"assign_public_ip"`
+	Zone                 types.String `tfsdk:"zone"`
+	OverrideImage        types.List   `tfsdk:"override_image"`
+	BootDiskSize         types.Int32  `tfsdk:"boot_disk_size"`
+	MinSize              types.Int32  `tfsdk:"min_size"`
+	MaxSize              types.Int32  `tfsdk:"max_size"`
+	Preemptible          types.Bool   `tfsdk:"preemptible"`
+	Subnet               types.String `tfsdk:"subnet"`
+	LocalPersistentDisks types.Int32  `tfsdk:"local_persistent_disks"`
 }
 
 func (g GcpProviderNodePoolModel) AttributeTypes() attr.Type {
@@ -976,13 +1003,16 @@ func (g GcpProviderNodePoolModel) AttributeTypes() attr.Type {
 
 	// Copy the map to avoid mutating the original
 	merged := map[string]attr.Type{
-		"machine_type":   types.StringType,
-		"zone":           types.StringType,
-		"override_image": types.ListType{ElemType: GcpProviderImageModel{}.AttributeTypes()},
-		"boot_disk_size": types.Int32Type,
-		"min_size":       types.Int32Type,
-		"max_size":       types.Int32Type,
-		"subnet":         types.StringType,
+		"machine_type":           types.StringType,
+		"assign_public_ip":       types.BoolType,
+		"zone":                   types.StringType,
+		"override_image":         types.ListType{ElemType: GcpProviderImageModel{}.AttributeTypes()},
+		"boot_disk_size":         types.Int32Type,
+		"min_size":               types.Int32Type,
+		"max_size":               types.Int32Type,
+		"preemptible":            types.BoolType,
+		"subnet":                 types.StringType,
+		"local_persistent_disks": types.Int32Type,
 	}
 
 	// Add the attributes from base
@@ -1614,6 +1644,7 @@ func (s StatusModel) AttributeTypes() attr.Type {
 
 type StatusAddOnsModel struct {
 	Dashboard           types.List `tfsdk:"dashboard"`
+	Headlamp            types.List `tfsdk:"headlamp"`
 	AwsWorkloadIdentity types.List `tfsdk:"aws_workload_identity"`
 	Metrics             types.List `tfsdk:"metrics"`
 	Logs                types.List `tfsdk:"logs"`
@@ -1626,6 +1657,7 @@ func (s StatusAddOnsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"dashboard":             types.ListType{ElemType: StatusAddOnsDashboardModel{}.AttributeTypes()},
+			"headlamp":              types.ListType{ElemType: StatusAddOnsDashboardModel{}.AttributeTypes()},
 			"aws_workload_identity": types.ListType{ElemType: StatusAddOnsAwsWorkloadIdentityModel{}.AttributeTypes()},
 			"metrics":               types.ListType{ElemType: StatusAddOnsMetricsModel{}.AttributeTypes()},
 			"logs":                  types.ListType{ElemType: StatusAddOnsLogsModel{}.AttributeTypes()},

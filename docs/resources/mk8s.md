@@ -619,7 +619,9 @@ Required:
 
 Optional:
 
-- **gcp_labels** (Map of String) Extra labels to attach to all created objects. Maximum: `10`.
+- **labels** (Map of String) Extra labels to attach to all created objects. Maximum: `10`.
+- **tags** (List of String)
+- **metadata** (Map of String)
 - **pre_install_script** (String) Optional shell script that runs before K8s is installed.
 - **image** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider--image))
 - **node_pool** (Block List) ([see below](#nestedblock--gcp_provider--node_pool))
@@ -633,7 +635,18 @@ Default image for all nodes.
 
 Optional:
 
-- **recommended** (String) Recommended image alias. Valid values: `ubuntu/jammy-22.04`, `ubuntu/noble-24.04`.
+- **recommended** (String) Recommended image alias. Valid values: `ubuntu/jammy-22.04`, `ubuntu/noble-24.04`, `debian/bookworm-12`, `debian/trixie-13`, `google/cos-stable`.
+- **family** (Object) ([see below](#nestedblock--gcp_provider--image--family))
+- **exact** (String)
+
+<a id="nestedblock--gcp_provider--image--family"></a>
+
+### `gcp_provider.image.family`
+
+Required:
+
+- **project** (String)
+- **family** (String)
 
 <a id="nestedblock--gcp_provider--node_pool"></a>
 
@@ -653,9 +666,12 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **assign_public_ip** (Boolean)
 - **override_image** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider--image))
 - **min_size** (Number)
 - **max_size** (Number)
+- **preemptible** (Boolean)
+- **local_persistent_disks** (Number)
 
 <a id="nestedblock--digital_ocean_provider"></a>
 
@@ -1162,6 +1178,7 @@ Read-Only:
 Read-Only:
 
 - **dashboard** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons--dashobard))
+- **headlamp** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons--dashobard))
 - **aws_workload_identity** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons--aws_workload_identity))
 - **metrics** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons--metrics))
 - **logs** (Block List, Max: 1) ([see below](#nestedblock--status--add_ons--logs))
@@ -2737,7 +2754,6 @@ resource "cpln_mk8s" "paperspace" {
     tags = {
         terraform_generated = "true"
         acceptance_test     = "true"
-        "cpln/ignore"       = "true"
     }
 
     version = "1.28.4"
@@ -3995,7 +4011,6 @@ resource "cpln_mk8s" "gcp-provider" {
     tags = {
         terraform_generated = "true"
         acceptance_test     = "true"
-        "cpln/ignore"       = "true"
     }
 
     version = "1.28.4"
@@ -4008,12 +4023,19 @@ resource "cpln_mk8s" "gcp-provider" {
     gcp_provider {
         project_id         = "coke-267310"
         region             = "us-west1"
+        tags               = ["tag1", "tag2", "tag3"]
         network            = "mk8s"
         sa_key_link        = "/org/terraform-test-org/secret/gcp"
         pre_install_script = "#! echo hello world"
 
-        gcp_labels = {
+        labels = {
             hello = "world"
+        }
+
+        metadata = {
+            drink = "water"
+            eat   = "chicken"
+            play  = "basketball"
         }
 
         networking {}
@@ -4023,13 +4045,16 @@ resource "cpln_mk8s" "gcp-provider" {
         }
 
         node_pool {
-            name           = "my-gcp-node-pool"
-            machine_type   = "n1-standard-2"
-            zone           = "us-west1-a"
-            boot_disk_size = 30
-            min_size       = 0
-            max_size       = 0
-            subnet         = "mk8s"
+            name                   = "my-gcp-node-pool"
+            machine_type           = "n1-standard-2"
+            assign_public_ip       = true
+            zone                   = "us-west1-a"
+            boot_disk_size         = 30
+            min_size               = 0
+            max_size               = 0
+            preemptible            = true
+            subnet                 = "mk8s"
+            local_persistent_disks = 1
 
             labels = {
                 hello = "world"
@@ -4042,7 +4067,10 @@ resource "cpln_mk8s" "gcp-provider" {
             }
 
             override_image {
-                recommended = "ubuntu/noble-24.04"
+                family = {
+                    project = "ubuntu-os-cloud"
+                    family  = "ubuntu-2204-lts"
+                }
             }
         }
 
