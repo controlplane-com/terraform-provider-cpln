@@ -139,6 +139,18 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 											},
 										},
 									},
+									"headlamp": schema.ListNestedAttribute{
+										Description: "",
+										Computed:    true,
+										NestedObject: schema.NestedAttributeObject{
+											Attributes: map[string]schema.Attribute{
+												"url": schema.StringAttribute{
+													Description: "Access to dashboard.",
+													Computed:    true,
+												},
+											},
+										},
+									},
 									"aws_workload_identity": schema.ListNestedAttribute{
 										Description: "",
 										Computed:    true,
@@ -1102,13 +1114,23 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "Region where the cluster nodes will live.",
 							Required:    true,
 						},
-						"gcp_labels": schema.MapAttribute{
+						"labels": schema.MapAttribute{
 							Description: "Extra tags to attach to all created objects.",
 							ElementType: types.StringType,
 							Optional:    true,
 							Validators: []validator.Map{
 								mapvalidator.SizeAtMost(10),
 							},
+						},
+						"tags": schema.SetAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"metadata": schema.MapAttribute{
+							Description: "",
+							ElementType: types.StringType,
+							Optional:    true,
 						},
 						"network": schema.StringAttribute{
 							Description: "VPC network used by the cluster.",
@@ -1136,6 +1158,10 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 										Description: "GCE machine type for nodes in this pool.",
 										Required:    true,
 									},
+									"assign_public_ip": schema.BoolAttribute{
+										Description: "",
+										Optional:    true,
+									},
 									"zone": schema.StringAttribute{
 										Description: "Zone where the pool nodes run.",
 										Required:    true,
@@ -1149,9 +1175,20 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 									},
 									"min_size": mr.GenericNodePoolMinSizeSchema(),
 									"max_size": mr.GenericNodePoolMaxSizeSchema(),
+									"preemptible": schema.BoolAttribute{
+										Description: "",
+										Optional:    true,
+									},
 									"subnet": schema.StringAttribute{
 										Description: "Subnet within the selected network.",
 										Required:    true,
+									},
+									"local_persistent_disks": schema.Int32Attribute{
+										Description: "",
+										Optional:    true,
+										Validators: []validator.Int32{
+											int32validator.AtLeast(0),
+										},
 									},
 								},
 								Blocks: map[string]schema.Block{
@@ -2049,11 +2086,29 @@ func (mr *Mk8sResource) GcpImageSchema(description string, isRequired bool) sche
 		NestedObject: schema.NestedBlockObject{
 			Attributes: map[string]schema.Attribute{
 				"recommended": schema.StringAttribute{
-					Description: "",
+					Description: "Recommended image alias. Valid values: `ubuntu/jammy-22.04`, `ubuntu/noble-24.04`, `debian/bookworm-12`, `debian/trixie-13`, `google/cos-stable`.",
 					Optional:    true,
 					Validators: []validator.String{
-						stringvalidator.OneOf("ubuntu/jammy-22.04", "ubuntu/noble-24.04"),
+						stringvalidator.OneOf("ubuntu/jammy-22.04", "ubuntu/noble-24.04", "debian/bookworm-12", "debian/trixie-13", "google/cos-stable"),
 					},
+				},
+				"family": schema.SingleNestedAttribute{
+					Description: "",
+					Optional:    true,
+					Attributes: map[string]schema.Attribute{
+						"project": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+						"family": schema.StringAttribute{
+							Description: "",
+							Required:    true,
+						},
+					},
+				},
+				"exact": schema.StringAttribute{
+					Description: "",
+					Optional:    true,
 				},
 			},
 		},
@@ -3483,7 +3538,9 @@ func (mro *Mk8sResourceOperator) buildGcpProvider(state types.List) *client.Mk8s
 	return &client.Mk8sGcpProvider{
 		ProjectId:        BuildString(block.ProjectId),
 		Region:           BuildString(block.Region),
-		GcpLabels:        mro.BuildMapString(block.GcpLabels),
+		Labels:           mro.BuildMapString(block.Labels),
+		Tags:             mro.BuildSetString(block.Tags),
+		Metadata:         mro.BuildMapString(block.Metadata),
 		Network:          BuildString(block.Network),
 		SaKeyLink:        BuildString(block.SaKeyLink),
 		Networking:       mro.buildNetworking(block.Networking),
@@ -3510,6 +3567,25 @@ func (mro *Mk8sResourceOperator) buildGcpProviderImage(state types.List) *client
 	// Construct and return the output
 	return &client.Mk8sGcpImage{
 		Recommended: BuildString(block.Recommended),
+		Family:      mro.buildGcpProviderImageFamily(block.Family),
+		Exact:       BuildString(block.Exact),
+	}
+}
+
+// buildGcpProviderImageFamily constructs a Mk8sGcpImageFamily from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildGcpProviderImageFamily(state types.Object) *client.Mk8sGcpImageFamily {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.GcpProviderImageFamilyModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sGcpImageFamily{
+		Project: BuildString(block.Project),
+		Family:  BuildString(block.Family),
 	}
 }
 
@@ -3530,13 +3606,16 @@ func (mro *Mk8sResourceOperator) buildGcpProviderNodePools(state types.List) *[]
 	for _, block := range blocks {
 		// Construct the item
 		item := client.Mk8sGcpPool{
-			MachineType:   BuildString(block.MachineType),
-			Zone:          BuildString(block.Zone),
-			OverrideImage: mro.buildGcpProviderImage(block.OverrideImage),
-			BootDiskSize:  BuildInt(block.BootDiskSize),
-			MinSize:       BuildInt(block.MinSize),
-			MaxSize:       BuildInt(block.MaxSize),
-			Subnet:        BuildString(block.Subnet),
+			MachineType:          BuildString(block.MachineType),
+			AssignPublicIP:       BuildBool(block.AssignPublicIP),
+			Zone:                 BuildString(block.Zone),
+			OverrideImage:        mro.buildGcpProviderImage(block.OverrideImage),
+			BootDiskSize:         BuildInt(block.BootDiskSize),
+			MinSize:              BuildInt(block.MinSize),
+			MaxSize:              BuildInt(block.MaxSize),
+			Preemptible:          BuildBool(block.Preemptible),
+			Subnet:               BuildString(block.Subnet),
+			LocalPersistentDisks: BuildInt(block.LocalPersistentDisks),
 		}
 
 		// Set embedded attributes
@@ -5253,7 +5332,9 @@ func (mro *Mk8sResourceOperator) flattenGcpProvider(input *client.Mk8sGcpProvide
 	block := models.GcpProviderModel{
 		ProjectId:        types.StringPointerValue(input.ProjectId),
 		Region:           types.StringPointerValue(input.Region),
-		GcpLabels:        FlattenMapString(input.GcpLabels),
+		Labels:           FlattenMapString(input.Labels),
+		Tags:             FlattenSetString(input.Tags),
+		Metadata:         FlattenMapString(input.Metadata),
 		Network:          types.StringPointerValue(input.Network),
 		SaKeyLink:        types.StringPointerValue(input.SaKeyLink),
 		Networking:       mro.flattenNetworking(input.Networking),
@@ -5281,10 +5362,33 @@ func (mro *Mk8sResourceOperator) flattenGcpProviderImage(input *client.Mk8sGcpIm
 	// Build a single block
 	block := models.GcpProviderImageModel{
 		Recommended: types.StringPointerValue(input.Recommended),
+		Family:      mro.flattenGcpProviderImageFamily(input.Family),
+		Exact:       types.StringPointerValue(input.Exact),
 	}
 
 	// Return the successfully created types.List
 	return FlattenList(mro.Ctx, mro.Diags, []models.GcpProviderImageModel{block})
+}
+
+// flattenGcpProviderImageFamily transforms *client.Mk8sGcpImageFamily into a types.Object.
+func (mro *Mk8sResourceOperator) flattenGcpProviderImageFamily(input *client.Mk8sGcpImageFamily) types.Object {
+	// Get attribute types
+	elementType := models.GcpProviderImageFamilyModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.GcpProviderImageFamilyModel{
+		Project: types.StringPointerValue(input.Project),
+		Family:  types.StringPointerValue(input.Family),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
 }
 
 // flattenGcpProviderNodePools transforms *[]client.Mk8sGcpPool into a Terraform types.Set.
@@ -5305,13 +5409,16 @@ func (mro *Mk8sResourceOperator) flattenGcpProviderNodePools(input *[]client.Mk8
 	for _, item := range *input {
 		// Construct a block
 		block := models.GcpProviderNodePoolModel{
-			MachineType:   types.StringPointerValue(item.MachineType),
-			Zone:          types.StringPointerValue(item.Zone),
-			OverrideImage: mro.flattenGcpProviderImage(item.OverrideImage),
-			BootDiskSize:  FlattenInt(item.BootDiskSize),
-			MinSize:       FlattenInt(item.MinSize),
-			MaxSize:       FlattenInt(item.MaxSize),
-			Subnet:        types.StringPointerValue(item.Subnet),
+			MachineType:          types.StringPointerValue(item.MachineType),
+			AssignPublicIP:       types.BoolPointerValue(item.AssignPublicIP),
+			Zone:                 types.StringPointerValue(item.Zone),
+			OverrideImage:        mro.flattenGcpProviderImage(item.OverrideImage),
+			BootDiskSize:         FlattenInt(item.BootDiskSize),
+			MinSize:              FlattenInt(item.MinSize),
+			MaxSize:              FlattenInt(item.MaxSize),
+			Preemptible:          types.BoolPointerValue(item.Preemptible),
+			Subnet:               types.StringPointerValue(item.Subnet),
+			LocalPersistentDisks: FlattenInt(item.LocalPersistentDisks),
 		}
 
 		// Set embedded attributes
@@ -6109,6 +6216,7 @@ func (mro *Mk8sResourceOperator) flattenStatusAddOn(input *client.Mk8sStatusAddO
 	// Build a single block
 	block := models.StatusAddOnsModel{
 		Dashboard:           mro.flattenStatusAddOnDashboard(input.Dashboard),
+		Headlamp:            mro.flattenStatusAddOnDashboard(input.Headlamp),
 		AwsWorkloadIdentity: mro.flattenStatusAddOnAwsWorkloadIdentity(input.AwsWorkloadIdentity),
 		Metrics:             mro.flattenStatusAddOnMetrics(input.Metrics),
 		Logs:                mro.flattenStatusAddOnLogs(input.Logs),

@@ -1,3 +1,7 @@
+## 1.2.19
+
+- Sync GCP MK8s resource with latest API changes.
+
 ## 1.2.18
 
 - Add `cpln_catalog_template` resource.
