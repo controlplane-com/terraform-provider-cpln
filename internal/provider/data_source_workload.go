@@ -511,7 +511,7 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Computed:    true,
 						},
 						"concurrency_policy": schema.StringAttribute{
-							Description: "Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`.",
+							Description: "Either 'Forbid', 'Replace', or 'Allow'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.",
 							Computed:    true,
 						},
 						"history_limit": schema.Int32Attribute{
@@ -1007,6 +1007,25 @@ func (d *WorkloadDataSource) OptionsSchema(description string) schema.ListNested
 																},
 															},
 														},
+													},
+												},
+											},
+										},
+										"fallback": schema.ListNestedBlock{
+											Description: "Fallback configuration for KEDA.",
+											NestedObject: schema.NestedBlockObject{
+												Attributes: map[string]schema.Attribute{
+													"failure_threshold": schema.Int32Attribute{
+														Description: "Number of consecutive failures required to trigger fallback behavior.",
+														Computed:    true,
+													},
+													"replicas": schema.Int32Attribute{
+														Description: "Number of replicas to scale to when fallback is triggered.",
+														Computed:    true,
+													},
+													"behavior": schema.StringAttribute{
+														Description: "Behavior to apply when fallback is triggered.",
+														Computed:    true,
 													},
 												},
 											},

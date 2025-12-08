@@ -219,11 +219,12 @@ type WorkloadOptionsAutoscalingMulti struct {
 }
 
 type WorkloadOptionsAutoscalingKeda struct {
+	Triggers              *[]WorkloadOptionsAutoscalingKedaTrigger `json:"triggers,omitempty"`
+	Advanced              *WorkloadOptionsAutoscalingKedaAdvanced  `json:"advanced,omitempty"`
+	Fallback              *WorkloadOptionsAutoscalingKedaFallback  `json:"fallback,omitempty"`
 	PollingInterval       *int                                     `json:"pollingInterval,omitempty"`
 	CooldownPeriod        *int                                     `json:"cooldownPeriod,omitempty"`
 	InitialCooldownPeriod *int                                     `json:"initialCooldownPeriod,omitempty"`
-	Triggers              *[]WorkloadOptionsAutoscalingKedaTrigger `json:"triggers,omitempty"`
-	Advanced              *WorkloadOptionsAutoscalingKedaAdvanced  `json:"advanced,omitempty"`
 }
 
 type WorkloadOptionsAutoscalingKedaTrigger struct {
@@ -248,6 +249,12 @@ type WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers struct {
 	ActivationTarget *string `json:"activationTarget,omitempty"`
 	MetricType       *string `json:"metricType,omitempty"`
 	Formula          *string `json:"formula,omitempty"`
+}
+
+type WorkloadOptionsAutoscalingKedaFallback struct {
+	FailureThreshold *int    `json:"failureThreshold,omitempty"`
+	Replicas         *int    `json:"replicas,omitempty"`
+	Behavior         *string `json:"behavior,omitempty"`
 }
 
 type WorkloadOptionsMultiZone struct {

@@ -448,21 +448,23 @@ func (o OptionsAutoscalingMultiModel) AttributeTypes() attr.Type {
 // Options -> Autoscaling -> Keda //
 
 type OptionsAutoscalingKedaModel struct {
+	Triggers              types.List  `tfsdk:"trigger"`
+	Advanced              types.List  `tfsdk:"advanced"`
+	Fallback              types.List  `tfsdk:"fallback"`
 	PollingInterval       types.Int32 `tfsdk:"polling_interval"`
 	CooldownPeriod        types.Int32 `tfsdk:"cooldown_period"`
 	InitialCooldownPeriod types.Int32 `tfsdk:"initial_cooldown_period"`
-	Triggers              types.List  `tfsdk:"trigger"`
-	Advanced              types.List  `tfsdk:"advanced"`
 }
 
 func (o OptionsAutoscalingKedaModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
+			"trigger":                 types.ListType{ElemType: OptionsAutoscalingKedaTriggerModel{}.AttributeTypes()},
+			"advanced":                types.ListType{ElemType: OptionsAutoscalingKedaAdvancedModel{}.AttributeTypes()},
+			"fallback":                types.ListType{ElemType: OptionsAutoscalingKedaFallbackModel{}.AttributeTypes()},
 			"polling_interval":        types.Int32Type,
 			"cooldown_period":         types.Int32Type,
 			"initial_cooldown_period": types.Int32Type,
-			"trigger":                 types.ListType{ElemType: OptionsAutoscalingKedaTriggerModel{}.AttributeTypes()},
-			"advanced":                types.ListType{ElemType: OptionsAutoscalingKedaAdvancedModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -535,6 +537,24 @@ func (o OptionsAutoscalingKedaAdvancedScalingModifiersModel) AttributeTypes() at
 			"activation_target": types.StringType,
 			"metric_type":       types.StringType,
 			"formula":           types.StringType,
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Fallback //
+
+type OptionsAutoscalingKedaFallbackModel struct {
+	FailureThreshold types.Int32  `tfsdk:"failure_threshold"`
+	Replicas         types.Int32  `tfsdk:"replicas"`
+	Behavior         types.String `tfsdk:"behavior"`
+}
+
+func (o OptionsAutoscalingKedaFallbackModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"failure_threshold": types.Int32Type,
+			"replicas":          types.Int32Type,
+			"behavior":          types.StringType,
 		},
 	}
 }
