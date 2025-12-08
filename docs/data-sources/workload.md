@@ -411,7 +411,7 @@ Exports cron workload settings.
 Read-Only:
 
 - **schedule** (String) Cron schedule expression determining job execution times.
-- **concurrency_policy** (String) Either `Forbid` or `Replace`. Determines how overlapping jobs are handled.
+- **concurrency_policy** (String) Either `Forbid`, `Replace` or `Allow`. Determines how overlapping jobs are handled.
 - **history_limit** (Number) Maximum completed job instances retained. Integer between `1` and `10`. Default: `5`.
 - **restart_policy** (String) Either `OnFailure` or `Never`. Default: `Never`.
 - **active_deadline_seconds** (Number) Maximum seconds a job can run before it is forcibly stopped.

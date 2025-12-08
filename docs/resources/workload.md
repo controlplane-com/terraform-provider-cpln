@@ -461,7 +461,7 @@ Required:
 
 Optional:
 
-- **concurrency_policy** (String) Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`
+- **concurrency_policy** (String) Either `Forbid`, `Replace`, or `Allow`. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.
 - **history_limit** (Number) The maximum number of completed job instances to display. This should be an integer between 1 and 10. Default: `5`
 - **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`
 - **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.

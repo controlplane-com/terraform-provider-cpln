@@ -760,12 +760,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Required:    true,
 						},
 						"concurrency_policy": schema.StringAttribute{
-							Description: "Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`.",
+							Description: "Either 'Forbid', 'Replace', or 'Allow'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.",
 							Optional:    true,
 							Computed:    true,
 							Default:     stringdefault.StaticString("Forbid"),
 							Validators: []validator.String{
-								stringvalidator.OneOf("Forbid", "Replace"),
+								stringvalidator.OneOf("Forbid", "Replace", "Allow"),
 							},
 						},
 						"history_limit": schema.Int32Attribute{

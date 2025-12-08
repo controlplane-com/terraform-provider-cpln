@@ -511,7 +511,7 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Computed:    true,
 						},
 						"concurrency_policy": schema.StringAttribute{
-							Description: "Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`.",
+							Description: "Either 'Forbid', 'Replace', or 'Allow'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.",
 							Computed:    true,
 						},
 						"history_limit": schema.Int32Attribute{
