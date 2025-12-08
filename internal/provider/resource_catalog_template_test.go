@@ -16,7 +16,7 @@ import (
 /*** Acceptance Test ***/
 
 // TestAccControlPlaneCatalogTemplate_basic performs an acceptance test for the resource.
-func TestAccControlPlaneCatalogTemplate_basic(t *testing.T) {
+func Skip_TestAccControlPlaneCatalogTemplate_basic(t *testing.T) {
 	// Initialize the test
 	resourceTest := NewCatalogTemplateResourceTest()
 

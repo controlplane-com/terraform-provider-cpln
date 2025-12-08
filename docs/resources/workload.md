@@ -388,11 +388,12 @@ KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling
 
 Optional:
 
+- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger))
+- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced))
+- **fallback** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda--fallback))
 - **polling_interval** (Number) The interval in seconds at which KEDA will poll the external metrics to determine if scaling is required.
 - **cooldown_period** (Number) The cooldown period in seconds after scaling down to 0 replicas before KEDA will allow scaling up again.
 - **initial_cooldown_period** (Number) The initial cooldown period in seconds after scaling down to 0 replicas before KEDA will allow scaling up again.
-- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger))
-- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced))
 
 <a id="nestedblock--options--autoscaling--keda--trigger"></a>
 
@@ -442,6 +443,19 @@ Optional:
 - **activation_target** (String) Defines the new activation target value to scale on for the composed metric.
 - **metric_type** (String) Defines metric type used for this new composite-metric.
 - **formula** (String) Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.
+
+<a id="nestedblock--options--autoscaling--keda--fallback"></a>
+
+### `options.autoscaling.keda.fallback`
+
+Required:
+
+- **failure_threshold** (Number) Number of consecutive failures required to trigger fallback behavior.
+- **replicas** (Number) Number of replicas to scale to when fallback is triggered.
+
+Optional:
+
+- **behavior** (String) Behavior to apply when fallback is triggered. Valid values: `static`, `currentReplicas`, `currentReplicasIfHigher`, `currentReplicasIfLower`.
 
 <a id="nestedblock--options--multi_zone"></a>
 
@@ -1010,6 +1024,12 @@ resource "cpln_workload" "new" {
             metric_type       = "Value"
             formula           = "m * 2"
           }
+        }
+
+        fallback {
+          failure_threshold = 3
+          replicas          = 1
+          behavior          = "static"
         }
       }
     }
@@ -1963,6 +1983,12 @@ resource "cpln_workload" "new" {
             metric_type       = "Value"
             formula           = "m * 2"
           }
+        }
+
+        fallback {
+          failure_threshold = 3
+          replicas          = 1
+          behavior          = "static"
         }
       }
     }

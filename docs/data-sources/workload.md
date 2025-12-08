@@ -333,11 +333,12 @@ KEDA (Kubernetes-based Event Driven Autoscaling) configuration.
 
 Read-Only:
 
+- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger)).
+- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced)).
+- **fallback** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda--fallback)).
 - **polling_interval** (Number) Seconds between KEDA polling cycles.
 - **cooldown_period** (Number) Cooldown seconds after scaling to zero before scaling up again.
 - **initial_cooldown_period** (Number) Initial cooldown after scaling to zero.
-- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger)).
-- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced)).
 
 <a id="nestedblock--options--autoscaling--keda--trigger"></a>
 
@@ -382,6 +383,19 @@ Read-Only:
 - **activation_target** (String) Activation target for the composed metric.
 - **metric_type** (String) Metric type used for the composed metric.
 - **formula** (String) Expression that combines or transforms metrics.
+
+<a id="nestedblock--options--autoscaling--keda--fallback"></a>
+
+### `options.autoscaling.keda.fallback`
+
+Required:
+
+- **failure_threshold** (Number) Number of consecutive failures required to trigger fallback behavior.
+- **replicas** (Number) Number of replicas to scale to when fallback is triggered.
+
+Optional:
+
+- **behavior** (String) Behavior to apply when fallback is triggered. Valid values: `static`, `currentReplicas`, `currentReplicasIfHigher`, `currentReplicasIfLower`.
 
 <a id="nestedblock--options--multi_zone"></a>
 

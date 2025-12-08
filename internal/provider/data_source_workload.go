@@ -1011,6 +1011,25 @@ func (d *WorkloadDataSource) OptionsSchema(description string) schema.ListNested
 												},
 											},
 										},
+										"fallback": schema.ListNestedBlock{
+											Description: "Fallback configuration for KEDA.",
+											NestedObject: schema.NestedBlockObject{
+												Attributes: map[string]schema.Attribute{
+													"failure_threshold": schema.Int32Attribute{
+														Description: "Number of consecutive failures required to trigger fallback behavior.",
+														Computed:    true,
+													},
+													"replicas": schema.Int32Attribute{
+														Description: "Number of replicas to scale to when fallback is triggered.",
+														Computed:    true,
+													},
+													"behavior": schema.StringAttribute{
+														Description: "Behavior to apply when fallback is triggered.",
+														Computed:    true,
+													},
+												},
+											},
+										},
 									},
 								},
 							},
