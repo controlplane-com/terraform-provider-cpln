@@ -388,11 +388,12 @@ KEDA (Kubernetes-based Event Driven Autoscaling) allows for advanced autoscaling
 
 Optional:
 
+- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger))
+- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced))
+- **fallback** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda--fallback))
 - **polling_interval** (Number) The interval in seconds at which KEDA will poll the external metrics to determine if scaling is required.
 - **cooldown_period** (Number) The cooldown period in seconds after scaling down to 0 replicas before KEDA will allow scaling up again.
 - **initial_cooldown_period** (Number) The initial cooldown period in seconds after scaling down to 0 replicas before KEDA will allow scaling up again.
-- **trigger** (Block List) ([see below](#nestedblock--options--autoscaling--keda--trigger))
-- **advanced** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced))
 
 <a id="nestedblock--options--autoscaling--keda--trigger"></a>
 
@@ -443,6 +444,19 @@ Optional:
 - **metric_type** (String) Defines metric type used for this new composite-metric.
 - **formula** (String) Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.
 
+<a id="nestedblock--options--autoscaling--keda--fallback"></a>
+
+### `options.autoscaling.keda.fallback`
+
+Required:
+
+- **failure_threshold** (Number) Number of consecutive failures required to trigger fallback behavior.
+- **replicas** (Number) Number of replicas to scale to when fallback is triggered.
+
+Optional:
+
+- **behavior** (String) Behavior to apply when fallback is triggered. Valid values: `static`, `currentReplicas`, `currentReplicasIfHigher`, `currentReplicasIfLower`.
+
 <a id="nestedblock--options--multi_zone"></a>
 
 ### `options.multi_zone`
@@ -461,7 +475,7 @@ Required:
 
 Optional:
 
-- **concurrency_policy** (String) Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`
+- **concurrency_policy** (String) Either `Forbid`, `Replace`, or `Allow`. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.
 - **history_limit** (Number) The maximum number of completed job instances to display. This should be an integer between 1 and 10. Default: `5`
 - **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`
 - **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.
@@ -1010,6 +1024,12 @@ resource "cpln_workload" "new" {
             metric_type       = "Value"
             formula           = "m * 2"
           }
+        }
+
+        fallback {
+          failure_threshold = 3
+          replicas          = 1
+          behavior          = "static"
         }
       }
     }
@@ -1963,6 +1983,12 @@ resource "cpln_workload" "new" {
             metric_type       = "Value"
             formula           = "m * 2"
           }
+        }
+
+        fallback {
+          failure_threshold = 3
+          replicas          = 1
+          behavior          = "static"
         }
       }
     }

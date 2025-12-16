@@ -760,12 +760,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Required:    true,
 						},
 						"concurrency_policy": schema.StringAttribute{
-							Description: "Either 'Forbid' or 'Replace'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running. Enum: [ Forbid, Replace ] Default: `Forbid`.",
+							Description: "Either 'Forbid', 'Replace', or 'Allow'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.",
 							Optional:    true,
 							Computed:    true,
 							Default:     stringdefault.StaticString("Forbid"),
 							Validators: []validator.String{
-								stringvalidator.OneOf("Forbid", "Replace"),
+								stringvalidator.OneOf("Forbid", "Replace", "Allow"),
 							},
 						},
 						"history_limit": schema.Int32Attribute{
@@ -1585,6 +1585,31 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 														},
 														Validators: []validator.List{
 															listvalidator.SizeAtMost(1),
+														},
+													},
+												},
+											},
+											Validators: []validator.List{
+												listvalidator.SizeAtMost(1),
+											},
+										},
+										"fallback": schema.ListNestedBlock{
+											Description: "Fallback configuration for KEDA.",
+											NestedObject: schema.NestedBlockObject{
+												Attributes: map[string]schema.Attribute{
+													"failure_threshold": schema.Int32Attribute{
+														Description: "Number of consecutive failures required to trigger fallback behavior.",
+														Required:    true,
+													},
+													"replicas": schema.Int32Attribute{
+														Description: "Number of replicas to scale to when fallback is triggered.",
+														Required:    true,
+													},
+													"behavior": schema.StringAttribute{
+														Description: "Behavior to apply when fallback is triggered.",
+														Optional:    true,
+														Validators: []validator.String{
+															stringvalidator.OneOf("static", "currentReplicas", "currentReplicasIfHigher", "currentReplicasIfLower"),
 														},
 													},
 												},
@@ -2783,11 +2808,12 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKeda(state types.Lis
 
 	// Construct and return the output
 	return &client.WorkloadOptionsAutoscalingKeda{
+		Triggers:              wro.buildOptionsAutoscalingKedaTrigger(block.Triggers),
+		Advanced:              wro.buildOptionsAutoscalingKedaAdvanced(block.Advanced),
+		Fallback:              wro.buildOptionsAutoscalingKedaFallback(block.Fallback),
 		PollingInterval:       BuildInt(block.PollingInterval),
 		CooldownPeriod:        BuildInt(block.CooldownPeriod),
 		InitialCooldownPeriod: BuildInt(block.InitialCooldownPeriod),
-		Triggers:              wro.buildOptionsAutoscalingKedaTrigger(block.Triggers),
-		Advanced:              wro.buildOptionsAutoscalingKedaAdvanced(block.Advanced),
 	}
 }
 
@@ -2881,6 +2907,27 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvancedScalingM
 		ActivationTarget: BuildString(block.ActivationTarget),
 		MetricType:       BuildString(block.MetricType),
 		Formula:          BuildString(block.Formula),
+	}
+}
+
+// buildOptionsAutoscalingKedaFallback constructs a WorkloadOptionsAutoscalingKedaFallback from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaFallback(state types.List) *client.WorkloadOptionsAutoscalingKedaFallback {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.OptionsAutoscalingKedaFallbackModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.WorkloadOptionsAutoscalingKedaFallback{
+		FailureThreshold: BuildInt(block.FailureThreshold),
+		Replicas:         BuildInt(block.Replicas),
+		Behavior:         BuildString(block.Behavior),
 	}
 }
 
@@ -3907,11 +3954,12 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKeda(input *client
 
 	// Build a single block
 	block := models.OptionsAutoscalingKedaModel{
+		Triggers:              wro.flattenOptionsAutoscalingKedaTrigger(input.Triggers),
+		Advanced:              wro.flattenOptionsAutoscalingKedaAdvanced(input.Advanced),
+		Fallback:              wro.flattenOptionsAutoscalingKedaFallback(input.Fallback),
 		PollingInterval:       FlattenInt(input.PollingInterval),
 		CooldownPeriod:        FlattenInt(input.CooldownPeriod),
 		InitialCooldownPeriod: FlattenInt(input.InitialCooldownPeriod),
-		Triggers:              wro.flattenOptionsAutoscalingKedaTrigger(input.Triggers),
-		Advanced:              wro.flattenOptionsAutoscalingKedaAdvanced(input.Advanced),
 	}
 
 	// Return the successfully created types.List
@@ -4013,6 +4061,28 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvancedScalin
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{block})
+}
+
+// flattenOptionsAutoscalingKedaFallback transforms *client.WorkloadOptionsAutoscalingKedaFallback into a types.List.
+func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaFallback(input *client.WorkloadOptionsAutoscalingKedaFallback) types.List {
+	// Get attribute types
+	elementType := models.OptionsAutoscalingKedaFallbackModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.OptionsAutoscalingKedaFallbackModel{
+		FailureThreshold: FlattenInt(input.FailureThreshold),
+		Replicas:         FlattenInt(input.Replicas),
+		Behavior:         types.StringPointerValue(input.Behavior),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaFallbackModel{block})
 }
 
 // flattenOptionsMultiZone transforms *client.WorkloadOptionsMultiZone into a types.List.

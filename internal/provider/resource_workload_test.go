@@ -1657,6 +1657,13 @@ func (wrt *WorkloadResourceTest) BuildStandardUpdate1TestStep(initialCase Provid
 											},
 										},
 									},
+									"fallback": []map[string]interface{}{
+										{
+											"failure_threshold": "3",
+											"replicas":          "1",
+											"behavior":          "static",
+										},
+									},
 								},
 							},
 						},
@@ -3971,6 +3978,12 @@ resource "cpln_workload" "%s" {
             metric_type       = "Value"
             formula           = "m * 2"
           }
+        }
+
+        fallback {
+          failure_threshold = 3
+          replicas          = 1
+          behavior          = "static"
         }
       }
     }
