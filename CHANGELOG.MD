@@ -1,3 +1,8 @@
+## 1.2.20
+
+- Add Allow as an option to workload job concurrency policy.
+- Add fallback to workload keda.
+
 ## 1.2.19
 
 - Sync GCP MK8s resource with latest API changes.
