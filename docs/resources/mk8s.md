@@ -26,8 +26,9 @@ Manages an org's [Managed K8s](https://docs.controlplane.com/mk8s/overview).
 - **paperspace_provider** (Block List, Max: 1) ([see below](#nestedblock--paperspace_provider))
 - **ephemeral_provider** (Block List, Max: 1) ([see below](#nestedblock--ephemeral_provider))
 - **triton_provider** (Block List, Max: 1) ([see below](#nestedblock--triton_provider))
-- **gcp_provider** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider))
+- **azure_provider** (Block List, Max: 1) ([see below](#nestedblock--azure_provider))
 - **digital_ocean_provider** (Block List, Max: 1) ([see below](#nestedblock--digital_ocean_provider))
+- **gcp_provider** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider))
 
 ### Optional
 
@@ -567,7 +568,9 @@ Optional:
 
 Default image for all nodes.
 
-Optional:
+Required:
+
+~> **Note** Only one of the following listed below can be included.
 
 - **recommended** (String)
 - **reference** (Block List, Max: 1) ([see below](#nestedblock--azure_provider--image--reference))
@@ -594,8 +597,8 @@ Required:
 - **name** (String)
 - **size** (String)
 - **subnet_id** (String)
-- **zones** (List of String)
-- **boot_disk_size** (number)
+- **zones** (List of Number)
+- **boot_disk_size** (Number)
 
 Optional:
 
@@ -3993,6 +3996,240 @@ resource "cpln_mk8s" "triton" {
                     max_memory = "400Mi"
                 }
             }
+        }
+
+        sysbox = true
+    }
+}
+```
+
+## Example Usage - Azure Provider
+
+```terraform
+resource "cpln_mk8s" "azure" {
+
+    name        = "demo-mk8s-azure-provider"
+    description = "demo-mk8s-azure-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.32.1"
+
+    firewall {
+        source_cidr = "192.168.1.255"
+        description = "hello world"
+    }
+
+    azure_provider {
+        location        = "eastus"
+        subscription_id = "12345678-1234-1234-1234-123456789abc"
+        sdk_secret_link = "/org/my-org/secret/azure"
+        resource_group  = "my-resource-group"
+        ssh_keys        = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... mk8s-key"]
+        network_id      = "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/mk8s-vnet"
+
+        tags = {
+            hello = "world"
+        }
+
+        pre_install_script = "#! echo hello world"
+
+        networking {}
+
+        image {
+            recommended = "ubuntu/jammy-22.04"
+        }
+
+        node_pool {
+            name      = "my-azure-node-pool"
+            size      = "Standard_B2s"
+            subnet_id = "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/mk8s-vnet/subnets/default"
+
+            zones          = [1]
+            boot_disk_size = 30
+            min_size       = 0
+            max_size       = 0
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+
+            override_image {
+                reference {
+                    publisher = "Canonical"
+                    offer     = "0001-com-ubuntu-server-jammy"
+                    sku       = "22_04-lts"
+                    version   = "latest"
+                }
+            }
+        }
+
+        autoscaler {
+            expander              = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time          = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        azure_workload_identity {
+            tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+        }
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
+        }
+
+        registry_mirror {
+            mirror {
+                registry = "registry.mycompany.com"
+                mirrors  = ["https://mirror1.mycompany.com"]
+            }
+
+            mirror {
+                registry = "docker.io"
+                mirrors  = ["https://us-mirror.gcr.io"]
+            }
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
+        }
+
+        azure_acr {
+            client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+        }
+
+        sysbox = true
+    }
+}
+```
+
+## Example Usage - Digital Ocean Provider
+
+```terraform
+resource "cpln_mk8s" "digital-ocean-provider" {
+
+    name        = "demo-mk8s-digital-ocean-provider"
+    description = "demo-mk8s-digital-ocean-provider"
+
+    tags = {
+        terraform_generated = "true"
+        acceptance_test     = "true"
+    }
+
+    version = "1.34.2"
+
+    firewall {
+        source_cidr = "0.0.0.0/0"
+        description = "Default allow-all rule"
+    }
+
+    digital_ocean_provider {
+        region            = "ams3"
+        token_secret_link = "/org/my-org/secret/digitalocean"
+        vpc_id            = "12345678-1234-1234-1234-123456789abc"
+        image             = "almalinux-8-x64"
+        ssh_keys          = ["12345678"]
+
+        digital_ocean_tags = ["mk8s-test", "terraform"]
+
+        pre_install_script = "#! echo hello world"
+
+        networking {
+            service_network = "10.43.0.0/16"
+            pod_network     = "10.42.0.0/16"
+        }
+
+        node_pool {
+            name           = "my-do-node-pool"
+            droplet_size   = "s-1vcpu-1gb-intel"
+            override_image = "ubuntu-22-04-x64"
+            min_size       = 1
+            max_size       = 1
+
+            labels = {
+                hello = "world"
+            }
+
+            taint {
+                key    = "hello"
+                value  = "world"
+                effect = "NoSchedule"
+            }
+        }
+
+        autoscaler {
+            expander              = ["most-pods"]
+            unneeded_time         = "10m"
+            unready_time          = "20m"
+            utilization_threshold = 0.7
+        }
+    }
+
+    add_ons {
+        dashboard = true
+
+        aws_workload_identity = true
+        local_path_storage    = true
+
+        metrics {
+            kube_state    = true
+            core_dns      = true
+            kubelet       = true
+            api_server    = true
+            node_exporter = true
+            cadvisor      = true
+
+            scrape_annotated {
+                interval_seconds   = 30
+                include_namespaces = "^elastic"
+                exclude_namespaces = "^elastic"
+                retain_labels      = "^\\w+$"
+            }
+        }
+
+        logs {
+            audit_enabled      = true
+            include_namespaces = "^elastic"
+            exclude_namespaces = "^elastic"
+        }
+
+        nvidia {
+            taint_gpu_nodes = true
         }
 
         sysbox = true

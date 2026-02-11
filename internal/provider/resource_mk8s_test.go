@@ -56,6 +56,8 @@ func NewMk8sResourceTest() Mk8sResourceTest {
 	steps = append(steps, resourceTest.NewMk8sPaperspaceProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sEphemeralProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sTritonProviderScenario()...)
+	steps = append(steps, resourceTest.NewMk8sAzureProviderScenario()...)
+	steps = append(steps, resourceTest.NewMk8sDigitalOceanProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sGcpProviderScenario()...)
 
 	// Set the cases for the resource test
@@ -319,6 +321,48 @@ func (mrt *Mk8sResourceTest) NewMk8sTritonProviderScenario() []resource.TestStep
 		caseUpdate2,
 		// Revert the resource to its initial state
 		initialStep,
+	}
+}
+
+// NewMk8sAzureProviderScenario creates a test case with initial and updated configurations.
+func (mrt *Mk8sResourceTest) NewMk8sAzureProviderScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "azure"
+	name := fmt.Sprintf("tf-mk8s-azure-%s", mrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := mrt.BuildAzureProviderTestStep(resourceName, name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
+	}
+}
+
+// NewMk8sDigitalOceanProviderScenario creates a test case with initial and updated configurations.
+func (mrt *Mk8sResourceTest) NewMk8sDigitalOceanProviderScenario() []resource.TestStep {
+	// Define necessary variables
+	resourceName := "digitalocean"
+	name := fmt.Sprintf("tf-mk8s-do-%s", mrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := mrt.BuildDigitalOceanProviderTestStep(resourceName, name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+		// Import State
+		{
+			ResourceName: initialConfig.ResourceAddress,
+			ImportState:  true,
+		},
 	}
 }
 
@@ -1644,7 +1688,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 		Config: mrt.TritonProviderWithGatewayLoadBalancerHcl(c),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
-			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255",
@@ -1790,7 +1834,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 		Config: mrt.TritonProviderWithNoneLoadBalancerHcl(c),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
-			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255",
@@ -1936,7 +1980,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 		Config: mrt.TritonProviderWithManualLoadBalancerHcl(c),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
-			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255",
@@ -1969,7 +2013,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 							"manual": []map[string]interface{}{
 								{
 									"package_id":          "df26ba1d-1261-6fc1-b35c-f1b390bc06ff",
-									"image_id":            "8605a524-0655-43b9-adf1-7d572fe797eb",
+									"image_id":            "6b98a11c-53a4-4a62-99e7-cf3dcf150ab2",
 									"public_network_id":   "5ff1fe03-075b-4e4c-b85b-73de0c452f77",
 									"private_network_ids": []string{"6704dae9-00f4-48b5-8bbf-1be538f20587"},
 									"count":               "1",
@@ -2088,6 +2132,265 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 					},
 					"sysbox": "true",
 					// TODO: Add byok test here
+				},
+			}),
+		),
+	}
+}
+
+// BuildAzureProviderTestStep returns a default initial test step and its associated test case for the resource.
+func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, name string) (Mk8sResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := Mk8sResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "mk8s",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_mk8s.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "mk8s azure new description",
+		},
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: mrt.AzureProviderHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
+			c.TestCheckResourceAttr("version", "1.32.1"),
+			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
+				{
+					"source_cidr": "192.168.1.255",
+					"description": "hello world",
+				},
+			}),
+			c.TestCheckNestedBlocks("azure_provider", []map[string]interface{}{
+				{
+					"location":        "westeurope",
+					"subscription_id": "02d033d5-6d7a-4d45-88e3-43d778647918",
+					"sdk_secret_link": "/org/terraform-test-org/secret/azure",
+					"resource_group":  "cloudaccount-azure",
+					"ssh_keys":        []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDMxAYXeva5Y0xNWK0zh711a751LD+A9JEXIBfgv0sib mk8s-test"},
+					"network_id":      "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1",
+					"tags": map[string]interface{}{
+						"hello": "world",
+					},
+					"networking": []map[string]interface{}{
+						{
+							"service_network": "10.43.0.0/16",
+							"pod_network":     "10.42.0.0/16",
+						},
+					},
+					"pre_install_script": "#! echo hello world",
+					"image": []map[string]interface{}{
+						{
+							"recommended": "ubuntu/jammy-22.04",
+						},
+					},
+					"node_pool": []map[string]interface{}{
+						{
+							"name":      "my-azure-node-pool",
+							"size":      "Standard_B1ls",
+							"subnet_id": "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1/subnets/default",
+							"labels": map[string]interface{}{
+								"hello": "world",
+							},
+							"taint": []map[string]interface{}{
+								{
+									"key":    "hello",
+									"value":  "world",
+									"effect": "NoSchedule",
+								},
+							},
+							"boot_disk_size": "30",
+							"min_size":       "0",
+							"max_size":       "0",
+							"zones":          []string{"1"},
+						},
+					},
+					"autoscaler": []map[string]interface{}{
+						{
+							"expander":              []string{"most-pods"},
+							"unneeded_time":         "10m",
+							"unready_time":          "20m",
+							"utilization_threshold": "0.7",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
+				{
+					"dashboard": "true",
+					"azure_workload_identity": []map[string]interface{}{
+						{
+							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
+						},
+					},
+					"aws_workload_identity": "true",
+					"local_path_storage":    "true",
+					"metrics": []map[string]interface{}{
+						{
+							"kube_state":    "true",
+							"core_dns":      "true",
+							"kubelet":       "true",
+							"api_server":    "true",
+							"node_exporter": "true",
+							"cadvisor":      "true",
+							"scrape_annotated": []map[string]interface{}{
+								{
+									"interval_seconds":   "30",
+									"include_namespaces": "^elastic",
+									"exclude_namespaces": "^elastic",
+									"retain_labels":      "^\\w+$",
+								},
+							},
+						},
+					},
+					"logs": []map[string]interface{}{
+						{
+							"audit_enabled":      "true",
+							"include_namespaces": "^elastic",
+							"exclude_namespaces": "^elastic",
+						},
+					},
+					"registry_mirror": []map[string]interface{}{
+						{
+							"mirror": []map[string]interface{}{
+								{
+									"registry": "registry.mycompany.com",
+									"mirrors":  []string{"https://mirror1.mycompany.com"},
+								},
+								{
+									"registry": "docker.io",
+									"mirrors":  []string{"https://us-mirror.gcr.io"},
+								},
+							},
+						},
+					},
+					"nvidia": []map[string]interface{}{
+						{
+							"taint_gpu_nodes": "true",
+						},
+					},
+					"azure_acr": []map[string]interface{}{
+						{
+							"client_id": "4e25b134-160b-4a9d-b392-13b381ced5ef",
+						},
+					},
+					"sysbox": "true",
+					// TODO: Add byok test here
+				},
+			}),
+		),
+	}
+}
+
+// BuildDigitalOceanProviderTestStep returns a default initial test step and its associated test case for the resource.
+func (mrt *Mk8sResourceTest) BuildDigitalOceanProviderTestStep(resourceName string, name string) (Mk8sResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := Mk8sResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "mk8s",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_mk8s.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: "mk8s digitalocean new description",
+		},
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: mrt.DigitalOceanProviderHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "3"),
+			c.TestCheckResourceAttr("version", "1.34.2"),
+			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
+				{
+					"source_cidr": "0.0.0.0/0",
+					"description": "Default allow-all rule",
+				},
+			}),
+			c.TestCheckNestedBlocks("digital_ocean_provider", []map[string]interface{}{
+				{
+					"region":             "ams3",
+					"token_secret_link":  "/org/terraform-test-org/secret/digitalocean",
+					"vpc_id":             "dc4f7d2c-9edb-445d-8253-a7e7a18f6061",
+					"image":              "almalinux-8-x64",
+					"ssh_keys":           []string{"36908990"},
+					"digital_ocean_tags": []string{"mk8s-test", "terraform"},
+					"pre_install_script": "#! echo hello world",
+					"networking": []map[string]interface{}{
+						{
+							"service_network": "10.43.0.0/16",
+							"pod_network":     "10.42.0.0/16",
+						},
+					},
+					"node_pool": []map[string]interface{}{
+						{
+							"name":           "my-do-node-pool",
+							"droplet_size":   "s-1vcpu-1gb-intel",
+							"override_image": "ubuntu-22-04-x64",
+							"labels": map[string]interface{}{
+								"hello": "world",
+							},
+							"taint": []map[string]interface{}{
+								{
+									"key":    "hello",
+									"value":  "world",
+									"effect": "NoSchedule",
+								},
+							},
+							"min_size": "1",
+							"max_size": "1",
+						},
+					},
+					"autoscaler": []map[string]interface{}{
+						{
+							"expander":              []string{"most-pods"},
+							"unneeded_time":         "10m",
+							"unready_time":          "20m",
+							"utilization_threshold": "0.7",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
+				{
+					"dashboard":             "true",
+					"aws_workload_identity": "true",
+					"local_path_storage":    "true",
+					"metrics": []map[string]interface{}{
+						{
+							"kube_state":    "true",
+							"core_dns":      "true",
+							"kubelet":       "true",
+							"api_server":    "true",
+							"node_exporter": "true",
+							"cadvisor":      "true",
+							"scrape_annotated": []map[string]interface{}{
+								{
+									"interval_seconds":   "30",
+									"include_namespaces": "^elastic",
+									"exclude_namespaces": "^elastic",
+									"retain_labels":      "^\\w+$",
+								},
+							},
+						},
+					},
+					"logs": []map[string]interface{}{
+						{
+							"audit_enabled":      "true",
+							"include_namespaces": "^elastic",
+							"exclude_namespaces": "^elastic",
+						},
+					},
+					"nvidia": []map[string]interface{}{
+						{
+							"taint_gpu_nodes": "true",
+						},
+					},
+					"sysbox": "true",
 				},
 			}),
 		),
@@ -4406,7 +4709,7 @@ resource "cpln_mk8s" "%s" {
     "cpln/ignore"       = "true"
   }
 
-  version = "1.28.4"
+  version = "1.32.1"
 
   firewall {
     source_cidr = "192.168.1.255"
@@ -4661,7 +4964,7 @@ resource "cpln_mk8s" "%s" {
     "cpln/ignore"       = "true"
   }
 
-  version = "1.28.4"
+  version = "1.32.1"
 
   firewall {
     source_cidr = "192.168.1.255"
@@ -4916,7 +5219,7 @@ resource "cpln_mk8s" "%s" {
     "cpln/ignore"       = "true"
   }
 
-  version = "1.28.4"
+  version = "1.32.1"
 
   firewall {
     source_cidr = "192.168.1.255"
@@ -4942,7 +5245,7 @@ resource "cpln_mk8s" "%s" {
     load_balancer {
       manual {
         package_id          = "df26ba1d-1261-6fc1-b35c-f1b390bc06ff"
-        image_id            = "8605a524-0655-43b9-adf1-7d572fe797eb"
+        image_id            = "6b98a11c-53a4-4a62-99e7-cf3dcf150ab2"
         public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
         private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
         count               = 1
@@ -5179,6 +5482,233 @@ resource "cpln_mk8s" "%s" {
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+// AzureProviderHcl returns a test step for the Azure provider.
+func (mrt *Mk8sResourceTest) AzureProviderHcl(c Mk8sResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_mk8s" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    "cpln/ignore"       = "true"
+  }
+
+  version = "1.32.1"
+
+  firewall {
+    source_cidr = "192.168.1.255"
+    description = "hello world"
+  }
+
+  azure_provider {
+    location        = "westeurope"
+    subscription_id = "02d033d5-6d7a-4d45-88e3-43d778647918"
+    sdk_secret_link = "/org/terraform-test-org/secret/azure"
+    resource_group  = "cloudaccount-azure"
+    ssh_keys        = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDMxAYXeva5Y0xNWK0zh711a751LD+A9JEXIBfgv0sib mk8s-test"]
+    network_id      = "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1"
+
+    tags = {
+      hello = "world"
+    }
+
+    pre_install_script = "#! echo hello world"
+
+    networking {}
+
+    image {
+      recommended = "ubuntu/jammy-22.04"
+    }
+
+    node_pool {
+      name      = "my-azure-node-pool"
+      size      = "Standard_B1ls"
+      subnet_id = "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1/subnets/default"
+
+      zones          = [1]
+      boot_disk_size = 30
+      min_size       = 0
+      max_size       = 0
+
+      labels = {
+        hello = "world"
+      }
+
+      taint {
+        key    = "hello"
+        value  = "world"
+        effect = "NoSchedule"
+      }
+    }
+
+    autoscaler {
+      expander              = ["most-pods"]
+      unneeded_time         = "10m"
+      unready_time          = "20m"
+      utilization_threshold = 0.7
+    }
+  }
+
+  add_ons {
+    dashboard = true
+
+    azure_workload_identity {
+      tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
+    }
+
+    aws_workload_identity = true
+    local_path_storage    = true
+
+    metrics {
+      kube_state    = true
+      core_dns      = true
+      kubelet       = true
+      api_server    = true
+      node_exporter = true
+      cadvisor      = true
+
+      scrape_annotated {
+        interval_seconds   = 30
+        include_namespaces = "^elastic"
+        exclude_namespaces = "^elastic"
+        retain_labels      = "^\\w+$"
+      }
+    }
+
+    logs {
+      audit_enabled      = true
+      include_namespaces = "^elastic"
+      exclude_namespaces = "^elastic"
+    }
+
+    registry_mirror {
+      mirror {
+        registry = "registry.mycompany.com"
+        mirrors = ["https://mirror1.mycompany.com"]
+      }
+
+      mirror {
+        registry = "docker.io"
+        mirrors = ["https://us-mirror.gcr.io"]
+      }
+    }
+
+    nvidia {
+      taint_gpu_nodes = true
+    }
+
+    azure_acr {
+      client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
+    }
+
+    sysbox = true
+  }
+}
+`, c.ResourceName, c.Name, c.DescriptionUpdate)
+}
+
+// DigitalOceanProviderHcl returns a test step.
+func (mrt *Mk8sResourceTest) DigitalOceanProviderHcl(c Mk8sResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_mk8s" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    "cpln/ignore"       = "true"
+  }
+
+  version = "1.34.2"
+
+  firewall {
+    source_cidr = "0.0.0.0/0"
+    description = "Default allow-all rule"
+  }
+
+  digital_ocean_provider {
+    region            = "ams3"
+    token_secret_link = "/org/terraform-test-org/secret/digitalocean"
+    vpc_id            = "dc4f7d2c-9edb-445d-8253-a7e7a18f6061"
+    image             = "almalinux-8-x64"
+    ssh_keys          = ["36908990"]
+
+    digital_ocean_tags = ["mk8s-test", "terraform"]
+
+    pre_install_script = "#! echo hello world"
+
+    networking {
+      service_network = "10.43.0.0/16"
+      pod_network     = "10.42.0.0/16"
+    }
+
+    node_pool {
+      name           = "my-do-node-pool"
+      droplet_size   = "s-1vcpu-1gb-intel"
+      override_image = "ubuntu-22-04-x64"
+      min_size       = 1
+      max_size       = 1
+
+      labels = {
+        hello = "world"
+      }
+
+      taint {
+        key    = "hello"
+        value  = "world"
+        effect = "NoSchedule"
+      }
+    }
+
+    autoscaler {
+      expander              = ["most-pods"]
+      unneeded_time         = "10m"
+      unready_time          = "20m"
+      utilization_threshold = 0.7
+    }
+  }
+
+  add_ons {
+    dashboard = true
+
+    aws_workload_identity = true
+    local_path_storage    = true
+
+    metrics {
+      kube_state    = true
+      core_dns      = true
+      kubelet       = true
+      api_server    = true
+      node_exporter = true
+      cadvisor      = true
+
+      scrape_annotated {
+        interval_seconds   = 30
+        include_namespaces = "^elastic"
+        exclude_namespaces = "^elastic"
+        retain_labels      = "^\\w+$"
+      }
+    }
+
+    logs {
+      audit_enabled      = true
+      include_namespaces = "^elastic"
+      exclude_namespaces = "^elastic"
+    }
+
+    nvidia {
+      taint_gpu_nodes = true
+    }
+
+    sysbox = true
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
 }
 
 // GcpProviderHcl returns a test step.
