@@ -2037,6 +2037,12 @@ func (mr *Mk8sResource) AzureImageSchema(description string) schema.ListNestedBl
 				"recommended": schema.StringAttribute{
 					Description: "",
 					Optional:    true,
+					Validators: []validator.String{
+						stringvalidator.ExactlyOneOf(
+							path.MatchRelative().AtParent().AtName("recommended"),
+							path.MatchRelative().AtParent().AtName("reference"),
+						),
+					},
 				},
 			},
 			Blocks: map[string]schema.Block{
@@ -2071,10 +2077,6 @@ func (mr *Mk8sResource) AzureImageSchema(description string) schema.ListNestedBl
 		Validators: []validator.List{
 			listvalidator.SizeAtLeast(1),
 			listvalidator.SizeAtMost(1),
-			listvalidator.ExactlyOneOf(
-				path.MatchRelative().AtName("recommended"),
-				path.MatchRelative().AtName("reference"),
-			),
 		},
 	}
 }

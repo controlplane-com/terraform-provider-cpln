@@ -1,3 +1,8 @@
+## 1.2.21
+
+- Fix azure provider validator path expression error on image block in mk8s resource.
+- Fix broken JSON tags for subscriptionId and zones in azure provider client structs.
+
 ## 1.2.20
 
 - Add Allow as an option to workload job concurrency policy.

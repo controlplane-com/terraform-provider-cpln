@@ -195,7 +195,7 @@ type Mk8sTritonProvider struct {
 
 type Mk8sAzureProvider struct {
 	Location         *string                 `json:"location,omitempty"`
-	SubscriptionId   *string                 `tfsdjsonk:"subscriptionId,omitempty"`
+	SubscriptionId   *string                 `json:"subscriptionId,omitempty"`
 	SdkSecretLink    *string                 `json:"sdkSecretLink,omitempty"`
 	ResourceGroup    *string                 `json:"resourceGroup,omitempty"`
 	Networking       *Mk8sNetworkingConfig   `json:"networking,omitempty"`
@@ -326,7 +326,7 @@ type Mk8sAzurePool struct {
 	Mk8sGenericPool
 	Size          *string         `json:"size,omitempty"`
 	SubnetId      *string         `json:"subnetId,omitempty"`
-	Zones         *[]int          `json:"zone,omitempty"`
+	Zones         *[]int          `json:"zones,omitempty"`
 	OverrideImage *Mk8sAzureImage `json:"overrideImage,omitempty"`
 	BootDiskSize  *int            `json:"bootDiskSize,omitempty"`
 	MinSize       *int            `json:"minSize,omitempty"`
