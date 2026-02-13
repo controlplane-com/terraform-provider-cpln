@@ -1,3 +1,7 @@
+## 1.2.22
+
+- Add headlamp addon to mk8s resource.
+
 ## 1.2.21
 
 - Fix azure provider validator path expression error on image block in mk8s resource.
