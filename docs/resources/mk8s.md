@@ -749,6 +749,7 @@ Optional:
 Optional:
 
 - **dashboard** (Boolean)
+- **headlamp** (Boolean)
 - **azure_workload_identity** (Block List, Max: 1) ([see below](#nestedblock--add_ons--azure_workload_identity))
 - **aws_workload_identity** (Boolean)
 - **local_path_storage** (Boolean)
@@ -1285,6 +1286,7 @@ resource "cpln_mk8s" "generic" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -1552,6 +1554,7 @@ resource "cpln_mk8s" "hetzner" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -1823,6 +1826,7 @@ resource "cpln_mk8s" "aws" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -2079,6 +2083,7 @@ resource "cpln_mk8s" "linode" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -2324,6 +2329,7 @@ resource "cpln_mk8s" "oblivus" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -2568,6 +2574,7 @@ resource "cpln_mk8s" "lambdalabs" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -2816,6 +2823,7 @@ resource "cpln_mk8s" "paperspace" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3041,6 +3049,7 @@ resource "cpln_mk8s" "ephemeral" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3293,6 +3302,7 @@ resource "cpln_mk8s" "triton" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3547,6 +3557,7 @@ resource "cpln_mk8s" "triton" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3824,6 +3835,7 @@ resource "cpln_mk8s" "triton" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4083,6 +4095,7 @@ resource "cpln_mk8s" "azure" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4202,6 +4215,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         aws_workload_identity = true
         local_path_storage    = true
@@ -4321,6 +4335,7 @@ resource "cpln_mk8s" "gcp-provider" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4562,6 +4577,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
 
     add_ons {
         dashboard = true
+        headlamp  = true
 
         azure_workload_identity {
             tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
