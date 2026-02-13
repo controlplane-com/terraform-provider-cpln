@@ -1212,6 +1212,10 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							Optional:    true,
 						},
+						"headlamp": schema.BoolAttribute{
+							Description: "",
+							Optional:    true,
+						},
 						"aws_workload_identity": schema.BoolAttribute{
 							Description: "",
 							Optional:    true,
@@ -3649,6 +3653,7 @@ func (mro *Mk8sResourceOperator) buildAddOns(state types.List) *client.Mk8sSpecA
 	// Construct and return the output
 	return &client.Mk8sSpecAddOns{
 		Dashboard:             mro.buildAddOnConfig(block.Dashboard),
+		Headlamp:              mro.buildAddOnConfig(block.Headlamp),
 		AzureWorkloadIdentity: mro.buildAddOnAzureWorkloadIdentity(block.AzureWorkloadIdentity),
 		AwsWorkloadIdentity:   mro.buildAddOnConfig(block.AwsWorkloadIdentity),
 		LocalPathStorage:      mro.buildAddOnConfig(block.LocalPathStorage),
@@ -5449,6 +5454,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 
 	// Declare a variable to hold planned addon configs
 	var plannedDashboard *bool
+	var plannedHeadlamp *bool
 	var plannedAwsWorkloadIdentity *bool
 	var plannedLocalPathStorage *bool
 	var plannedSysbox *bool
@@ -5459,6 +5465,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 	// Extract the planned addon configs from the planned addon block
 	if ok && len(plannedAddons) != 0 {
 		plannedDashboard = BuildBool(plannedAddons[0].Dashboard)
+		plannedHeadlamp = BuildBool(plannedAddons[0].Headlamp)
 		plannedAwsWorkloadIdentity = BuildBool(plannedAddons[0].AwsWorkloadIdentity)
 		plannedLocalPathStorage = BuildBool(plannedAddons[0].LocalPathStorage)
 		plannedSysbox = BuildBool(plannedAddons[0].Sysbox)
@@ -5467,6 +5474,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 	// Build a single block
 	block := models.AddOnsModel{
 		Dashboard:             mro.flattenAddOnConfig(plannedDashboard, input.Dashboard),
+		Headlamp:              mro.flattenAddOnConfig(plannedHeadlamp, input.Headlamp),
 		AzureWorkloadIdentity: mro.flattenAddOnAzureWorkloadIdentity(input.AzureWorkloadIdentity),
 		AwsWorkloadIdentity:   mro.flattenAddOnConfig(plannedAwsWorkloadIdentity, input.AwsWorkloadIdentity),
 		LocalPathStorage:      mro.flattenAddOnConfig(plannedLocalPathStorage, input.LocalPathStorage),

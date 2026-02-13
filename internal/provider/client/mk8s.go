@@ -70,6 +70,7 @@ type Mk8sProvider struct {
 
 type Mk8sSpecAddOns struct {
 	Dashboard             *Mk8sNonCustomizableAddonConfig `json:"dashboard,omitempty"`
+	Headlamp              *Mk8sNonCustomizableAddonConfig `json:"headlamp,omitempty"`
 	AzureWorkloadIdentity *Mk8sAzureWorkloadIdentityAddOn `json:"azureWorkloadIdentity,omitempty"`
 	AwsWorkloadIdentity   *Mk8sNonCustomizableAddonConfig `json:"awsWorkloadIdentity,omitempty"`
 	LocalPathStorage      *Mk8sNonCustomizableAddonConfig `json:"localPathStorage,omitempty"`

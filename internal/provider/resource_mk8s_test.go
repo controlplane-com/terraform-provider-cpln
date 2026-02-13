@@ -532,6 +532,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard":               "false",
+					"headlamp":                "false",
 					"aws_workload_identity":   "false",
 					"local_path_storage":      "false",
 					"sysbox":                  "false",
@@ -603,6 +604,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -760,6 +762,7 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -924,6 +927,7 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1063,6 +1067,7 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1204,6 +1209,7 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1344,6 +1350,7 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1489,6 +1496,7 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1607,6 +1615,7 @@ func (mrt *Mk8sResourceTest) BuildEphemeralProviderTestStep(resourceName string,
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1758,6 +1767,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -1904,6 +1914,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -2074,6 +2085,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -2221,6 +2233,7 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -2358,6 +2371,7 @@ func (mrt *Mk8sResourceTest) BuildDigitalOceanProviderTestStep(resourceName stri
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard":             "true",
+					"headlamp":              "true",
 					"aws_workload_identity": "true",
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
@@ -2491,6 +2505,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -2639,6 +2654,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 			c.TestCheckNestedBlocks("add_ons", []map[string]interface{}{
 				{
 					"dashboard": "true",
+					"headlamp":  "true",
 					"azure_workload_identity": []map[string]interface{}{
 						{
 							"tenant_id": "7f43458a-a34e-4bfa-9e56-e2289e49c4ec",
@@ -2817,6 +2833,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard             = false
+    headlamp              = false
     aws_workload_identity = false
     local_path_storage    = false
     sysbox                = false
@@ -2888,6 +2905,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3159,6 +3177,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3431,6 +3450,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3676,6 +3696,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -3922,6 +3943,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4167,6 +4189,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4417,6 +4440,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4642,6 +4666,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -4771,6 +4796,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -5026,6 +5052,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -5304,6 +5331,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -5555,6 +5583,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -5675,6 +5704,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     aws_workload_identity = true
     local_path_storage    = true
@@ -5791,6 +5821,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"
@@ -6055,6 +6086,7 @@ resource "cpln_mk8s" "%s" {
 
   add_ons {
     dashboard = true
+    headlamp  = true
 
     azure_workload_identity {
       tenant_id = "7f43458a-a34e-4bfa-9e56-e2289e49c4ec"

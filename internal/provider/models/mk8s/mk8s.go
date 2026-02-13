@@ -1028,6 +1028,7 @@ func (g GcpProviderNodePoolModel) AttributeTypes() attr.Type {
 
 type AddOnsModel struct {
 	Dashboard             types.Bool   `tfsdk:"dashboard"`
+	Headlamp              types.Bool   `tfsdk:"headlamp"`
 	AzureWorkloadIdentity types.List   `tfsdk:"azure_workload_identity"`
 	AwsWorkloadIdentity   types.Bool   `tfsdk:"aws_workload_identity"`
 	LocalPathStorage      types.Bool   `tfsdk:"local_path_storage"`
@@ -1047,6 +1048,7 @@ func (a AddOnsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"dashboard":               types.BoolType,
+			"headlamp":                types.BoolType,
 			"azure_workload_identity": types.ListType{ElemType: AddOnAzureWorkloadIdentityModel{}.AttributeTypes()},
 			"aws_workload_identity":   types.BoolType,
 			"local_path_storage":      types.BoolType,
