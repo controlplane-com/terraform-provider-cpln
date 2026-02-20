@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -324,6 +326,43 @@ func StringifyStringValue(v types.String) string {
 
 	// Return the actual string value when known and non-null
 	return v.ValueString()
+}
+
+// ExecuteCplnCommand executes a cpln CLI command and returns the standard output.
+func ExecuteCplnCommand(args []string) (string, error) {
+	cmd := exec.Command("cpln", args...)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		errorMessage := ""
+		stdoutString := stdout.String()
+		stderrString := stderr.String()
+
+		if len(strings.TrimSpace(stdoutString)) != 0 {
+			errorMessage = fmt.Sprintf("Stdout: %s", stdoutString)
+		}
+
+		if len(strings.TrimSpace(stderrString)) != 0 {
+			if len(errorMessage) != 0 {
+				errorMessage = fmt.Sprintf("%s ", errorMessage)
+			}
+			errorMessage = fmt.Sprintf("%sStderr: %s", errorMessage, stderrString)
+		}
+
+		return "", fmt.Errorf("cpln command failed: %s. %s", err, errorMessage)
+	}
+
+	return stdout.String(), nil
+}
+
+// TestdataAbsPath returns the absolute path to a file under testdata.
+func TestdataAbsPath(relativePath string) string {
+	absPath, _ := filepath.Abs(relativePath)
+	return absPath
 }
 
 // Builders //

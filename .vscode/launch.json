@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneMk8s_basic",
+        "TestAccControlPlaneHelmRelease_basic",
         "-test.v"
       ]
     }

@@ -23,6 +23,21 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
+      - name: Install cpln CLI
+        run: |
+          curl -sL https://storage.googleapis.com/artifacts.cpln-build.appspot.com/binaries/cpln/2322247710-3d6447e7/cpln-linux.tgz -o cpln-linux.tgz
+          tar -xzf cpln-linux.tgz
+          chmod +x cpln docker-credential-cpln
+          sudo mv cpln docker-credential-cpln /usr/local/bin/
+          cpln --version
+
+      - name: Configure cpln profile
+        run: cpln profile create default --default --endpoint $CPLN_ENDPOINT --token $CPLN_TOKEN --org $CPLN_ORG
+        env:
+          CPLN_ORG: terraform-test-org
+          CPLN_ENDPOINT: https://api.test.cpln.io
+          CPLN_TOKEN: "${{secrets.CPLN_TOKEN}}"
+
       - name: Get dependencies
         run: go get -v -t -d ./...
 
