@@ -66,9 +66,14 @@ func (ptc *ProviderTestCase) GetDefaultChecks(description string, tagsCount stri
 	)
 }
 
-// TestCheckResourceAttr generates a TestCheckFunc to verify the count and members of a set attribute for the resource.
+// TestCheckResourceAttr generates a TestCheckFunc to verify a specific attribute value for the resource.
 func (ptc *ProviderTestCase) TestCheckResourceAttr(key string, value string) resource.TestCheckFunc {
 	return resource.TestCheckResourceAttr(ptc.ResourceAddress, key, value)
+}
+
+// TestCheckResourceAttrSet generates a TestCheckFunc to verify that an attribute is set for the resource.
+func (ptc *ProviderTestCase) TestCheckResourceAttrSet(key string) resource.TestCheckFunc {
+	return resource.TestCheckResourceAttrSet(ptc.ResourceAddress, key)
 }
 
 // TestCheckSetAttr generates a TestCheckFunc to verify the count and members of a set attribute for the resource.
