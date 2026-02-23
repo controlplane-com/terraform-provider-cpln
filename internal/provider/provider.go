@@ -152,6 +152,7 @@ func (p *CplnProvider) DataSources(_ context.Context) []func() datasource.DataSo
 	return []func() datasource.DataSource{
 		NewCloudAccountDataSource,
 		NewGvcDataSource,
+		NewHelmTemplateDataSource,
 		NewImageDataSource,
 		NewImagesDataSource,
 		NewLocationDataSource,
@@ -174,6 +175,7 @@ func (p *CplnProvider) Resources(_ context.Context) []func() resource.Resource {
 		NewDomainResource,
 		NewGroupResource,
 		NewGvcResource,
+		NewHelmReleaseResource,
 		NewIdentityResource,
 		NewIpSetResource,
 		NewLocationResource,
