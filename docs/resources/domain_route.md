@@ -10,7 +10,7 @@ Manages a domain's [Routes](https://docs.controlplane.com/reference/domain#path-
 
 Used in conjunction with a Domain.
 
-~> **Note** It is mandatory to use the `depends_on` clause on each `cpln_domain_route`. Each route needs to depend on its upstream route (e.g., the second route depends on the first route, etc.). The first route needs to depend on the domain it is linked to.
+~> **Note** Routes for the same domain are automatically serialized by the provider. You do not need to add `depends_on` between `cpln_domain_route` resources. If you previously used `depends_on` chains, they can be safely removed. However, `depends_on` can still be used if you need routes to be created in a specific order. For easier route ordering, consider using inline `route` blocks within the [`cpln_domain`](domain) resource instead.
 
 ## Declaration
 
@@ -126,9 +126,6 @@ resource "cpln_domain" "subdomain" {
 
 resource "cpln_domain_route" "first-route" {
 
-  // The first route depends on the domain being created first
-  depends_on = [cpln_domain.subdomain]
-
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
@@ -149,9 +146,6 @@ resource "cpln_domain_route" "first-route" {
 }
 
 resource "cpln_domain_route" "second-route" {
-
-  // The second route depends on the first route
-  depends_on = [cpln_domain_route.first-route]
 
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
@@ -240,9 +234,6 @@ resource "cpln_domain" "subdomain" {
 
 resource "cpln_domain_route" "first-route" {
 
-  // The first route depends on the domain being created first
-  depends_on = [cpln_domain.subdomain]
-
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
@@ -263,9 +254,6 @@ resource "cpln_domain_route" "first-route" {
 }
 
 resource "cpln_domain_route" "second-route" {
-
-  // The second route depends on the first route
-  depends_on = [cpln_domain_route.first-route]
 
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
@@ -354,9 +342,6 @@ resource "cpln_domain" "subdomain" {
 }
 
 resource "cpln_domain_route" "new" {
-
-    // The first route depends on the domain being created first
-    depends_on  = [cpln_domain.subdomain]
 
     domain_link = cpln_domain.subdomain.self_link
     domain_port = 443

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	domainmodel "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/common"
 	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/modifiers"
 	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
@@ -933,6 +934,30 @@ func buildCustomTags(ctx context.Context, diags *diag.Diagnostics, state types.M
 	return &output
 }
 
+// BuildRouteHeaders constructs a DomainRouteHeaders from Terraform state.
+func BuildRouteHeaders(ctx context.Context, diags *diag.Diagnostics, state types.List) *client.DomainRouteHeaders {
+	blocks, ok := BuildList[domainmodel.RouteHeadersModel](ctx, diags, state)
+	if !ok {
+		return nil
+	}
+
+	return &client.DomainRouteHeaders{
+		Request: BuildRouteHeadersRequest(ctx, diags, blocks[0].Request),
+	}
+}
+
+// BuildRouteHeadersRequest constructs a DomainHeaderOperation from Terraform state.
+func BuildRouteHeadersRequest(ctx context.Context, diags *diag.Diagnostics, state types.List) *client.DomainHeaderOperation {
+	blocks, ok := BuildList[domainmodel.RouteHeadersRequestModel](ctx, diags, state)
+	if !ok {
+		return nil
+	}
+
+	return &client.DomainHeaderOperation{
+		Set: BuildMapString(ctx, diags, blocks[0].Set),
+	}
+}
+
 // Flatteners //
 
 // FlattenQuery transforms client.Query into a Terraform types.List.
@@ -1118,6 +1143,36 @@ func flattenCustomTags(input *map[string]client.TracingCustomTag) types.Map {
 
 	// Convert the native map to a Terraform types.Map
 	return FlattenMapString(&output)
+}
+
+// FlattenRouteHeaders transforms DomainRouteHeaders into a Terraform types.List.
+func FlattenRouteHeaders(ctx context.Context, diags *diag.Diagnostics, headers *client.DomainRouteHeaders) types.List {
+	elementType := domainmodel.RouteHeadersModel{}.AttributeTypes()
+
+	if headers == nil {
+		return types.ListNull(elementType)
+	}
+
+	block := domainmodel.RouteHeadersModel{
+		Request: FlattenRouteHeadersRequest(ctx, diags, headers.Request),
+	}
+
+	return FlattenList(ctx, diags, []domainmodel.RouteHeadersModel{block})
+}
+
+// FlattenRouteHeadersRequest converts a DomainHeaderOperation into a Terraform types.List.
+func FlattenRouteHeadersRequest(ctx context.Context, diags *diag.Diagnostics, request *client.DomainHeaderOperation) types.List {
+	elementType := domainmodel.RouteHeadersRequestModel{}.AttributeTypes()
+
+	if request == nil {
+		return types.ListNull(elementType)
+	}
+
+	block := domainmodel.RouteHeadersRequestModel{
+		Set: FlattenMapString(request.Set),
+	}
+
+	return FlattenList(ctx, diags, []domainmodel.RouteHeadersRequestModel{block})
 }
 
 // Blocks //

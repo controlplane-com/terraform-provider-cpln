@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
@@ -312,8 +311,14 @@ func (drr *DomainRouteResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	// Serialize domain operations to prevent read-modify-write race conditions
+	domainName := GetNameFromSelfLink(plannedState.DomainLink.ValueString())
+	mu := GetDomainLock(domainName)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// Initialize a new request payload structure and populate it with the planned state
-	domainName, domainPort, route := drr.buildRequest(ctx, &resp.Diagnostics, plannedState)
+	_, domainPort, route := drr.buildRequest(ctx, &resp.Diagnostics, plannedState)
 
 	// Return if an error has occurred during the request payload creation
 	if resp.Diagnostics.HasError() {
@@ -397,8 +402,14 @@ func (drr *DomainRouteResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
+	// Serialize domain operations to prevent read-modify-write race conditions
+	domainName := GetNameFromSelfLink(plannedState.DomainLink.ValueString())
+	mu := GetDomainLock(domainName)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// Initialize a new request payload structure and populate it with the planned state
-	domainName, domainPort, route := drr.buildRequest(ctx, &resp.Diagnostics, plannedState)
+	_, domainPort, route := drr.buildRequest(ctx, &resp.Diagnostics, plannedState)
 
 	// Return if an error has occurred during the request payload creation
 	if resp.Diagnostics.HasError() {
@@ -438,8 +449,14 @@ func (drr *DomainRouteResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
+	// Serialize domain operations to prevent read-modify-write race conditions
+	domainName := GetNameFromSelfLink(state.DomainLink.ValueString())
+	mu := GetDomainLock(domainName)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// Send a delete request to the API using the name from the state
-	err := drr.client.RemoveDomainRoute(GetNameFromSelfLink(state.DomainLink.ValueString()), int(state.DomainPort.ValueInt32()), state.Prefix.ValueStringPointer(), state.Regex.ValueStringPointer())
+	err := drr.client.RemoveDomainRoute(domainName, int(state.DomainPort.ValueInt32()), state.Prefix.ValueStringPointer(), state.Regex.ValueStringPointer())
 
 	// Handle errors from the API delete request
 	if err != nil {
@@ -467,7 +484,7 @@ func (drr *DomainRouteResource) buildRequest(ctx context.Context, diags *diag.Di
 	route.Port = BuildInt(plan.Port)
 	route.HostPrefix = BuildString(plan.HostPrefix)
 	route.HostRegex = BuildString(plan.HostRegex)
-	route.Headers = drr.buildHeaders(ctx, diags, plan.Headers)
+	route.Headers = BuildRouteHeaders(ctx, diags, plan.Headers)
 	route.Replica = BuildInt(plan.Replica)
 
 	// Return constructed request payload
@@ -529,85 +546,9 @@ func (drr *DomainRouteResource) buildState(ctx context.Context, diags *diag.Diag
 	state.Port = FlattenInt(route.Port)
 	state.HostPrefix = types.StringPointerValue(route.HostPrefix)
 	state.HostRegex = types.StringPointerValue(route.HostRegex)
-	state.Headers = drr.flattenHeaders(ctx, diags, route.Headers)
+	state.Headers = FlattenRouteHeaders(ctx, diags, route.Headers)
 	state.Replica = FlattenInt(route.Replica)
 
 	// Return completed state model
 	return state
-}
-
-// Builders //
-
-// buildHeaders constructs a DomainRouteHeaders struct from the given Terraform state.
-func (drr *DomainRouteResource) buildHeaders(ctx context.Context, diags *diag.Diagnostics, state types.List) *client.DomainRouteHeaders {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.RouteHeadersModel](ctx, diags, state)
-
-	// Return nil if conversion failed or list was empty
-	if !ok {
-		return nil
-	}
-
-	// Construct and return the result
-	return &client.DomainRouteHeaders{
-		Request: drr.buildHeadersRequest(ctx, diags, blocks[0].Request),
-	}
-}
-
-// buildHeadersRequest constructs a DomainHeaderOperation struct from the given Terraform state.
-func (drr *DomainRouteResource) buildHeadersRequest(ctx context.Context, diags *diag.Diagnostics, state types.List) *client.DomainHeaderOperation {
-	// Convert Terraform list into model blocks using generic helper
-	blocks, ok := BuildList[models.RouteHeadersRequestModel](ctx, diags, state)
-
-	// Return nil if conversion failed or list was empty
-	if !ok {
-		return nil
-	}
-
-	// Construct and return the result
-	return &client.DomainHeaderOperation{
-		Set: BuildMapString(ctx, diags, blocks[0].Set),
-	}
-}
-
-// Flatteners //
-
-// flattenHeaders transforms client.DomainRouteHeaders into a Terraform types.List value.
-func (drr *DomainRouteResource) flattenHeaders(ctx context.Context, diags *diag.Diagnostics, headers *client.DomainRouteHeaders) types.List {
-	// Get attribute types
-	elementType := models.RouteHeadersModel{}.AttributeTypes()
-
-	// Check if the headers input is nil
-	if headers == nil {
-		// Return a null list with the correct attribute types
-		return types.ListNull(elementType)
-	}
-
-	// Build a single Headers block with the nested Request list
-	block := models.RouteHeadersModel{
-		Request: drr.flattenHeadersRequest(ctx, diags, headers.Request),
-	}
-
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, []models.RouteHeadersModel{block})
-}
-
-// flattenHeadersRequest converts a DomainHeaderOperation into a Terraform types.List.
-func (drr *DomainRouteResource) flattenHeadersRequest(ctx context.Context, diags *diag.Diagnostics, request *client.DomainHeaderOperation) types.List {
-	// Get attribute types
-	elementType := models.RouteHeadersRequestModel{}.AttributeTypes()
-
-	// Check if the request input is nil
-	if request == nil {
-		// Return a null list with the correct attribute types for HeadersRequest
-		return types.ListNull(elementType)
-	}
-
-	// Initialize a default HeadersRequest block with a null Set map
-	block := models.RouteHeadersRequestModel{
-		Set: FlattenMapString(request.Set),
-	}
-
-	// Return the successfully created types.List
-	return FlattenList(ctx, diags, []models.RouteHeadersRequestModel{block})
 }

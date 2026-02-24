@@ -3,6 +3,7 @@ package cpln
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -37,7 +38,15 @@ type DomainResourceTest struct {
 	ApexDomain string
 }
 
-// DomainResourceTest creates a DomainResourceTest with initialized test cases.
+// DomainInlineRouteConfig represents an inline route in HCL config.
+type DomainInlineRouteConfig struct {
+	Prefix       string
+	Regex        string
+	WorkloadLink string // HCL expression (e.g., "cpln_workload.new.self_link")
+	Port         int
+}
+
+// NewDomainResourceTest creates a DomainResourceTest with initialized test cases.
 func NewDomainResourceTest() DomainResourceTest {
 	// Create a resource test instance
 	resourceTest := DomainResourceTest{
@@ -50,6 +59,7 @@ func NewDomainResourceTest() DomainResourceTest {
 
 	// Fill the steps slice
 	steps = append(steps, resourceTest.NewDefaultScenario()...)
+	steps = append(steps, resourceTest.NewCoexistenceScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -120,6 +130,8 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 	caseUpdate1 := drt.BuildUpdate1TestStep(initialConfig.ProviderTestCase)
 	caseUpdate2 := drt.BuildUpdate2TestStep(initialConfig.ProviderTestCase)
 	caseUpdate3 := drt.BuildUpdate3TestStep(initialConfig.ProviderTestCase)
+	caseUpdate4 := drt.BuildUpdate4TestStep(initialConfig.ProviderTestCase)
+	caseUpdate5 := drt.BuildUpdate5TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -155,8 +167,40 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 			ImportState:   true,
 			ImportStateId: fmt.Sprintf("%s:443:/user/.*/profile", subDomainSelfLink),
 		},
+		// Inline Routes: Create & Read
+		caseUpdate4,
+		// Inline Routes: Update & Read
+		caseUpdate5,
 		// Revert the resource to its initial state
 		initialStep,
+	}
+}
+
+// NewCoexistenceScenario creates a test scenario covering all unique route coexistence transitions.
+func (drt *DomainResourceTest) NewCoexistenceScenario() []resource.TestStep {
+	// Define necessary variables
+	subDomainName := fmt.Sprintf("route-coexist-%s.%s", drt.RandomName, drt.ApexDomain)
+
+	// Build test steps
+	return []resource.TestStep{
+		// Create domain + inline routes + external routes in a single apply
+		drt.BuildCoexistenceCreateTestStep(subDomainName),
+		// Strip all routes
+		drt.BuildNoRoutesTestStep(subDomainName, "no routes"),
+		// Add external routes only
+		drt.BuildExternalRoutesOnlyTestStep(subDomainName, "external routes only"),
+		// Add inline routes alongside external (coexistence)
+		drt.BuildCoexistenceTestStep(subDomainName),
+		// Remove external, keep inline only
+		drt.BuildInlineOnlyTestStep(subDomainName),
+		// Import State
+		{
+			ResourceName:  "cpln_domain.subdomain",
+			ImportState:   true,
+			ImportStateId: subDomainName,
+		},
+		// Cleanup: remove all routes
+		drt.BuildNoRoutesTestStep(subDomainName, "final cleanup"),
 	}
 }
 
@@ -734,6 +778,518 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 	}
 }
 
+// BuildUpdate4TestStep returns a test step for inline routes creation on the subdomain.
+func (drt *DomainResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := DomainResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Create the sub-domain test case with inline routes
+	subDomainName := fmt.Sprintf("domain-acctest-%s.%s", drt.RandomName, initialCase.Name)
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "domain",
+			ResourceName:      "subdomain",
+			ResourceAddress:   "cpln_domain.subdomain",
+			Name:              subDomainName,
+			Description:       subDomainName,
+			DescriptionUpdate: "domain with inline routes",
+		},
+	}
+
+	// Construct the workload self link
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.Update4Hcl(c, subDomain),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Apex Domain
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+
+			// Sub Domain with inline routes
+			subDomain.GetDefaultChecks(subDomain.DescriptionUpdate, "1"),
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"route": []map[string]interface{}{
+								{
+									"prefix":        "/api",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+								{
+									"prefix":         "/app",
+									"replace_prefix": "/",
+									"workload_link":  workloadSelfLink,
+									"port":           "8080",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-ECDSA-CHACHA20-POLY1305",
+										"ECDHE-ECDSA-AES128-GCM-SHA256",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-CHACHA20-POLY1305",
+										"ECDHE-RSA-AES128-GCM-SHA256",
+										"AES256-GCM-SHA384",
+										"AES128-GCM-SHA256",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate5TestStep returns a test step for updating inline routes on the subdomain.
+func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := DomainResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Create the sub-domain test case with updated inline routes
+	subDomainName := fmt.Sprintf("domain-acctest-%s.%s", drt.RandomName, initialCase.Name)
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "domain",
+			ResourceName:      "subdomain",
+			ResourceAddress:   "cpln_domain.subdomain",
+			Name:              subDomainName,
+			Description:       subDomainName,
+			DescriptionUpdate: "domain with inline routes updated",
+		},
+	}
+
+	// Construct the workload self link
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.Update5Hcl(c, subDomain),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Apex Domain
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+
+			// Sub Domain with updated inline routes
+			subDomain.GetDefaultChecks(subDomain.DescriptionUpdate, "1"),
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"route": []map[string]interface{}{
+								{
+									"prefix":        "/api",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+								{
+									"prefix":         "/app",
+									"replace_prefix": "/",
+									"workload_link":  workloadSelfLink,
+									"port":           "8080",
+									"headers": []map[string]interface{}{
+										{
+											"request": []map[string]interface{}{
+												{
+													"set": map[string]interface{}{
+														"X-Forwarded-Proto": "https",
+													},
+												},
+											},
+										},
+									},
+								},
+								{
+									"regex":         "/user/.*/profile",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-ECDSA-CHACHA20-POLY1305",
+										"ECDHE-ECDSA-AES128-GCM-SHA256",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-CHACHA20-POLY1305",
+										"ECDHE-RSA-AES128-GCM-SHA256",
+										"AES256-GCM-SHA384",
+										"AES128-GCM-SHA256",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildCoexistenceCreateTestStep returns a test step that creates a subdomain with both inline and external routes.
+func (drt *DomainResourceTest) BuildCoexistenceCreateTestStep(subDomainName string) resource.TestStep {
+	// Define necessary variables
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
+
+	// Create the sub-domain test case
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Create the domain route test cases
+	route1 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			ResourceName:    "route-a",
+			ResourceAddress: "cpln_domain_route.route-a",
+		},
+	}
+
+	route2 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			ResourceName:    "route-b",
+			ResourceAddress: "cpln_domain_route.route-b",
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.hclBase() + drt.hclSubDomainWithInlineRoutes(subDomainName, "create with coexistence", []DomainInlineRouteConfig{
+			{Prefix: "/inline-a", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+		}) +
+			drt.hclDomainRoute("route-a", "/ext-a", "", 8080) +
+			drt.hclDomainRoute("route-b", "/ext-b", "", 8080),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Sub domain spec should show inline routes
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"route": []map[string]interface{}{
+								{
+									"prefix":        "/inline-a",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// External routes targeting the same subdomain
+			route1.TestCheckResourceAttr("domain_link", subDomainSelfLink),
+			route1.TestCheckResourceAttr("prefix", "/ext-a"),
+			route1.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			route1.TestCheckResourceAttr("port", "8080"),
+			route2.TestCheckResourceAttr("domain_link", subDomainSelfLink),
+			route2.TestCheckResourceAttr("prefix", "/ext-b"),
+			route2.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			route2.TestCheckResourceAttr("port", "8080"),
+		),
+	}
+}
+
+// BuildNoRoutesTestStep returns a test step for subdomain with no routes.
+func (drt *DomainResourceTest) BuildNoRoutesTestStep(subDomainName string, description string) resource.TestStep {
+	// Create the sub-domain test case
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.hclBase() + drt.hclSubDomain(subDomainName, description),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("name", subDomainName),
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildExternalRoutesOnlyTestStep returns a test step with cpln_domain_route resources only (no inline routes).
+func (drt *DomainResourceTest) BuildExternalRoutesOnlyTestStep(subDomainName string, description string) resource.TestStep {
+	// Define necessary variables
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
+
+	// Create the sub-domain test case
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Create the domain route test cases
+	route1 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			ResourceName:    "route-a",
+			ResourceAddress: "cpln_domain_route.route-a",
+		},
+	}
+
+	route2 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			ResourceName:    "route-b",
+			ResourceAddress: "cpln_domain_route.route-b",
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.hclBase() + drt.hclSubDomain(subDomainName, description) +
+			drt.hclDomainRoute("route-a", "/ext-a", "", 8080) +
+			drt.hclDomainRoute("route-b", "/ext-b", "", 8080),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Sub domain spec with no inline routes
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// External routes targeting the same subdomain
+			route1.TestCheckResourceAttr("domain_link", subDomainSelfLink),
+			route1.TestCheckResourceAttr("prefix", "/ext-a"),
+			route1.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			route1.TestCheckResourceAttr("port", "8080"),
+			route2.TestCheckResourceAttr("domain_link", subDomainSelfLink),
+			route2.TestCheckResourceAttr("prefix", "/ext-b"),
+			route2.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			route2.TestCheckResourceAttr("port", "8080"),
+		),
+	}
+}
+
+// BuildCoexistenceTestStep returns a test step with both inline routes and cpln_domain_route resources.
+func (drt *DomainResourceTest) BuildCoexistenceTestStep(subDomainName string) resource.TestStep {
+	// Define necessary variables
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
+
+	// Create the sub-domain test case
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Create the domain route test cases
+	route1 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			ResourceName:    "route-a",
+			ResourceAddress: "cpln_domain_route.route-a",
+		},
+	}
+
+	route2 := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			ResourceName:    "route-b",
+			ResourceAddress: "cpln_domain_route.route-b",
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.hclBase() + drt.hclSubDomainWithInlineRoutes(subDomainName, "coexistence", []DomainInlineRouteConfig{
+			{Prefix: "/inline-a", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+			{Prefix: "/inline-b", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+		}) +
+			drt.hclDomainRoute("route-a", "/ext-a", "", 8080) +
+			drt.hclDomainRoute("route-b", "/ext-b", "", 8080),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Sub domain spec should only show inline routes (not external)
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"route": []map[string]interface{}{
+								{
+									"prefix":        "/inline-a",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+								{
+									"prefix":        "/inline-b",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// External routes targeting the same subdomain
+			route1.TestCheckResourceAttr("domain_link", subDomainSelfLink),
+			route1.TestCheckResourceAttr("prefix", "/ext-a"),
+			route1.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			route1.TestCheckResourceAttr("port", "8080"),
+			route2.TestCheckResourceAttr("domain_link", subDomainSelfLink),
+			route2.TestCheckResourceAttr("prefix", "/ext-b"),
+			route2.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			route2.TestCheckResourceAttr("port", "8080"),
+		),
+	}
+}
+
+// BuildInlineOnlyTestStep returns a test step with only inline routes (no cpln_domain_route).
+func (drt *DomainResourceTest) BuildInlineOnlyTestStep(subDomainName string) resource.TestStep {
+	// Define necessary variables
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+
+	// Create the sub-domain test case
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.hclBase() + drt.hclSubDomainWithInlineRoutes(subDomainName, "inline only", []DomainInlineRouteConfig{
+			{Prefix: "/inline-a", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+			{Prefix: "/inline-b", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+		}),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode":         "ns",
+					"accept_all_hosts": "true",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "443",
+							"protocol": "http",
+							"route": []map[string]interface{}{
+								{
+									"prefix":        "/inline-a",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+								{
+									"prefix":        "/inline-b",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+							},
+							"tls": []map[string]interface{}{
+								{
+									"min_protocol_version": "TLSV1_2",
+									"cipher_suites": []string{
+										"ECDHE-ECDSA-AES256-GCM-SHA384",
+										"ECDHE-RSA-AES256-GCM-SHA384",
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // RequiredOnlyHcl returns a minimal HCL block for a resource using only required fields.
@@ -1015,9 +1571,6 @@ resource "cpln_domain_route" "first-route" {
 }
 
 resource "cpln_domain_route" "second-route" {
-
-  depends_on = [cpln_domain_route.first-route]
-
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 80
 
@@ -1039,9 +1592,6 @@ resource "cpln_domain_route" "second-route" {
 }
 
 resource "cpln_domain_route" "third-route" {
-
-  depends_on = [cpln_domain_route.second-route]
-
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 80
 
@@ -1062,8 +1612,6 @@ resource "cpln_domain_route" "third-route" {
 }
 
 resource "cpln_domain_route" "fourth-route" {
-  depends_on = [cpln_domain_route.third-route]
-
   domain_link   = cpln_domain.subdomain.self_link
   regex         = "/user/.*/profile"
   workload_link = cpln_workload.new.self_link
@@ -1273,9 +1821,6 @@ resource "cpln_domain_route" "first-route" {
 }
 
 resource "cpln_domain_route" "second-route" {
-
-  depends_on = [cpln_domain_route.first-route]
-
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 80
 
@@ -1297,6 +1842,512 @@ resource "cpln_domain_route" "second-route" {
 `, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate,
 		subDomain.GetSelfLinkAttr(),
 	)
+}
+
+// Update4Hcl returns an HCL block for a subdomain with inline routes (replaces external cpln_domain_route resources).
+func (drt *DomainResourceTest) Update4Hcl(c DomainResourceTestCase, subDomain DomainResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_gvc" "new" {
+
+  name        = "gvc-${var.random_name}"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.new.name
+
+  name        = "workload-${var.random_name}"
+  description = "Example Workload"
+  type        = "serverless"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+    port   = 8080
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = true
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 0
+      min_scale       = 0
+      max_concurrency = 500
+    }
+  }
+}
+
+resource "cpln_domain" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode         = "cname"
+    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
+    accept_all_hosts = false
+
+    ports {
+      number = 443
+      protocol = "http2"
+
+      cors {
+
+        allow_origins {
+          exact = "*"
+        }
+
+        allow_origins {
+          exact = "*.erickotler.com"
+        }
+
+        allow_origins {
+          regex = "^https://example\\.com$"
+        }
+
+        allow_methods     = ["GET", "OPTIONS", "POST"]
+        allow_headers     = ["authorization", "host"]
+        expose_headers    = ["accept/type"]
+        max_age           = "12h"
+        allow_credentials = true
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_1"
+        cipher_suites        = ["AES256-GCM-SHA384"]
+
+        client_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+
+        server_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+			}
+		}
+  }
+}
+
+resource "cpln_domain" "%s" {
+
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
+      }
+
+      route {
+        prefix        = "/api"
+        workload_link = cpln_workload.new.self_link
+        port          = 8080
+      }
+
+      route {
+        prefix         = "/app"
+        replace_prefix = "/"
+        workload_link  = cpln_workload.new.self_link
+        port           = 8080
+      }
+    }
+  }
+}
+`, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate)
+}
+
+// Update5Hcl returns an HCL block for updating inline routes (add a third route, add headers to second route).
+func (drt *DomainResourceTest) Update5Hcl(c DomainResourceTestCase, subDomain DomainResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_gvc" "new" {
+
+  name        = "gvc-${var.random_name}"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+
+  gvc = cpln_gvc.new.name
+
+  name        = "workload-${var.random_name}"
+  description = "Example Workload"
+  type        = "serverless"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+    port   = 8080
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = true
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 0
+      min_scale       = 0
+      max_concurrency = 500
+    }
+  }
+}
+
+resource "cpln_domain" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode         = "cname"
+    gvc_link         = "/org/terraform-test-org/gvc/gvc-01"
+    accept_all_hosts = false
+
+    ports {
+      number = 443
+      protocol = "http2"
+
+      cors {
+
+        allow_origins {
+          exact = "*"
+        }
+
+        allow_origins {
+          exact = "*.erickotler.com"
+        }
+
+        allow_origins {
+          regex = "^https://example\\.com$"
+        }
+
+        allow_methods     = ["GET", "OPTIONS", "POST"]
+        allow_headers     = ["authorization", "host"]
+        expose_headers    = ["accept/type"]
+        max_age           = "12h"
+        allow_credentials = true
+      }
+
+      tls {
+        min_protocol_version = "TLSV1_1"
+        cipher_suites        = ["AES256-GCM-SHA384"]
+
+        client_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+
+        server_certificate {
+          secret_link = "/org/terraform-test-org/secret/aa-tbd-2"
+        }
+			}
+		}
+  }
+}
+
+resource "cpln_domain" "%s" {
+
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-ECDSA-CHACHA20-POLY1305",
+          "ECDHE-ECDSA-AES128-GCM-SHA256",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-CHACHA20-POLY1305",
+          "ECDHE-RSA-AES128-GCM-SHA256",
+          "AES256-GCM-SHA384",
+          "AES128-GCM-SHA256",
+        ]
+      }
+
+      route {
+        prefix        = "/api"
+        workload_link = cpln_workload.new.self_link
+        port          = 8080
+      }
+
+      route {
+        prefix         = "/app"
+        replace_prefix = "/"
+        workload_link  = cpln_workload.new.self_link
+        port           = 8080
+
+        headers {
+          request {
+            set = {
+              "X-Forwarded-Proto" = "https"
+            }
+          }
+        }
+      }
+
+      route {
+        regex         = "/user/.*/profile"
+        workload_link = cpln_workload.new.self_link
+        port          = 8080
+      }
+    }
+  }
+}
+`, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate)
+}
+
+// hclBase returns the shared infrastructure HCL (GVC, workload, apex domain).
+func (drt *DomainResourceTest) hclBase() string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_gvc" "new" {
+  name        = "gvc-${var.random_name}"
+  description = "Route coexistence test GVC"
+  locations   = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+  }
+}
+
+resource "cpln_workload" "new" {
+  gvc         = cpln_gvc.new.name
+  name        = "workload-${var.random_name}"
+  description = "Route coexistence test workload"
+  type        = "serverless"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+    port   = 8080
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = true
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 0
+      min_scale       = 0
+      max_concurrency = 500
+    }
+  }
+}
+
+resource "cpln_domain" "new" {
+  name = "%s"
+
+  spec {
+    ports {
+      tls {}
+    }
+  }
+}
+`, drt.RandomName, drt.ApexDomain)
+}
+
+// hclSubDomain returns HCL for the subdomain without inline routes.
+func (drt *DomainResourceTest) hclSubDomain(name string, description string) string {
+	return fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on  = [cpln_domain.new]
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+    }
+  }
+}
+`, name, description)
+}
+
+// hclSubDomainWithInlineRoutes returns HCL for the subdomain with inline routes.
+func (drt *DomainResourceTest) hclSubDomainWithInlineRoutes(name string, description string, routes []DomainInlineRouteConfig) string {
+	var routeBlocks strings.Builder
+	for _, r := range routes {
+		if r.Prefix != "" {
+			routeBlocks.WriteString(fmt.Sprintf(`
+      route {
+        prefix        = "%s"
+        workload_link = %s
+        port          = %d
+      }
+`, r.Prefix, r.WorkloadLink, r.Port))
+		} else {
+			routeBlocks.WriteString(fmt.Sprintf(`
+      route {
+        regex         = "%s"
+        workload_link = %s
+        port          = %d
+      }
+`, r.Regex, r.WorkloadLink, r.Port))
+		}
+	}
+
+	return fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on  = [cpln_domain.new]
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+%s
+    }
+  }
+}
+`, name, description, routeBlocks.String())
+}
+
+// hclDomainRoute returns HCL for a cpln_domain_route resource.
+func (drt *DomainResourceTest) hclDomainRoute(resourceName string, prefix string, regex string, port int) string {
+	var routeKey string
+	if prefix != "" {
+		routeKey = fmt.Sprintf(`prefix        = "%s"`, prefix)
+	} else {
+		routeKey = fmt.Sprintf(`regex         = "%s"`, regex)
+	}
+
+	return fmt.Sprintf(`
+resource "cpln_domain_route" "%s" {
+  domain_link   = cpln_domain.subdomain.self_link
+  %s
+  workload_link = cpln_workload.new.self_link
+  port          = %d
+}
+`, resourceName, routeKey, port)
 }
 
 /*** Resource Test Cases ***/

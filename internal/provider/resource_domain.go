@@ -3,9 +3,11 @@ package cpln
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -20,11 +22,15 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// domainOperationLocks provides per-domain mutex serialization for route operations.
+var domainOperationLocks sync.Map
+
 // Ensure resource implements required interfaces.
 var (
-	_ resource.Resource                = &DomainResource{}
-	_ resource.ResourceWithImportState = &DomainResource{}
-	_ resource.ResourceWithModifyPlan  = &DomainResource{}
+	_ resource.Resource                   = &DomainResource{}
+	_ resource.ResourceWithImportState    = &DomainResource{}
+	_ resource.ResourceWithModifyPlan     = &DomainResource{}
+	_ resource.ResourceWithValidateConfig = &DomainResource{}
 )
 
 /*** Resource Model ***/
@@ -89,6 +95,57 @@ func (r *DomainResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 		"Updating domain will cause a temporary outage",
 		"Changing the domain triggers DNS/TLS (and possibly cert) updates. Expect brief downtime until propagation completes.",
 	)
+}
+
+// ValidateConfig validates the resource configuration.
+func (dr *DomainResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config DomainResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Parse spec to validate inline routes
+	specs, ok := BuildList[models.SpecModel](ctx, &resp.Diagnostics, config.Spec)
+	if !ok {
+		return
+	}
+
+	for _, spec := range specs {
+		ports, ok := BuildList[models.SpecPortsModel](ctx, &resp.Diagnostics, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		for _, port := range ports {
+			routes, ok := BuildList[models.RouteModel](ctx, &resp.Diagnostics, port.Route)
+			if !ok {
+				continue
+			}
+
+			for _, route := range routes {
+				// Validate exactly one of prefix/regex
+				hasPrefix := !route.Prefix.IsNull() && !route.Prefix.IsUnknown()
+				hasRegex := !route.Regex.IsNull() && !route.Regex.IsUnknown()
+				if hasPrefix == hasRegex {
+					resp.Diagnostics.AddError(
+						"Invalid Route Configuration",
+						"Each route must have exactly one of `prefix` or `regex` set.",
+					)
+				}
+
+				// Validate host_prefix conflicts with host_regex
+				hasHostPrefix := !route.HostPrefix.IsNull() && !route.HostPrefix.IsUnknown()
+				hasHostRegex := !route.HostRegex.IsNull() && !route.HostRegex.IsUnknown()
+				if hasHostPrefix && hasHostRegex {
+					resp.Diagnostics.AddError(
+						"Invalid Route Configuration",
+						"Only one of `host_prefix` or `host_regex` may be set per route.",
+					)
+				}
+			}
+		}
+	}
 }
 
 // ImportState sets up the import operation to map the imported ID to the "id" attribute in the state.
@@ -355,6 +412,75 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 											listvalidator.SizeAtMost(1),
 										},
 									},
+									"route": schema.ListNestedBlock{
+										Description: "Inline routes for this port. Can coexist with separate cpln_domain_route resources on the same domain and port.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"prefix": schema.StringAttribute{
+													Description: "The path will match any unmatched path prefixes for the subdomain.",
+													Optional:    true,
+												},
+												"replace_prefix": schema.StringAttribute{
+													Description: "A path prefix can be configured to be replaced when forwarding the request to the Workload.",
+													Optional:    true,
+												},
+												"regex": schema.StringAttribute{
+													Description: "Used to match URI paths. Uses the google re2 regex syntax.",
+													Optional:    true,
+												},
+												"workload_link": schema.StringAttribute{
+													Description: "The link of the workload to map the prefix to.",
+													Required:    true,
+												},
+												"port": schema.Int32Attribute{
+													Description: "For the linked workload, the port to route traffic to.",
+													Optional:    true,
+												},
+												"host_prefix": schema.StringAttribute{
+													Description: "This option allows forwarding traffic for different host headers to different workloads.",
+													Optional:    true,
+												},
+												"host_regex": schema.StringAttribute{
+													Description: "A regex to match the host header.",
+													Optional:    true,
+												},
+												"replica": schema.Int32Attribute{
+													Description: "The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.",
+													Optional:    true,
+													Validators: []validator.Int32{
+														int32validator.AtLeast(0),
+													},
+												},
+											},
+											Blocks: map[string]schema.Block{
+												"headers": schema.ListNestedBlock{
+													Description: "Modify the headers for all http requests for this route.",
+													NestedObject: schema.NestedBlockObject{
+														Blocks: map[string]schema.Block{
+															"request": schema.ListNestedBlock{
+																Description: "Manipulates HTTP headers.",
+																NestedObject: schema.NestedBlockObject{
+																	Attributes: map[string]schema.Attribute{
+																		"set": schema.MapAttribute{
+																			Description: "Sets or overrides headers to all http requests for this route.",
+																			ElementType: types.StringType,
+																			Optional:    true,
+																		},
+																	},
+																},
+																Validators: []validator.List{
+																	listvalidator.SizeAtMost(1),
+																},
+															},
+														},
+													},
+													Validators: []validator.List{
+														listvalidator.SizeAtMost(1),
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 							Validators: []validator.List{
@@ -384,7 +510,45 @@ func (dr *DomainResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 // Update modifies the resource.
 func (dr *DomainResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	UpdateGeneric(ctx, req, resp, dr.Operations)
+	// Read plan and prior state
+	var plan DomainResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var priorState DomainResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &priorState)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Serialize with domain route operations to prevent race conditions
+	mu := GetDomainLock(plan.Name.ValueString())
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Create operator and attach prior state for route merge logic
+	operator := dr.Operations.NewOperator(ctx, &resp.Diagnostics, plan)
+	if dro, ok := operator.(*DomainResourceOperator); ok {
+		dro.PriorState = &priorState
+	}
+
+	// Build and send the update request
+	apiReq := operator.NewAPIRequest(true)
+	apiResp, _, err := operator.InvokeUpdate(apiReq)
+	if err != nil {
+		resp.Diagnostics.AddError("API error", err.Error())
+		return
+	}
+
+	// Map API response to state
+	newState := operator.MapResponseToState(apiResp, true)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &newState)...)
 }
 
 // Delete removes the resource.
@@ -411,6 +575,7 @@ func (dr *DomainResource) CertificateSchema(description string) schema.NestedBlo
 // DomainResourceOperator is the operator for managing the state.
 type DomainResourceOperator struct {
 	EntityOperator[DomainResourceModel]
+	PriorState *DomainResourceModel
 }
 
 // NewAPIRequest creates a request payload from a state model.
@@ -437,43 +602,8 @@ func (dro *DomainResourceOperator) NewAPIRequest(isUpdate bool) client.Domain {
 			return requestPayload
 		}
 
-		// Inspect the routes of the domain ports only if ports is set
-		if spec != nil && spec.Ports != nil && domain.Spec != nil && domain.Spec.Ports != nil {
-			// Initialize a map to hold copies of routes keyed by port number
-			routeMap := make(map[int][]client.DomainRoute, len(*domain.Spec.Ports))
-
-			// Iterate over each port in the domain spec
-			for _, port := range *domain.Spec.Ports {
-				// Skip ports without any routes or without port number
-				if port.Number == nil || port.Routes == nil || len(*port.Routes) == 0 {
-					continue
-				}
-
-				// Dereference the Routes pointer to get original slice
-				source := *port.Routes
-
-				// Create a new slice to hold deep-copied routes
-				destination := make([]client.DomainRoute, len(source))
-
-				// Copy routes to avoid aliasing original slice
-				copy(destination, source)
-
-				// Store the copied routes in the map under the port number
-				routeMap[*port.Number] = destination
-			}
-
-			// Iterate over ports in the new spec
-			for i := range *spec.Ports {
-				// Get pointer to the current port in the new spec
-				up := &(*spec.Ports)[i]
-
-				// Set routes to this port if routes exist in the map for this port number
-				if routes, ok := routeMap[*up.Number]; ok {
-					// Assign the copied routes back to the updated port
-					up.Routes = &routes
-				}
-			}
-		}
+		// Merge routes from the API with the plan's inline routes
+		dro.mergeRoutes(spec, domain)
 	} else {
 		requestPayload.Spec = spec
 	}
@@ -569,6 +699,7 @@ func (dro *DomainResourceOperator) buildSpecPorts(state types.List) *[]client.Do
 			Protocol: BuildString(block.Protocol),
 			Cors:     dro.buildSpecPortCors(block.Cors),
 			TLS:      dro.buildSpecPortTls(block.TLS),
+			Routes:   dro.buildSpecPortRoutes(block.Route),
 		}
 
 		// Add the item to the result slice
@@ -673,6 +804,50 @@ func (dro *DomainResourceOperator) buildSpecPortTlsCertificate(state types.List)
 	}
 }
 
+// buildSpecPortRoutes constructs a []client.DomainRoute slice from the given Terraform state.
+func (dro *DomainResourceOperator) buildSpecPortRoutes(state types.List) *[]client.DomainRoute {
+	// Return nil if no inline routes are defined.
+	// For ListNestedBlock, Terraform sets the value to an empty list (not null) when no blocks
+	// are specified. We treat both null and empty as "no inline routes" so that the route
+	// preservation logic in NewAPIRequest correctly preserves externally-managed routes.
+	if state.IsNull() || state.IsUnknown() || len(state.Elements()) == 0 {
+		return nil
+	}
+
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Declare the result slice
+	result := []client.DomainRoute{}
+
+	// Iterate over each block and construct a result item
+	for _, block := range blocks {
+		// Construct the route
+		route := client.DomainRoute{
+			Prefix:        BuildString(block.Prefix),
+			ReplacePrefix: BuildString(block.ReplacePrefix),
+			Regex:         BuildString(block.Regex),
+			WorkloadLink:  BuildString(block.WorkloadLink),
+			Port:          BuildInt(block.Port),
+			HostPrefix:    BuildString(block.HostPrefix),
+			HostRegex:     BuildString(block.HostRegex),
+			Headers:       BuildRouteHeaders(dro.Ctx, dro.Diags, block.Headers),
+			Replica:       BuildInt(block.Replica),
+		}
+
+		// Add the route to the result slice
+		result = append(result, route)
+	}
+
+	// Return the result
+	return &result
+}
+
 // Flatteners //
 
 // flattenSpec transforms client.DomainSpec into a Terraform types.List.
@@ -712,6 +887,9 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 		return types.ListNull(elementType)
 	}
 
+	// Determine which ports had inline routes in prior state/plan
+	priorPortRoutes := dro.getPlanPortsWithInlineRoutes()
+
 	// Define the blocks slice
 	blocks := []models.SpecPortsModel{}
 
@@ -723,6 +901,20 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 			Protocol: types.StringPointerValue(item.Protocol),
 			Cors:     dro.flattenSpecPortCors(item.Cors),
 			TLS:      dro.flattenSpecPortTls(item.TLS),
+		}
+
+		// Determine port number for route flattening decision
+		portNum := 0
+		if item.Number != nil {
+			portNum = *item.Number
+		}
+
+		// Only include routes in state for ports that had inline routes in prior state.
+		// When inline routes exist, filter to only include the inline routes (not external ones).
+		if priorPortRoutes[portNum] {
+			block.Route = dro.flattenInlineRoutes(portNum, item.Routes)
+		} else {
+			block.Route = types.ListNull(models.RouteModel{}.AttributeTypes())
 		}
 
 		// Append the constructed block to the blocks slice
@@ -829,6 +1021,49 @@ func (dro *DomainResourceOperator) flattenSpecPortTlsCertificate(input *client.D
 
 	// Return the successfully created types.List
 	return FlattenList(dro.Ctx, dro.Diags, []models.SpecPortsTlsCertificateModel{block})
+}
+
+// flattenInlineRoutes filters API routes to only include routes matching the plan's inline routes.
+func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[]client.DomainRoute) types.List {
+	// Build a set of plan inline route keys for this port
+	planKeys := dro.getPlanInlineRouteKeys(portNum)
+
+	// If no plan inline routes, return empty list
+	if len(planKeys) == 0 {
+		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
+	}
+
+	// If no API routes, return empty list
+	if apiRoutes == nil {
+		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
+	}
+
+	// Filter API routes to only include those matching plan inline route keys
+	blocks := []models.RouteModel{}
+	for _, item := range *apiRoutes {
+		if !planKeys[DomainRouteKey(item)] {
+			continue
+		}
+
+		block := models.RouteModel{
+			Prefix:        types.StringPointerValue(item.Prefix),
+			ReplacePrefix: types.StringPointerValue(item.ReplacePrefix),
+			Regex:         types.StringPointerValue(item.Regex),
+			WorkloadLink:  types.StringPointerValue(item.WorkloadLink),
+			Port:          FlattenInt(item.Port),
+			HostPrefix:    types.StringPointerValue(item.HostPrefix),
+			HostRegex:     types.StringPointerValue(item.HostRegex),
+			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
+			Replica:       FlattenInt(item.Replica),
+		}
+		blocks = append(blocks, block)
+	}
+
+	if len(blocks) == 0 {
+		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
+	}
+
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
 }
 
 // flattenStatus transforms client.DomainStatus into a Terraform types.List.
@@ -946,4 +1181,206 @@ func (dro *DomainResourceOperator) flattenStatusDnsConfig(input *[]client.Domain
 
 	// Return the successfully created types.List
 	return FlattenList(dro.Ctx, dro.Diags, blocks)
+}
+
+// Helpers //
+
+// mergeRoutes reconciles inline routes from the plan with existing routes on the API.
+func (dro *DomainResourceOperator) mergeRoutes(spec *client.DomainSpec, domain *client.Domain) {
+	// Nothing to merge if either side has no ports
+	if spec == nil || spec.Ports == nil || domain.Spec == nil || domain.Spec.Ports == nil {
+		return
+	}
+
+	// Build a map of current API routes keyed by port number
+	apiRoutes := dro.buildAPIRouteMap(domain)
+
+	// Reconcile each port in the new spec
+	for i := range *spec.Ports {
+		port := &(*spec.Ports)[i]
+		currentRoutes, hasRoutes := apiRoutes[*port.Number]
+		if !hasRoutes {
+			continue
+		}
+
+		priorKeys := dro.getPriorInlineRouteKeys(*port.Number)
+		externalRoutes := dro.filterExternalRoutes(currentRoutes, priorKeys)
+
+		if port.Routes == nil {
+			// Plan has no inline routes for this port
+			if len(priorKeys) > 0 {
+				// Case 2: Prior had inline routes, plan removed them — keep only external routes
+				if len(externalRoutes) > 0 {
+					port.Routes = &externalRoutes
+				}
+			} else {
+				// Case 1: No inline routes before or now — preserve all API routes
+				port.Routes = &currentRoutes
+			}
+		} else {
+			// Case 3: Plan has inline routes — append external routes alongside them
+			*port.Routes = append(*port.Routes, externalRoutes...)
+		}
+	}
+}
+
+// buildAPIRouteMap returns a deep copy of the API domain routes keyed by port number.
+func (dro *DomainResourceOperator) buildAPIRouteMap(domain *client.Domain) map[int][]client.DomainRoute {
+	result := make(map[int][]client.DomainRoute, len(*domain.Spec.Ports))
+
+	for _, port := range *domain.Spec.Ports {
+		if port.Number == nil || port.Routes == nil || len(*port.Routes) == 0 {
+			continue
+		}
+
+		copied := make([]client.DomainRoute, len(*port.Routes))
+		copy(copied, *port.Routes)
+		result[*port.Number] = copied
+	}
+
+	return result
+}
+
+// filterExternalRoutes returns only the routes that are NOT in the prior inline route keys.
+func (dro *DomainResourceOperator) filterExternalRoutes(routes []client.DomainRoute, priorInlineKeys map[string]bool) []client.DomainRoute {
+	if len(priorInlineKeys) == 0 {
+		// No prior inline routes means all existing routes are external
+		return routes
+	}
+
+	filtered := []client.DomainRoute{}
+	for _, r := range routes {
+		if !priorInlineKeys[DomainRouteKey(r)] {
+			filtered = append(filtered, r)
+		}
+	}
+	return filtered
+}
+
+// getPriorInlineRouteKeys returns the set of route keys from the prior state's inline routes for a given port.
+func (dro *DomainResourceOperator) getPriorInlineRouteKeys(portNum int) map[string]bool {
+	result := make(map[string]bool)
+
+	if dro.PriorState == nil {
+		return result
+	}
+
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.PriorState.Spec)
+	if !ok {
+		return result
+	}
+
+	for _, spec := range specs {
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		for _, port := range ports {
+			pNum := 0
+			if !port.Number.IsNull() && !port.Number.IsUnknown() {
+				pNum = int(port.Number.ValueInt32())
+			}
+			if pNum != portNum {
+				continue
+			}
+
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			for _, route := range routes {
+				key := dro.routeModelKey(route)
+				if key != "" {
+					result[key] = true
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// getPlanPortsWithInlineRoutes determines which ports have inline routes in the current plan.
+func (dro *DomainResourceOperator) getPlanPortsWithInlineRoutes() map[int]bool {
+	result := make(map[int]bool)
+
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+	if !ok {
+		return result
+	}
+
+	for _, spec := range specs {
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		for _, port := range ports {
+			if !port.Route.IsNull() && len(port.Route.Elements()) > 0 {
+				portNum := 0
+				if !port.Number.IsNull() && !port.Number.IsUnknown() {
+					portNum = int(port.Number.ValueInt32())
+				}
+				result[portNum] = true
+			}
+		}
+	}
+
+	return result
+}
+
+// getPlanInlineRouteKeys returns the set of route keys from the plan's inline routes for a given port.
+func (dro *DomainResourceOperator) getPlanInlineRouteKeys(portNum int) map[string]bool {
+	result := make(map[string]bool)
+
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+	if !ok {
+		return result
+	}
+
+	for _, spec := range specs {
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		for _, port := range ports {
+			pNum := 0
+			if !port.Number.IsNull() && !port.Number.IsUnknown() {
+				pNum = int(port.Number.ValueInt32())
+			}
+			if pNum != portNum {
+				continue
+			}
+
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			for _, route := range routes {
+				key := dro.routeModelKey(route)
+				if key != "" {
+					result[key] = true
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// routeModelKey returns a unique key for a RouteModel based on its prefix or regex.
+func (dro *DomainResourceOperator) routeModelKey(route models.RouteModel) string {
+	if !route.Prefix.IsNull() && !route.Prefix.IsUnknown() {
+		return "prefix:" + route.Prefix.ValueString()
+	}
+
+	if !route.Regex.IsNull() && !route.Regex.IsUnknown() {
+		return "regex:" + route.Regex.ValueString()
+	}
+
+	return ""
 }
