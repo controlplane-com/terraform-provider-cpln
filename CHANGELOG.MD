@@ -1,3 +1,7 @@
+## 1.2.23
+
+- Add per-domain mutex, inline routes, 409 retry, and remove domain sleep.
+
 ## 1.2.22
 
 - Add headlamp addon to mk8s resource.
