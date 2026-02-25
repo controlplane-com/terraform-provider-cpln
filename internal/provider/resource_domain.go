@@ -887,8 +887,14 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 		return types.ListNull(elementType)
 	}
 
+	// Detect import case (Plan.Spec is null/unknown since only the id is set in state)
+	isImport := dro.Plan.Spec.IsNull() || dro.Plan.Spec.IsUnknown()
+
 	// Determine which ports had inline routes in prior state/plan
-	priorPortRoutes := dro.getPlanPortsWithInlineRoutes()
+	var priorPortRoutes map[int]bool
+	if !isImport {
+		priorPortRoutes = dro.getPlanPortsWithInlineRoutes()
+	}
 
 	// Define the blocks slice
 	blocks := []models.SpecPortsModel{}
@@ -903,15 +909,14 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 			TLS:      dro.flattenSpecPortTls(item.TLS),
 		}
 
-		// Determine port number for route flattening decision
 		portNum := 0
 		if item.Number != nil {
 			portNum = *item.Number
 		}
 
-		// Only include routes in state for ports that had inline routes in prior state.
-		// When inline routes exist, filter to only include the inline routes (not external ones).
-		if priorPortRoutes[portNum] {
+		if isImport {
+			block.Route = dro.flattenRoutes(item.Routes)
+		} else if priorPortRoutes[portNum] {
 			block.Route = dro.flattenInlineRoutes(portNum, item.Routes)
 		} else {
 			block.Route = types.ListNull(models.RouteModel{}.AttributeTypes())
@@ -1063,6 +1068,39 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
 	}
 
+	return FlattenList(dro.Ctx, dro.Diags, blocks)
+}
+
+// flattenRoutes transforms []client.DomainRoute into a Terraform types.List.
+func (dro *DomainResourceOperator) flattenRoutes(input *[]client.DomainRoute) types.List {
+	// Check if the input is nil or empty
+	if input == nil || len(*input) == 0 {
+		return types.ListNull(models.RouteModel{}.AttributeTypes())
+	}
+
+	// Define the blocks slice
+	blocks := []models.RouteModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.RouteModel{
+			Prefix:        types.StringPointerValue(item.Prefix),
+			ReplacePrefix: types.StringPointerValue(item.ReplacePrefix),
+			Regex:         types.StringPointerValue(item.Regex),
+			WorkloadLink:  types.StringPointerValue(item.WorkloadLink),
+			Port:          FlattenInt(item.Port),
+			HostPrefix:    types.StringPointerValue(item.HostPrefix),
+			HostRegex:     types.StringPointerValue(item.HostRegex),
+			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
+			Replica:       FlattenInt(item.Replica),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
 	return FlattenList(dro.Ctx, dro.Diags, blocks)
 }
 
