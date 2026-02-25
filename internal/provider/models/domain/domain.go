@@ -40,6 +40,7 @@ type SpecPortsModel struct {
 	Protocol types.String `tfsdk:"protocol"`
 	Cors     types.List   `tfsdk:"cors"`
 	TLS      types.List   `tfsdk:"tls"`
+	Route    types.List   `tfsdk:"route"`
 }
 
 func (s SpecPortsModel) AttributeTypes() attr.Type {
@@ -49,6 +50,7 @@ func (s SpecPortsModel) AttributeTypes() attr.Type {
 			"protocol": types.StringType,
 			"cors":     types.ListType{ElemType: SpecPortsCorsModel{}.AttributeTypes()},
 			"tls":      types.ListType{ElemType: SpecPortsTlsModel{}.AttributeTypes()},
+			"route":    types.ListType{ElemType: RouteModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -229,6 +231,36 @@ func (r RouteHeadersRequestModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"set": types.MapType{ElemType: types.StringType},
+		},
+	}
+}
+
+// Route //
+
+type RouteModel struct {
+	Prefix        types.String `tfsdk:"prefix"`
+	ReplacePrefix types.String `tfsdk:"replace_prefix"`
+	Regex         types.String `tfsdk:"regex"`
+	WorkloadLink  types.String `tfsdk:"workload_link"`
+	Port          types.Int32  `tfsdk:"port"`
+	HostPrefix    types.String `tfsdk:"host_prefix"`
+	HostRegex     types.String `tfsdk:"host_regex"`
+	Headers       types.List   `tfsdk:"headers"`
+	Replica       types.Int32  `tfsdk:"replica"`
+}
+
+func (r RouteModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"prefix":         types.StringType,
+			"replace_prefix": types.StringType,
+			"regex":          types.StringType,
+			"workload_link":  types.StringType,
+			"port":           types.Int32Type,
+			"host_prefix":    types.StringType,
+			"host_regex":     types.StringType,
+			"headers":        types.ListType{ElemType: RouteHeadersModel{}.AttributeTypes()},
+			"replica":        types.Int32Type,
 		},
 	}
 }

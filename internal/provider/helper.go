@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -56,6 +57,25 @@ func GetSelfLink(orgName string, kind string, name string) string {
 // GetSelfLinkWithGvc construct the self link of the specified resource.
 func GetSelfLinkWithGvc(orgName string, kind string, gvc string, name string) string {
 	return fmt.Sprintf("/org/%s/gvc/%s/%s/%s", orgName, gvc, kind, name)
+}
+
+// GetDomainLock returns a per-domain mutex for serializing route operations.
+func GetDomainLock(domainName string) *sync.Mutex {
+	mu, _ := domainOperationLocks.LoadOrStore(domainName, &sync.Mutex{})
+	return mu.(*sync.Mutex)
+}
+
+// DomainRouteKey returns a unique key for a DomainRoute based on its prefix or regex.
+func DomainRouteKey(route client.DomainRoute) string {
+	if route.Prefix != nil {
+		return "prefix:" + *route.Prefix
+	}
+
+	if route.Regex != nil {
+		return "regex:" + *route.Regex
+	}
+
+	return ""
 }
 
 // StringPointerFromInterface converts an interface{} to a *string.

@@ -2626,6 +2626,17 @@ func (wrt *WorkloadResourceTest) BuildStatefulUpdate1TestStep(initialCase Provid
 							"scale_to_zero_delay": "400",
 							"keda": []map[string]interface{}{
 								{
+									"trigger": []map[string]interface{}{
+										{
+											"type":        "cpu",
+											"name":        "cpu-trigger-01",
+											"metric_type": "Utilization",
+											"metadata": map[string]interface{}{
+												"type":  "Utilization",
+												"value": "50",
+											},
+										},
+									},
 									"advanced": []map[string]interface{}{
 										{
 											"scaling_modifiers": []map[string]interface{}{{}},
@@ -4861,6 +4872,17 @@ resource "cpln_workload" "%s" {
       scale_to_zero_delay = 400
 
       keda {
+        trigger {
+          type        = "cpu"
+          name        = "cpu-trigger-01"
+          metric_type = "Utilization"
+
+          metadata = {
+            type  = "Utilization"
+            value = "50"
+          }
+        }
+
         advanced {
           scaling_modifiers {}
         }

@@ -69,6 +69,7 @@ Optional:
 - **number** (Number) Port to expose externally. Values: `80`, `443`. Default: `443`.
 - **protocol** (String) Allowed protocol. Valid values: `http`, `http2`, `tcp`. Default: `http2`.
 - **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
+- **route** (Block List) ([see below](#nestedblock--spec--ports--route))
 
 <a id="nestedblock--spec--ports--cors"></a>
 
@@ -91,6 +92,29 @@ Optional:
 
 - **exact** (String) Value of allowed origin.
 - **regex** (String)
+
+<a id="nestedblock--spec--ports--route"></a>
+
+### `spec.ports.route`
+
+Optional inline routes for this port. Inline routes can coexist with separate `cpln_domain_route` resources on the same domain and port — each route must have a unique `prefix` or `regex` across both inline and external definitions.
+
+~> **Note** Only one of `prefix` OR `regex` may be provided per route. Only one of `host_prefix` OR `host_regex` may be provided per route.
+
+Required:
+
+- **workload_link** (String) The link of the workload to map the route to.
+
+Optional:
+
+- **prefix** (String) The path will match any unmatched path prefixes for the subdomain.
+- **replace_prefix** (String) A path prefix can be configured to be replaced when forwarding the request to the Workload.
+- **regex** (String) Used to match URI paths. Uses the google re2 regex syntax.
+- **port** (Number) For the linked workload, the port to route traffic to.
+- **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads.
+- **host_regex** (String) A regex to match the host header.
+- **headers** (Block List, Max: 1) Modify the headers for all http requests for this route. Same structure as `cpln_domain_route` headers.
+- **replica** (Number) The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.
 
 <a id="nestedblock--spec--ports--tls"></a>
 
@@ -236,6 +260,81 @@ resource "cpln_domain" "example_ns_subdomain" {
         server_certificate {
           secret_link = "LINK_TO_TLS_CERTIFICATE"
         }
+      }
+    }
+  }
+}
+```
+
+## Example Usage - Inline Routes
+
+```terraform
+resource "cpln_domain" "domain_apex" {
+  name        = "example.com"
+  description = "APEX domain example"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    ports {
+      tls { }
+    }
+  }
+}
+
+resource "cpln_domain" "example_with_routes" {
+
+  depends_on  = [cpln_domain.domain_apex]
+
+  name        = "app.example.com"
+  description = "Domain with inline routes"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode = "ns"
+
+    ports {
+      number   = 443
+      protocol = "http2"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+
+      route {
+        prefix        = "/api"
+        workload_link = "LINK_TO_API_WORKLOAD"
+        port          = 8080
+      }
+
+      route {
+        prefix         = "/app"
+        replace_prefix = "/"
+        workload_link  = "LINK_TO_APP_WORKLOAD"
+        port           = 3000
+
+        headers {
+          request {
+            set = {
+              "X-Forwarded-Proto" = "https"
+            }
+          }
+        }
+      }
+
+      route {
+        regex         = "/user/.*/profile"
+        workload_link = "LINK_TO_PROFILE_WORKLOAD"
+        port          = 80
       }
     }
   }
