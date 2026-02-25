@@ -133,6 +133,13 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 	caseUpdate4 := drt.BuildUpdate4TestStep(initialConfig.ProviderTestCase)
 	caseUpdate5 := drt.BuildUpdate5TestStep(initialConfig.ProviderTestCase)
 
+	// Build a revert step that uses hclBase() to keep GVC/workload alive for the coexistence scenario,
+	// while still reverting the domain to its minimal config (hclBase includes the same minimal domain).
+	revertStep := resource.TestStep{
+		Config: drt.hclBase(),
+		Check:  initialStep.Check,
+	}
+
 	// Return the complete test steps
 	return []resource.TestStep{
 		// Create & Read
@@ -171,8 +178,8 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 		caseUpdate4,
 		// Inline Routes: Update & Read
 		caseUpdate5,
-		// Revert the resource to its initial state
-		initialStep,
+		// Revert the domain to its initial state (keep GVC/workload for coexistence scenario)
+		revertStep,
 	}
 }
 
