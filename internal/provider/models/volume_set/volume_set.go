@@ -68,9 +68,21 @@ type SnapshotsModel struct {
 // Autoscaling //
 
 type AutoscalingModel struct {
-	MaxCapacity       types.Int32   `tfsdk:"max_capacity"`
-	MinFreePercentage types.Int32   `tfsdk:"min_free_percentage"`
-	ScalingFactor     types.Float64 `tfsdk:"scaling_factor"`
+	MaxCapacity       types.Int32              `tfsdk:"max_capacity"`
+	MinFreePercentage types.Int32              `tfsdk:"min_free_percentage"`
+	ScalingFactor     types.Float64            `tfsdk:"scaling_factor"`
+	Predictive        []PredictiveScalingModel `tfsdk:"predictive"`
+}
+
+// Autoscaling -> Predictive //
+
+type PredictiveScalingModel struct {
+	Enabled              types.Bool    `tfsdk:"enabled"`
+	LookbackHours        types.Float64 `tfsdk:"lookback_hours"`
+	ProjectionHours      types.Float64 `tfsdk:"projection_hours"`
+	MinDataPoints        types.Int32   `tfsdk:"min_data_points"`
+	MinGrowthRateGBPerHr types.Float64 `tfsdk:"min_growth_rate_gb_per_hour"`
+	ScalingFactor        types.Float64 `tfsdk:"scaling_factor"`
 }
 
 // Mount Options //

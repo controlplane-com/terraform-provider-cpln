@@ -18,6 +18,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -266,6 +268,67 @@ func (vsr *VolumeSetResource) Schema(ctx context.Context, req resource.SchemaReq
 							Optional:    true,
 							Validators: []validator.Float64{
 								float64validator.AtLeast(1.1),
+							},
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"predictive": schema.ListNestedBlock{
+							Description: "Predictive scaling configuration. When enabled, proactively expands volumes based on historical growth rate projections.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"enabled": schema.BoolAttribute{
+										Description: "Enable predictive scaling based on historical growth rates. Default: `false`.",
+										Optional:    true,
+										Computed:    true,
+										Default:     booldefault.StaticBool(false),
+									},
+									"lookback_hours": schema.Float64Attribute{
+										Description: "Hours of historical data to analyze. Default: `24`. Max: `168` (1 week).",
+										Optional:    true,
+										Computed:    true,
+										Default:     float64default.StaticFloat64(24),
+										Validators: []validator.Float64{
+											float64validator.Between(1, 168),
+										},
+									},
+									"projection_hours": schema.Float64Attribute{
+										Description: "Hours into the future to project storage needs. Default: `6`.",
+										Optional:    true,
+										Computed:    true,
+										Default:     float64default.StaticFloat64(6),
+										Validators: []validator.Float64{
+											float64validator.Between(1, 72),
+										},
+									},
+									"min_data_points": schema.Int32Attribute{
+										Description: "Minimum data points required for reliable growth rate calculation. Default: `10`.",
+										Optional:    true,
+										Computed:    true,
+										Default:     int32default.StaticInt32(10),
+										Validators: []validator.Int32{
+											int32validator.Between(2, 100),
+										},
+									},
+									"min_growth_rate_gb_per_hour": schema.Float64Attribute{
+										Description: "Minimum growth rate (GB/hour) to trigger predictive expansion. Default: `0.01`.",
+										Optional:    true,
+										Computed:    true,
+										Default:     float64default.StaticFloat64(0.01),
+										Validators: []validator.Float64{
+											float64validator.AtLeast(0),
+										},
+									},
+									"scaling_factor": schema.Float64Attribute{
+										Description: "Scaling factor for predictive expansion. If not set, uses the parent autoscaling scaling_factor. Use a lower value (e.g., `1.2`) for gentler proactive scaling.",
+										Optional:    true,
+										Validators: []validator.Float64{
+											float64validator.AtLeast(1.1),
+										},
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtMost(1),
 							},
 						},
 					},
@@ -575,6 +638,28 @@ func (vsro *VolumeSetResourceOperator) buildAutoscaling(state []models.Autoscali
 		MaxCapacity:       BuildInt(block.MaxCapacity),
 		MinFreePercentage: BuildInt(block.MinFreePercentage),
 		ScalingFactor:     BuildFloat64(block.ScalingFactor),
+		Predictive:        vsro.buildPredictiveScaling(block.Predictive),
+	}
+}
+
+// buildPredictiveScaling constructs a VolumeSetPredictiveScaling from the given Terraform state.
+func (vsro *VolumeSetResourceOperator) buildPredictiveScaling(state []models.PredictiveScalingModel) *client.VolumeSetPredictiveScaling {
+	// Return nil if state is not specified
+	if len(state) == 0 {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := state[0]
+
+	// Construct and return the output
+	return &client.VolumeSetPredictiveScaling{
+		Enabled:              BuildBool(block.Enabled),
+		LookbackHours:        BuildFloat64(block.LookbackHours),
+		ProjectionHours:      BuildFloat64(block.ProjectionHours),
+		MinDataPoints:        BuildInt(block.MinDataPoints),
+		MinGrowthRateGBPerHr: BuildFloat64(block.MinGrowthRateGBPerHr),
+		ScalingFactor:        BuildFloat64(block.ScalingFactor),
 	}
 }
 
@@ -760,10 +845,32 @@ func (vsro *VolumeSetResourceOperator) flattenAutoscaling(input *client.VolumeSe
 		MaxCapacity:       FlattenInt(input.MaxCapacity),
 		MinFreePercentage: FlattenInt(input.MinFreePercentage),
 		ScalingFactor:     FlattenFloat64(input.ScalingFactor),
+		Predictive:        vsro.flattenPredictiveScaling(input.Predictive),
 	}
 
 	// Return a slice containing the single block
 	return []models.AutoscalingModel{block}
+}
+
+// flattenPredictiveScaling transforms *client.VolumeSetPredictiveScaling into a []models.PredictiveScalingModel.
+func (vsro *VolumeSetResourceOperator) flattenPredictiveScaling(input *client.VolumeSetPredictiveScaling) []models.PredictiveScalingModel {
+	// Check if the input is nil
+	if input == nil {
+		return nil
+	}
+
+	// Build a single block
+	block := models.PredictiveScalingModel{
+		Enabled:              types.BoolPointerValue(input.Enabled),
+		LookbackHours:        FlattenFloat64(input.LookbackHours),
+		ProjectionHours:      FlattenFloat64(input.ProjectionHours),
+		MinDataPoints:        FlattenInt(input.MinDataPoints),
+		MinGrowthRateGBPerHr: FlattenFloat64(input.MinGrowthRateGBPerHr),
+		ScalingFactor:        FlattenFloat64(input.ScalingFactor),
+	}
+
+	// Return a slice containing the single block
+	return []models.PredictiveScalingModel{block}
 }
 
 // flattenMountOptions transforms *client.VolumeSetMountOptions into a []models.MountOptionsResourcesModel.
