@@ -61,6 +61,10 @@ Required:
 - **min_free_percentage** (Integer) The guaranteed free space on the volume as a percentage of the volume's total size. Control Plane will try to maintain at least that many percent free by scaling up the total size. Minimum percentage: `1`. Maximum Percentage: `100`.
 - **scaling_factor** (Float64) When scaling is necessary, then `new_capacity = current_capacity * storageScalingFactor`. Minimum value: `1.1`.
 
+Optional:
+
+- **predictive** (Block List, Max: 1) ([see below](#nestedblock--autoscaling--predictive)).
+
 <a id="nestedblock--mount_options"></a>
 
 ### `mount_options`
@@ -71,6 +75,21 @@ Optionals:
 - **min_cpu** (String) Default: 500m
 - **min_memory** (String) Default: 1Gi
 - **max_memory** (String) Default: 2Gi
+
+<a id="nestedblock--autoscaling--predictive"></a>
+
+### `autoscaling.predictive`
+
+Predictive scaling configuration. When enabled, proactively expands volumes based on historical growth rate projections.
+
+Optional:
+
+- **enabled** (Boolean) Enable predictive scaling based on historical growth rates. Default: `false`.
+- **lookback_hours** (Float64) Hours of historical data to analyze. Default: `24`. Max: `168` (1 week).
+- **projection_hours** (Float64) Hours into the future to project storage needs. Default: `6`.
+- **min_data_points** (Integer) Minimum data points required for reliable growth rate calculation. Default: `10`.
+- **min_growth_rate_gb_per_hour** (Float64) Minimum growth rate (GB/hour) to trigger predictive expansion. Default: `0.01`.
+- **scaling_factor** (Float64) Scaling factor for predictive expansion. If not set, uses the parent autoscaling scaling_factor. Use a lower value (e.g., `1.2`) for gentler proactive scaling. Minimum value: `1.1`.
 
 ## Outputs
 
@@ -141,6 +160,15 @@ resource "cpln_volume_set" "new" {
     max_capacity        = 2048
     min_free_percentage = 2
     scaling_factor      = 2.2
+
+    predictive {
+      enabled                      = true
+      lookback_hours               = 48
+      projection_hours             = 12
+      min_data_points              = 20
+      min_growth_rate_gb_per_hour  = 0.05
+      scaling_factor               = 1.2
+    }
   }
 
   mount_options {

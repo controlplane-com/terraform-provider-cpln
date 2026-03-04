@@ -136,7 +136,8 @@ func (vsrt *VolumeSetResourceTest) NewDefaultScenario(fileSystemType string, per
 	initialConfig, initialStep := vsrt.BuildInitialTestStep(name, gvcConfig, gvcCase, fileSystemType, performanceClass)
 	caseUpdate1 := vsrt.BuildUpdate1TestStep(initialConfig.ProviderTestCase, gvcConfig, gvcCase, fileSystemType, performanceClass)
 	caseUpdate2 := vsrt.BuildUpdate2TestStep(initialConfig.ProviderTestCase, gvcConfig, gvcCase, fileSystemType, performanceClass)
-	// caseUpdate3 := vsrt.BuildUpdate3TestStep(initialConfig.ResourceTestCase, gvcConfig, gvcCase)
+	caseUpdate3 := vsrt.BuildUpdate3TestStep(initialConfig.ProviderTestCase, gvcConfig, gvcCase, fileSystemType, performanceClass)
+	caseUpdate4 := vsrt.BuildUpdate4TestStep(initialConfig.ProviderTestCase, gvcConfig, gvcCase, fileSystemType, performanceClass)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -151,7 +152,8 @@ func (vsrt *VolumeSetResourceTest) NewDefaultScenario(fileSystemType string, per
 		// Update & Read
 		caseUpdate1,
 		caseUpdate2,
-		// caseUpdate3,
+		caseUpdate3,
+		caseUpdate4,
 		// Revert the resource to its initial state
 		initialStep,
 	}
@@ -196,6 +198,9 @@ func (vsrt *VolumeSetResourceTest) BuildInitialTestStep(name string, gvcConfig s
 			resource.TestCheckResourceAttr(c.ResourceAddress, "file_system_type", c.FileSystemType),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "volumeset_link", fmt.Sprintf("cpln://volumeset/%s", c.Name)),
 			resource.TestCheckNoResourceAttr(c.ResourceAddress, "custom_encryption.#"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "autoscaling.#", "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "snapshots.#", "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "mount_options.#", "0"),
 		),
 	}
 }
@@ -220,7 +225,8 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTest
 
 	// Initialize and return the inital test step
 	return resource.TestStep{
-		Config: vsrt.HclWithMinimalOptionals(c),
+		Config:             vsrt.HclWithMinimalOptionals(c),
+		ExpectNonEmptyPlan: true, // Status attribute noise (Terraform Core limitation)
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.Exists(),
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
@@ -236,7 +242,17 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTest
 				},
 			}),
 			c.TestCheckNestedBlocks("autoscaling", []map[string]interface{}{
-				{},
+				{
+					"predictive": []map[string]interface{}{
+						{
+							"enabled":                     "false",
+							"lookback_hours":              "24",
+							"projection_hours":            "6",
+							"min_data_points":             "10",
+							"min_growth_rate_gb_per_hour": "0.01",
+						},
+					},
+				},
 			}),
 			c.TestCheckNestedBlocks("mount_options", []map[string]interface{}{
 				{},
@@ -292,6 +308,164 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate2TestStep(initialCase ProviderTest
 					"max_capacity":        "2000",
 					"min_free_percentage": "2",
 					"scaling_factor":      "2.2",
+					"predictive": []map[string]interface{}{
+						{
+							"enabled":                      "true",
+							"lookback_hours":               "48",
+							"projection_hours":             "12",
+							"min_data_points":              "20",
+							"min_growth_rate_gb_per_hour":  "0.05",
+							"scaling_factor":               "1.2",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("mount_options", []map[string]interface{}{
+				{
+					"resources": []map[string]interface{}{
+						{
+							"max_cpu":    "2000m",
+							"min_cpu":    "500m",
+							"min_memory": "1Gi",
+							"max_memory": "2Gi",
+						},
+					},
+				},
+			}),
+			c.TestCheckMapObjectAttr("custom_encryption.0.regions", map[string]interface{}{
+				"aws-us-west-2": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-west-2:123456789012:key/minimal",
+				},
+				"aws-us-east-1": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-east-1:123456789012:key/extended",
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate3TestStep returns a test step with autoscaling values but NO predictive block, testing predictive removal.
+func (vsrt *VolumeSetResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase, gvcConfig string, gvcCase GvcResourceTestCase, fileSystemType string, performanceClass string) resource.TestStep {
+	initialCapacity := "20"
+
+	if performanceClass == "high-throughput-ssd" {
+		initialCapacity = "2000"
+	}
+
+	// Create the test case with metadata and descriptions
+	c := VolumeSetResourceTestCase{
+		ProviderTestCase: initialCase,
+		GvcConfig:        gvcConfig,
+		GvcCase:          gvcCase,
+		InitialCapacity:  initialCapacity,
+		PerformanceClass: performanceClass,
+		FileSystemType:   fileSystemType,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: vsrt.HclAutoscalingWithoutPredictive(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", gvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "initial_capacity", c.InitialCapacity),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "performance_class", c.PerformanceClass),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "file_system_type", c.FileSystemType),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "storage_class_suffix", "demo-class"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "volumeset_link", fmt.Sprintf("cpln://volumeset/%s", c.Name)),
+			c.TestCheckNestedBlocks("snapshots", []map[string]interface{}{
+				{
+					"create_final_snapshot": "false",
+					"retention_duration":    "2d",
+					"schedule":              "0 * * * *",
+				},
+			}),
+			c.TestCheckNestedBlocks("autoscaling", []map[string]interface{}{
+				{
+					"max_capacity":        "2000",
+					"min_free_percentage": "2",
+					"scaling_factor":      "2.2",
+				},
+			}),
+			// Verify predictive block was removed
+			resource.TestCheckResourceAttr(c.ResourceAddress, "autoscaling.0.predictive.#", "0"),
+			c.TestCheckNestedBlocks("mount_options", []map[string]interface{}{
+				{
+					"resources": []map[string]interface{}{
+						{
+							"max_cpu":    "2000m",
+							"min_cpu":    "500m",
+							"min_memory": "1Gi",
+							"max_memory": "2Gi",
+						},
+					},
+				},
+			}),
+			c.TestCheckMapObjectAttr("custom_encryption.0.regions", map[string]interface{}{
+				"aws-us-west-2": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-west-2:123456789012:key/minimal",
+				},
+				"aws-us-east-1": map[string]interface{}{
+					"key_id": "arn:aws:kms:us-east-1:123456789012:key/extended",
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate4TestStep returns a test step that re-adds predictive with different values, testing predictive re-addition and in-place update.
+func (vsrt *VolumeSetResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase, gvcConfig string, gvcCase GvcResourceTestCase, fileSystemType string, performanceClass string) resource.TestStep {
+	initialCapacity := "20"
+
+	if performanceClass == "high-throughput-ssd" {
+		initialCapacity = "2000"
+	}
+
+	// Create the test case with metadata and descriptions
+	c := VolumeSetResourceTestCase{
+		ProviderTestCase: initialCase,
+		GvcConfig:        gvcConfig,
+		GvcCase:          gvcCase,
+		InitialCapacity:  initialCapacity,
+		PerformanceClass: performanceClass,
+		FileSystemType:   fileSystemType,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: vsrt.HclAutoscalingWithDifferentPredictive(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", gvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "initial_capacity", c.InitialCapacity),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "performance_class", c.PerformanceClass),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "file_system_type", c.FileSystemType),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "storage_class_suffix", "demo-class"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "volumeset_link", fmt.Sprintf("cpln://volumeset/%s", c.Name)),
+			c.TestCheckNestedBlocks("snapshots", []map[string]interface{}{
+				{
+					"create_final_snapshot": "false",
+					"retention_duration":    "2d",
+					"schedule":              "0 * * * *",
+				},
+			}),
+			c.TestCheckNestedBlocks("autoscaling", []map[string]interface{}{
+				{
+					"max_capacity":        "2000",
+					"min_free_percentage": "5",
+					"scaling_factor":      "1.5",
+					"predictive": []map[string]interface{}{
+						{
+							"enabled":                     "true",
+							"lookback_hours":              "72",
+							"projection_hours":            "24",
+							"min_data_points":             "15",
+							"min_growth_rate_gb_per_hour": "0.1",
+							"scaling_factor":              "1.3",
+						},
+					},
 				},
 			}),
 			c.TestCheckNestedBlocks("mount_options", []map[string]interface{}{
@@ -373,7 +547,11 @@ resource "cpln_volume_set" "%s" {
   storage_class_suffix = "demo-class"
 
   snapshots {}
-  autoscaling {}
+
+  autoscaling {
+    predictive {}
+  }
+
   mount_options {}
 }
 `, c.GvcConfig, c.ResourceName, c.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, c.GvcCase.Name, c.InitialCapacity,
@@ -427,6 +605,138 @@ resource "cpln_volume_set" "%s" {
     max_capacity        = 2000
     min_free_percentage = 2
     scaling_factor      = 2.2
+
+    predictive {
+      enabled                    = true
+      lookback_hours             = 48
+      projection_hours           = 12
+      min_data_points            = 20
+      min_growth_rate_gb_per_hour = 0.05
+      scaling_factor             = 1.2
+    }
+  }
+
+  mount_options {
+    resources {}
+  }
+}
+`, c.GvcConfig, c.ResourceName, c.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, c.GvcCase.Name, c.InitialCapacity,
+		c.PerformanceClass, c.FileSystemType,
+	)
+}
+
+// HclAutoscalingWithoutPredictive returns HCL for volume set with full autoscaling but no predictive block.
+func (vsrt *VolumeSetResourceTest) HclAutoscalingWithoutPredictive(c VolumeSetResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = "%s"
+  initial_capacity     = %s
+  performance_class    = "%s"
+  file_system_type     = "%s"
+
+	custom_encryption {
+		regions = {
+			aws-us-west-2 = {
+				key_id = "arn:aws:kms:us-west-2:123456789012:key/minimal"
+			}
+
+			"aws-us-east-1" = {
+				key_id = "arn:aws:kms:us-east-1:123456789012:key/extended"
+			}
+		}
+	}
+
+  storage_class_suffix = "demo-class"
+
+  snapshots {
+    create_final_snapshot = false
+    retention_duration    = "2d"
+    schedule              = "0 * * * *"
+  }
+
+  autoscaling {
+    max_capacity        = 2000
+    min_free_percentage = 2
+    scaling_factor      = 2.2
+  }
+
+  mount_options {
+    resources {}
+  }
+}
+`, c.GvcConfig, c.ResourceName, c.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, c.GvcCase.Name, c.InitialCapacity,
+		c.PerformanceClass, c.FileSystemType,
+	)
+}
+
+// HclAutoscalingWithDifferentPredictive returns HCL for volume set with autoscaling and predictive using different values than Update2.
+func (vsrt *VolumeSetResourceTest) HclAutoscalingWithDifferentPredictive(c VolumeSetResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = "%s"
+  initial_capacity     = %s
+  performance_class    = "%s"
+  file_system_type     = "%s"
+
+	custom_encryption {
+		regions = {
+			aws-us-west-2 = {
+				key_id = "arn:aws:kms:us-west-2:123456789012:key/minimal"
+			}
+
+			"aws-us-east-1" = {
+				key_id = "arn:aws:kms:us-east-1:123456789012:key/extended"
+			}
+		}
+	}
+
+  storage_class_suffix = "demo-class"
+
+  snapshots {
+    create_final_snapshot = false
+    retention_duration    = "2d"
+    schedule              = "0 * * * *"
+  }
+
+  autoscaling {
+    max_capacity        = 2000
+    min_free_percentage = 5
+    scaling_factor      = 1.5
+
+    predictive {
+      enabled                    = true
+      lookback_hours             = 72
+      projection_hours           = 24
+      min_data_points            = 15
+      min_growth_rate_gb_per_hour = 0.1
+      scaling_factor             = 1.3
+    }
   }
 
   mount_options {

@@ -43,9 +43,19 @@ type VolumeSetSnapshots struct {
 }
 
 type VolumeSetScaling struct {
-	MaxCapacity       *int     `json:"maxCapacity,omitempty"`
-	MinFreePercentage *int     `json:"minFreePercentage,omitempty"`
-	ScalingFactor     *float64 `json:"scalingFactor,omitempty"`
+	MaxCapacity       *int                        `json:"maxCapacity,omitempty"`
+	MinFreePercentage *int                        `json:"minFreePercentage,omitempty"`
+	ScalingFactor     *float64                    `json:"scalingFactor,omitempty"`
+	Predictive        *VolumeSetPredictiveScaling `json:"predictive,omitempty"`
+}
+
+type VolumeSetPredictiveScaling struct {
+	Enabled              *bool    `json:"enabled,omitempty"`
+	LookbackHours        *float64 `json:"lookbackHours,omitempty"`
+	ProjectionHours      *float64 `json:"projectionHours,omitempty"`
+	MinDataPoints        *int     `json:"minDataPoints,omitempty"`
+	MinGrowthRateGBPerHr *float64 `json:"minGrowthRateGBPerHour,omitempty"`
+	ScalingFactor        *float64 `json:"scalingFactor,omitempty"`
 }
 
 type VolumeSetMountOptions struct {
