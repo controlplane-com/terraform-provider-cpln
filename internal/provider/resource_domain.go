@@ -7,6 +7,7 @@ import (
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
+	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -478,6 +479,24 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 														listvalidator.SizeAtMost(1),
 													},
 												},
+												"mirror": schema.ListNestedBlock{
+													Description: "Mirror the traffic to the specified workload(s). Only works for workloads running in the same location as the primary workload(s).",
+													NestedObject: schema.NestedBlockObject{
+														Attributes: map[string]schema.Attribute{
+															"workload_link": schema.StringAttribute{
+																Description: "The workload to mirror traffic to.",
+																Required:    true,
+															},
+															"percent": schema.Float64Attribute{
+																Description: "The percentage of traffic to mirror to the specified workload.",
+																Required:    true,
+																Validators: []validator.Float64{
+																	float64validator.Between(0, 100),
+																},
+															},
+														},
+													},
+												},
 											},
 										},
 									},
@@ -838,6 +857,7 @@ func (dro *DomainResourceOperator) buildSpecPortRoutes(state types.List) *[]clie
 			HostRegex:     BuildString(block.HostRegex),
 			Headers:       BuildRouteHeaders(dro.Ctx, dro.Diags, block.Headers),
 			Replica:       BuildInt(block.Replica),
+			Mirror:        BuildRouteMirror(dro.Ctx, dro.Diags, block.Mirror),
 		}
 
 		// Add the route to the result slice
@@ -1045,6 +1065,7 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 
 	// Filter API routes to only include those matching plan inline route keys
 	blocks := []models.RouteModel{}
+
 	for _, item := range *apiRoutes {
 		if !planKeys[DomainRouteKey(item)] {
 			continue
@@ -1060,12 +1081,10 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 			HostRegex:     types.StringPointerValue(item.HostRegex),
 			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
 			Replica:       FlattenInt(item.Replica),
+			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, item.Mirror),
 		}
-		blocks = append(blocks, block)
-	}
 
-	if len(blocks) == 0 {
-		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
+		blocks = append(blocks, block)
 	}
 
 	return FlattenList(dro.Ctx, dro.Diags, blocks)
@@ -1094,6 +1113,7 @@ func (dro *DomainResourceOperator) flattenRoutes(input *[]client.DomainRoute) ty
 			HostRegex:     types.StringPointerValue(item.HostRegex),
 			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
 			Replica:       FlattenInt(item.Replica),
+			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, item.Mirror),
 		}
 
 		// Append the constructed block to the blocks slice

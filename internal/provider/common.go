@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
-	domainmodel "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/common"
+	domainmodel "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
 	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/modifiers"
 	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
@@ -958,6 +958,27 @@ func BuildRouteHeadersRequest(ctx context.Context, diags *diag.Diagnostics, stat
 	}
 }
 
+// BuildRouteMirror constructs a []DomainRouteMirror from Terraform state.
+func BuildRouteMirror(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.DomainRouteMirror {
+	blocks, ok := BuildList[domainmodel.RouteMirrorModel](ctx, diags, state)
+	if !ok {
+		return nil
+	}
+
+	// Construct the result slice
+	result := []client.DomainRouteMirror{}
+
+	// Iterate over each block and construct a result item
+	for _, block := range blocks {
+		result = append(result, client.DomainRouteMirror{
+			WorkloadLink: BuildString(block.WorkloadLink),
+			Percent:      BuildFloat64(block.Percent),
+		})
+	}
+
+	return &result
+}
+
 // Flatteners //
 
 // FlattenQuery transforms client.Query into a Terraform types.List.
@@ -1173,6 +1194,30 @@ func FlattenRouteHeadersRequest(ctx context.Context, diags *diag.Diagnostics, re
 	}
 
 	return FlattenList(ctx, diags, []domainmodel.RouteHeadersRequestModel{block})
+}
+
+// FlattenRouteMirror transforms []DomainRouteMirror into a Terraform types.List.
+func FlattenRouteMirror(ctx context.Context, diags *diag.Diagnostics, input *[]client.DomainRouteMirror) types.List {
+	elementType := domainmodel.RouteMirrorModel{}.AttributeTypes()
+
+	if input == nil || len(*input) == 0 {
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	blocks := []domainmodel.RouteMirrorModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		block := domainmodel.RouteMirrorModel{
+			WorkloadLink: types.StringPointerValue(item.WorkloadLink),
+			Percent:      FlattenFloat64(item.Percent),
+		}
+
+		blocks = append(blocks, block)
+	}
+
+	return FlattenList(ctx, diags, blocks)
 }
 
 // Blocks //

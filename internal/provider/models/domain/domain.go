@@ -207,34 +207,6 @@ func (s StatusDnsConfigModel) AttributeTypes() attr.Type {
 
 /*** Domain Route ***/
 
-// Headers //
-
-type RouteHeadersModel struct {
-	Request types.List `tfsdk:"request"`
-}
-
-func (r RouteHeadersModel) AttributeTypes() attr.Type {
-	return types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"request": types.ListType{ElemType: RouteHeadersRequestModel{}.AttributeTypes()},
-		},
-	}
-}
-
-// Headers -> Request //
-
-type RouteHeadersRequestModel struct {
-	Set types.Map `tfsdk:"set"`
-}
-
-func (r RouteHeadersRequestModel) AttributeTypes() attr.Type {
-	return types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"set": types.MapType{ElemType: types.StringType},
-		},
-	}
-}
-
 // Route //
 
 type RouteModel struct {
@@ -247,6 +219,7 @@ type RouteModel struct {
 	HostRegex     types.String `tfsdk:"host_regex"`
 	Headers       types.List   `tfsdk:"headers"`
 	Replica       types.Int32  `tfsdk:"replica"`
+	Mirror        types.List   `tfsdk:"mirror"`
 }
 
 func (r RouteModel) AttributeTypes() attr.Type {
@@ -261,6 +234,51 @@ func (r RouteModel) AttributeTypes() attr.Type {
 			"host_regex":     types.StringType,
 			"headers":        types.ListType{ElemType: RouteHeadersModel{}.AttributeTypes()},
 			"replica":        types.Int32Type,
+			"mirror":         types.ListType{ElemType: RouteMirrorModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Route -> Headers //
+
+type RouteHeadersModel struct {
+	Request types.List `tfsdk:"request"`
+}
+
+func (r RouteHeadersModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"request": types.ListType{ElemType: RouteHeadersRequestModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Route -> Headers -> Request //
+
+type RouteHeadersRequestModel struct {
+	Set types.Map `tfsdk:"set"`
+}
+
+func (r RouteHeadersRequestModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"set": types.MapType{ElemType: types.StringType},
+		},
+	}
+}
+
+// Route -> Mirror //
+
+type RouteMirrorModel struct {
+	WorkloadLink types.String  `tfsdk:"workload_link"`
+	Percent      types.Float64 `tfsdk:"percent"`
+}
+
+func (r RouteMirrorModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"workload_link": types.StringType,
+			"percent":       types.Float64Type,
 		},
 	}
 }

@@ -550,6 +550,16 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 					},
 				},
 			}),
+			domainRoute2.TestCheckNestedBlocks("mirror", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"percent":       "50",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"percent":       "25.5",
+				},
+			}),
 
 			// Third Route
 			domainRoute3.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
@@ -781,6 +791,16 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 					},
 				},
 			}),
+			domainRoute2.TestCheckNestedBlocks("mirror", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"percent":       "50",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"percent":       "25.5",
+				},
+			}),
 		),
 	}
 }
@@ -836,6 +856,16 @@ func (drt *DomainResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase
 									"replace_prefix": "/",
 									"workload_link":  workloadSelfLink,
 									"port":           "8080",
+									"mirror": []map[string]interface{}{
+										{
+											"workload_link": workloadSelfLink,
+											"percent":       "50",
+										},
+										{
+											"workload_link": workloadSelfLink,
+											"percent":       "25.5",
+										},
+									},
 								},
 							},
 							"tls": []map[string]interface{}{
@@ -906,6 +936,12 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 									"prefix":        "/api",
 									"workload_link": workloadSelfLink,
 									"port":          "8080",
+									"mirror": []map[string]interface{}{
+										{
+											"workload_link": workloadSelfLink,
+											"percent":       "75",
+										},
+									},
 								},
 								{
 									"prefix":         "/app",
@@ -921,6 +957,12 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 													},
 												},
 											},
+										},
+									},
+									"mirror": []map[string]interface{}{
+										{
+											"workload_link": workloadSelfLink,
+											"percent":       "30",
 										},
 									},
 								},
@@ -1596,6 +1638,16 @@ resource "cpln_domain_route" "second-route" {
       }
     }
   }
+
+  mirror {
+    workload_link = cpln_workload.new.self_link
+    percent       = 50
+  }
+
+  mirror {
+    workload_link = cpln_workload.new.self_link
+    percent       = 25.5
+  }
 }
 
 resource "cpln_domain_route" "third-route" {
@@ -1845,6 +1897,16 @@ resource "cpln_domain_route" "second-route" {
       }
     }
   }
+
+  mirror {
+    workload_link = cpln_workload.new.self_link
+    percent       = 50
+  }
+
+  mirror {
+    workload_link = cpln_workload.new.self_link
+    percent       = 25.5
+  }
 }
 `, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate,
 		subDomain.GetSelfLinkAttr(),
@@ -2005,6 +2067,16 @@ resource "cpln_domain" "%s" {
         replace_prefix = "/"
         workload_link  = cpln_workload.new.self_link
         port           = 8080
+
+        mirror {
+          workload_link = cpln_workload.new.self_link
+          percent       = 50
+        }
+
+        mirror {
+          workload_link = cpln_workload.new.self_link
+          percent       = 25.5
+        }
       }
     }
   }
@@ -2159,6 +2231,11 @@ resource "cpln_domain" "%s" {
         prefix        = "/api"
         workload_link = cpln_workload.new.self_link
         port          = 8080
+
+        mirror {
+          workload_link = cpln_workload.new.self_link
+          percent       = 75
+        }
       }
 
       route {
@@ -2173,6 +2250,11 @@ resource "cpln_domain" "%s" {
               "X-Forwarded-Proto" = "https"
             }
           }
+        }
+
+        mirror {
+          workload_link = cpln_workload.new.self_link
+          percent       = 30
         }
       }
 

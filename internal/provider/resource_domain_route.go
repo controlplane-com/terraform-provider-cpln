@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/float64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
@@ -44,6 +45,7 @@ type DomainRouteResourceModel struct {
 	HostRegex     types.String `tfsdk:"host_regex"`
 	Headers       types.List   `tfsdk:"headers"`
 	Replica       types.Int32  `tfsdk:"replica"`
+	Mirror        types.List   `tfsdk:"mirror"`
 }
 
 /*** Resource Configuration ***/
@@ -287,6 +289,24 @@ func (drr *DomainRouteResource) Schema(ctx context.Context, req resource.SchemaR
 					listvalidator.SizeAtMost(1),
 				},
 			},
+			"mirror": schema.ListNestedBlock{
+				Description: "Mirror the traffic to the specified workload(s). Only works for workloads running in the same location as the primary workload(s).",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"workload_link": schema.StringAttribute{
+							Description: "The workload to mirror traffic to.",
+							Required:    true,
+						},
+						"percent": schema.Float64Attribute{
+							Description: "The percentage of traffic to mirror to the specified workload.",
+							Required:    true,
+							Validators: []validator.Float64{
+								float64validator.Between(0, 100),
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -486,6 +506,7 @@ func (drr *DomainRouteResource) buildRequest(ctx context.Context, diags *diag.Di
 	route.HostRegex = BuildString(plan.HostRegex)
 	route.Headers = BuildRouteHeaders(ctx, diags, plan.Headers)
 	route.Replica = BuildInt(plan.Replica)
+	route.Mirror = BuildRouteMirror(ctx, diags, plan.Mirror)
 
 	// Return constructed request payload
 	return GetNameFromSelfLink(plan.DomainLink.ValueString()), int(plan.DomainPort.ValueInt32()), route
@@ -548,6 +569,7 @@ func (drr *DomainRouteResource) buildState(ctx context.Context, diags *diag.Diag
 	state.HostRegex = types.StringPointerValue(route.HostRegex)
 	state.Headers = FlattenRouteHeaders(ctx, diags, route.Headers)
 	state.Replica = FlattenInt(route.Replica)
+	state.Mirror = FlattenRouteMirror(ctx, diags, route.Mirror)
 
 	// Return completed state model
 	return state
