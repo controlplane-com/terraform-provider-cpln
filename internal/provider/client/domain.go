@@ -47,15 +47,21 @@ type DomainSpecPort struct {
 }
 
 type DomainRoute struct {
-	Prefix        *string             `json:"prefix,omitempty"`
-	ReplacePrefix *string             `json:"replacePrefix,omitempty"`
-	Regex         *string             `json:"regex,omitempty"`
-	WorkloadLink  *string             `json:"workloadLink,omitempty"`
-	Port          *int                `json:"port,omitempty"`
-	HostPrefix    *string             `json:"hostPrefix,omitempty"`
-	HostRegex     *string             `json:"hostRegex,omitempty"`
-	Headers       *DomainRouteHeaders `json:"headers,omitempty"`
-	Replica       *int                `json:"replica,omitempty"`
+	Prefix        *string              `json:"prefix,omitempty"`
+	ReplacePrefix *string              `json:"replacePrefix,omitempty"`
+	Regex         *string              `json:"regex,omitempty"`
+	WorkloadLink  *string              `json:"workloadLink,omitempty"`
+	Port          *int                 `json:"port,omitempty"`
+	HostPrefix    *string              `json:"hostPrefix,omitempty"`
+	HostRegex     *string              `json:"hostRegex,omitempty"`
+	Headers       *DomainRouteHeaders  `json:"headers,omitempty"`
+	Replica       *int                 `json:"replica,omitempty"`
+	Mirror        *[]DomainRouteMirror `json:"mirror,omitempty"`
+}
+
+type DomainRouteMirror struct {
+	WorkloadLink *string  `json:"workloadLink,omitempty"`
+	Percent      *float64 `json:"percent,omitempty"`
 }
 
 type DomainCors struct {
@@ -292,6 +298,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostRegex = route.HostRegex
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Replica = route.Replica
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Mirror = route.Mirror
 
 						// Update resource
 						domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)

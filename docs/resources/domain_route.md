@@ -34,6 +34,7 @@ Used in conjunction with a Domain.
 - **host_regex** (String) A regex to match the host header. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configure for wildcard support. Contact your account manager for details.
 - **headers** (Block List, Max: 1) ([see below](#nestedblock--headers))
 - **replica** (Number) The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.
+- **mirror** (Block List) ([see below](#nestedblock--mirror))
 
 <a id="nestedblock--headers"></a>
 
@@ -54,6 +55,17 @@ Manipulates HTTP headers.
 Optional:
 
 - **set** (Map of String) Sets or overrides headers to all http requests for this route.
+
+<a id="nestedblock--mirror"></a>
+
+### `mirror`
+
+Mirror the traffic to the specified workload(s). Only works for workloads running in the same location as the primary workload(s).
+
+Required:
+
+- **workload_link** (String) The workload to mirror traffic to.
+- **percent** (Number) The percentage of traffic to mirror to the specified workload. Value between 0 and 100.
 
 ## Example Usage
 
@@ -272,6 +284,11 @@ resource "cpln_domain_route" "second-route" {
         "Content-Type" = "application/json"
       }
     }
+  }
+
+  mirror {
+    workload_link = "LINK_TO_MIRROR_WORKLOAD"
+    percent       = 50
   }
 }
 ```
