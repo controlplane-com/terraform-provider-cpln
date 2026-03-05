@@ -2038,6 +2038,56 @@ func (wrv *WorkloadResourceValidator) validateOptions(
 					"KEDA is only supported for 'standard' and 'stateful' workload types. Please remove the 'keda' block.",
 				)
 			}
+
+			// Validate that fallback requires at least one trigger with metricType 'AverageValue' (excluding 'cpu' and 'memory' types)
+			if ok && len(keda) > 0 {
+				kedaBlock := keda[0]
+
+				// Build fallback from keda
+				fallback, fallbackOk := BuildList[models.OptionsAutoscalingKedaFallbackModel](wrv.Ctx, wrv.Diags, kedaBlock.Fallback)
+
+				// Only validate if fallback is defined
+				if fallbackOk && len(fallback) > 0 {
+					// Build triggers from keda
+					triggers, triggersOk := BuildList[models.OptionsAutoscalingKedaTriggerModel](wrv.Ctx, wrv.Diags, kedaBlock.Triggers)
+
+					// If fallback is defined but no triggers are specified, add an error
+					if !triggersOk || len(triggers) == 0 {
+						wrv.Diags.AddAttributeError(
+							ascPath.AtName("keda"),
+							"KEDA Fallback Requires Triggers",
+							"KEDA fallback requires at least one trigger to be defined. Please add a 'trigger' block inside the 'keda' block.",
+						)
+					} else {
+						// Check that at least one trigger has metricType 'AverageValue' (excluding 'cpu' and 'memory' types)
+						hasAverageValueTrigger := false
+						for _, trigger := range triggers {
+							// Default metricType is 'AverageValue' when not specified
+							metricType := "AverageValue"
+							if !trigger.MetricType.IsNull() && !trigger.MetricType.IsUnknown() {
+								metricType = trigger.MetricType.ValueString()
+							}
+
+							triggerType := trigger.Type.ValueString()
+
+							// Trigger must be 'AverageValue' and not 'cpu' or 'memory'
+							if metricType == "AverageValue" && triggerType != "cpu" && triggerType != "memory" {
+								hasAverageValueTrigger = true
+								break
+							}
+						}
+
+						// If no qualifying trigger found, add an error
+						if !hasAverageValueTrigger {
+							wrv.Diags.AddAttributeError(
+								ascPath.AtName("keda"),
+								"KEDA Fallback Requires AverageValue Trigger",
+								"KEDA fallback requires at least one trigger with metricType 'AverageValue' (excluding 'cpu' and 'memory' trigger types).",
+							)
+						}
+					}
+				}
+			}
 		}
 	}
 }
