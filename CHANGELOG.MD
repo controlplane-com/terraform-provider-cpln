@@ -1,3 +1,10 @@
+## 1.2.24
+
+- Add predictive scaling to volume set autoscaling.
+- Add mirror property to domain route.
+- Add validation for KEDA fallback trigger requirements.
+- Add schedules property to workload resource.
+
 ## 1.2.23
 
 - Add per-domain mutex, inline routes, 409 retry, and remove domain sleep.
