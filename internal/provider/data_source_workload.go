@@ -527,6 +527,62 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Computed:    true,
 						},
 					},
+					Blocks: map[string]schema.Block{
+						"schedule_entry": schema.ListNestedBlock{
+							Description: "Multiple schedules with individual container overrides.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description: "Unique name for this schedule.",
+										Computed:    true,
+									},
+									"schedule": schema.StringAttribute{
+										Description: "A standard cron schedule expression for when this schedule should execute.",
+										Computed:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"container_override": schema.ListNestedBlock{
+										Description: "Container overrides specific to this schedule execution.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"name": schema.StringAttribute{
+													Description: "The name of the container to override.",
+													Computed:    true,
+												},
+												"env": schema.MapAttribute{
+													Description: "Environment variables specific to this execution.",
+													ElementType: types.StringType,
+													Computed:    true,
+												},
+												"command": schema.StringAttribute{
+													Description: "Optionally override the entrypoint.",
+													Computed:    true,
+												},
+												"args": schema.ListAttribute{
+													Description: "Command line arguments for this execution.",
+													ElementType: types.StringType,
+													Computed:    true,
+												},
+												"memory": schema.StringAttribute{
+													Description: "Memory allocation override.",
+													Computed:    true,
+												},
+												"cpu": schema.StringAttribute{
+													Description: "CPU allocation override.",
+													Computed:    true,
+												},
+												"image": schema.StringAttribute{
+													Description: "Image override.",
+													Computed:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			"sidecar": schema.ListNestedBlock{

@@ -756,8 +756,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"schedule": schema.StringAttribute{
-							Description: "A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) used to determine when your job should execute.",
-							Required:    true,
+							Description: "A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) used to determine when your job should execute. Use this for a single schedule, or use schedule_entry for multiple schedules.",
+							Optional:    true,
 						},
 						"concurrency_policy": schema.StringAttribute{
 							Description: "Either 'Forbid', 'Replace', or 'Allow'. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.",
@@ -791,6 +791,65 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Optional:    true,
 							Validators: []validator.Int32{
 								int32validator.Between(1, 86400),
+							},
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"schedule_entry": schema.ListNestedBlock{
+							Description: "Multiple schedules with individual container overrides. Use this for workloads that need to run on different schedules with different configurations.",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"name": schema.StringAttribute{
+										Description: "Unique name for this schedule.",
+										Required:    true,
+									},
+									"schedule": schema.StringAttribute{
+										Description: "A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) for when this schedule should execute.",
+										Required:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"container_override": schema.ListNestedBlock{
+										Description: "Container overrides specific to this schedule execution.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"name": schema.StringAttribute{
+													Description: "The name of the container to override.",
+													Required:    true,
+												},
+												"env": schema.MapAttribute{
+													Description: "Environment variables specific to this execution.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+												"command": schema.StringAttribute{
+													Description: "Optionally override the entrypoint.",
+													Optional:    true,
+													Validators: []validator.String{
+														stringvalidator.LengthAtMost(256),
+													},
+												},
+												"args": schema.ListAttribute{
+													Description: "Command line arguments for this execution.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
+												"memory": schema.StringAttribute{
+													Description: "Memory allocation override.",
+													Optional:    true,
+												},
+												"cpu": schema.StringAttribute{
+													Description: "CPU allocation override.",
+													Optional:    true,
+												},
+												"image": schema.StringAttribute{
+													Description: "Image override.",
+													Optional:    true,
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -1833,6 +1892,38 @@ func (wrv *WorkloadResourceValidator) Validate() {
 			"The 'job' block must be defined when the workload type is set to 'cron'.",
 		)
 		return
+	}
+
+	// Validate that either schedule or schedule_entry is specified, not both
+	if ok && len(job) > 0 {
+		jobBlock := job[0]
+
+		// Check if schedule is specified
+		hasSchedule := !jobBlock.Schedule.IsNull() && !jobBlock.Schedule.IsUnknown() && jobBlock.Schedule.ValueString() != ""
+
+		// Build schedule entries from job
+		scheduleEntries, scheduleEntriesOk := BuildList[models.JobScheduleEntryModel](wrv.Ctx, wrv.Diags, jobBlock.Schedules)
+
+		// Check if schedule entries are specified
+		hasScheduleEntries := scheduleEntriesOk && len(scheduleEntries) > 0
+
+		// Cannot specify both schedule and schedule_entry
+		if hasSchedule && hasScheduleEntries {
+			wrv.Diags.AddAttributeError(
+				path.Root("job"),
+				"Conflicting Job Schedule Configuration",
+				"Cannot specify both 'schedule' and 'schedule_entry'. Use 'schedule' for a single schedule, or 'schedule_entry' for multiple schedules.",
+			)
+		}
+
+		// Must specify either schedule or schedule_entry
+		if !hasSchedule && !hasScheduleEntries {
+			wrv.Diags.AddAttributeError(
+				path.Root("job"),
+				"Missing Job Schedule Configuration",
+				"Must specify either 'schedule' or 'schedule_entry'.",
+			)
+		}
 	}
 
 	// Build planned rollout options
@@ -3057,11 +3148,64 @@ func (wro *WorkloadResourceOperator) buildJob(state types.List) *client.Workload
 	// Construct and return the output
 	return &client.WorkloadJob{
 		Schedule:              BuildString(block.Schedule),
+		Schedules:             wro.buildJobScheduleEntries(block.Schedules),
 		ConcurrencyPolicy:     BuildString(block.ConcurrencyPolicy),
 		HistoryLimit:          BuildInt(block.HistoryLimit),
 		RestartPolicy:         BuildString(block.RestartPolicy),
 		ActiveDeadlineSeconds: BuildInt(block.ActiveDeadlineSeconds),
 	}
+}
+
+// buildJobScheduleEntries constructs a []client.WorkloadJobScheduleEntry from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildJobScheduleEntries(state types.List) *[]client.WorkloadJobScheduleEntry {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.JobScheduleEntryModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Build each schedule entry
+	output := []client.WorkloadJobScheduleEntry{}
+	for _, block := range blocks {
+		item := client.WorkloadJobScheduleEntry{
+			Name:               BuildString(block.Name),
+			Schedule:           BuildString(block.Schedule),
+			ContainerOverrides: wro.buildJobContainerOverrides(block.ContainerOverrides),
+		}
+		output = append(output, item)
+	}
+
+	return &output
+}
+
+// buildJobContainerOverrides constructs a []client.WorkloadJobContainerOverride from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildJobContainerOverrides(state types.List) *[]client.WorkloadJobContainerOverride {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.JobContainerOverrideModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Build each container override
+	output := []client.WorkloadJobContainerOverride{}
+	for _, block := range blocks {
+		item := client.WorkloadJobContainerOverride{
+			Name:    BuildString(block.Name),
+			Env:     wro.buildNameValue(block.Env),
+			Command: BuildString(block.Command),
+			Args:    wro.buildContainerArgs(block.Args),
+			Memory:  BuildString(block.Memory),
+			CPU:     BuildString(block.CPU),
+			Image:   BuildString(block.Image),
+		}
+		output = append(output, item)
+	}
+
+	return &output
 }
 
 // buildSidecar constructs a WorkloadSidecar from the given Terraform state.
@@ -4215,6 +4359,7 @@ func (wro *WorkloadResourceOperator) flattenJob(input *client.WorkloadJob) types
 	// Build a single block
 	block := models.JobModel{
 		Schedule:              types.StringPointerValue(input.Schedule),
+		Schedules:             wro.flattenJobScheduleEntries(input.Schedules),
 		ConcurrencyPolicy:     types.StringPointerValue(input.ConcurrencyPolicy),
 		HistoryLimit:          FlattenInt(input.HistoryLimit),
 		RestartPolicy:         types.StringPointerValue(input.RestartPolicy),
@@ -4223,6 +4368,62 @@ func (wro *WorkloadResourceOperator) flattenJob(input *client.WorkloadJob) types
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.JobModel{block})
+}
+
+// flattenJobScheduleEntries transforms *[]client.WorkloadJobScheduleEntry into a types.List.
+func (wro *WorkloadResourceOperator) flattenJobScheduleEntries(input *[]client.WorkloadJobScheduleEntry) types.List {
+	// Get attribute types
+	elementType := models.JobScheduleEntryModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build blocks from each schedule entry
+	var blocks []models.JobScheduleEntryModel
+	for _, item := range *input {
+		block := models.JobScheduleEntryModel{
+			Name:               types.StringPointerValue(item.Name),
+			Schedule:           types.StringPointerValue(item.Schedule),
+			ContainerOverrides: wro.flattenJobContainerOverrides(item.ContainerOverrides),
+		}
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
+}
+
+// flattenJobContainerOverrides transforms *[]client.WorkloadJobContainerOverride into a types.List.
+func (wro *WorkloadResourceOperator) flattenJobContainerOverrides(input *[]client.WorkloadJobContainerOverride) types.List {
+	// Get attribute types
+	elementType := models.JobContainerOverrideModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build blocks from each container override
+	var blocks []models.JobContainerOverrideModel
+	for _, item := range *input {
+		block := models.JobContainerOverrideModel{
+			Name:    types.StringPointerValue(item.Name),
+			Env:     FlattenMapString(wro.flattenNameValue(item.Env)),
+			Command: types.StringPointerValue(item.Command),
+			Args:    wro.flattenContainerArgs(item.Args),
+			Memory:  types.StringPointerValue(item.Memory),
+			CPU:     types.StringPointerValue(item.CPU),
+			Image:   types.StringPointerValue(item.Image),
+		}
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenSidecar transforms *client.WorkloadSidecar into a types.List.
