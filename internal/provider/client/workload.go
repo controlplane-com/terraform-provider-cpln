@@ -263,28 +263,11 @@ type WorkloadOptionsMultiZone struct {
 
 // WorkloadJob - Cronjob
 type WorkloadJob struct {
-	Schedule              *string                     `json:"schedule,omitempty"`
-	Schedules             *[]WorkloadJobScheduleEntry `json:"schedules,omitempty"`
-	ConcurrencyPolicy     *string                     `json:"concurrencyPolicy,omitempty"` // Enum: [ Forbid, Replace ]
-	HistoryLimit          *int                        `json:"historyLimit,omitempty"`
-	RestartPolicy         *string                     `json:"restartPolicy,omitempty"` // Enum: [ OnFailure, Never ]
-	ActiveDeadlineSeconds *int                        `json:"activeDeadlineSeconds,omitempty"`
-}
-
-type WorkloadJobScheduleEntry struct {
-	Name               *string                         `json:"name,omitempty"`
-	Schedule           *string                         `json:"schedule,omitempty"`
-	ContainerOverrides *[]WorkloadJobContainerOverride `json:"containerOverrides,omitempty"`
-}
-
-type WorkloadJobContainerOverride struct {
-	Name    *string                       `json:"name,omitempty"`
-	Env     *[]WorkloadContainerNameValue `json:"env,omitempty"`
-	Command *string                       `json:"command,omitempty"`
-	Args    *[]string                     `json:"args,omitempty"`
-	Memory  *string                       `json:"memory,omitempty"`
-	CPU     *string                       `json:"cpu,omitempty"`
-	Image   *string                       `json:"image,omitempty"`
+	Schedule              *string `json:"schedule,omitempty"`
+	ConcurrencyPolicy     *string `json:"concurrencyPolicy,omitempty"` // Enum: [ Forbid, Replace ]
+	HistoryLimit          *int    `json:"historyLimit,omitempty"`
+	RestartPolicy         *string `json:"restartPolicy,omitempty"` // Enum: [ OnFailure, Never ]
+	ActiveDeadlineSeconds *int    `json:"activeDeadlineSeconds,omitempty"`
 }
 
 // WorkloadSidecar - Workload Sidecar

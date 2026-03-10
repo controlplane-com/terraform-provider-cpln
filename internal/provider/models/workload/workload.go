@@ -601,7 +601,6 @@ func (o LocalOptionsModel) AttributeTypes() attr.Type {
 
 type JobModel struct {
 	Schedule              types.String `tfsdk:"schedule"`
-	Schedules             types.List   `tfsdk:"schedule_entry"`
 	ConcurrencyPolicy     types.String `tfsdk:"concurrency_policy"`
 	HistoryLimit          types.Int32  `tfsdk:"history_limit"`
 	RestartPolicy         types.String `tfsdk:"restart_policy"`
@@ -612,55 +611,10 @@ func (j JobModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"schedule":                types.StringType,
-			"schedule_entry":          types.ListType{ElemType: JobScheduleEntryModel{}.AttributeTypes()},
 			"concurrency_policy":      types.StringType,
 			"history_limit":           types.Int32Type,
 			"restart_policy":          types.StringType,
 			"active_deadline_seconds": types.Int32Type,
-		},
-	}
-}
-
-// Job -> Schedule Entry //
-
-type JobScheduleEntryModel struct {
-	Name               types.String `tfsdk:"name"`
-	Schedule           types.String `tfsdk:"schedule"`
-	ContainerOverrides types.List   `tfsdk:"container_override"`
-}
-
-func (s JobScheduleEntryModel) AttributeTypes() attr.Type {
-	return types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"name":               types.StringType,
-			"schedule":           types.StringType,
-			"container_override": types.ListType{ElemType: JobContainerOverrideModel{}.AttributeTypes()},
-		},
-	}
-}
-
-// Job -> Schedule Entry -> Container Override //
-
-type JobContainerOverrideModel struct {
-	Name    types.String `tfsdk:"name"`
-	Env     types.Map    `tfsdk:"env"`
-	Command types.String `tfsdk:"command"`
-	Args    types.List   `tfsdk:"args"`
-	Memory  types.String `tfsdk:"memory"`
-	CPU     types.String `tfsdk:"cpu"`
-	Image   types.String `tfsdk:"image"`
-}
-
-func (c JobContainerOverrideModel) AttributeTypes() attr.Type {
-	return types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"name":    types.StringType,
-			"env":     types.MapType{ElemType: types.StringType},
-			"command": types.StringType,
-			"args":    types.ListType{ElemType: types.StringType},
-			"memory":  types.StringType,
-			"cpu":     types.StringType,
-			"image":   types.StringType,
 		},
 	}
 }
