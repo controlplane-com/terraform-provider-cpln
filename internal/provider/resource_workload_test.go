@@ -203,7 +203,6 @@ func (wrt *WorkloadResourceTest) NewCronScenario() []resource.TestStep {
 	// Build test steps
 	initialConfig, initialStep := wrt.BuildCronTestStep(name)
 	caseUpdate1 := wrt.BuildCronUpdate1TestStep(initialConfig.ProviderTestCase)
-	caseUpdate2 := wrt.BuildCronUpdate2TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -217,8 +216,6 @@ func (wrt *WorkloadResourceTest) NewCronScenario() []resource.TestStep {
 		},
 		// Update & Read
 		caseUpdate1,
-		// Update with schedule_entry & Read
-		caseUpdate2,
 		// Revert the resource to its initial state
 		initialStep,
 	}
@@ -2183,107 +2180,6 @@ func (wrt *WorkloadResourceTest) BuildCronUpdate1TestStep(initialCase ProviderTe
 				{
 					"attempts": "3",
 					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
-				},
-			}),
-		),
-	}
-}
-
-// BuildCronUpdate2TestStep constructs a test step that uses schedule_entry blocks instead of a single schedule.
-func (wrt *WorkloadResourceTest) BuildCronUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
-	// Create the test case with metadata and descriptions
-	c := WorkloadResourceTestCase{
-		ProviderTestCase: initialCase,
-		Envoy:            `{"clusters":[{"name":"provider_gcp","type":"STRICT_DNS","connect_timeout":"10s","dns_lookup_family":"V4_ONLY","lb_policy":"ROUND_ROBIN","load_assignment":{"cluster_name":"provider_gcp","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"www.googleapis.com","port_value":443}}}}]}]},"transport_socket":{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","sni":"www.googleapis.com"}}}],"http":[{"name":"envoy.filters.http.grpc_web","typed_config":{"@type":"type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"}}],"volumes":[{"path":"/etc/config","recoveryPolicy":"retain","uri":"scratch://config"}]}`,
-		Extras:           `{"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"cpln.io/nodeType","operator":"In","values":["tasks"]}]}]}}}}`,
-	}
-
-	// Initialize and return the test step
-	return resource.TestStep{
-		Config: wrt.CronUpdate2Hcl(c),
-		Check: resource.ComposeAggregateTestCheckFunc(
-			c.Exists(),
-			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
-			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
-			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "cron"),
-			c.TestCheckNestedBlocks("container", []map[string]interface{}{
-				{
-					"name":              "container-01",
-					"image":             "gcr.io/knative-samples/helloworld-go",
-					"working_directory": "/usr",
-					"memory":            "128Mi",
-					"cpu":               "50m",
-					"ports": []map[string]interface{}{
-						{
-							"protocol": "http2",
-							"number":   "8080",
-						},
-					},
-					"env": map[string]interface{}{
-						"env-name-01": "env-value-01",
-						"env-name-02": "env-value-02",
-						"env-name-03": "env-value-03",
-					},
-					"inherit_env": "true",
-					"command":     "override-command",
-					"args":        []string{"arg-01", "arg-02", "arg-03"},
-				},
-				{
-					"name":   "container-02",
-					"image":  "gcr.io/knative-samples/helloworld-go",
-					"memory": "64Mi",
-					"cpu":    "25m",
-				},
-			}),
-			c.TestCheckNestedBlocks("job", []map[string]interface{}{
-				{
-					"concurrency_policy":      "Forbid",
-					"history_limit":           "5",
-					"restart_policy":          "Never",
-					"active_deadline_seconds": "1200",
-					"schedule_entry": []map[string]interface{}{
-						{
-							"name":     "weekday-job",
-							"schedule": "0 9 * * 1-5",
-							"container_override": []map[string]interface{}{
-								{
-									"name":    "container-01",
-									"command": "echo",
-									"args":    []string{"weekday", "--verbose"},
-									"image":   "gcr.io/knative-samples/helloworld-go:weekday",
-									"cpu":     "100m",
-									"memory":  "256Mi",
-									"env": map[string]interface{}{
-										"JOB_TYPE":  "weekday",
-										"LOG_LEVEL": "info",
-									},
-								},
-								{
-									"name":   "container-02",
-									"cpu":    "50m",
-									"memory": "128Mi",
-									"image":  "gcr.io/knative-samples/helloworld-go:sidecar",
-								},
-							},
-						},
-						{
-							"name":     "weekend-job",
-							"schedule": "0 12 * * 0,6",
-							"container_override": []map[string]interface{}{
-								{
-									"name":    "container-01",
-									"command": "echo",
-									"args":    []string{"weekend"},
-									"image":   "gcr.io/knative-samples/helloworld-go:weekend",
-									"cpu":     "200m",
-									"memory":  "512Mi",
-									"env": map[string]interface{}{
-										"JOB_TYPE": "weekend",
-									},
-								},
-							},
-						},
-					},
 				},
 			}),
 		),
@@ -4562,146 +4458,6 @@ resource "cpln_workload" "%s" {
   request_retry_policy {
     attempts = 3
     retry_on = ["connect-failure", "refused-stream", "unavailable"]
-  }
-}
-`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
-		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
-	)
-}
-
-// CronUpdate2Hcl returns a cron workload configuration using schedule_entry blocks with container overrides.
-func (wrt *WorkloadResourceTest) CronUpdate2Hcl(c WorkloadResourceTestCase) string {
-	return fmt.Sprintf(`
-variable "random_name" {
-  type    = string
-  default = "%s"
-}
-
-# GVC Resource
-%s
-
-# Identity Resource
-resource "cpln_identity" "new" {
-  name = "identity-${var.random_name}"
-  gvc  = %s
-}
-
-resource "cpln_workload" "%s" {
-  depends_on = [%s]
-
-  name        = "%s"
-  description = "%s"
-
-  tags = {
-    terraform_generated = "true"
-    acceptance_test     = "true"
-  }
-
-  gvc                  = %s
-  type                 = "cron"
-  identity_link        = cpln_identity.new.self_link
-  support_dynamic_tags = true
-  extras               = jsonencode(%s)
-
-  container {
-    name              = "container-01"
-    image             = "gcr.io/knative-samples/helloworld-go"
-    working_directory = "/usr"
-    memory            = "128Mi"
-    cpu               = "50m"
-
-    ports {
-      protocol = "http2"
-      number   = "8080"
-    }
-
-    env = {
-      env-name-01 = "env-value-01"
-      env-name-02 = "env-value-02"
-      env-name-03 = "env-value-03"
-    }
-
-    inherit_env = true
-    command     = "override-command"
-    args        = ["arg-01", "arg-02", "arg-03"]
-  }
-
-  container {
-    name   = "container-02"
-    image  = "gcr.io/knative-samples/helloworld-go"
-    memory = "64Mi"
-    cpu    = "25m"
-  }
-
-  options {
-    timeout_seconds = 30
-    capacity_ai     = false
-    debug           = true
-    suspend         = true
-
-    autoscaling {
-      metric              = "concurrency"
-      target              = 95
-      max_scale           = 1
-      min_scale           = 1
-      max_concurrency     = 500
-      scale_to_zero_delay = 400
-    }
-  }
-
-  job {
-    concurrency_policy      = "Forbid"
-    history_limit           = 5
-    restart_policy          = "Never"
-    active_deadline_seconds = 1200
-
-    schedule_entry {
-      name     = "weekday-job"
-      schedule = "0 9 * * 1-5"
-
-      container_override {
-        name    = "container-01"
-        command = "echo"
-        args    = ["weekday", "--verbose"]
-        cpu     = "100m"
-        memory  = "256Mi"
-        image   = "gcr.io/knative-samples/helloworld-go:weekday"
-
-        env = {
-          JOB_TYPE  = "weekday"
-          LOG_LEVEL = "info"
-        }
-      }
-
-      container_override {
-        name   = "container-02"
-        cpu    = "50m"
-        memory = "128Mi"
-        image  = "gcr.io/knative-samples/helloworld-go:sidecar"
-      }
-    }
-
-    schedule_entry {
-      name     = "weekend-job"
-      schedule = "0 12 * * 0,6"
-
-      container_override {
-        name    = "container-01"
-        command = "echo"
-        args    = ["weekend"]
-        image   = "gcr.io/knative-samples/helloworld-go:weekend"
-        cpu     = "200m"
-        memory  = "512Mi"
-
-        env = {
-          JOB_TYPE = "weekend"
-        }
-      }
-    }
-  }
-
-  sidecar {
-    envoy = jsonencode(%s)
   }
 }
 `, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,

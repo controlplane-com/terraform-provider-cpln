@@ -467,46 +467,18 @@ Optional:
 
 ### `job`
 
-~> **Note** A CRON workload must contain a `job`.<br/><br/>Capacity AI must be false and min/max scale must equal 1.<br/><br/>Must specify either `schedule` or `schedule_entry`, not both. Use `schedule` for a single schedule, or `schedule_entry` for multiple schedules with individual container overrides.
+~> **Note** A CRON workload must contain a `job`.<br/><br/>Capacity AI must be false and min/max scale must equal 1.
+
+Required:
+
+- **schedule** (String) A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) used to determine when your job should execute.
 
 Optional:
 
-- **schedule** (String) A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) used to determine when your job should execute. Use this for a single schedule, or use `schedule_entry` for multiple schedules.
 - **concurrency_policy** (String) Either `Forbid`, `Replace`, or `Allow`. This determines what Control Plane will do when the schedule requires a job to start, while a prior instance of the job is still running.
 - **history_limit** (Number) The maximum number of completed job instances to display. This should be an integer between 1 and 10. Default: `5`
 - **restart_policy** (String) Either 'OnFailure' or 'Never'. This determines what Control Plane will do when a job instance fails. Enum: [ OnFailure, Never ] Default: `Never`
 - **active_deadline_seconds** (Number) The maximum number of seconds Control Plane will wait for the job to complete. If a job does not succeed or fail in the allotted time, Control Plane will stop the job, moving it into the Removed status.
-- **schedule_entry** (Block List) Multiple schedules with individual container overrides. ([see below](#nestedblock--job--schedule_entry))
-
-<a id="nestedblock--job--schedule_entry"></a>
-
-### `job.schedule_entry`
-
-Required:
-
-- **name** (String) Unique name for this schedule.
-- **schedule** (String) A standard cron [schedule expression](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/#schedule-syntax) for when this schedule should execute.
-
-Optional:
-
-- **container_override** (Block List) Container overrides specific to this schedule execution. ([see below](#nestedblock--job--schedule_entry--container_override))
-
-<a id="nestedblock--job--schedule_entry--container_override"></a>
-
-### `job.schedule_entry.container_override`
-
-Required:
-
-- **name** (String) The name of the container to override.
-
-Optional:
-
-- **env** (Map of String) Environment variables specific to this execution.
-- **command** (String) Optionally override the entrypoint. Maximum length: 256.
-- **args** (List of String) Command line arguments for this execution.
-- **memory** (String) Memory allocation override.
-- **cpu** (String) CPU allocation override.
-- **image** (String) Image override.
 
 <a id="nestedblock--rollout_options"></a>
 
@@ -1434,102 +1406,6 @@ resource "cpln_workload" "new" {
     history_limit           = 5
     restart_policy          = "Never"
     active_deadline_seconds = 1200
-  }
-}
-```
-
-## Example Usage - Cron With Multiple Schedules
-
-```terraform
-resource "cpln_gvc" "example" {
-
-  name        = "gvc-example"
-  description = "Example GVC"
-  locations   = ["aws-us-west-2"]
-
-  tags = {
-    terraform_generated = "true"
-    example             = "true"
-  }
-}
-
-resource "cpln_workload" "multi_schedule" {
-
-  gvc = cpln_gvc.example.name
-
-  type = "cron"
-
-  name        = "workload-multi-schedule"
-  description = "Cron workload with multiple schedules and container overrides"
-
-  tags = {
-    terraform_generated = "true"
-    example             = "true"
-  }
-
-  container {
-    name   = "main"
-    image  = "gcr.io/knative-samples/helloworld-go"
-    memory = "128Mi"
-    cpu    = "50m"
-  }
-
-  container {
-    name   = "sidecar"
-    image  = "gcr.io/knative-samples/helloworld-go"
-    memory = "64Mi"
-    cpu    = "25m"
-  }
-
-  options {
-    suspend = false
-  }
-
-  job {
-    concurrency_policy      = "Forbid"
-    history_limit           = 5
-    restart_policy          = "Never"
-    active_deadline_seconds = 1200
-
-    schedule_entry {
-      name     = "weekday-job"
-      schedule = "0 9 * * 1-5"
-
-      container_override {
-        name    = "main"
-        command = "echo"
-        args    = ["weekday", "--verbose"]
-        cpu     = "100m"
-        memory  = "256Mi"
-        image   = "gcr.io/knative-samples/helloworld-go:weekday"
-
-        env = {
-          JOB_TYPE  = "weekday"
-          LOG_LEVEL = "info"
-        }
-      }
-
-      container_override {
-        name   = "sidecar"
-        cpu    = "50m"
-        memory = "128Mi"
-      }
-    }
-
-    schedule_entry {
-      name     = "weekend-job"
-      schedule = "0 12 * * 0,6"
-
-      container_override {
-        name    = "main"
-        command = "echo"
-        args    = ["weekend"]
-
-        env = {
-          JOB_TYPE = "weekend"
-        }
-      }
-    }
   }
 }
 ```

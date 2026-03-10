@@ -1,3 +1,7 @@
+## 1.2.25
+
+- Remove schedules property from workload resource.
+
 ## 1.2.24
 
 - Add predictive scaling to volume set autoscaling.
