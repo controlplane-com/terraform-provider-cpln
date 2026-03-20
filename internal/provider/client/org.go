@@ -114,17 +114,25 @@ type SyslogLogging struct {
 	Severity *int    `json:"severity,omitempty"`
 }
 
+// OpenTelemetryLogging - OpenTelemetry Logging
+type OpenTelemetryLogging struct {
+	Endpoint    *string                 `json:"endpoint,omitempty"`
+	Headers     *map[string]interface{} `json:"headers,omitempty"`
+	Credentials *string                 `json:"credentials,omitempty"`
+}
+
 // Logging - Logging
 type Logging struct {
-	S3          *S3Logging          `json:"s3,omitempty"`
-	Coralogix   *CoralogixLogging   `json:"coralogix,omitempty"`
-	Datadog     *DatadogLogging     `json:"datadog,omitempty"`
-	Logzio      *LogzioLogging      `json:"logzio,omitempty"`
-	Elastic     *ElasticLogging     `json:"elastic,omitempty"`
-	CloudWatch  *CloudWatchLogging  `json:"cloudWatch,omitempty"`
-	Fluentd     *FluentdLogging     `json:"fluentd,omitempty"`
-	Stackdriver *StackdriverLogging `json:"stackdriver,omitempty"`
-	Syslog      *SyslogLogging      `json:"syslog,omitempty"`
+	S3            *S3Logging            `json:"s3,omitempty"`
+	Coralogix     *CoralogixLogging     `json:"coralogix,omitempty"`
+	Datadog       *DatadogLogging       `json:"datadog,omitempty"`
+	Logzio        *LogzioLogging        `json:"logzio,omitempty"`
+	Elastic       *ElasticLogging       `json:"elastic,omitempty"`
+	CloudWatch    *CloudWatchLogging    `json:"cloudWatch,omitempty"`
+	Fluentd       *FluentdLogging       `json:"fluentd,omitempty"`
+	Stackdriver   *StackdriverLogging   `json:"stackdriver,omitempty"`
+	Syslog        *SyslogLogging        `json:"syslog,omitempty"`
+	OpenTelemetry *OpenTelemetryLogging `json:"opentelemetry,omitempty"`
 }
 
 // AuthConfig - AuthConfig

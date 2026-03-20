@@ -23,6 +23,7 @@ You can define up to **four** logging blocks:
 - **fluentd_logging** (Block List, Max: 1) ([see below](#nestedblock--fluentd_logging))
 - **stackdriver_logging** (Block List, Max: 1) ([see below](#nestedblock--stackdriver_logging))
 - **syslog_logging** (Block List, Max: 1) ([see below](#nestedblock--syslog_logging))
+- **opentelemetry_logging** (Block List, Max: 1) ([see below](#nestedblock--opentelemetry_logging)).
 
 <a id="nestedblock--s3_logging"></a>
 
@@ -203,6 +204,19 @@ Informational messages.
 Debug (DEBUG) (severity level 7)
 Debug-level messages.
 ```
+
+<a id="nestedblock--opentelemetry_logging"></a>
+
+### `opentelemetry_logging`
+
+Required:
+
+- **endpoint** (String) OpenTelemetry collector endpoint URI.
+
+Optional:
+
+- **headers** (Map of String) Custom headers to include in OpenTelemetry export requests.
+- **credentials** (String) Full link to a secret of type `opaque`.
 
 ## Outputs
 
@@ -550,6 +564,41 @@ resource "cpln_org_logging" "new" {
     mode     = "tcp"
     format   = "rfc5424"
     severity = 6
+  }
+}
+```
+
+### OpenTelemetry
+
+```terraform
+resource "cpln_secret" "opaque" {
+
+  name        = "opaque-random-tbd"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "new" {
+
+  opentelemetry_logging {
+    endpoint = "otel-collector.example.com:4317"
+
+    headers = {
+      x-api-key = "my-api-key"
+    }
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
   }
 }
 ```

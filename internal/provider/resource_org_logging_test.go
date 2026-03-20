@@ -115,6 +115,7 @@ func (olrt *OrgLoggingResourceTest) NewDefaultScenario() []resource.TestStep {
 	caseUpdate11 := olrt.BuildUpdate11TestStep(initialConfig.ProviderTestCase)
 	caseUpdate12 := olrt.BuildUpdate12TestStep(initialConfig.ProviderTestCase)
 	caseUpdate13 := olrt.BuildUpdate13TestStep(initialConfig.ProviderTestCase)
+	caseUpdate14 := olrt.BuildUpdate14TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -139,6 +140,7 @@ func (olrt *OrgLoggingResourceTest) NewDefaultScenario() []resource.TestStep {
 		caseUpdate11,
 		caseUpdate12,
 		caseUpdate13,
+		caseUpdate14,
 		// Revert the resource to its initial state
 		initialStep,
 	}
@@ -527,6 +529,31 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate13TestStep(initialCase ProviderTe
 				{
 					"host":        "http-intake.logs.datadoghq.com",
 					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", olrt.RandomName)),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate14TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate14TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingOpenTelemetry(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("opentelemetry_logging", []map[string]interface{}{
+				{
+					"endpoint": "otel-collector.example.com:4317",
+					"headers": map[string]interface{}{
+						"x-api-key": "test-key",
+					},
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
 				},
 			}),
 		),
@@ -946,6 +973,46 @@ resource "cpln_org_logging" "%s" {
   }
 }
 `, c.ResourceName)
+}
+
+// HclLoggingOpenTelemetry returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingOpenTelemetry(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "opaque" {
+  name        = "tf-opaque-${var.random_name}"
+  description = "opaque description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "opaque"
+  }
+
+  opaque {
+    payload  = "opaque_secret_payload"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  opentelemetry_logging {
+    endpoint = "otel-collector.example.com:4317"
+
+    headers = {
+      x-api-key = "test-key"
+    }
+
+    // Opaque Secret Only
+    credentials = cpln_secret.opaque.self_link
+  }
+}
+`, olrt.RandomName, c.ResourceName)
 }
 
 // HclThreeUniqueLoggings returns a HCL block for a resource.
