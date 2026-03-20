@@ -22,7 +22,7 @@ import (
 var loggingTypes = []string{
 	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging",
 	"elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging",
-	"syslog_logging",
+	"syslog_logging", "opentelemetry_logging",
 }
 
 // Ensure resource implements required interfaces.
@@ -35,21 +35,22 @@ var (
 
 // OrgLoggingResourceModel holds the Terraform state for the resource.
 type OrgLoggingResourceModel struct {
-	ID                 types.String `tfsdk:"id"`
-	CplnID             types.String `tfsdk:"cpln_id"`
-	Name               types.String `tfsdk:"name"`
-	Description        types.String `tfsdk:"description"`
-	Tags               types.Map    `tfsdk:"tags"`
-	SelfLink           types.String `tfsdk:"self_link"`
-	S3Logging          types.Set    `tfsdk:"s3_logging"`
-	CoralogixLogging   types.Set    `tfsdk:"coralogix_logging"`
-	DatadogLogging     types.Set    `tfsdk:"datadog_logging"`
-	LogzioLogging      types.Set    `tfsdk:"logzio_logging"`
-	ElasticLogging     types.Set    `tfsdk:"elastic_logging"`
-	CloudWatchLogging  types.Set    `tfsdk:"cloud_watch_logging"`
-	FluentdLogging     types.Set    `tfsdk:"fluentd_logging"`
-	StackdriverLogging types.Set    `tfsdk:"stackdriver_logging"`
-	SyslogLogging      types.Set    `tfsdk:"syslog_logging"`
+	ID                   types.String `tfsdk:"id"`
+	CplnID               types.String `tfsdk:"cpln_id"`
+	Name                 types.String `tfsdk:"name"`
+	Description          types.String `tfsdk:"description"`
+	Tags                 types.Map    `tfsdk:"tags"`
+	SelfLink             types.String `tfsdk:"self_link"`
+	S3Logging            types.Set    `tfsdk:"s3_logging"`
+	CoralogixLogging     types.Set    `tfsdk:"coralogix_logging"`
+	DatadogLogging       types.Set    `tfsdk:"datadog_logging"`
+	LogzioLogging        types.Set    `tfsdk:"logzio_logging"`
+	ElasticLogging       types.Set    `tfsdk:"elastic_logging"`
+	CloudWatchLogging    types.Set    `tfsdk:"cloud_watch_logging"`
+	FluentdLogging       types.Set    `tfsdk:"fluentd_logging"`
+	StackdriverLogging   types.Set    `tfsdk:"stackdriver_logging"`
+	SyslogLogging        types.Set    `tfsdk:"syslog_logging"`
+	OpenTelemetryLogging types.Set    `tfsdk:"opentelemetry_logging"`
 }
 
 /*** Resource Configuration ***/
@@ -398,6 +399,26 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
+			"opentelemetry_logging": schema.SetNestedBlock{
+				Description: "For logging and analyzing data within an org using OpenTelemetry.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"endpoint": schema.StringAttribute{
+							Description: "OpenTelemetry collector endpoint URI.",
+							Required:    true,
+						},
+						"headers": schema.MapAttribute{
+							Description: "Custom headers to include in OpenTelemetry export requests.",
+							ElementType: types.StringType,
+							Optional:    true,
+						},
+						"credentials": schema.StringAttribute{
+							Description: "Full link to a secret of type `opaque`.",
+							Optional:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -594,6 +615,8 @@ func (olr *OrgLoggingResource) buildRequest(ctx context.Context, diags *diag.Dia
 			loggingToAdd = olr.buildStackdriverLogging(ctx, diags, state.StackdriverLogging)
 		case "syslog_logging":
 			loggingToAdd = olr.buildSyslogLogging(ctx, diags, state.SyslogLogging)
+		case "opentelemetry_logging":
+			loggingToAdd = olr.buildOpenTelemetryLogging(ctx, diags, state.OpenTelemetryLogging)
 		default:
 			continue
 		}
@@ -649,6 +672,7 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 		var fluentdArray []client.FluentdLogging
 		var stackdriverArray []client.StackdriverLogging
 		var syslogArray []client.SyslogLogging
+		var openTelemetryArray []client.OpenTelemetryLogging
 
 		// Iterate over each logging entry to categorize by type
 		for _, logging := range loggings {
@@ -696,6 +720,11 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 			if logging.Syslog != nil {
 				syslogArray = append(syslogArray, *logging.Syslog)
 			}
+
+			// Collect OpenTelemetry logging entries
+			if logging.OpenTelemetry != nil {
+				openTelemetryArray = append(openTelemetryArray, *logging.OpenTelemetry)
+			}
 		}
 
 		// Flatten loggings
@@ -708,6 +737,7 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 		state.FluentdLogging = olr.flattenFluentdLogging(ctx, diags, &fluentdArray)
 		state.StackdriverLogging = olr.flattenStackdriverLogging(ctx, diags, &stackdriverArray)
 		state.SyslogLogging = olr.flattenSyslogLogging(ctx, diags, &syslogArray)
+		state.OpenTelemetryLogging = olr.flattenOpenTelemetryLogging(ctx, diags, &openTelemetryArray)
 	}
 
 	// Return completed state model
@@ -1104,6 +1134,41 @@ func (olr *OrgLoggingResource) buildSyslogLogging(ctx context.Context, diags *di
 	return &output
 }
 
+// buildOpenTelemetryLogging constructs a []client.Logging from the given Terraform state.
+func (olr *OrgLoggingResource) buildOpenTelemetryLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.OpenTelemetryLoggingModel](ctx, diags, state)
+
+	// Return nil if conversion failed or set was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Logging{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.OpenTelemetryLogging{
+			Endpoint:    BuildString(block.Endpoint),
+			Headers:     BuildMapString(ctx, diags, block.Headers),
+			Credentials: BuildString(block.Credentials),
+		}
+
+		// Construct logging
+		logging := client.Logging{
+			OpenTelemetry: &item,
+		}
+
+		// Add the item to the output slice
+		output = append(output, logging)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
 // Flatteners //
 
 // flattenS3Logging transforms *[]client.S3Logging into a types.Set.
@@ -1451,6 +1516,37 @@ func (olr *OrgLoggingResource) flattenSyslogLogging(ctx context.Context, diags *
 			Mode:     types.StringPointerValue(item.Mode),
 			Format:   types.StringPointerValue(item.Format),
 			Severity: FlattenInt(item.Severity),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
+}
+
+// flattenOpenTelemetryLogging transforms *[]client.OpenTelemetryLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenOpenTelemetryLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.OpenTelemetryLogging) types.Set {
+	// Get attribute types
+	elementType := models.OpenTelemetryLoggingModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null set
+		return types.SetNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.OpenTelemetryLoggingModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.OpenTelemetryLoggingModel{
+			Endpoint:    types.StringPointerValue(item.Endpoint),
+			Headers:     FlattenMapString(item.Headers),
+			Credentials: types.StringPointerValue(item.Credentials),
 		}
 
 		// Append the constructed block to the blocks slice

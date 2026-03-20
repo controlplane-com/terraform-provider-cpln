@@ -348,3 +348,21 @@ func (s SyslogLoggingModel) AttributeTypes() attr.Type {
 		},
 	}
 }
+
+// OpenTelemetry Logging //
+
+type OpenTelemetryLoggingModel struct {
+	Endpoint    types.String `tfsdk:"endpoint"`
+	Headers     types.Map    `tfsdk:"headers"`
+	Credentials types.String `tfsdk:"credentials"`
+}
+
+func (o OpenTelemetryLoggingModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"endpoint":    types.StringType,
+			"headers":     types.MapType{ElemType: types.StringType},
+			"credentials": types.StringType,
+		},
+	}
+}
