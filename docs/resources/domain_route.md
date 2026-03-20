@@ -390,4 +390,4 @@ To update a statefile with an existing domain route resource, execute the follow
 terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:[PREFIX|REGEX]
 ```
 
--> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_LINK with the corresponding domain link defined in the resource.<br/>3. Substitute DOMAIN_PORT with the corresponding domain port defined in the resource.<br/>4. Substitute PREFIX with the corresponding prefix defined in the resource.
+-> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_LINK with the corresponding domain link (e.g., `/org/myorg/domain/example.com`) or domain name (e.g., `example.com`) defined in the resource.<br/>3. Substitute DOMAIN_PORT with the corresponding domain port defined in the resource.<br/>4. Substitute PREFIX with the corresponding prefix defined in the resource.

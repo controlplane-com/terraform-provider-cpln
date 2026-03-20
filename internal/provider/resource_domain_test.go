@@ -174,6 +174,33 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 			ImportState:   true,
 			ImportStateId: fmt.Sprintf("%s:443:/user/.*/profile", subDomainSelfLink),
 		},
+		// Domain Route Import (using domain name instead of full link)
+		// Verifies that bare domain names are normalized to full self-links,
+		// preventing a RequiresReplace diff on the next plan.
+		{
+			ResourceName:  "cpln_domain_route.first-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:443:/first", drt.RandomName, name),
+			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
+		},
+		{
+			ResourceName:  "cpln_domain_route.second-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:80:/second", drt.RandomName, name),
+			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
+		},
+		{
+			ResourceName:  "cpln_domain_route.third-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:80:/third", drt.RandomName, name),
+			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
+		},
+		{
+			ResourceName:  "cpln_domain_route.fourth-route",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:443:/user/.*/profile", drt.RandomName, name),
+			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
+		},
 		// Inline Routes: Create & Read
 		caseUpdate4,
 		// Inline Routes: Update & Read
@@ -2476,6 +2503,31 @@ func (drtc *DomainResourceTestCase) Exists() resource.TestCheckFunc {
 
 		// Log successful verification of API resource existence
 		tflog.Info(TestLoggerContext, fmt.Sprintf("Domain %s verified successfully in both state and external system.", drtc.Name))
+		return nil
+	}
+}
+
+// domainRouteLinkCheck returns an ImportStateCheckFunc that verifies the imported
+// domain_link attribute matches the expected full self-link. This catches the bug
+// where importing with a bare domain name (e.g., "example.com") would store the
+// bare name instead of the full link ("/org/{org}/domain/example.com"), causing
+// a RequiresReplace diff on the next plan.
+func domainRouteLinkCheck(expectedLink string) resource.ImportStateCheckFunc {
+	return func(states []*terraform.InstanceState) error {
+		// Validate exactly one resource was imported
+		if len(states) != 1 {
+			return fmt.Errorf("expected 1 imported state, got %d", len(states))
+		}
+
+		// Verify domain_link is the full self-link, not a bare domain name
+		domainLink := states[0].Attributes["domain_link"]
+		if domainLink != expectedLink {
+			return fmt.Errorf(
+				"expected domain_link to be %q, got %q",
+				expectedLink, domainLink,
+			)
+		}
+
 		return nil
 	}
 }
