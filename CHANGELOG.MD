@@ -1,3 +1,8 @@
+## 1.2.26
+
+- Add OpenTelemetry logging to org logging resource.
+- Fix domain route import to accept domain name alongside full link.
+
 ## 1.2.25
 
 - Remove schedules property from workload resource.
