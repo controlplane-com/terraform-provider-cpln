@@ -109,6 +109,14 @@ func (drr *DomainRouteResource) ImportState(ctx context.Context, req resource.Im
 	// Cast portInt to int for state attribute
 	domainPort := int(portInt)
 
+	// Normalize domainLink to a full self-link if the user provided a domain name instead of a link
+	if !strings.HasPrefix(domainLink, "/org/") && !strings.HasPrefix(domainLink, "//") {
+		// Construct the full domain link from the provided domain name
+		if drr.client != nil {
+			domainLink = GetSelfLink(drr.client.Org, "domain", domainLink)
+		}
+	}
+
 	// Flag to indicate if route is regex-based
 	var isRegex bool
 
