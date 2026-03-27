@@ -178,27 +178,27 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 		// Verifies that bare domain names are normalized to full self-links,
 		// preventing a RequiresReplace diff on the next plan.
 		{
-			ResourceName:  "cpln_domain_route.first-route",
-			ImportState:   true,
-			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:443:/first", drt.RandomName, name),
+			ResourceName:     "cpln_domain_route.first-route",
+			ImportState:      true,
+			ImportStateId:    fmt.Sprintf("domain-acctest-%s.%s:443:/first", drt.RandomName, name),
 			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
 		},
 		{
-			ResourceName:  "cpln_domain_route.second-route",
-			ImportState:   true,
-			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:80:/second", drt.RandomName, name),
+			ResourceName:     "cpln_domain_route.second-route",
+			ImportState:      true,
+			ImportStateId:    fmt.Sprintf("domain-acctest-%s.%s:80:/second", drt.RandomName, name),
 			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
 		},
 		{
-			ResourceName:  "cpln_domain_route.third-route",
-			ImportState:   true,
-			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:80:/third", drt.RandomName, name),
+			ResourceName:     "cpln_domain_route.third-route",
+			ImportState:      true,
+			ImportStateId:    fmt.Sprintf("domain-acctest-%s.%s:80:/third", drt.RandomName, name),
 			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
 		},
 		{
-			ResourceName:  "cpln_domain_route.fourth-route",
-			ImportState:   true,
-			ImportStateId: fmt.Sprintf("domain-acctest-%s.%s:443:/user/.*/profile", drt.RandomName, name),
+			ResourceName:     "cpln_domain_route.fourth-route",
+			ImportState:      true,
+			ImportStateId:    fmt.Sprintf("domain-acctest-%s.%s:443:/user/.*/profile", drt.RandomName, name),
 			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
 		},
 		// Inline Routes: Create & Read
@@ -216,25 +216,36 @@ func (drt *DomainResourceTest) NewCoexistenceScenario() []resource.TestStep {
 	subDomainName := fmt.Sprintf("route-coexist-%s.%s", drt.RandomName, drt.ApexDomain)
 
 	// Build test steps
+	caseCreate := drt.BuildCoexistenceCreateTestStep(subDomainName)
+	caseStripRoutes := drt.BuildNoRoutesTestStep(subDomainName, "no routes")
+	caseExternalOnly := drt.BuildExternalRoutesOnlyTestStep(subDomainName, "external routes only")
+	caseCoexistence := drt.BuildCoexistenceTestStep(subDomainName)
+	caseInlineOnly := drt.BuildInlineOnlyTestStep(subDomainName)
+	caseCleanup := drt.BuildNoRoutesTestStep(subDomainName, "final cleanup")
+
+	// Return the complete test steps
 	return []resource.TestStep{
 		// Create domain + inline routes + external routes in a single apply
-		drt.BuildCoexistenceCreateTestStep(subDomainName),
-		// Strip all routes
-		drt.BuildNoRoutesTestStep(subDomainName, "no routes"),
-		// Add external routes only
-		drt.BuildExternalRoutesOnlyTestStep(subDomainName, "external routes only"),
+		caseCreate,
+		// Remove inline route blocks and external route resources — inline routes
+		// persist on the API (mergeRoutes preserves all API routes when no inline
+		// blocks are defined) but are not stored in Terraform state
+		caseStripRoutes,
+		// Add external routes only (domain has no inline route blocks)
+		caseExternalOnly,
 		// Add inline routes alongside external (coexistence)
-		drt.BuildCoexistenceTestStep(subDomainName),
+		caseCoexistence,
 		// Remove external, keep inline only
-		drt.BuildInlineOnlyTestStep(subDomainName),
-		// Import State
+		caseInlineOnly,
+		// Import State — verify routes are stored in state (backward compat)
 		{
-			ResourceName:  "cpln_domain.subdomain",
-			ImportState:   true,
-			ImportStateId: subDomainName,
+			ResourceName:     "cpln_domain.subdomain",
+			ImportState:      true,
+			ImportStateId:    subDomainName,
+			ImportStateCheck: domainImportWithRoutesCheck(),
 		},
-		// Cleanup: remove all routes
-		drt.BuildNoRoutesTestStep(subDomainName, "final cleanup"),
+		// Cleanup: remove inline route blocks and external route resources
+		caseCleanup,
 	}
 }
 
@@ -2466,6 +2477,48 @@ resource "cpln_domain_route" "%s" {
 `, resourceName, routeKey, port)
 }
 
+// domainImportWithRoutesCheck returns an ImportStateCheckFunc that verifies routes WERE imported into state.
+func domainImportWithRoutesCheck() resource.ImportStateCheckFunc {
+	return func(states []*terraform.InstanceState) error {
+		// Validate exactly one resource was imported
+		if len(states) != 1 {
+			return fmt.Errorf("expected 1 imported state, got %d", len(states))
+		}
+
+		// Check that routes are stored in the spec (backward compat for standard import)
+		routeCount, exists := states[0].Attributes["spec.0.ports.0.route.#"]
+		if !exists || routeCount == "0" {
+			return fmt.Errorf(
+				"expected routes in imported state (spec.0.ports.0.route.# should be > 0), got exists=%v count=%q",
+				exists, routeCount,
+			)
+		}
+
+		return nil
+	}
+}
+
+// domainRouteLinkCheck returns an ImportStateCheckFunc that verifies the imported domain_link matches the expected self-link.
+func domainRouteLinkCheck(expectedLink string) resource.ImportStateCheckFunc {
+	return func(states []*terraform.InstanceState) error {
+		// Validate exactly one resource was imported
+		if len(states) != 1 {
+			return fmt.Errorf("expected 1 imported state, got %d", len(states))
+		}
+
+		// Verify domain_link is the full self-link, not a bare domain name
+		domainLink := states[0].Attributes["domain_link"]
+		if domainLink != expectedLink {
+			return fmt.Errorf(
+				"expected domain_link to be %q, got %q",
+				expectedLink, domainLink,
+			)
+		}
+
+		return nil
+	}
+}
+
 /*** Resource Test Cases ***/
 
 // DomainResourceTestCase defines a specific resource test case.
@@ -2503,31 +2556,6 @@ func (drtc *DomainResourceTestCase) Exists() resource.TestCheckFunc {
 
 		// Log successful verification of API resource existence
 		tflog.Info(TestLoggerContext, fmt.Sprintf("Domain %s verified successfully in both state and external system.", drtc.Name))
-		return nil
-	}
-}
-
-// domainRouteLinkCheck returns an ImportStateCheckFunc that verifies the imported
-// domain_link attribute matches the expected full self-link. This catches the bug
-// where importing with a bare domain name (e.g., "example.com") would store the
-// bare name instead of the full link ("/org/{org}/domain/example.com"), causing
-// a RequiresReplace diff on the next plan.
-func domainRouteLinkCheck(expectedLink string) resource.ImportStateCheckFunc {
-	return func(states []*terraform.InstanceState) error {
-		// Validate exactly one resource was imported
-		if len(states) != 1 {
-			return fmt.Errorf("expected 1 imported state, got %d", len(states))
-		}
-
-		// Verify domain_link is the full self-link, not a bare domain name
-		domainLink := states[0].Attributes["domain_link"]
-		if domainLink != expectedLink {
-			return fmt.Errorf(
-				"expected domain_link to be %q, got %q",
-				expectedLink, domainLink,
-			)
-		}
-
 		return nil
 	}
 }
