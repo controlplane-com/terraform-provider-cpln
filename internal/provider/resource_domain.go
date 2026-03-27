@@ -1261,22 +1261,25 @@ func (dro *DomainResourceOperator) mergeRoutes(spec *client.DomainSpec, domain *
 			continue
 		}
 
+		// Collect route keys that were inline in the prior state
 		priorKeys := dro.getPriorInlineRouteKeys(*port.Number)
+
+		// Filter API routes to only those NOT previously managed inline (external routes)
 		externalRoutes := dro.filterExternalRoutes(currentRoutes, priorKeys)
 
 		if port.Routes == nil {
 			// Plan has no inline routes for this port
 			if len(priorKeys) > 0 {
-				// Case 2: Prior had inline routes, plan removed them — keep only external routes
+				// Prior had inline routes, plan removed them — keep only external routes
 				if len(externalRoutes) > 0 {
 					port.Routes = &externalRoutes
 				}
 			} else {
-				// Case 1: No inline routes before or now — preserve all API routes
+				// No inline routes before or now — preserve all API routes
 				port.Routes = &currentRoutes
 			}
 		} else {
-			// Case 3: Plan has inline routes — append external routes alongside them
+			// Plan has inline routes — append external routes alongside them
 			*port.Routes = append(*port.Routes, externalRoutes...)
 		}
 	}
