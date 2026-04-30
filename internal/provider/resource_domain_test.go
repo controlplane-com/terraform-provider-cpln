@@ -60,6 +60,7 @@ func NewDomainResourceTest() DomainResourceTest {
 	// Fill the steps slice
 	steps = append(steps, resourceTest.NewDefaultScenario()...)
 	steps = append(steps, resourceTest.NewCoexistenceScenario()...)
+	steps = append(steps, resourceTest.NewOptionalTlsScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -246,6 +247,25 @@ func (drt *DomainResourceTest) NewCoexistenceScenario() []resource.TestStep {
 		},
 		// Cleanup: remove inline route blocks and external route resources
 		caseCleanup,
+	}
+}
+
+// NewOptionalTlsScenario creates a test scenario covering a TCP subdomain that omits the optional tls block.
+func (drt *DomainResourceTest) NewOptionalTlsScenario() []resource.TestStep {
+	// Define necessary variables
+	subDomainName := fmt.Sprintf("tcp-no-tls-%s.%s", drt.RandomName, drt.ApexDomain)
+
+	// Build test steps
+	caseCreate := drt.BuildOptionalTlsCreateTestStep(subDomainName)
+	casePlanStable := drt.BuildOptionalTlsPlanStableTestStep(subDomainName)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create a TCP subdomain that omits the optional tls block
+		caseCreate,
+		// Re-plan the same configuration to confirm the API response does not
+		// reintroduce a tls block in state and the plan stays empty
+		casePlanStable,
 	}
 }
 
@@ -1377,6 +1397,60 @@ func (drt *DomainResourceTest) BuildInlineOnlyTestStep(subDomainName string) res
 	}
 }
 
+// BuildOptionalTlsCreateTestStep returns a test step that creates a TCP subdomain without a tls block.
+func (drt *DomainResourceTest) BuildOptionalTlsCreateTestStep(subDomainName string) resource.TestStep {
+	// Define necessary variables
+	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+
+	// Create the sub-domain test case
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.hclBase() + drt.hclSubDomainTcpNoTls(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// Sub domain spec should expose a single TCP port routed to the workload with no tls block
+			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
+				{
+					"dns_mode": "cname",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "5432",
+							"protocol": "tcp",
+							"route": []map[string]interface{}{
+								{
+									"prefix":        "/",
+									"workload_link": workloadSelfLink,
+									"port":          "8080",
+								},
+							},
+						},
+					},
+				},
+			}),
+
+			// Strictly assert that no tls block was persisted to state
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.tls.#", "0"),
+		),
+	}
+}
+
+// BuildOptionalTlsPlanStableTestStep returns a plan-only test step that re-runs the no-tls config to verify no plan drift.
+func (drt *DomainResourceTest) BuildOptionalTlsPlanStableTestStep(subDomainName string) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config:   drt.hclBase() + drt.hclSubDomainTcpNoTls(subDomainName),
+		PlanOnly: true,
+	}
+}
+
 // Configs //
 
 // RequiredOnlyHcl returns a minimal HCL block for a resource using only required fields.
@@ -2456,6 +2530,34 @@ resource "cpln_domain" "subdomain" {
   }
 }
 `, name, description, routeBlocks.String())
+}
+
+// hclSubDomainTcpNoTls returns HCL for a CNAME subdomain that exposes a TCP port and intentionally omits the tls block.
+func (drt *DomainResourceTest) hclSubDomainTcpNoTls(name string) string {
+	return fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  name = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode = "cname"
+
+    ports {
+      number   = 5432
+      protocol = "tcp"
+
+      route {
+        prefix        = "/"
+        workload_link = cpln_workload.new.self_link
+        port          = 8080
+      }
+    }
+  }
+}
+`, name)
 }
 
 // hclDomainRoute returns HCL for a cpln_domain_route resource.
