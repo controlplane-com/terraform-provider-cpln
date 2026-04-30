@@ -40,7 +40,7 @@ type DomainStatus struct {
 /*** Spec Related ***/
 type DomainSpecPort struct {
 	Number   *int           `json:"number,omitempty"`
-	Protocol *string        `json:"protocol,omitempty"` // Enum: "http", "http2"
+	Protocol *string        `json:"protocol,omitempty"` // Enum: "http", "http2", "tcp"
 	Routes   *[]DomainRoute `json:"routes,omitempty"`
 	Cors     *DomainCors    `json:"cors,omitempty"`
 	TLS      *DomainTLS     `json:"tls,omitempty"`
@@ -74,7 +74,7 @@ type DomainCors struct {
 }
 
 type DomainTLS struct {
-	MinProtocolVersion *string            `json:"minProtocolVersion,omitempty"` // Enum: "TLSV1_2", "TLSV1_1", "TLSV1_0"
+	MinProtocolVersion *string            `json:"minProtocolVersion,omitempty"` // Enum: "TLSV1_3", "TLSV1_2", "TLSV1_1", "TLSV1_0"
 	CipherSuites       *[]string          `json:"cipherSuites,omitempty"`       // Enum: "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305", "ECDHE-RSA-AES128-GCM-SHA256", "AES256-GCM-SHA384", "AES128-GCM-SHA256"
 	ClientCertificate  *DomainCertificate `json:"clientCertificate,omitempty"`
 	ServerCertificate  *DomainCertificate `json:"serverCertificate,omitempty"`
