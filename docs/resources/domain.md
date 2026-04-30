@@ -58,18 +58,19 @@ Optional:
 
 ### `spec.ports`
 
-Required:
-
-- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
-
-~> **Note** If no tls properties are configured, an empty tls declaration (e.g., **tls { }**) is required to allow for the default properties to exist in the state file.
-
 Optional:
 
 - **number** (Number) Port to expose externally. Values: `80`, `443`. Default: `443`.
 - **protocol** (String) Allowed protocol. Valid values: `http`, `http2`, `tcp`. Default: `http2`.
 - **cors** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--cors))
 - **route** (Block List) ([see below](#nestedblock--spec--ports--route))
+- **tls** (Block List, Max: 1) ([see below](#nestedblock--spec--ports--tls))
+
+~> **Note** The `tls` block is always optional. When to use it:
+
+- **TCP ports** (`protocol = "tcp"`): omit `tls`. TLS does not apply to TCP listeners and any values supplied are ignored.
+- **Port `443` with `http` or `http2`**: the API automatically applies a default TLS configuration when `tls` is omitted. To mirror those defaults in your Terraform configuration and avoid a recurring plan diff after the first apply, add an empty `tls {}` block.
+- **Any other port with `http` or `http2`**: TLS is not auto-applied. Add a `tls` block only if you want to configure it explicitly.
 
 <a id="nestedblock--spec--ports--cors"></a>
 
@@ -201,8 +202,8 @@ resource "cpln_domain" "domain_apex" {
 
 		spec {
 			ports {
-				tls { }
-			 }
+				tls {}
+			}
 		}
 }
 
@@ -280,7 +281,7 @@ resource "cpln_domain" "domain_apex" {
 
   spec {
     ports {
-      tls { }
+      tls {}
     }
   }
 }
@@ -355,8 +356,8 @@ resource "cpln_domain" "domain_apex" {
 
 		spec {
 			ports {
-				tls { }
-			 }
+				tls {}
+			}
 		}
 }
 
