@@ -8,6 +8,7 @@ import (
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/group"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -80,7 +81,7 @@ func (gr *GroupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Optional:    true,
 			},
 			"origin": schema.StringAttribute{
-				Description: "Origin of the service account. Either `builtin` or `default`.",
+				Description: "Origin of the Group. Valid values: `default`, `builtin`, `synthetic`.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -104,10 +105,13 @@ func (gr *GroupResource) Schema(ctx context.Context, req resource.SchemaRequest,
 							Required:    true,
 						},
 						"language": schema.StringAttribute{
-							Description: "Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`.",
+							Description: "Language of the expression. Valid values: `jmespath`, `javascript`. Default: `jmespath`.",
 							Optional:    true,
 							Computed:    true,
 							Default:     stringdefault.StaticString("jmespath"),
+							Validators: []validator.String{
+								stringvalidator.OneOf("jmespath", "javascript"),
+							},
 						},
 					},
 				},
