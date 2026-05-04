@@ -58,7 +58,7 @@ func (acr *AuditContextResource) Schema(ctx context.Context, req resource.Schema
 	resp.Schema = schema.Schema{
 		Attributes: MergeAttributes(acr.EntityBaseAttributes("Audit Context"), map[string]schema.Attribute{
 			"origin": schema.StringAttribute{
-				Description: "",
+				Description: "Origin of the Audit Context. Valid values: `default` (user-created), `builtin` (system-reserved).",
 				Computed:    true,
 			},
 		}),
