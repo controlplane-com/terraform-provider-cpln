@@ -60,3 +60,21 @@ func (c NgsModel) AttributeTypes() attr.Type {
 		},
 	}
 }
+
+// Status //
+
+type StatusModel struct {
+	Usable      types.Bool   `tfsdk:"usable"`
+	LastChecked types.String `tfsdk:"last_checked"`
+	LastError   types.String `tfsdk:"last_error"`
+}
+
+func (c StatusModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"usable":       types.BoolType,
+			"last_checked": types.StringType,
+			"last_error":   types.StringType,
+		},
+	}
+}

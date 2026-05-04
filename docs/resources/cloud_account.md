@@ -71,6 +71,15 @@ The following attributes are exported:
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **gcp_service_account_name** (String) GCP service account name used during the configuration of the cloud account at GCP.
 - **gcp_roles** (List of String) GCP roles used during the configuration of the cloud account at GCP.
+- **status** (Block List, Max: 1) ([see below](#nestedblock--status)).
+
+<a id="nestedblock--status"></a>
+
+### `status`
+
+- **usable** (Boolean) Whether the Cloud Account credentials are valid and usable by Control Plane.
+- **last_checked** (String) ISO-8601 timestamp of the last time the Cloud Account credentials were validated.
+- **last_error** (String) The last error message reported when validating the Cloud Account credentials.
 
 ## Example Usage
 
