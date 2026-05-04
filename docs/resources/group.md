@@ -71,14 +71,14 @@ Required:
 
 Optional:
 
-- **language** (String) Language of the expression. Either `jmespath` or `javascript`. Default: `jmespath`.
+- **language** (String) Language of the expression. Valid values: `jmespath`, `javascript`. Default: `jmespath`.
 
 ## Outputs
 
 The following attributes are exported:
 
 - **cpln_id** (String) The ID, in GUID format, of the Group.
-- **origin** (String) Origin of the service account. Either `builtin` or `default`.
+- **origin** (String) Origin of the Group. Valid values: `default`, `builtin`, `synthetic`.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 
 ## Example Usage
