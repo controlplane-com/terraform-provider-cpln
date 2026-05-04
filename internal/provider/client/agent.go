@@ -18,6 +18,7 @@ type AgentBootstrapConfig struct {
 	AgentId           *string `json:"agentId,omitempty"`
 	AgentLink         *string `json:"agentLink,omitempty"`
 	HubEndpoint       *string `json:"hubEndpoint,omitempty"`
+	ProtocolVersion   *string `json:"protocolVersion,omitempty"` // Enum: "v1", "v2"
 }
 
 // GetAgent - Get Agent by name
