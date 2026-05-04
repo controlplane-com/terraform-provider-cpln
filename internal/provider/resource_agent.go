@@ -25,7 +25,8 @@ var (
 // AgentResourceModel holds the Terraform state for the resource.
 type AgentResourceModel struct {
 	EntityBaseModel
-	UserData types.String `tfsdk:"user_data"`
+	UserData        types.String `tfsdk:"user_data"`
+	ProtocolVersion types.String `tfsdk:"protocol_version"`
 }
 
 /*** Resource Configuration ***/
@@ -65,6 +66,13 @@ func (ar *AgentResource) Schema(ctx context.Context, req resource.SchemaRequest,
 				Description: "The JSON output needed when creating an agent.",
 				Computed:    true,
 				Sensitive:   true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"protocol_version": schema.StringAttribute{
+				Description: "The wormhole protocol version reported by the agent. Valid values: `v1`, `v2`.",
+				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -131,6 +139,13 @@ func (aro *AgentResourceOperator) MapResponseToState(agent *client.Agent, isCrea
 		state.UserData = types.StringValue(string(userData))
 	} else {
 		state.UserData = aro.Plan.UserData // :D
+	}
+
+	// Populate protocol_version from the agent status
+	if agent.Status != nil {
+		state.ProtocolVersion = types.StringPointerValue(agent.Status.ProtocolVersion)
+	} else {
+		state.ProtocolVersion = types.StringNull()
 	}
 
 	// Populate common fields from base resource data

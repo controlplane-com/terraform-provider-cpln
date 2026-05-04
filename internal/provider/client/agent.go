@@ -11,6 +11,7 @@ type Agent struct {
 
 type AgentStatus struct {
 	BootstrapConfig *AgentBootstrapConfig `json:"bootstrapConfig,omitempty"`
+	ProtocolVersion *string               `json:"protocolVersion,omitempty"` // Enum: "v1", "v2"
 }
 
 type AgentBootstrapConfig struct {

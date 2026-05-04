@@ -28,6 +28,7 @@ The following attributes are exported:
 - **cpln_id** (String) The ID, in GUID format, of the Agent.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **user_data** (String, Sensitive) The JSON output needed when [creating an agent](https://docs.controlplane.com/guides/agent).
+- **protocol_version** (String) The wormhole protocol version reported by the agent. Valid values: `v1`, `v2`.
 
 **Note:** The `user_data` output value is only generated when the resource is created. Because of its sensitive nature, the `user_data` value will not be displayed.
 
