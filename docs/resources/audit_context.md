@@ -27,7 +27,7 @@ The following attributes are exported:
 
 - **cpln_id** (String) The ID, in GUID format, of the Audit Context.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
-- **origin** (String)
+- **origin** (String) Origin of the Audit Context. Valid values: `default` (user-created), `builtin` (system-reserved).
 
 ## Example Usage
 
