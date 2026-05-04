@@ -36,6 +36,7 @@ type CloudAccountResourceModel struct {
 	Ngs                   types.List   `tfsdk:"ngs"`
 	GcpServiceAccountName types.String `tfsdk:"gcp_service_account_name"`
 	GcpRoles              types.Set    `tfsdk:"gcp_roles"`
+	Status                types.List   `tfsdk:"status"`
 }
 
 /*** Resource Configuration ***/
@@ -84,6 +85,26 @@ func (car *CloudAccountResource) Schema(ctx context.Context, req resource.Schema
 				ElementType: types.StringType,
 				PlanModifiers: []planmodifier.Set{
 					setplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"status": schema.ListNestedAttribute{
+				Description: "Status of the Cloud Account.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"usable": schema.BoolAttribute{
+							Description: "Whether the Cloud Account credentials are valid and usable by Control Plane.",
+							Computed:    true,
+						},
+						"last_checked": schema.StringAttribute{
+							Description: "ISO-8601 timestamp of the last time the Cloud Account credentials were validated.",
+							Computed:    true,
+						},
+						"last_error": schema.StringAttribute{
+							Description: "The last error message reported when validating the Cloud Account credentials.",
+							Computed:    true,
+						},
+					},
 				},
 			},
 		}),
@@ -305,6 +326,7 @@ func (caro *CloudAccountResourceOperator) MapResponseToState(cloudAccount *clien
 	state.Ngs = caro.flattenNgs(cloudAccount)
 	state.GcpServiceAccountName = types.StringValue("cpln-" + caro.Client.Org + "@cpln-prod01.iam.gserviceaccount.com")
 	state.GcpRoles = FlattenSetString(&GcpRoles)
+	state.Status = caro.flattenStatus(cloudAccount)
 
 	// Return completed state model
 	return state
@@ -494,4 +516,23 @@ func (caro *CloudAccountResourceOperator) flattenNgs(cloudAccount *client.CloudA
 
 	// Return the successfully created types.List
 	return FlattenList(caro.Ctx, caro.Diags, []models.NgsModel{block})
+}
+
+// flattenStatus maps the CloudAccountStatus struct to a Terraform state list.
+func (caro *CloudAccountResourceOperator) flattenStatus(cloudAccount *client.CloudAccount) types.List {
+	// Initialize a default block
+	block := models.StatusModel{}
+
+	// Return a null list if no status is reported by the API
+	if cloudAccount == nil || cloudAccount.Status == nil {
+		return types.ListNull(block.AttributeTypes())
+	}
+
+	// Populate the block from the API status payload
+	block.Usable = types.BoolPointerValue(cloudAccount.Status.Usable)
+	block.LastChecked = types.StringPointerValue(cloudAccount.Status.LastChecked)
+	block.LastError = types.StringPointerValue(cloudAccount.Status.LastError)
+
+	// Return the successfully created types.List
+	return FlattenList(caro.Ctx, caro.Diags, []models.StatusModel{block})
 }
