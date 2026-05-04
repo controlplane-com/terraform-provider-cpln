@@ -50,3 +50,5 @@ terraform-provider-cpln-logs.txt
 .history/
 
 .vscode/*.log
+
+AGENTS.md
