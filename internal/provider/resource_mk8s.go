@@ -1283,6 +1283,16 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 												},
 											},
 										},
+										"juicefs": schema.SingleNestedAttribute{
+											Description: "JuiceFS distributed file system add-on settings.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"enabled": schema.BoolAttribute{
+													Description: "Whether to install JuiceFS on the BYOK cluster.",
+													Optional:    true,
+												},
+											},
+										},
 										"middlebox": schema.SingleNestedAttribute{
 											Description: "Configuration for the optional middlebox traffic shaper.",
 											Optional:    true,
@@ -2186,6 +2196,15 @@ func defaultByokConfigValue() types.Object {
 		},
 	)
 
+	// Build the nested object for juicefs
+	juicefsTypes := models.AddOnsByokJuicefsModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	juicefs := types.ObjectValueMust(
+		juicefsTypes,
+		map[string]attr.Value{
+			"enabled": types.BoolValue(false),
+		},
+	)
+
 	// Build the nested object for middlebox
 	middleboxTypes := models.AddOnsByokMiddleboxModel{}.AttributeTypes().(types.ObjectType).AttrTypes
 	middlebox := types.ObjectValueMust(
@@ -2393,6 +2412,7 @@ func defaultByokConfigValue() types.Object {
 		configType.AttrTypes,
 		map[string]attr.Value{
 			"actuator":       actuator,
+			"juicefs":        juicefs,
 			"middlebox":      middlebox,
 			"common":         common,
 			"longhorn":       longhorn,
@@ -3911,6 +3931,7 @@ func (mro *Mk8sResourceOperator) buildAddOnByokConfig(state types.Object) *clien
 	// Construct and return the output
 	return &client.Mk8sByokAddOnConfig{
 		Actuator:      mro.buildAddOnByokActuator(block.Actuator),
+		Juicefs:       mro.buildAddOnByokJuicefs(block.Juicefs),
 		Middlebox:     mro.buildAddOnByokMiddlebox(block.Middlebox),
 		Common:        mro.buildAddOnByokCommon(block.Common),
 		Longhorn:      mro.buildAddOnByokLonghorn(block.Longhorn),
@@ -3944,6 +3965,22 @@ func (mro *Mk8sResourceOperator) buildAddOnByokActuator(state types.Object) *cli
 		MaxMemory: BuildString(block.MaxMemory),
 		LogLevel:  BuildString(block.LogLevel),
 		Env:       mro.BuildMapString(block.Env),
+	}
+}
+
+// buildAddOnByokJuicefs constructs a Mk8sByokAddOnConfigJuicefs from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokJuicefs(state types.Object) *client.Mk8sByokAddOnConfigJuicefs {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokJuicefsModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigJuicefs{
+		Enabled: BuildBool(block.Enabled),
 	}
 }
 
@@ -5752,6 +5789,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokConfig(input *client.Mk8sByokAd
 	// Build a single block
 	block := models.AddOnsByokConfigModel{
 		Actuator:      mro.flattenAddOnByokActuator(input.Actuator),
+		Juicefs:       mro.flattenAddOnByokJuicefs(input.Juicefs),
 		Middlebox:     mro.flattenAddOnByokMiddlebox(input.Middlebox),
 		Common:        mro.flattenAddOnByokCommon(input.Common),
 		Longhorn:      mro.flattenAddOnByokLonghorn(input.Longhorn),
@@ -5789,6 +5827,26 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokActuator(input *client.Mk8sByok
 		MaxMemory: types.StringPointerValue(input.MaxMemory),
 		LogLevel:  types.StringPointerValue(input.LogLevel),
 		Env:       FlattenMapString(input.Env),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokJuicefs transforms *client.Mk8sByokAddOnConfigJuicefs into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokJuicefs(input *client.Mk8sByokAddOnConfigJuicefs) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokJuicefsModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokJuicefsModel{
+		Enabled: types.BoolPointerValue(input.Enabled),
 	}
 
 	// Return the successfully created types.Object
