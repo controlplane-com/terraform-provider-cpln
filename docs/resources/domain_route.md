@@ -67,6 +67,10 @@ Required:
 - **workload_link** (String) The workload to mirror traffic to.
 - **percent** (Number) The percentage of traffic to mirror to the specified workload. Value between 0 and 100.
 
+Optional:
+
+- **port** (Number) The port on the mirrored workload to send traffic to. If not provided, traffic will be mirrored to the first discovered port on the mirrored workload.
+
 ## Example Usage
 
 ### Prefix

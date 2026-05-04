@@ -972,6 +972,7 @@ func BuildRouteMirror(ctx context.Context, diags *diag.Diagnostics, state types.
 	for _, block := range blocks {
 		result = append(result, client.DomainRouteMirror{
 			WorkloadLink: BuildString(block.WorkloadLink),
+			Port:         BuildInt(block.Port),
 			Percent:      BuildFloat64(block.Percent),
 		})
 	}
@@ -1211,6 +1212,7 @@ func FlattenRouteMirror(ctx context.Context, diags *diag.Diagnostics, input *[]c
 	for _, item := range *input {
 		block := domainmodel.RouteMirrorModel{
 			WorkloadLink: types.StringPointerValue(item.WorkloadLink),
+			Port:         FlattenInt(item.Port),
 			Percent:      FlattenFloat64(item.Percent),
 		}
 

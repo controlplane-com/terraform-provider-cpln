@@ -61,6 +61,7 @@ type DomainRoute struct {
 
 type DomainRouteMirror struct {
 	WorkloadLink *string  `json:"workloadLink,omitempty"`
+	Port         *int     `json:"port,omitempty"`
 	Percent      *float64 `json:"percent,omitempty"`
 }
 

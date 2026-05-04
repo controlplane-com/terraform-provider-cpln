@@ -501,7 +501,42 @@ Nested blocks get an `<a id="nestedblock--path--to--block"></a>` anchor and a `#
 
 When you add a new optional field, also add it to **every** `## Example Usage` block that already configures the parent — pick a sensible default value (often the schema default).
 
-## 14. Build & test commands
+## 14. Field / resource addition checklist
+
+When you add a new field to an existing resource — or a whole new resource or data source — touch every layer in this order. Skipping any layer is the most common cause of half-finished work in this repo.
+
+### Adding an optional field to an existing resource
+
+1. **Client struct** (`internal/provider/client/<kind>.go`) — add the new field as `*T` with `json:"name,omitempty"`. For string enums append a trailing `// Enum: "a", "b"` comment (§8).
+2. **Model** (`internal/provider/models/<kind>/<kind>.go`) — add the matching `types.X` field with `tfsdk:"snake_name"` and update the parent's `AttributeTypes()` map. (§7)
+3. **Resource schema** (`internal/provider/resource_<kind>.go`) — add the schema attribute (prefer `SingleNestedAttribute` for new nested objects; see §6). If the parent block has a `default<X>Value()` helper, update that too.
+4. **Builder & flattener** (`resource_<kind>.go` `// Builders //` and `// Flatteners //` sections) — read the value from the model into the client struct on the way in, and back to the model on the way out. Reuse helpers from `helper.go` / `common.go` first (§11). **If a builder/flattener already lives in `common.go` (e.g. `BuildRouteMirror`), edit it there — don't fork.**
+5. **Resource tests** (`internal/provider/resource_<kind>_test.go`) — exercise the new field in **at least one** existing HCL config and update the matching `Expected*` checker / `TestCheckNestedBlocks` / `TestCheckResourceAttr` assertion. For Optional fields, leave at least one peer config without the field set so both the "set" and "unset" paths get coverage. No `// TODO` placeholders. (§10)
+6. **Data source mirror** — if a `data_source_<kind>.go` exists, surface the field there too (with matching `data_source_<kind>_test.go` and `docs/data-sources/<kind>.md` updates).
+7. **Docs** (`docs/resources/<kind>.md`, plus `docs/data-sources/<kind>.md` if applicable) — add the field to the Required/Optional list under the right nested block, and to **every** `## Example Usage` block that already configures the parent (pick a sensible default value). (§13)
+8. **Verify** before each commit: `go build ./... && go vet ./... && go test -race ./internal/provider/ -count=1 -timeout=120s`.
+
+### Adding a new resource or data source
+
+In addition to running the field checklist above for **every** field, also:
+
+- **Provider registry** (`internal/provider/provider.go`) — register the new `New<Kind>Resource` / `New<Kind>DataSource` in the `Resources()` / `DataSources()` slice.
+- **New files** (resources): `internal/provider/client/<kind>.go`, `internal/provider/models/<kind>/<kind>.go`, `internal/provider/resource_<kind>.go`, `internal/provider/resource_<kind>_test.go`, `docs/resources/<kind>.md`.
+- **New files** (data sources): `internal/provider/data_source_<kind>.go`, `internal/provider/data_source_<kind>_test.go`, `docs/data-sources/<kind>.md`. The client struct under `internal/provider/client/<kind>.go` is shared with the resource (don't duplicate it).
+- **Templates**: start from `templates/resource_skeleton.txt` and `templates/resource_test_skeleton.txt`. Mirror the closest sibling resource for everything not in the skeleton.
+
+### One-pass mental check before pushing
+
+- [ ] **Client** — field added with correct `json` tag
+- [ ] **Model** — field added; `AttributeTypes()` updated
+- [ ] **Resource schema** — attribute exposed (with proper validators/defaults)
+- [ ] **Builder** reads it; **flattener** writes it (in the right file — `resource_<kind>.go` or `common.go`)
+- [ ] **Resource tests** — at least one HCL config sets it; the matching checker asserts it
+- [ ] **Data source** — mirrored if applicable
+- [ ] **Docs** — listed under the correct block; example usage shows it
+- [ ] `go build`, `go vet`, and unit tests are green
+
+## 15. Build & test commands
 
 ```bash
 go build ./...                                              # full build
@@ -514,26 +549,26 @@ make install                                                # build + install pl
 
 The CI workflow pre-installs the Terraform CLI before running acceptance tests.
 
-## 15. Workflow expectations
+## 16. Workflow expectations
 
 - **Reuse first.** Before writing any utility, builder, flattener, validator, or schema fragment, check `helper.go`, `common.go`, `models/common/`, `validators/`, and `modifiers/`. If something analogous exists, use it. If you'd be copy/pasting between resources, extract to `common.go`. (Section 11.)
 - **Mirror, don't invent.** Before writing a resource, read at least two existing resources of similar shape (e.g., for a CRUD-only resource read `resource_audit_context.go`; for a complex multi-provider resource read `resource_mk8s.go`).
 - **Prefer object over list-as-block** for new single-nested attributes. `schema.SingleNestedAttribute` + `types.Object` is the modern shape; reach for `ListNestedBlock` only when matching legacy code in the same resource. (Section 6.)
 - **Templates are starting points, not stop-points.** `templates/resource_skeleton.txt` and `templates/resource_test_skeleton.txt` give the bones; add Builders/Flatteners/Schemas sections as needed by reading neighboring files.
 - **Comment density is non-negotiable.** Every function carries a one-line description, every step inside it carries a comment. This is the project's norm — do not "trim".
-- **Plural surgery, plural fix.** If you add an attribute to one place, find every analog (HCL configs, test checkers, defaults helper, doc examples, etc.) and update them all. Half-finished additions are the most common style break in this repo (see prior `// TODO: Add byok test here` placeholders).
+- **Plural surgery, plural fix.** If you add an attribute to one place, find every analog (HCL configs, test checkers, defaults helper, doc examples, etc.) and update them all. Half-finished additions are the most common style break in this repo (see prior `// TODO: Add byok test here` placeholders). Use the §14 checklist as the canonical list of files to touch.
 - **Joi → Go primitive types** are tracked via the upstream API schema. When in doubt, search the corresponding `controlplane/nodelibs/schema/src/*.ts` file for the Joi definition and translate per Section 7.
 - **No emojis in code, comments, commits, or docs unless the user asks.**
 - **Never delete or rewrite working code as a shortcut.** If a hook or test fails, fix the root cause.
 
-## 16. Commit / branch conventions (set globally, repeated here)
+## 17. Commit / branch conventions (set globally, repeated here)
 
 - Branch: `majid/<3-4 kebab-case words>`.
 - Commit message: one capitalized present-tense line, no body, no type prefix.
   - `Add juicefs to mk8s BYOK addon configuration`
   - `Make cpln_domain TLS optional`
 
-## 17. When unsure
+## 18. When unsure
 
 1. Search `helper.go` for an existing type-level utility (Build/Flatten/pointer/formatter).
 2. Search `common.go` for an existing shared builder/flattener/schema/CRUD primitive.

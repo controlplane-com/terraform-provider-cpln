@@ -611,6 +611,7 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 			domainRoute2.TestCheckNestedBlocks("mirror", []map[string]interface{}{
 				{
 					"workload_link": workloadSelfLink,
+					"port":          "8080",
 					"percent":       "50",
 				},
 				{
@@ -852,6 +853,7 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 			domainRoute2.TestCheckNestedBlocks("mirror", []map[string]interface{}{
 				{
 					"workload_link": workloadSelfLink,
+					"port":          "8080",
 					"percent":       "50",
 				},
 				{
@@ -917,6 +919,7 @@ func (drt *DomainResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase
 									"mirror": []map[string]interface{}{
 										{
 											"workload_link": workloadSelfLink,
+											"port":          "8080",
 											"percent":       "50",
 										},
 										{
@@ -997,6 +1000,7 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 									"mirror": []map[string]interface{}{
 										{
 											"workload_link": workloadSelfLink,
+											"port":          "8080",
 											"percent":       "75",
 										},
 									},
@@ -1753,6 +1757,7 @@ resource "cpln_domain_route" "second-route" {
 
   mirror {
     workload_link = cpln_workload.new.self_link
+    port          = 8080
     percent       = 50
   }
 
@@ -2012,6 +2017,7 @@ resource "cpln_domain_route" "second-route" {
 
   mirror {
     workload_link = cpln_workload.new.self_link
+    port          = 8080
     percent       = 50
   }
 
@@ -2182,6 +2188,7 @@ resource "cpln_domain" "%s" {
 
         mirror {
           workload_link = cpln_workload.new.self_link
+          port          = 8080
           percent       = 50
         }
 
@@ -2346,6 +2353,7 @@ resource "cpln_domain" "%s" {
 
         mirror {
           workload_link = cpln_workload.new.self_link
+          port          = 8080
           percent       = 75
         }
       }
