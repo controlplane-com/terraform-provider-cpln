@@ -271,6 +271,7 @@ func (r RouteHeadersRequestModel) AttributeTypes() attr.Type {
 
 type RouteMirrorModel struct {
 	WorkloadLink types.String  `tfsdk:"workload_link"`
+	Port         types.Int32   `tfsdk:"port"`
 	Percent      types.Float64 `tfsdk:"percent"`
 }
 
@@ -278,6 +279,7 @@ func (r RouteMirrorModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"workload_link": types.StringType,
+			"port":          types.Int32Type,
 			"percent":       types.Float64Type,
 		},
 	}

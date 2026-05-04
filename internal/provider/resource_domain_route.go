@@ -305,6 +305,10 @@ func (drr *DomainRouteResource) Schema(ctx context.Context, req resource.SchemaR
 							Description: "The workload to mirror traffic to.",
 							Required:    true,
 						},
+						"port": schema.Int32Attribute{
+							Description: "The port on the mirrored workload to send traffic to. If not provided, traffic will be mirrored to the first discovered port on the mirrored workload.",
+							Optional:    true,
+						},
 						"percent": schema.Float64Attribute{
 							Description: "The percentage of traffic to mirror to the specified workload.",
 							Required:    true,

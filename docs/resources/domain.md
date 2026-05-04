@@ -116,7 +116,22 @@ Optional:
 - **host_regex** (String) A regex to match the host header.
 - **headers** (Block List, Max: 1) Modify the headers for all http requests for this route. Same structure as `cpln_domain_route` headers.
 - **replica** (Number) The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.
-- **mirror** (Block List) Mirror the traffic to the specified workload(s). Only works for workloads running in the same location as the primary workload(s). Same structure as `cpln_domain_route` mirror.
+- **mirror** (Block List) ([see below](#nestedblock--spec--ports--route--mirror))
+
+<a id="nestedblock--spec--ports--route--mirror"></a>
+
+### `spec.ports.route.mirror`
+
+Mirror the traffic to the specified workload(s). Only works for workloads running in the same location as the primary workload(s).
+
+Required:
+
+- **workload_link** (String) The workload to mirror traffic to.
+- **percent** (Number) The percentage of traffic to mirror to the specified workload. Value between 0 and 100.
+
+Optional:
+
+- **port** (Number) The port on the mirrored workload to send traffic to. If not provided, traffic will be mirrored to the first discovered port on the mirrored workload.
 
 <a id="nestedblock--spec--ports--tls"></a>
 
