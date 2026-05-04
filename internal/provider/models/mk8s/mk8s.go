@@ -1246,6 +1246,7 @@ func (a AddOnsByokModel) AttributeTypes() attr.Type {
 
 type AddOnsByokConfigModel struct {
 	Actuator      types.Object `tfsdk:"actuator"`
+	Juicefs       types.Object `tfsdk:"juicefs"`
 	Middlebox     types.Object `tfsdk:"middlebox"`
 	Common        types.Object `tfsdk:"common"`
 	Longhorn      types.Object `tfsdk:"longhorn"`
@@ -1264,6 +1265,7 @@ func (a AddOnsByokConfigModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"actuator":       AddOnsByokActuatorModel{}.AttributeTypes(),
+			"juicefs":        AddOnsByokJuicefsModel{}.AttributeTypes(),
 			"middlebox":      AddOnsByokMiddleboxModel{}.AttributeTypes(),
 			"common":         AddOnsByokCommonModel{}.AttributeTypes(),
 			"longhorn":       AddOnsByokLonghornModel{}.AttributeTypes(),
@@ -1300,6 +1302,20 @@ func (a AddOnsByokActuatorModel) AttributeTypes() attr.Type {
 			"max_memory": types.StringType,
 			"log_level":  types.StringType,
 			"env":        types.MapType{ElemType: types.StringType},
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Juicefs //
+
+type AddOnsByokJuicefsModel struct {
+	Enabled types.Bool `tfsdk:"enabled"`
+}
+
+func (a AddOnsByokJuicefsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"enabled": types.BoolType,
 		},
 	}
 }

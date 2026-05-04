@@ -820,7 +820,7 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -985,7 +985,7 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -1125,7 +1125,7 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -1267,7 +1267,7 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -1408,7 +1408,7 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -1554,7 +1554,7 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -1825,7 +1825,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -1972,7 +1972,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -2143,7 +2143,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -2291,7 +2291,7 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -2563,7 +2563,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -2712,7 +2712,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 						},
 					},
 					"sysbox": "true",
-					// TODO: Add byok test here
+					"byok":   c.ExpectedByokFull(false),
 				},
 			}),
 		),
@@ -2977,6 +2977,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -3245,6 +3249,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -3520,6 +3528,10 @@ resource "cpln_mk8s" "%s" {
           }
         }
 
+        juicefs = {
+          enabled = false
+        }
+
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
@@ -3764,6 +3776,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -4013,6 +4029,10 @@ resource "cpln_mk8s" "%s" {
           }
         }
 
+        juicefs = {
+          enabled = false
+        }
+
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
@@ -4257,6 +4277,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -4508,6 +4532,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -4866,6 +4894,10 @@ resource "cpln_mk8s" "%s" {
           }
         }
 
+        juicefs = {
+          enabled = false
+        }
+
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
@@ -5120,6 +5152,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -5401,6 +5437,10 @@ resource "cpln_mk8s" "%s" {
           }
         }
 
+        juicefs = {
+          enabled = false
+        }
+
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
@@ -5635,6 +5675,134 @@ resource "cpln_mk8s" "%s" {
     }
 
     sysbox = true
+
+    byok = {
+      ignore_updates = false
+      location       = "/org/terraform-test-org/location/test-byok"
+
+      config = {
+        actuator = {
+          min_cpu    = "50m"
+          max_cpu    = "8001m"
+          min_memory = "200Mi"
+          max_memory = "8000Mi"
+          log_level  = "info"
+          env = {
+            CACHE_PERIOD_DATA_SERVICE = "600"
+            LABEL_NODES               = "false"
+          }
+        }
+
+        juicefs = {
+          enabled = false
+        }
+
+        middlebox = {
+          enabled              = false
+          bandwidth_alert_mbps = 650
+        }
+
+        common = {
+          deployment_replicas = 1
+
+          pdb = {
+            max_unavailable = 1
+          }
+        }
+
+        longhorn = {
+          replicas = 2
+        }
+
+        ingress = {
+          cpu            = "50m"
+          memory         = "200Mi"
+          target_percent = 6000
+        }
+
+        istio = {
+          istiod = {
+            replicas   = 2
+            min_cpu    = "50m"
+            max_cpu    = "8001m"
+            min_memory = "100Mi"
+            max_memory = "8000Mi"
+            pdb        = 0
+          }
+
+          ingress_gateway = {
+            replicas   = 2
+            max_cpu    = "1"
+            max_memory = "1Gi"
+          }
+
+          sidecar = {
+            min_cpu    = "0m"
+            min_memory = "200Mi"
+          }
+        }
+
+        log_splitter = {
+          min_cpu         = "1m"
+          max_cpu         = "1000m"
+          min_memory      = "10Mi"
+          max_memory      = "2000Mi"
+          mem_buffer_size = "128M"
+          per_pod_rate    = 10000
+        }
+
+        monitoring = {
+          min_memory = "100Mi"
+          max_memory = "20Gi"
+
+          kube_state_metrics = {
+            min_memory = "25Mi"
+          }
+
+          prometheus = {
+            main = {
+              storage = "10Gi"
+            }
+          }
+        }
+
+        redis = {
+          min_cpu    = "10m"
+          max_cpu    = "2001m"
+          min_memory = "100Mi"
+          max_memory = "1000Mi"
+          storage    = "8Gi"
+        }
+
+        redis_ha = {
+          min_cpu    = "50m"
+          max_cpu    = "2001m"
+          min_memory = "100Mi"
+          max_memory = "1000Mi"
+          storage    = 0
+        }
+
+        redis_sentinel = {
+          min_cpu    = "10m"
+          max_cpu    = "500m"
+          min_memory = "10Mi"
+          max_memory = "400Mi"
+          storage    = 0
+        }
+
+        tempo_agent = {
+          min_cpu    = "0m"
+          min_memory = "10Mi"
+        }
+
+        internal_dns = {
+          min_cpu    = "0m"
+          max_cpu    = "500m"
+          min_memory = "10Mi"
+          max_memory = "400Mi"
+        }
+      }
+    }
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -5889,6 +6057,10 @@ resource "cpln_mk8s" "%s" {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
           }
+        }
+
+        juicefs = {
+          enabled = false
         }
 
         middlebox = {
@@ -6156,6 +6328,10 @@ resource "cpln_mk8s" "%s" {
           }
         }
 
+        juicefs = {
+          enabled = false
+        }
+
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
@@ -6323,6 +6499,9 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 					"CACHE_PERIOD_DATA_SERVICE": "600",
 					"LABEL_NODES":               "false",
 				},
+			},
+			"juicefs": map[string]interface{}{
+				"enabled": false,
 			},
 			"middlebox": map[string]interface{}{
 				"enabled":              false,

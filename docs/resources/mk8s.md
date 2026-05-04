@@ -897,6 +897,7 @@ Fine-grained configuration for the BYOK workloads.
 Optional:
 
 - **actuator** (Object) ([see below](#nestedblock--add_ons--byok--config--actuator))
+- **juicefs** (Object) ([see below](#nestedblock--add_ons--byok--config--juicefs))
 - **middlebox** (Object) ([see below](#nestedblock--add_ons--byok--config--middlebox))
 - **common** (Object) ([see below](#nestedblock--add_ons--byok--config--common))
 - **longhorn** (Object) ([see below](#nestedblock--add_ons--byok--config--longhorn))
@@ -924,6 +925,16 @@ Optional:
 - **max_memory** (String) Memory limit applied to actuator pods.
 - **log_level** (String) Log level override for actuator containers. Valid values are: `trace`, `info`, `error`.
 - **env** (Map of String) Additional environment variables injected into actuator pods.
+
+<a id="nestedblock--add_ons--byok--config--juicefs"></a>
+
+### `add_ons.byok.config.juicefs`
+
+JuiceFS distributed file system add-on settings.
+
+Optional:
+
+- **enabled** (Boolean) Whether to install JuiceFS on the BYOK cluster.
 
 <a id="nestedblock--add_ons--byok--config--middlebox"></a>
 
@@ -1354,6 +1365,10 @@ resource "cpln_mk8s" "generic" {
                     }
                 }
 
+                juicefs = {
+                    enabled = false
+                }
+
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
@@ -1620,6 +1635,10 @@ resource "cpln_mk8s" "hetzner" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
@@ -1906,6 +1925,10 @@ resource "cpln_mk8s" "aws" {
                     }
                 }
 
+                juicefs = {
+                    enabled = false
+                }
+
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
@@ -2149,6 +2172,10 @@ resource "cpln_mk8s" "linode" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
@@ -2397,6 +2424,10 @@ resource "cpln_mk8s" "oblivus" {
                     }
                 }
 
+                juicefs = {
+                    enabled = false
+                }
+
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
@@ -2640,6 +2671,10 @@ resource "cpln_mk8s" "lambdalabs" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
@@ -2891,6 +2926,10 @@ resource "cpln_mk8s" "paperspace" {
                     }
                 }
 
+                juicefs = {
+                    enabled = false
+                }
+
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
@@ -3115,6 +3154,10 @@ resource "cpln_mk8s" "ephemeral" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
@@ -3370,6 +3413,10 @@ resource "cpln_mk8s" "triton" {
                     }
                 }
 
+                juicefs = {
+                    enabled = false
+                }
+
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
@@ -3623,6 +3670,10 @@ resource "cpln_mk8s" "triton" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
@@ -3901,6 +3952,10 @@ resource "cpln_mk8s" "triton" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
@@ -4403,6 +4458,10 @@ resource "cpln_mk8s" "gcp-provider" {
                     }
                 }
 
+                juicefs = {
+                    enabled = false
+                }
+
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
@@ -4643,6 +4702,10 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
                     }
+                }
+
+                juicefs = {
+                    enabled = false
                 }
 
                 middlebox = {
