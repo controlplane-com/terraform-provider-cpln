@@ -659,12 +659,14 @@ func (r RolloutOptionsModel) AttributeTypes() attr.Type {
 
 type SecurityOptionsModel struct {
 	FileSystemGroupId types.Int32 `tfsdk:"file_system_group_id"`
+	RunAsUser         types.Int32 `tfsdk:"run_as_user"`
 }
 
 func (s SecurityOptionsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"file_system_group_id": types.Int32Type,
+			"run_as_user":          types.Int32Type,
 		},
 	}
 }
@@ -789,6 +791,7 @@ type StatusModel struct {
 	CurrentReplicaCount  types.Int32  `tfsdk:"current_replica_count"`
 	ResolvedImages       types.List   `tfsdk:"resolved_images"`
 	LoadBalancer         types.List   `tfsdk:"load_balancer"`
+	SuspendedStatus      types.String `tfsdk:"suspended_status"`
 }
 
 func (s StatusModel) AttributeTypes() attr.Type {
@@ -803,6 +806,7 @@ func (s StatusModel) AttributeTypes() attr.Type {
 			"current_replica_count":  types.Int32Type,
 			"resolved_images":        types.ListType{ElemType: StatusResolvedImagesModel{}.AttributeTypes()},
 			"load_balancer":          types.ListType{ElemType: StatusLoadBalancerModel{}.AttributeTypes()},
+			"suspended_status":       types.StringType,
 		},
 	}
 }

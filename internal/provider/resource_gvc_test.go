@@ -47,6 +47,7 @@ func NewGvcResourceTest() GvcResourceTest {
 	// Fill the steps slice
 	steps = append(steps, resourceTest.NewOrgNamingScenario()...)
 	steps = append(steps, resourceTest.NewDefaultNamingScenario()...)
+	steps = append(steps, resourceTest.NewLocationOptionsLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -203,6 +204,42 @@ func (grt *GvcResourceTest) NewDefaultNamingScenario() []resource.TestStep {
 		caseUpdate4,
 		// Revert the resource to its initial state
 		initialStep,
+	}
+}
+
+// NewLocationOptionsLifecycleScenario walks the location_options SetNestedBlock through its full state lifecycle to catch state-drift bugs at empty/null and cardinality transitions.
+func (grt *GvcResourceTest) NewLocationOptionsLifecycleScenario() []resource.TestStep {
+	// Generate a unique name for the resource
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	name := fmt.Sprintf("gvc-loc-opts-%s", random)
+	resourceName := "with-location-options-lifecycle"
+
+	// Create a shared test case for all lifecycle steps
+	c := GvcResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "gvc",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_gvc.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: name,
+		},
+	}
+
+	// Build the lifecycle test steps
+	absentStep := grt.BuildLocationOptionsAbsentStep(c)
+	requiredOnlyStep := grt.BuildLocationOptionsRequiredOnlyStep(c)
+	multiAllStep := grt.BuildLocationOptionsMultiAllStep(c)
+	shrunkStep := grt.BuildLocationOptionsShrunkStep(c)
+
+	// Walk the lifecycle: absent → 1 min → 2 full → 1 full (shrink) → 2 full (regrow) → absent
+	return []resource.TestStep{
+		absentStep,
+		requiredOnlyStep,
+		multiAllStep,
+		shrunkStep,
+		multiAllStep,
+		absentStep,
 	}
 }
 
@@ -598,6 +635,18 @@ func (grt *GvcResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase, e
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
 			c.TestCheckSetAttr("locations", c.Locations),
+			c.TestCheckNestedBlocks("location_options", []map[string]interface{}{
+				{
+					"name":                 "aws-eu-central-1",
+					"routing_tier":         "1",
+					"latency_tolerance_ms": "150",
+				},
+				{
+					"name":              "aws-us-west-2",
+					"routing_tier":      "2",
+					"latency_offset_ms": "0",
+				},
+			}),
 			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
 			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
 			c.TestCheckNestedBlocks("controlplane_tracing", []map[string]interface{}{
@@ -643,7 +692,172 @@ func (grt *GvcResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase, e
 	}
 }
 
+// BuildLocationOptionsAbsentStep returns a test step where the GVC has no location_options block configured.
+func (grt *GvcResourceTest) BuildLocationOptionsAbsentStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationOptionsAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "location_options.#", "0"),
+		),
+	}
+}
+
+// BuildLocationOptionsRequiredOnlyStep returns a test step with a single location_options block carrying only the required `name` attribute.
+func (grt *GvcResourceTest) BuildLocationOptionsRequiredOnlyStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationOptionsRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("location_options", []map[string]interface{}{
+				{
+					"name": "aws-eu-central-1",
+				},
+			}),
+		),
+	}
+}
+
+// BuildLocationOptionsMultiAllStep returns a test step with two location_options blocks, both with all attributes populated.
+func (grt *GvcResourceTest) BuildLocationOptionsMultiAllStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationOptionsMultiAllHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("location_options", []map[string]interface{}{
+				{
+					"name":                 "aws-eu-central-1",
+					"routing_tier":         "1",
+					"latency_offset_ms":    "0",
+					"latency_tolerance_ms": "150",
+				},
+				{
+					"name":                 "aws-us-west-2",
+					"routing_tier":         "2",
+					"latency_offset_ms":    "5",
+					"latency_tolerance_ms": "200",
+				},
+			}),
+		),
+	}
+}
+
+// BuildLocationOptionsShrunkStep returns a test step with a single fully-populated location_options block, exercising removal of one entry while retaining the other with full attribute coverage.
+func (grt *GvcResourceTest) BuildLocationOptionsShrunkStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationOptionsShrunkHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("location_options", []map[string]interface{}{
+				{
+					"name":                 "aws-eu-central-1",
+					"routing_tier":         "1",
+					"latency_offset_ms":    "0",
+					"latency_tolerance_ms": "150",
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
+
+// LocationOptionsAbsentHcl returns the HCL for a GVC with no location_options block configured.
+func (grt *GvcResourceTest) LocationOptionsAbsentHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationOptionsRequiredOnlyHcl returns the HCL for a GVC with a single location_options block carrying only the required `name` attribute.
+func (grt *GvcResourceTest) LocationOptionsRequiredOnlyHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  location_options {
+    name = "aws-eu-central-1"
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationOptionsMultiAllHcl returns the HCL for a GVC with two location_options blocks, both with all attributes populated.
+func (grt *GvcResourceTest) LocationOptionsMultiAllHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  location_options {
+    name                 = "aws-eu-central-1"
+    routing_tier         = 1
+    latency_offset_ms    = 0
+    latency_tolerance_ms = 150
+  }
+
+  location_options {
+    name                 = "aws-us-west-2"
+    routing_tier         = 2
+    latency_offset_ms    = 5
+    latency_tolerance_ms = 200
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationOptionsShrunkHcl returns the HCL for a GVC with a single location_options block carrying all attributes.
+func (grt *GvcResourceTest) LocationOptionsShrunkHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  location_options {
+    name                 = "aws-eu-central-1"
+    routing_tier         = 1
+    latency_offset_ms    = 0
+    latency_tolerance_ms = 150
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
 
 // GvcRequiredOnly returns a minimal HCL block for a GVC using only required fields.
 func (grt *GvcResourceTest) GvcRequiredOnly(c GvcResourceTestCase) string {
@@ -719,6 +933,18 @@ resource "cpln_gvc" "%s" {
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
+  }
+
+  location_options {
+    name                 = "aws-eu-central-1"
+    routing_tier         = 1
+    latency_tolerance_ms = 150
+  }
+
+  location_options {
+    name              = "aws-us-west-2"
+    routing_tier      = 2
+    latency_offset_ms = 0
   }
 
   # Env Block

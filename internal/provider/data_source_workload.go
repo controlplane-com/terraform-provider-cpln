@@ -236,6 +236,10 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 								},
 							},
 						},
+						"suspended_status": schema.StringAttribute{
+							Description: "Computed suspension state of the workload. Valid values: `notSuspended`, `partiallySuspended`, `suspended`.",
+							Computed:    true,
+						},
 					},
 				},
 			},
@@ -573,6 +577,10 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 					Attributes: map[string]schema.Attribute{
 						"file_system_group_id": schema.Int32Attribute{
 							Description: "The group id assigned to any mounted volume.",
+							Computed:    true,
+						},
+						"run_as_user": schema.Int32Attribute{
+							Description: "The user id assigned to all container processes.",
 							Computed:    true,
 						},
 					},

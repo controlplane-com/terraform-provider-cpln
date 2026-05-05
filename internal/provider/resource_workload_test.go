@@ -619,6 +619,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate2TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -861,6 +862,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -1130,6 +1132,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -1389,6 +1392,7 @@ func (wrt *WorkloadResourceTest) BuildStandardTestStep(name string) (WorkloadRes
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -1687,6 +1691,7 @@ func (wrt *WorkloadResourceTest) BuildStandardUpdate1TestStep(initialCase Provid
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -1917,6 +1922,7 @@ func (wrt *WorkloadResourceTest) BuildCronTestStep(name string) (WorkloadResourc
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -2142,6 +2148,7 @@ func (wrt *WorkloadResourceTest) BuildCronUpdate1TestStep(initialCase ProviderTe
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -2401,6 +2408,7 @@ func (wrt *WorkloadResourceTest) BuildStatefulTestStep(name string) (WorkloadRes
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -2664,6 +2672,7 @@ func (wrt *WorkloadResourceTest) BuildStatefulUpdate1TestStep(initialCase Provid
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
 				{
 					"file_system_group_id": "1",
+					"run_as_user":          "1000",
 				},
 			}),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
@@ -3024,6 +3033,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -3252,6 +3262,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -3503,6 +3514,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -3735,6 +3747,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -4014,6 +4027,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -4215,6 +4229,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -4426,6 +4441,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -4658,6 +4674,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -4903,6 +4920,7 @@ resource "cpln_workload" "%s" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {

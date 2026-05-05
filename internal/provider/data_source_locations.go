@@ -78,11 +78,11 @@ func (d *LocationsDataSource) Schema(ctx context.Context, req datasource.SchemaR
 							Computed:    true,
 						},
 						"origin": schema.StringAttribute{
-							Description: "",
+							Description: "Origin of the location. Valid values: `builtin`, `default`, `custom`.",
 							Computed:    true,
 						},
 						"cloud_provider": schema.StringAttribute{
-							Description: "Cloud Provider of the location.",
+							Description: "Cloud Provider of the location. Valid values: `aws`, `gcp`, `azure`, `byok`, `linode`, `vultr`, `equinix`, `oci`.",
 							Computed:    true,
 						},
 						"region": schema.StringAttribute{

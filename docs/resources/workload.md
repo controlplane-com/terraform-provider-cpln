@@ -503,6 +503,7 @@ Allows for the configuration of the `file system group id` and `geo location`.
 Optional:
 
 - **file_system_group_id** (Number) The group id assigned to any mounted volume.
+- **run_as_user** (Number) The user id assigned to all container processes.
 
 <a id="nestedblock--load_balancer"></a>
 
@@ -606,6 +607,7 @@ Read-Only:
 - **current_replica_count** (Number) Current amount of replicas deployed.
 - **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
 - **load_balancer** (Block List) ([see below](#nestedblock--status--load_balancer)).
+- **suspended_status** (String) Computed suspension state of the workload. Valid values: `notSuspended`, `partiallySuspended`, `suspended`.
 
 <a id="nestedblock--status--health_check"></a>
 
@@ -845,6 +847,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1077,6 +1080,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1268,6 +1272,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1398,6 +1403,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   job {
@@ -1583,6 +1589,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1784,6 +1791,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -2028,6 +2036,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -2242,6 +2251,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {

@@ -287,6 +287,7 @@ type WorkloadRolloutOptions struct {
 // Security Options
 type WorkloadSecurityOptions struct {
 	FileSystemGroupId *int `json:"filesystemGroupId,omitempty"`
+	RunAsUser         *int `json:"runAsUser,omitempty"`
 }
 
 // WorkloadLoadBalancer - Workload Load Balancer
@@ -338,6 +339,7 @@ type WorkloadStatus struct {
 	CurrentReplicaCount  *int                          `json:"currentReplicaCount,omitempty"`
 	ResolvedImages       *WorkloadStatusResolvedImages `json:"resolvedImages,omitempty"`
 	LoadBalancer         *[]WorkloadStatusLoadBalancer `json:"loadBalancer,omitempty"`
+	SuspendedStatus      *string                       `json:"suspendedStatus,omitempty"`
 }
 
 // WorkloadStatusHealthCheck - Health Check Status
@@ -346,8 +348,8 @@ type WorkloadStatusHealthCheck struct {
 	Success     *bool   `json:"success,omitempty"`
 	Code        *int    `json:"code,omitempty"`
 	Message     *string `json:"message,omitempty"`
-	Failures    *int    `failures:"parentId,omitempty"`
-	Successes   *int    `successes:"parentId,omitempty"`
+	Failures    *int    `json:"failures,omitempty"`
+	Successes   *int    `json:"successes,omitempty"`
 	LastChecked *string `json:"lastChecked,omitempty"`
 }
 

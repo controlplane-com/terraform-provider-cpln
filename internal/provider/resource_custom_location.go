@@ -4,11 +4,13 @@ import (
 	"context"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/location"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -29,6 +31,8 @@ type CustomLocationResourceModel struct {
 	CloudProvider types.String `tfsdk:"cloud_provider"`
 	Region        types.String `tfsdk:"region"`
 	Enabled       types.Bool   `tfsdk:"enabled"`
+	Geo           types.List   `tfsdk:"geo"`
+	IpRanges      types.Set    `tfsdk:"ip_ranges"`
 }
 
 /*** Resource Configuration ***/
@@ -87,6 +91,46 @@ func (clr *CustomLocationResource) Schema(ctx context.Context, req resource.Sche
 			"enabled": schema.BoolAttribute{
 				Description: "Indication if the custom location is enabled.",
 				Required:    true,
+			},
+			"geo": schema.ListNestedAttribute{
+				Description: "",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"lat": schema.Float32Attribute{
+							Description: "Latitude of the location.",
+							Computed:    true,
+						},
+						"lon": schema.Float32Attribute{
+							Description: "Longitude of the location.",
+							Computed:    true,
+						},
+						"country": schema.StringAttribute{
+							Description: "Country of the location.",
+							Computed:    true,
+						},
+						"state": schema.StringAttribute{
+							Description: "State of the location.",
+							Computed:    true,
+						},
+						"city": schema.StringAttribute{
+							Description: "City of the location.",
+							Computed:    true,
+						},
+						"continent": schema.StringAttribute{
+							Description: "Continent of the location.",
+							Computed:    true,
+						},
+					},
+				},
+			},
+			"ip_ranges": schema.SetAttribute{
+				Description: "A list of IP ranges of the location.",
+				ElementType: types.StringType,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		}),
 	}
@@ -151,6 +195,15 @@ func (clro *CustomLocationResourceOperator) MapResponseToState(location *client.
 	state.Region = types.StringPointerValue(location.Region)
 	state.Enabled = types.BoolPointerValue(location.Spec.Enabled) // Spec is always defined, no need to check for nil
 
+	// Just in case Status is nil
+	if location.Status != nil {
+		state.Geo = clro.flattenGeo(location.Status.Geo)
+		state.IpRanges = FlattenSetString(location.Status.IpRanges)
+	} else {
+		state.Geo = types.ListNull(models.GeoModel{}.AttributeTypes())
+		state.IpRanges = types.SetNull(types.StringType)
+	}
+
 	// Return the built state
 	return state
 }
@@ -173,4 +226,31 @@ func (clro *CustomLocationResourceOperator) InvokeUpdate(req client.Location) (*
 // InvokeDelete invokes the Delete API to delete a resource by name.
 func (clro *CustomLocationResourceOperator) InvokeDelete(name string) error {
 	return clro.Client.DeleteCustomLocation(name)
+}
+
+// Flatteners //
+
+// flattenGeo transforms *client.LocationGeo into a Terraform types.List.
+func (clro *CustomLocationResourceOperator) flattenGeo(input *client.LocationGeo) types.List {
+	// Get attribute types
+	elementType := models.GeoModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.GeoModel{
+		Lat:       types.Float32PointerValue(input.Lat),
+		Lon:       types.Float32PointerValue(input.Lon),
+		Country:   types.StringPointerValue(input.Country),
+		State:     types.StringPointerValue(input.State),
+		City:      types.StringPointerValue(input.City),
+		Continent: types.StringPointerValue(input.Continent),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(clro.Ctx, clro.Diags, []models.GeoModel{block})
 }

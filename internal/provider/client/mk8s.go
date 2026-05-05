@@ -520,6 +520,7 @@ type Mk8sByokAddOnConfig struct {
 	Middlebox     *Mk8sByokAddOnConfigMiddlebox   `json:"middlebox,omitempty"`
 	Common        *Mk8sByokAddOnConfigCommon      `json:"common,omitempty"`
 	Longhorn      *Mk8sByokAddOnConfigLonghorn    `json:"longhorn,omitempty"`
+	Byok          *Mk8sByokAddOnConfigByok        `json:"byok,omitempty"`
 	Ingress       *Mk8sByokAddOnConfigIngress     `json:"ingress,omitempty"`
 	Istio         *Mk8sByokAddOnConfigIstio       `json:"istio,omitempty"`
 	LogSplitter   *Mk8sByokAddOnConfigLogSplitter `json:"logSplitter,omitempty"`
@@ -545,8 +546,10 @@ type Mk8sByokAddOnConfigJuicefs struct {
 }
 
 type Mk8sByokAddOnConfigMiddlebox struct {
-	Enabled            *bool `json:"enabled,omitempty"`
-	BandwidthAlertMbps *int  `json:"bandwidthAlertMbps,omitempty"`
+	Enabled            *bool   `json:"enabled,omitempty"`
+	BandwidthAlertMbps *int    `json:"bandwidthAlertMbps,omitempty"`
+	Port               *int    `json:"port,omitempty"`
+	IP                 *string `json:"ip,omitempty"`
 }
 
 type Mk8sByokAddOnConfigCommon struct {
@@ -559,7 +562,13 @@ type Mk8sByokAddOnConfigCommonPdb struct {
 }
 
 type Mk8sByokAddOnConfigLonghorn struct {
-	Replicas *int `json:"replicas,omitempty"`
+	NumberOfReplicas *int  `json:"numberOfReplicas,omitempty"`
+	Replicas         *int  `json:"replicas,omitempty"`
+	IsDefault        *bool `json:"isDefault,omitempty"`
+}
+
+type Mk8sByokAddOnConfigByok struct {
+	NoDefaultStorageClasses *bool `json:"noDefaultStorageClasses,omitempty"`
 }
 
 type Mk8sByokAddOnConfigIngress struct {
@@ -604,10 +613,12 @@ type Mk8sByokAddOnConfigLogSplitter struct {
 }
 
 type Mk8sByokAddOnConfigMonitoring struct {
-	MinMemory        *string                                        `json:"minMemory,omitempty"`
-	MaxMemory        *string                                        `json:"maxMemory,omitempty"`
-	KubeStateMetrics *Mk8sByokAddOnConfigMonitoringKubeStateMetrics `json:"kubeStateMetrics,omitempty"`
-	Prometheus       *Mk8sByokAddOnConfigMonitoringPrometheus       `json:"prometheus,omitempty"`
+	MinMemory        *string                                          `json:"minMemory,omitempty"`
+	MaxMemory        *string                                          `json:"maxMemory,omitempty"`
+	KubeStateMetrics *Mk8sByokAddOnConfigMonitoringKubeStateMetrics   `json:"kubeStateMetrics,omitempty"`
+	Prometheus       *Mk8sByokAddOnConfigMonitoringPrometheus         `json:"prometheus,omitempty"`
+	RemoteWrite      *[]Mk8sByokAddOnConfigMonitoringRemoteWrite      `json:"remoteWrite,omitempty"`
+	ExternalLabels   *map[string]interface{}                          `json:"externalLabels,omitempty"`
 }
 
 type Mk8sByokAddOnConfigMonitoringKubeStateMetrics struct {
@@ -620,6 +631,44 @@ type Mk8sByokAddOnConfigMonitoringPrometheus struct {
 
 type Mk8sByokAddOnConfigMonitoringPrometheusMain struct {
 	Storage *string `json:"storage"`
+}
+
+type Mk8sByokAddOnConfigMonitoringRemoteWrite struct {
+	BasicAuth            *Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth     `json:"basic_auth,omitempty"`
+	Authorization        *Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization `json:"authorization,omitempty"`
+	Oauth2               *map[string]interface{}                                `json:"oauth2,omitempty"`
+	FollowRedirects      *bool                                                  `json:"follow_redirects,omitempty"`
+	EnableHttp2          *bool                                                  `json:"enable_http2,omitempty"`
+	TlsConfig            *map[string]interface{}                                `json:"tls_config,omitempty"`
+	ProxyUrl             *string                                                `json:"proxy_url,omitempty"`
+	NoProxy              *string                                                `json:"no_proxy,omitempty"`
+	ProxyFromEnvironment *bool                                                  `json:"proxy_from_environment,omitempty"`
+	ProxyConnectHeader   *map[string]interface{}                                `json:"proxy_connect_header,omitempty"`
+	HttpHeaders          *map[string]interface{}                                `json:"http_headers,omitempty"`
+	Url                  *string                                                `json:"url,omitempty"`
+	RemoteTimeout        *string                                                `json:"remote_timeout,omitempty"`
+	Headers              *map[string]interface{}                                `json:"headers,omitempty"`
+	WriteRelabelConfigs  *[]map[string]interface{}                              `json:"write_relabel_configs,omitempty"`
+	Name                 *string                                                `json:"name,omitempty"`
+	SendExemplars        *bool                                                  `json:"send_exemplars,omitempty"`
+	SendNativeHistograms *bool                                                  `json:"send_native_histograms,omitempty"`
+	Sigv4                *map[string]interface{}                                `json:"sigv4,omitempty"`
+	Azuread              *map[string]interface{}                                `json:"azuread,omitempty"`
+	GoogleIam            *map[string]interface{}                                `json:"google_iam,omitempty"`
+	QueueConfig          *map[string]interface{}                                `json:"queue_config,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth struct {
+	Username     *string `json:"username,omitempty"`
+	UsernameFile *string `json:"username_file,omitempty"`
+	Password     *string `json:"password,omitempty"`
+	PasswordFile *string `json:"password_file,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization struct {
+	Type            *string `json:"type,omitempty"`
+	Credentials     *string `json:"credentials,omitempty"`
+	CredentialsFile *string `json:"credentials_file,omitempty"`
 }
 
 type Mk8sByokAddOnConfigRedisString struct {
