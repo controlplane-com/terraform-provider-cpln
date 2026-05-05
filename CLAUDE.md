@@ -188,21 +188,53 @@ return &client.Mk8sNetworkingConfig{ ... }
 
 Comments live on their own line, never trailing. They are short (one line). The entire codebase uses this density — do not strip comments to "be concise"; do not bunch multiple steps under one comment.
 
-## 6. Schema shape preference — Object over List-as-Block
+## 6. Schema shape preference — Attribute over Block, Object over List-as-Block
 
-**For new code, prefer single-nested objects (`schema.SingleNestedAttribute` + `types.Object`) over list-with-Max-1 blocks (`schema.ListNestedBlock` + `types.List`).** The `ListNestedBlock` style is older and reads as a block in HCL (`block { ... }`); the object style reads as an attribute (`block = { ... }`) — cleaner, less ambiguous, and matches the API shape better when the underlying field is a single object.
+**For new code, default to the attribute-style schema (`*NestedAttribute`) over the block-style schema (`*NestedBlock`).** Attribute-style HCL reads as `attr = { ... }` / `attr = [{ ... }]` — an assignment. Block-style HCL reads as `attr { ... }` repeated — a declaration. The attribute form composes naturally with `for_each`, `dynamic`, splats, and ternaries; distinguishes "absent" from "empty" cleanly (`null` vs `[]` vs `{}`); mirrors the JSON shape of the API; and most importantly **supports `Default` on the schema attribute** (block schemas do not).
 
-| Use this... | When the field is... | Terraform model type |
-|---|---|---|
-| `schema.SingleNestedAttribute` | a single nested object | `types.Object` |
-| `schema.ListNestedAttribute` (or `ListNestedBlock` only when matching legacy) | an ordered collection / list of objects | `types.List` |
-| `schema.SetNestedAttribute` | an unordered, duplicate-free collection | `types.Set` |
-| `schema.MapAttribute` | a `map[string]string` (or other primitive map) | `types.Map` |
-| primitives (`StringAttribute`, `Int32Attribute`, etc.) | scalars | `types.String`, `types.Int32`, etc. |
+### Hard rule: anything with a `Default` MUST be an attribute
 
-Use `schema.ListNestedBlock` only when (a) the existing resource you are editing already uses it everywhere and you must match for consistency, or (b) Terraform-side ergonomics genuinely require `block { ... }` syntax. Otherwise, prefer the object form.
+The Plugin Framework does **not** support `Default` on `*NestedBlock` schemas. If the field has a default value (object default, list default, set default, map default, scalar default), you have **no choice** — use the matching `*NestedAttribute` (or `MapNestedAttribute`, `ListAttribute`, etc.). Reaching for `ListNestedBlock` for a defaulted collection will silently leave the default un-applied at apply time and almost always cause perpetual plan drift.
 
-When you reach for an object, mirror the BYOK config in `resource_mk8s.go` (`schema.SingleNestedAttribute` with `Optional: true`, `Default: objectdefault.StaticValue(default<X>Value())`) and the matching `*Model` with `AttributeTypes()` returning a `types.ObjectType`.
+Concretely:
+- Object with a default → `schema.SingleNestedAttribute` + `Default: objectdefault.StaticValue(default<X>Value())`
+- List with a default → `schema.ListNestedAttribute` + `Default: listdefault.StaticValue(...)`
+- Set with a default → `schema.SetNestedAttribute` + `Default: setdefault.StaticValue(...)`
+- Scalar with a default → `Default: stringdefault.StaticString(...)` / `int32default.StaticInt32(...)` / `booldefault.StaticBool(...)`
+
+### Always ask: does order matter?
+
+Before reaching for `List*` anything, ask: **does the order of entries carry meaning?**
+
+- **Order matters** (e.g. routing rules evaluated top-down, ordered phases of a pipeline) → `List` family + `types.List`.
+- **Order does not matter** (e.g. a collection keyed by some inner field, set membership, per-location options uniqued by `locationLink`) → `Set` family + `types.Set`.
+- **Each entry has a natural string key** → `Map` family + `types.Map` (cleaner than carrying the key inside each object).
+
+Heuristic: if the API's Joi schema uses `.custom(makeUnique('<field>'))` or any other uniqueness/identity constraint without `.sort()`, the field is conceptually unordered — use **Set**. Using `List` for an unordered collection causes spurious plan diffs whenever the API returns entries in a different order than the user wrote them. The same rule applies to flat collections: `[]string` whose order doesn't matter is a `Set` (use `BuildSetString` / `FlattenSetString`), not a `List`.
+
+### Schema → model mapping (prefer the **Attribute** column for new code)
+
+| When the field is… | Attribute-style (preferred) | Block-style (legacy / when matching neighbor) | Terraform model |
+|---|---|---|---|
+| a single nested object | `schema.SingleNestedAttribute` | `schema.SingleNestedBlock` | `types.Object` |
+| an **ordered** collection of objects | `schema.ListNestedAttribute` | `schema.ListNestedBlock` | `types.List` |
+| an **unordered** collection of objects | `schema.SetNestedAttribute` | `schema.SetNestedBlock` | `types.Set` |
+| a string-keyed collection of objects | `schema.MapNestedAttribute` | *(no block equivalent)* | `types.Map` |
+| an ordered list of primitives | `schema.ListAttribute{ElementType: ...}` | — | `types.List` |
+| an unordered set of primitives | `schema.SetAttribute{ElementType: ...}` | — | `types.Set` |
+| a `map[string]string` (or other primitive map) | `schema.MapAttribute{ElementType: ...}` | — | `types.Map` |
+| scalars | `StringAttribute`, `Int32Attribute`, `BoolAttribute`, etc. | — | `types.String`, `types.Int32`, `types.Bool`, etc. |
+
+### When `*NestedBlock` is the right call
+
+Only reach for the block-style schema when **both** of the following are true:
+
+1. The existing resource you are editing already uses `*NestedBlock` everywhere for similar fields, and matching that style avoids a jarring mixed schema in the same resource. (Example: `resource_gvc.go` is block-heavy — adding a sibling block there is fine.)
+2. The field has **no default** that needs to be applied client-side.
+
+If either condition fails, use the attribute form.
+
+When you reach for an object attribute, mirror the BYOK config in `resource_mk8s.go` (`schema.SingleNestedAttribute` with `Optional: true`, `Default: objectdefault.StaticValue(default<X>Value())`) and the matching `*Model` with `AttributeTypes()` returning a `types.ObjectType`.
 
 ## 6.1 Builders & Flatteners — copy from templates
 
@@ -389,8 +421,34 @@ Test rules:
 - Acceptance tests use `resource.TestCase` with `Steps`. State checks use `resource.ComposeAggregateTestCheckFunc`.
 - Use the project helpers `c.GetDefaultChecks(...)`, `c.TestCheckResourceAttr(...)`, `c.TestCheckNestedBlocks(...)`, `c.TestCheckMapObjectAttr(...)`, `c.TestCheckObjectAttr(...)` from `provider_test.go`. Do NOT call `resource.TestCheckResourceAttr` directly when a method exists on the test case.
 - HCL configs use `fmt.Sprintf` with `c.ResourceName`, `c.Name`, `c.DescriptionUpdate` placeholders. Match the indentation and positioning of existing scenarios — including the multiple-update step ordering (`initialStep, importStep, update1, update2, update3, update2, update1, initialStep`).
+- **No HCL-generating helpers.** Every block — including new ones with variable-arity content like multiple `location_options { ... }` entries — must be written **inline** in the main HCL return string of the `*Hcl` method. Do **not** add helper methods (`grt.SomeBlockHcl`, `renderXBlocks`, `strings.Builder` loops, etc.) that build HCL fragments dynamically. Same rule for the assertion side: inline the `[]map[string]interface{}{...}` literal next to its `TestCheckNestedBlocks` call rather than introducing a `*Expected` helper.
+- **HCL lives in its own named `*Hcl` function — never inline next to `Config:`.** Each `Config: ...` field on a `resource.TestStep` must reference a named HCL function (`Config: grt.SomeStageHcl(c)`), not a `Config: fmt.Sprintf(\`...\`, ...)` literal. The HCL function lives under `// Configs //` at the bottom of the test file alongside the existing `*Hcl` methods. The step-builder file stays focused on the assertion shape; the HCL file stays focused on the literal config text. This separation is what every existing `Build*TestStep` does — keep it.
+- **Use literal values for new test fields, not sprintf placeholders.** When you add a new field to an HCL test config, write the value directly inline (e.g. `routing_tier = 1`, `name = "aws-eu-central-1"`) rather than `%d` / `%s` placeholders fed from a `c.<Field>` test-case struct. Mirror the same literal in the matching assertion (e.g. `"routing_tier": "1"`). The duplication between HCL and assertion is **fine and expected** — both sides being self-evident makes tests easier to write and review than chasing placeholders back through Sprintf args. Only fall back to placeholders when the value is genuinely runtime-derived (e.g. `acctest.RandStringFromCharSet`, `OrgName`, the resource's own `c.Name`). This applies to NEW fields; pre-existing placeholder-driven HCL stays as-is.
 - When adding a new optional API field, update **every** HCL config that exercises the parent block AND the corresponding `Expected*` checker so the assertion is real. Do not leave `// TODO: Add <field> test here` placeholders behind — fill them in.
 - Use `ExpectNonEmptyPlan: true` only when a known status-attribute drift is in play.
+
+### Lifecycle scenario for new nested blocks / nested attributes
+
+When you add a **nested block / nested attribute / collection of objects** (anything `*NestedBlock` / `*NestedAttribute`, anything backed by `types.List` / `types.Set` / `types.Map`, anything with structure or variable count), build a dedicated lifecycle scenario that walks the field through every state transition. This is where state-drift bugs live: empty vs null, build/flatten round-trips at each cardinality, `$replace/spec` removing a previously-set field, default-value re-application on read.
+
+Required transitions, in order:
+
+1. **Absent / empty** — the field is not set at all (or, if it carries a default, the user-config-empty case so the default is what gets stored).
+2. **Required-only single entry** — for a collection of objects, one entry with only its required inner attributes set; for a single nested object, the object set with only required attributes. Tests how optional inner attributes round-trip when null.
+3. **All attributes, multiple entries** — for a collection, two entries with every inner attribute set; for a single object, all attributes populated. Tests the full happy path.
+4. **Add another entry** — for a collection, grow to three entries (or more) so the build/flatten loop runs at a non-trivial count. Skip for single-nested objects (only one entry possible).
+5. **Shrink** — remove one entry to test partial removal mid-lifecycle (re-use step 3's config).
+6. **Complete removal** — back to absent / empty (re-use step 1's config). Tests `$replace/spec`-style update paths and the null-on-read flatten branch.
+
+For `cpln_gvc.location_options`, the canonical example lives in `resource_gvc_test.go` as `NewLocationOptionsLifecycleScenario` with steps `absentStep, requiredOnlyStep, multiAllStep, expandedStep, multiAllStep, absentStep`.
+
+**When to skip the lifecycle scenario:** the field is a trivial scalar (a new optional `string`, `int`, or `bool` on an existing block). For those, an add/modify/remove pass through an existing scenario is enough — full lifecycle is overkill and bloats acceptance-test cost without real coverage gain. The lifecycle is **mandatory** for nested blocks/attributes, **strongly recommended** for collections of primitives where ordering or set semantics matter, **optional** for trivial scalars.
+
+Pattern for the lifecycle scenario:
+- Make it its own scenario (`New<Field>LifecycleScenario`) appended in `New<Kind>ResourceTest()` — don't entangle it with the resource's other test scenarios.
+- **Each stage gets its own dedicated HCL function and its own step builder** — `<Field><Stage>Hcl(c)` under `// Configs //` and `Build<Field><Stage>Step(c)` under `// Test Cases //`. The step builder is `{Config: grt.<Field><Stage>Hcl(c), Check: ...}` — never inline `fmt.Sprintf` next to `Config:`. Inside each `*Hcl` function: the runtime-derived values from `c` (resource name, GVC name, description) stay as `%s` / `%d` / `fmt.Sprintf` args; everything else — `locations` list, `location_options` blocks, attribute values — is written as plain literals directly in the multi-line HCL string of that function. The boilerplate (`resource "cpln_gvc"` wrapper, `tags`, `locations`) repeats verbatim across every `*Hcl` function. **Embrace the duplication** — it makes each stage self-evident and removes a class of "what does the shared template hide?" review confusion. Same rule for the assertion side: each step's `[]map[string]interface{}{...}` literal lives next to its `TestCheckNestedBlocks` call with literal string values.
+- Re-use the same step value in the slice for "shrink" and "complete removal" (e.g. `[]resource.TestStep{absentStep, requiredOnlyStep, multiAllStep, shrunkStep, multiAllStep, absentStep}`) — re-using the *step variable* avoids drift between the going-up and coming-down configs without abstracting them.
+- **Use only locations / external resources that exist in the test org.** Currently confirmed-present in `terraform-test-org`: `aws-eu-central-1`, `aws-us-west-2`. Don't reach for `azure-east2`, `gcp-us-east1`, etc. just because they appear in docs — those will fail acceptance with a 400 from the API.
 
 ## 11. Reuse policy — `helper.go` and `common.go` are first stops
 
@@ -499,7 +557,11 @@ terraform import cpln_<kind>.RESOURCE_NAME <KIND>_NAME
 
 Nested blocks get an `<a id="nestedblock--path--to--block"></a>` anchor and a `### \`path.to.block\`` header followed by `Required:` / `Optional:` lists, matching `docs/resources/mk8s.md` for the deepest schema example.
 
-When you add a new optional field, also add it to **every** `## Example Usage` block that already configures the parent — pick a sensible default value (often the schema default).
+**Example Usage is part of the doc, not an afterthought.** Any time you add or edit a field, you MUST also touch **every** `## Example Usage` block that already configures the parent — even when the field is optional and even when the schema/test changes look complete on their own. Add a representative line for the new field with a sensible value (often the schema default). The doc is the user's first introduction to the field; if it's missing from the example, users won't discover it. This applies to:
+- New optional or required attributes on an existing block.
+- New nested blocks (add a small block invocation in the example).
+- Renames (update both the field list AND the example).
+- Removals (delete from both).
 
 ## 14. Field / resource addition checklist
 
