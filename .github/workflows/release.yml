@@ -61,6 +61,12 @@ jobs:
       - name: Build
         run: go build -v ./...
 
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
       - name: Run Tests
         run: go test -v -count=1 ./internal/provider/ -timeout 60m
         env:
