@@ -901,6 +901,7 @@ Optional:
 - **middlebox** (Object) ([see below](#nestedblock--add_ons--byok--config--middlebox))
 - **common** (Object) ([see below](#nestedblock--add_ons--byok--config--common))
 - **longhorn** (Object) ([see below](#nestedblock--add_ons--byok--config--longhorn))
+- **byok** (Object) ([see below](#nestedblock--add_ons--byok--config--byok))
 - **ingress** (Object) ([see below](#nestedblock--add_ons--byok--config--ingress))
 - **istio** (Object) ([see below](#nestedblock--add_ons--byok--config--istio))
 - **log_splitter** (Object) ([see below](#nestedblock--add_ons--byok--config--log_splitter))
@@ -981,6 +982,16 @@ Optional:
 - **number_of_replicas** (Number) Replica factor for Longhorn volumes. Minimum: `1`.
 - **replicas** (Number) Replica factor for Longhorn volumes. Minimum: `1`.
 - **is_default** (Boolean) Mark Longhorn as the default storage class.
+
+<a id="nestedblock--add_ons--byok--config--byok"></a>
+
+### `add_ons.byok.config.byok`
+
+BYOK-wide settings.
+
+Optional:
+
+- **no_default_storage_classes** (Boolean) When set, the BYOK installation does not provision any default storage classes.
 
 <a id="nestedblock--add_ons--byok--config--ingress"></a>
 
@@ -1394,6 +1405,10 @@ resource "cpln_mk8s" "generic" {
                     is_default         = true
                 }
 
+                byok = {
+                    no_default_storage_classes = false
+                }
+
                 ingress = {
                     cpu            = "50m"
                     memory         = "200Mi"
@@ -1668,6 +1683,10 @@ resource "cpln_mk8s" "hetzner" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {
@@ -1962,6 +1981,10 @@ resource "cpln_mk8s" "aws" {
                     is_default         = true
                 }
 
+                byok = {
+                    no_default_storage_classes = false
+                }
+
                 ingress = {
                     cpu            = "50m"
                     memory         = "200Mi"
@@ -2213,6 +2236,10 @@ resource "cpln_mk8s" "linode" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {
@@ -2469,6 +2496,10 @@ resource "cpln_mk8s" "oblivus" {
                     is_default         = true
                 }
 
+                byok = {
+                    no_default_storage_classes = false
+                }
+
                 ingress = {
                     cpu            = "50m"
                     memory         = "200Mi"
@@ -2720,6 +2751,10 @@ resource "cpln_mk8s" "lambdalabs" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {
@@ -2979,6 +3014,10 @@ resource "cpln_mk8s" "paperspace" {
                     is_default         = true
                 }
 
+                byok = {
+                    no_default_storage_classes = false
+                }
+
                 ingress = {
                     cpu            = "50m"
                     memory         = "200Mi"
@@ -3211,6 +3250,10 @@ resource "cpln_mk8s" "ephemeral" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {
@@ -3474,6 +3517,10 @@ resource "cpln_mk8s" "triton" {
                     is_default         = true
                 }
 
+                byok = {
+                    no_default_storage_classes = false
+                }
+
                 ingress = {
                     cpu            = "50m"
                     memory         = "200Mi"
@@ -3735,6 +3782,10 @@ resource "cpln_mk8s" "triton" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {
@@ -4021,6 +4072,10 @@ resource "cpln_mk8s" "triton" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {
@@ -4531,6 +4586,10 @@ resource "cpln_mk8s" "gcp-provider" {
                     is_default         = true
                 }
 
+                byok = {
+                    no_default_storage_classes = false
+                }
+
                 ingress = {
                     cpu            = "50m"
                     memory         = "200Mi"
@@ -4779,6 +4838,10 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                     number_of_replicas = 2
                     replicas           = 2
                     is_default         = true
+                }
+
+                byok = {
+                    no_default_storage_classes = false
                 }
 
                 ingress = {

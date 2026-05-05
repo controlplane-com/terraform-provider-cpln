@@ -1368,6 +1368,16 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 												},
 											},
 										},
+										"byok": schema.SingleNestedAttribute{
+											Description: "BYOK-wide settings.",
+											Optional:    true,
+											Attributes: map[string]schema.Attribute{
+												"no_default_storage_classes": schema.BoolAttribute{
+													Description: "When set, the BYOK installation does not provision any default storage classes.",
+													Optional:    true,
+												},
+											},
+										},
 										"ingress": schema.SingleNestedAttribute{
 											Description: "Ingress controller resource configuration.",
 											Optional:    true,
@@ -2266,6 +2276,15 @@ func defaultByokConfigValue() types.Object {
 		},
 	)
 
+	// Build the nested object for byok
+	byokTypes := models.AddOnsByokByokModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+	byok := types.ObjectValueMust(
+		byokTypes,
+		map[string]attr.Value{
+			"no_default_storage_classes": types.BoolValue(false),
+		},
+	)
+
 	// Build the nested object for ingress
 	ingressTypes := models.AddOnsByokIngressModel{}.AttributeTypes().(types.ObjectType).AttrTypes
 	ingress := types.ObjectValueMust(
@@ -2439,6 +2458,7 @@ func defaultByokConfigValue() types.Object {
 			"middlebox":      middlebox,
 			"common":         common,
 			"longhorn":       longhorn,
+			"byok":           byok,
 			"ingress":        ingress,
 			"istio":          istio,
 			"log_splitter":   logSplitter,
@@ -3958,6 +3978,7 @@ func (mro *Mk8sResourceOperator) buildAddOnByokConfig(state types.Object) *clien
 		Middlebox:     mro.buildAddOnByokMiddlebox(block.Middlebox),
 		Common:        mro.buildAddOnByokCommon(block.Common),
 		Longhorn:      mro.buildAddOnByokLonghorn(block.Longhorn),
+		Byok:          mro.buildAddOnByokByok(block.Byok),
 		Ingress:       mro.buildAddOnByokIngress(block.Ingress),
 		Istio:         mro.buildAddOnByokIstio(block.Istio),
 		LogSplitter:   mro.buildAddOnByokLogSplitter(block.LogSplitter),
@@ -4074,6 +4095,22 @@ func (mro *Mk8sResourceOperator) buildAddOnByokLonghorn(state types.Object) *cli
 		NumberOfReplicas: BuildInt(block.NumberOfReplicas),
 		Replicas:         BuildInt(block.Replicas),
 		IsDefault:        BuildBool(block.IsDefault),
+	}
+}
+
+// buildAddOnByokByok constructs a Mk8sByokAddOnConfigByok from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokByok(state types.Object) *client.Mk8sByokAddOnConfigByok {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokByokModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigByok{
+		NoDefaultStorageClasses: BuildBool(block.NoDefaultStorageClasses),
 	}
 }
 
@@ -5820,6 +5857,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokConfig(input *client.Mk8sByokAd
 		Middlebox:     mro.flattenAddOnByokMiddlebox(input.Middlebox),
 		Common:        mro.flattenAddOnByokCommon(input.Common),
 		Longhorn:      mro.flattenAddOnByokLonghorn(input.Longhorn),
+		Byok:          mro.flattenAddOnByokByok(input.Byok),
 		Ingress:       mro.flattenAddOnByokIngress(input.Ingress),
 		Istio:         mro.flattenAddOnByokIstio(input.Istio),
 		LogSplitter:   mro.flattenAddOnByokLogSplitter(input.LogSplitter),
@@ -5960,6 +5998,26 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokLonghorn(input *client.Mk8sByok
 		NumberOfReplicas: FlattenInt(input.NumberOfReplicas),
 		Replicas:         FlattenInt(input.Replicas),
 		IsDefault:        types.BoolPointerValue(input.IsDefault),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokByok transforms *client.Mk8sByokAddOnConfigByok into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokByok(input *client.Mk8sByokAddOnConfigByok) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokByokModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokByokModel{
+		NoDefaultStorageClasses: types.BoolPointerValue(input.NoDefaultStorageClasses),
 	}
 
 	// Return the successfully created types.Object

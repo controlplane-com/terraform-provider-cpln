@@ -3004,6 +3004,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -3278,6 +3282,10 @@ resource "cpln_mk8s" "%s" {
           number_of_replicas = 2
           replicas           = 2
           is_default         = true
+        }
+
+        byok = {
+          no_default_storage_classes = false
         }
 
         ingress = {
@@ -3561,6 +3569,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -3813,6 +3825,10 @@ resource "cpln_mk8s" "%s" {
           number_of_replicas = 2
           replicas           = 2
           is_default         = true
+        }
+
+        byok = {
+          no_default_storage_classes = false
         }
 
         ingress = {
@@ -4070,6 +4086,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -4322,6 +4342,10 @@ resource "cpln_mk8s" "%s" {
           number_of_replicas = 2
           replicas           = 2
           is_default         = true
+        }
+
+        byok = {
+          no_default_storage_classes = false
         }
 
         ingress = {
@@ -4581,6 +4605,10 @@ resource "cpln_mk8s" "%s" {
           number_of_replicas = 2
           replicas           = 2
           is_default         = true
+        }
+
+        byok = {
+          no_default_storage_classes = false
         }
 
         ingress = {
@@ -4947,6 +4975,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -5209,6 +5241,10 @@ resource "cpln_mk8s" "%s" {
           number_of_replicas = 2
           replicas           = 2
           is_default         = true
+        }
+
+        byok = {
+          no_default_storage_classes = false
         }
 
         ingress = {
@@ -5498,6 +5534,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -5756,6 +5796,10 @@ resource "cpln_mk8s" "%s" {
           number_of_replicas = 2
           replicas           = 2
           is_default         = true
+        }
+
+        byok = {
+          no_default_storage_classes = false
         }
 
         ingress = {
@@ -6128,6 +6172,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -6401,6 +6449,10 @@ resource "cpln_mk8s" "%s" {
           is_default         = true
         }
 
+        byok = {
+          no_default_storage_classes = false
+        }
+
         ingress = {
           cpu            = "50m"
           memory         = "200Mi"
@@ -6567,6 +6619,9 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 			},
 			"longhorn": map[string]interface{}{
 				"replicas": 2,
+			},
+			"byok": map[string]interface{}{
+				"no_default_storage_classes": false,
 			},
 			"ingress": map[string]interface{}{
 				"cpu":            "50m",

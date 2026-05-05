@@ -1250,6 +1250,7 @@ type AddOnsByokConfigModel struct {
 	Middlebox     types.Object `tfsdk:"middlebox"`
 	Common        types.Object `tfsdk:"common"`
 	Longhorn      types.Object `tfsdk:"longhorn"`
+	Byok          types.Object `tfsdk:"byok"`
 	Ingress       types.Object `tfsdk:"ingress"`
 	Istio         types.Object `tfsdk:"istio"`
 	LogSplitter   types.Object `tfsdk:"log_splitter"`
@@ -1269,6 +1270,7 @@ func (a AddOnsByokConfigModel) AttributeTypes() attr.Type {
 			"middlebox":      AddOnsByokMiddleboxModel{}.AttributeTypes(),
 			"common":         AddOnsByokCommonModel{}.AttributeTypes(),
 			"longhorn":       AddOnsByokLonghornModel{}.AttributeTypes(),
+			"byok":           AddOnsByokByokModel{}.AttributeTypes(),
 			"ingress":        AddOnsByokIngressModel{}.AttributeTypes(),
 			"istio":          AddOnsByokIstioModel{}.AttributeTypes(),
 			"log_splitter":   AddOnsByokLogSplitterModel{}.AttributeTypes(),
@@ -1384,6 +1386,20 @@ func (a AddOnsByokLonghornModel) AttributeTypes() attr.Type {
 			"number_of_replicas": types.Int32Type,
 			"replicas":           types.Int32Type,
 			"is_default":         types.BoolType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Byok //
+
+type AddOnsByokByokModel struct {
+	NoDefaultStorageClasses types.Bool `tfsdk:"no_default_storage_classes"`
+}
+
+func (a AddOnsByokByokModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"no_default_storage_classes": types.BoolType,
 		},
 	}
 }
