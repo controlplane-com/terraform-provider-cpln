@@ -28,6 +28,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
 - **keda** (Block List, Max: 1) ([see below](#nestedblock--keda)).
+- **location_options** (Block List) ([see below](#nestedblock--location_options)).
 
 ~> **Note** Only one of the tracing blocks can be defined.
 
@@ -117,6 +118,22 @@ Optional:
 - **identity_link** (String) A link to an Identity resource that will be used for KEDA. This will allow the keda operator to access cloud and network resources.
 - **secrets** (List of String) A list of secrets to be used as TriggerAuthentication objects. The TriggerAuthentication object will be named after the secret and can be used by triggers on workloads in this GVC.
 
+<a id="nestedblock--location_options"></a>
+
+### `location_options`
+
+Per-location routing options for DNS geo routing. Allows configuring priority-based failover and latency adjustments per location. Each entry references a location listed in `locations`.
+
+Required:
+
+- **name** (String) Name of the location these options apply to.
+
+Optional:
+
+- **routing_tier** (Number) Routing tier for DNS geo routing. Lower value = higher priority. Locations with the same `routing_tier` form a group; within a group, lowest latency wins. If all locations in the highest-priority group are unavailable, the next group is used.
+- **latency_offset_ms** (Number) Artificial latency offset in milliseconds added to measured latency. Positive values push traffic away from this location, negative values attract traffic. Default: `0`.
+- **latency_tolerance_ms** (Number) Maximum acceptable latency in milliseconds. If measured latency exceeds this value, the location is treated as unavailable for DNS geo routing.
+
 ## Outputs
 
 The following attributes are exported:
@@ -169,6 +186,20 @@ resource "cpln_gvc" "example" {
 
   # Example Locations: `aws-eu-central-1`, `aws-us-west-2`, `azure-east2`, `gcp-us-east1`
   locations = ["aws-eu-central-1", "aws-us-west-2"]
+
+  # Per-location DNS geo routing options.
+  # Locations in the highest-priority tier (lowest routing_tier) are tried first;
+  # within a tier, the location with the lowest measured latency wins.
+  location_options {
+    name                 = "aws-eu-central-1"
+    routing_tier         = 1
+    latency_tolerance_ms = 150
+  }
+
+  location_options {
+    name         = "aws-us-west-2"
+    routing_tier = 2
+  }
 
   # domain = "app.example.com"
   pull_secrets = [cpln_secret.docker.name]

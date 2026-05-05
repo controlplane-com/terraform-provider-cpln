@@ -5,6 +5,26 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+// Static Placement -> Location Options //
+
+type LocationOptionsModel struct {
+	Name               types.String `tfsdk:"name"`
+	RoutingTier        types.Int32  `tfsdk:"routing_tier"`
+	LatencyOffsetMs    types.Int32  `tfsdk:"latency_offset_ms"`
+	LatencyToleranceMs types.Int32  `tfsdk:"latency_tolerance_ms"`
+}
+
+func (l LocationOptionsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name":                 types.StringType,
+			"routing_tier":         types.Int32Type,
+			"latency_offset_ms":    types.Int32Type,
+			"latency_tolerance_ms": types.Int32Type,
+		},
+	}
+}
+
 // Sidecar //
 
 type SidecarModel struct {
