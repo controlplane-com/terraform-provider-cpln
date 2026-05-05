@@ -617,6 +617,7 @@ type Mk8sByokAddOnConfigMonitoring struct {
 	MaxMemory        *string                                        `json:"maxMemory,omitempty"`
 	KubeStateMetrics *Mk8sByokAddOnConfigMonitoringKubeStateMetrics `json:"kubeStateMetrics,omitempty"`
 	Prometheus       *Mk8sByokAddOnConfigMonitoringPrometheus       `json:"prometheus,omitempty"`
+	ExternalLabels   *map[string]interface{}                        `json:"externalLabels,omitempty"`
 }
 
 type Mk8sByokAddOnConfigMonitoringKubeStateMetrics struct {

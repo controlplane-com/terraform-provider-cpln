@@ -3058,6 +3058,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -3337,6 +3341,10 @@ resource "cpln_mk8s" "%s" {
             main = {
               storage = "10Gi"
             }
+          }
+
+          external_labels = {
+            cluster = "byok-acceptance"
           }
         }
 
@@ -3623,6 +3631,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -3880,6 +3892,10 @@ resource "cpln_mk8s" "%s" {
             main = {
               storage = "10Gi"
             }
+          }
+
+          external_labels = {
+            cluster = "byok-acceptance"
           }
         }
 
@@ -4140,6 +4156,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -4397,6 +4417,10 @@ resource "cpln_mk8s" "%s" {
             main = {
               storage = "10Gi"
             }
+          }
+
+          external_labels = {
+            cluster = "byok-acceptance"
           }
         }
 
@@ -4660,6 +4684,10 @@ resource "cpln_mk8s" "%s" {
             main = {
               storage = "10Gi"
             }
+          }
+
+          external_labels = {
+            cluster = "byok-acceptance"
           }
         }
 
@@ -5029,6 +5057,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -5296,6 +5328,10 @@ resource "cpln_mk8s" "%s" {
             main = {
               storage = "10Gi"
             }
+          }
+
+          external_labels = {
+            cluster = "byok-acceptance"
           }
         }
 
@@ -5588,6 +5624,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -5851,6 +5891,10 @@ resource "cpln_mk8s" "%s" {
             main = {
               storage = "10Gi"
             }
+          }
+
+          external_labels = {
+            cluster = "byok-acceptance"
           }
         }
 
@@ -6226,6 +6270,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -6503,6 +6551,10 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          external_labels = {
+            cluster = "byok-acceptance"
+          }
         }
 
         redis = {
@@ -6666,6 +6718,7 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 						"storage": "10Gi",
 					},
 				},
+				"external_labels": map[string]interface{}{},
 			},
 			"redis": map[string]interface{}{
 				"min_cpu":    "10m",
@@ -6712,6 +6765,10 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 
 	output["config"].(map[string]interface{})["longhorn"].(map[string]interface{})["number_of_replicas"] = 2
 	output["config"].(map[string]interface{})["longhorn"].(map[string]interface{})["is_default"] = true
+
+	output["config"].(map[string]interface{})["monitoring"].(map[string]interface{})["external_labels"] = map[string]interface{}{
+		"cluster": "byok-acceptance",
+	}
 
 	return output
 }

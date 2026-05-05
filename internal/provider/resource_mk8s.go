@@ -1547,6 +1547,11 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 														},
 													},
 												},
+												"external_labels": schema.MapAttribute{
+													Description: "Static labels appended to every metric scraped by the BYOK Prometheus stack.",
+													ElementType: types.StringType,
+													Optional:    true,
+												},
 											},
 										},
 										"redis": schema.SingleNestedAttribute{
@@ -2392,6 +2397,7 @@ func defaultByokConfigValue() types.Object {
 			"max_memory":         types.StringValue("20Gi"),
 			"kube_state_metrics": ksm,
 			"prometheus":         prometheus,
+			"external_labels":    types.MapValueMust(types.StringType, map[string]attr.Value{}),
 		},
 	)
 
@@ -4243,6 +4249,7 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMonitoring(state types.Object) *c
 		MaxMemory:        BuildString(block.MaxMemory),
 		KubeStateMetrics: mro.buildAddOnByokMonitoringKubeStateMetrics(block.KubeStateMetrics),
 		Prometheus:       mro.buildAddOnByokMonitoringPrometheus(block.Prometheus),
+		ExternalLabels:   mro.BuildMapString(block.ExternalLabels),
 	}
 }
 
@@ -6178,6 +6185,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoring(input *client.Mk8sBy
 		MaxMemory:        types.StringPointerValue(input.MaxMemory),
 		KubeStateMetrics: mro.flattenAddOnByokMonitoringKubeStateMetrics(input.KubeStateMetrics),
 		Prometheus:       mro.flattenAddOnByokMonitoringPrometheus(input.Prometheus),
+		ExternalLabels:   FlattenMapString(input.ExternalLabels),
 	}
 
 	// Return the successfully created types.Object
