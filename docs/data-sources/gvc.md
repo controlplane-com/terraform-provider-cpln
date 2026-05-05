@@ -28,6 +28,7 @@ The following attributes are exported:
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
 - **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
+- **location_options** (Block Set) ([see below](#nestedblock--location_options)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
 
 <a id="nestedblock--lightstep_tracing"></a>
@@ -52,6 +53,15 @@ The following attributes are exported:
 
 - **sampling** (Int) Determines what percentage of requests should be traced.
 - **custom_tags** (Map of String) Key-value map of custom tags.
+
+<a id="nestedblock--location_options"></a>
+
+### `location_options`
+
+- **name** (String) Name of the location these options apply to.
+- **routing_tier** (Int) Routing tier for DNS geo routing. Lower value = higher priority. Locations with the same `routing_tier` form a group; within a group, lowest latency wins. If all locations in the highest-priority group are unavailable, the next group is used.
+- **latency_offset_ms** (Int) Artificial latency offset in milliseconds added to measured latency. Positive values push traffic away from this location, negative values attract traffic. Default: `0`.
+- **latency_tolerance_ms** (Int) Maximum acceptable latency in milliseconds. If measured latency exceeds this value, the location is treated as unavailable for DNS geo routing.
 
 <a id="nestedblock--load_balancer"></a>
 

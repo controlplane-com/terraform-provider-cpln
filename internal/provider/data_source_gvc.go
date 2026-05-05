@@ -109,6 +109,29 @@ func (d *GvcDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 			"lightstep_tracing":    d.LightstepTracingSchema(),
 			"otel_tracing":         d.OtelTracingSchema(),
 			"controlplane_tracing": d.ControlPlaneTracingSchema(),
+			"location_options": schema.SetNestedBlock{
+				Description: "Per-location routing options for DNS geo routing. Allows configuring priority-based failover and latency adjustments per location. Each entry references a location listed in `locations`.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "Name of the location these options apply to.",
+							Computed:    true,
+						},
+						"routing_tier": schema.Int32Attribute{
+							Description: "Routing tier for DNS geo routing. Lower value = higher priority. Locations with the same `routing_tier` form a group; within a group, lowest latency wins. If all locations in the highest-priority group are unavailable, the next group is used.",
+							Computed:    true,
+						},
+						"latency_offset_ms": schema.Int32Attribute{
+							Description: "Artificial latency offset in milliseconds added to measured latency. Positive values push traffic away from this location, negative values attract traffic. Default: `0`.",
+							Computed:    true,
+						},
+						"latency_tolerance_ms": schema.Int32Attribute{
+							Description: "Maximum acceptable latency in milliseconds. If measured latency exceeds this value, the location is treated as unavailable for DNS geo routing.",
+							Computed:    true,
+						},
+					},
+				},
+			},
 			"sidecar": schema.ListNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
