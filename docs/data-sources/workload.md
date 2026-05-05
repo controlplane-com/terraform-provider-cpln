@@ -542,6 +542,7 @@ Read-Only:
 - **current_replica_count** (Number) Current number of replicas deployed.
 - **resolved_images** (Block List) ([see below](#nestedblock--status--resolved_images)).
 - **load_balancer** (Block List) ([see below](#nestedblock--status--load_balancer)).
+- **suspended_status** (String) Computed suspension state of the workload. Valid values: `notSuspended`, `partiallySuspended`, `suspended`.
 
 <a id="nestedblock--status--health_check"></a>
 

@@ -307,6 +307,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								},
 							},
 						},
+						"suspended_status": schema.StringAttribute{
+							Description: "Computed suspension state of the workload. Valid values: `notSuspended`, `partiallySuspended`, `suspended`.",
+							Computed:    true,
+						},
 					},
 				},
 			},
@@ -4532,6 +4536,7 @@ func (wro *WorkloadResourceOperator) flattenStatus(input *client.WorkloadStatus)
 		CurrentReplicaCount:  FlattenInt(input.CurrentReplicaCount),
 		ResolvedImages:       wro.flattenStatusResolvedImages(input.ResolvedImages),
 		LoadBalancer:         wro.flattenStatusLoadBalancer(input.LoadBalancer),
+		SuspendedStatus:      types.StringPointerValue(input.SuspendedStatus),
 	}
 
 	// Return the successfully created types.List

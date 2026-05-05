@@ -339,6 +339,7 @@ type WorkloadStatus struct {
 	CurrentReplicaCount  *int                          `json:"currentReplicaCount,omitempty"`
 	ResolvedImages       *WorkloadStatusResolvedImages `json:"resolvedImages,omitempty"`
 	LoadBalancer         *[]WorkloadStatusLoadBalancer `json:"loadBalancer,omitempty"`
+	SuspendedStatus      *string                       `json:"suspendedStatus,omitempty"`
 }
 
 // WorkloadStatusHealthCheck - Health Check Status
