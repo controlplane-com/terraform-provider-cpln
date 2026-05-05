@@ -37,8 +37,17 @@ type GvcSpec struct {
 
 // GvcStaticPlacement - Static Placement
 type GvcStaticPlacement struct {
-	LocationLinks *[]string `json:"locationLinks,omitempty"`
-	LocationQuery *Query    `json:"locationQuery,omitempty"`
+	LocationLinks   *[]string                             `json:"locationLinks,omitempty"`
+	LocationQuery   *Query                                `json:"locationQuery,omitempty"`
+	LocationOptions *[]GvcStaticPlacementLocationOption   `json:"locationOptions,omitempty"`
+}
+
+// GvcStaticPlacementLocationOption - Per-location DNS geo routing options
+type GvcStaticPlacementLocationOption struct {
+	LocationLink       *string `json:"locationLink,omitempty"`
+	RoutingTier        *int    `json:"routingTier,omitempty"`
+	LatencyOffsetMs    *int    `json:"latencyOffsetMs,omitempty"`
+	LatencyToleranceMs *int    `json:"latencyToleranceMs,omitempty"`
 }
 
 // GvcSidecar - GVC Sidecar

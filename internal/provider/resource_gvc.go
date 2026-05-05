@@ -38,6 +38,7 @@ type GvcResourceModel struct {
 	EntityBaseModel
 	Alias                types.String `tfsdk:"alias"`
 	Locations            types.Set    `tfsdk:"locations"`
+	LocationOptions      types.Set    `tfsdk:"location_options"`
 	PullSecrets          types.Set    `tfsdk:"pull_secrets"`
 	Domain               types.String `tfsdk:"domain"`
 	EndpointNamingFormat types.String `tfsdk:"endpoint_naming_format"`
@@ -207,6 +208,35 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"lightstep_tracing":    gr.LightstepTracingSchema(),
 			"otel_tracing":         gr.OtelTracingSchema(),
 			"controlplane_tracing": gr.ControlPlaneTracingSchema(),
+			"location_options": schema.SetNestedBlock{
+				Description: "Per-location routing options for DNS geo routing. Allows configuring priority-based failover and latency adjustments per location. Each entry references a location listed in `locations`.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Description: "Name of the location these options apply to.",
+							Required:    true,
+						},
+						"routing_tier": schema.Int32Attribute{
+							Description: "Routing tier for DNS geo routing. Lower value = higher priority. Locations with the same `routing_tier` form a group; within a group, lowest latency wins. If all locations in the highest-priority group are unavailable, the next group is used.",
+							Optional:    true,
+							Validators: []validator.Int32{
+								int32validator.AtLeast(0),
+							},
+						},
+						"latency_offset_ms": schema.Int32Attribute{
+							Description: "Artificial latency offset in milliseconds added to measured latency. Positive values push traffic away from this location, negative values attract traffic. Default: `0`.",
+							Optional:    true,
+						},
+						"latency_tolerance_ms": schema.Int32Attribute{
+							Description: "Maximum acceptable latency in milliseconds. If measured latency exceeds this value, the location is treated as unavailable for DNS geo routing.",
+							Optional:    true,
+							Validators: []validator.Int32{
+								int32validator.AtLeast(0),
+							},
+						},
+					},
+				},
+			},
 			"sidecar": schema.ListNestedBlock{
 				Description: "",
 				NestedObject: schema.NestedBlockObject{
@@ -448,7 +478,7 @@ func (gro *GvcResourceOperator) NewAPIRequest(isUpdate bool) client.Gvc {
 	}
 
 	// Set specific attributes
-	spec.StaticPlacement = gro.buildStaticPlacement(gro.Plan.Locations)
+	spec.StaticPlacement = gro.buildStaticPlacement(gro.Plan.Locations, gro.Plan.LocationOptions)
 	spec.PullSecretLinks = gro.buildPullSecrets(gro.Plan.PullSecrets)
 	spec.Domain = BuildString(gro.Plan.Domain)
 	spec.EndpointNamingFormat = BuildString(gro.Plan.EndpointNamingFormat)
@@ -480,6 +510,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 
 		// Set specific attributes
 		state.Locations = gro.flattenStaticPlacement(gvc.Spec.StaticPlacement)
+		state.LocationOptions = gro.flattenLocationOptions(gvc.Spec.StaticPlacement)
 		state.PullSecrets = gro.flattenPullSecrets(gvc.Spec.PullSecretLinks)
 		state.Domain = types.StringPointerValue(gvc.Spec.Domain)
 		state.EndpointNamingFormat = types.StringPointerValue(gvc.Spec.EndpointNamingFormat)
@@ -492,6 +523,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 		state.Keda = gro.flattenKeda(gvc.Spec.Keda)
 	} else {
 		state.Locations = types.SetNull(types.StringType)
+		state.LocationOptions = types.SetNull(models.LocationOptionsModel{}.AttributeTypes())
 		state.PullSecrets = types.SetNull(types.StringType)
 		state.Domain = types.StringNull()
 		state.EndpointNamingFormat = types.StringNull()
@@ -531,29 +563,71 @@ func (aro *GvcResourceOperator) InvokeDelete(name string) error {
 // Builders //
 
 // buildStaticPlacement constructs a client.StaticPlacement from Terraform state.
-func (gro *GvcResourceOperator) buildStaticPlacement(state types.Set) *client.GvcStaticPlacement {
-	// If the state is unknown or null, there is no block to process, so exit early
-	if state.IsNull() || state.IsUnknown() {
-		return nil
+func (gro *GvcResourceOperator) buildStaticPlacement(locations types.Set, locationOptions types.Set) *client.GvcStaticPlacement {
+	// Build the optional list of location links from the locations set
+	var locationLinks *[]string
+	if !locations.IsNull() && !locations.IsUnknown() {
+		// Construct a slice to hold the location links
+		links := []string{}
+
+		// Build the set of location names from the Terraform state
+		locationNames := BuildSetString(gro.Ctx, gro.Diags, locations)
+
+		// If the location names are not nil, iterate through them and create links
+		if locationNames != nil {
+			for _, locationName := range *locationNames {
+				links = append(links, fmt.Sprintf("/org/%s/location/%s", gro.Client.Org, locationName))
+			}
+		}
+
+		// Capture a pointer to the links slice
+		locationLinks = &links
 	}
 
-	// Construct a slice of strings to hold the location links
-	locationLinks := []string{}
+	// Build the optional list of per-location routing options
+	options := gro.buildLocationOptions(locationOptions)
 
-	// Build the set of location names from the Terraform state
-	locationNames := BuildSetString(gro.Ctx, gro.Diags, state)
-
-	// If the location names are not nil, iterate through them and create links
-	if locationNames != nil {
-		for _, locationName := range *locationNames {
-			locationLinks = append(locationLinks, fmt.Sprintf("/org/%s/location/%s", gro.Client.Org, locationName))
-		}
+	// Skip emitting the StaticPlacement object when neither locations nor options were provided
+	if locationLinks == nil && options == nil {
+		return nil
 	}
 
 	// Construct and return the output
 	return &client.GvcStaticPlacement{
-		LocationLinks: &locationLinks,
+		LocationLinks:   locationLinks,
+		LocationOptions: options,
 	}
+}
+
+// buildLocationOptions constructs []GvcStaticPlacementLocationOption from Terraform state.
+func (gro *GvcResourceOperator) buildLocationOptions(state types.Set) *[]client.GvcStaticPlacementLocationOption {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LocationOptionsModel](gro.Ctx, gro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Construct the result slice
+	result := []client.GvcStaticPlacementLocationOption{}
+
+	// Iterate over each block and construct a result item
+	for _, block := range blocks {
+		// Build the full location link from the location name
+		locationLink := fmt.Sprintf("/org/%s/location/%s", gro.Client.Org, block.Name.ValueString())
+
+		// Append a constructed option entry to the result slice
+		result = append(result, client.GvcStaticPlacementLocationOption{
+			LocationLink:       &locationLink,
+			RoutingTier:        BuildInt(block.RoutingTier),
+			LatencyOffsetMs:    BuildInt(block.LatencyOffsetMs),
+			LatencyToleranceMs: BuildInt(block.LatencyToleranceMs),
+		})
+	}
+
+	// Return the assembled slice of options
+	return &result
 }
 
 // buildPullSecrets constructs a []string from Terraform state.
@@ -749,8 +823,10 @@ func (gro *GvcResourceOperator) buildKeda(state types.List) *client.GvcKeda {
 
 // flattenStaticPlacement transforms client.StaticPlacement into a Terraform types.List.
 func (gro *GvcResourceOperator) flattenStaticPlacement(input *client.GvcStaticPlacement) types.Set {
-	// Check if the input is nil
-	if input == nil {
+	// Return null when StaticPlacement is missing or carries no LocationLinks at all.
+	// The API may now return a StaticPlacement that only contains LocationOptions; without this
+	// guard the state would be an empty Set against a config that omits locations, causing drift.
+	if input == nil || input.LocationLinks == nil {
 		return types.SetNull(types.StringType)
 	}
 
@@ -767,6 +843,46 @@ func (gro *GvcResourceOperator) flattenStaticPlacement(input *client.GvcStaticPl
 
 	// Flatten the location names into a Terraform types.Set
 	return FlattenSetString(&locationNames)
+}
+
+// flattenLocationOptions transforms []GvcStaticPlacementLocationOption into a Terraform types.Set.
+func (gro *GvcResourceOperator) flattenLocationOptions(input *client.GvcStaticPlacement) types.Set {
+	// Get attribute types
+	elementType := models.LocationOptionsModel{}.AttributeTypes()
+
+	// Return a null set when StaticPlacement or its LocationOptions are missing or empty.
+	// Treating an empty array as null avoids perpetual plan diffs against a config that omits the block.
+	if input == nil || input.LocationOptions == nil || len(*input.LocationOptions) == 0 {
+		return types.SetNull(elementType)
+	}
+
+	// Build the location prefix used to extract names from links
+	locationPrefix := fmt.Sprintf("/org/%s/location/", gro.Client.Org)
+
+	// Construct the blocks slice
+	blocks := []models.LocationOptionsModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input.LocationOptions {
+		// Initialize a default block with the integer fields populated from the API response
+		block := models.LocationOptionsModel{
+			Name:               types.StringNull(),
+			RoutingTier:        FlattenInt(item.RoutingTier),
+			LatencyOffsetMs:    FlattenInt(item.LatencyOffsetMs),
+			LatencyToleranceMs: FlattenInt(item.LatencyToleranceMs),
+		}
+
+		// Extract the location name from the link when present
+		if item.LocationLink != nil {
+			block.Name = types.StringValue(strings.TrimPrefix(*item.LocationLink, locationPrefix))
+		}
+
+		// Append the block to the slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.Set
+	return FlattenSet(gro.Ctx, gro.Diags, blocks)
 }
 
 // flattenPullSecrets transforms []string into a Terraform types.Set.
