@@ -1,3 +1,26 @@
+## 1.2.27
+
+- Bump dependencies to patch jwt/v5 and quic-go vulnerabilities.
+- Add location_options to GVC data source.
+- Fix failures and successes JSON tags on workload health check status.
+- Add suspended_status to workload status.
+- Add run_as_user to workload security_options.
+- Add remote_write to mk8s BYOK monitoring configuration.
+- Add external_labels to mk8s BYOK monitoring configuration.
+- Add byok block with no_default_storage_classes to mk8s BYOK addon configuration.
+- Add is_default and number_of_replicas to mk8s BYOK longhorn configuration.
+- Add port and ip to mk8s BYOK middlebox configuration.
+- Add origin, geo, and ip_ranges to custom location resource.
+- Document origin and cloud_provider enums on location resource.
+- Add location_options block to GVC resource.
+- Correct origin description and validate language on group resource.
+- Add port to domain route mirror block.
+- Add status block to cloud account resource.
+- Document origin enum on audit context resource.
+- Add status protocol_version to agent resource.
+- Add juicefs to mk8s BYOK addon configuration.
+- Make domain port tls block optional.
+
 ## 1.2.26
 
 - Add OpenTelemetry logging to org logging resource.
