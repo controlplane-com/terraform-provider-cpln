@@ -73,11 +73,11 @@ func (lr *LocationResource) Schema(ctx context.Context, req resource.SchemaReque
 	resp.Schema = schema.Schema{
 		Attributes: MergeAttributes(lr.EntityBaseAttributes("location"), map[string]schema.Attribute{
 			"origin": schema.StringAttribute{
-				Description: "",
+				Description: "Origin of the location. Valid values: `builtin`, `default`, `custom`.",
 				Computed:    true,
 			},
 			"cloud_provider": schema.StringAttribute{
-				Description: "Cloud Provider of the location.",
+				Description: "Cloud Provider of the location. Valid values: `aws`, `gcp`, `azure`, `byok`, `linode`, `vultr`, `equinix`, `oci`.",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
