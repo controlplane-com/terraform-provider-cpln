@@ -25,7 +25,23 @@ Manages an org's [Custom Location](https://docs.controlplane.com/reference/locat
 
 - **cpln_id** (String) The ID, in GUID format, of the custom location.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
+- **origin** (String) Origin of the location. Valid values: `builtin`, `default`, `custom`.
 - **region** (String) Region of the location.
+- **geo** (Block List, Max: 1) ([see below](#nestedblock--geo))
+- **ip_ranges** (List of String) A list of IP ranges of the location.
+
+<a id="nestedblock--geo"></a>
+
+### `geo`
+
+Location geographical details
+
+- **lat** (Number) Latitude.
+- **lon** (Number) Longitude.
+- **country** (String) Country.
+- **state** (String) State.
+- **city** (String) City.
+- **continent** (String) Continent.
 
 ## Example Usage
 
