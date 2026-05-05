@@ -1323,8 +1323,10 @@ func (a AddOnsByokJuicefsModel) AttributeTypes() attr.Type {
 // Add Ons -> Byok -> Config -> Middlebox //
 
 type AddOnsByokMiddleboxModel struct {
-	Enabled            types.Bool  `tfsdk:"enabled"`
-	BandwidthAlertMbps types.Int32 `tfsdk:"bandwidth_alert_mbps"`
+	Enabled            types.Bool   `tfsdk:"enabled"`
+	BandwidthAlertMbps types.Int32  `tfsdk:"bandwidth_alert_mbps"`
+	Port               types.Int32  `tfsdk:"port"`
+	IP                 types.String `tfsdk:"ip"`
 }
 
 func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
@@ -1332,6 +1334,8 @@ func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"enabled":              types.BoolType,
 			"bandwidth_alert_mbps": types.Int32Type,
+			"port":                 types.Int32Type,
+			"ip":                   types.StringType,
 		},
 	}
 }

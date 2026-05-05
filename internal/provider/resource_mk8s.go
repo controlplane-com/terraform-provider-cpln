@@ -1308,6 +1308,14 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 														int32validator.AtLeast(0),
 													},
 												},
+												"port": schema.Int32Attribute{
+													Description: "Listening port for the middlebox component.",
+													Optional:    true,
+												},
+												"ip": schema.StringAttribute{
+													Description: "IPv4 address bound by the middlebox component.",
+													Optional:    true,
+												},
 											},
 										},
 										"common": schema.SingleNestedAttribute{
@@ -2212,6 +2220,8 @@ func defaultByokConfigValue() types.Object {
 		map[string]attr.Value{
 			"enabled":              types.BoolValue(false),
 			"bandwidth_alert_mbps": types.Int32Value(650),
+			"port":                 types.Int32Null(),
+			"ip":                   types.StringNull(),
 		},
 	)
 
@@ -3998,6 +4008,8 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMiddlebox(state types.Object) *cl
 	return &client.Mk8sByokAddOnConfigMiddlebox{
 		Enabled:            BuildBool(block.Enabled),
 		BandwidthAlertMbps: BuildInt(block.BandwidthAlertMbps),
+		Port:               BuildInt(block.Port),
+		IP:                 BuildString(block.IP),
 	}
 }
 
@@ -5868,6 +5880,8 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMiddlebox(input *client.Mk8sByo
 	block := models.AddOnsByokMiddleboxModel{
 		Enabled:            types.BoolPointerValue(input.Enabled),
 		BandwidthAlertMbps: FlattenInt(input.BandwidthAlertMbps),
+		Port:               FlattenInt(input.Port),
+		IP:                 types.StringPointerValue(input.IP),
 	}
 
 	// Return the successfully created types.Object
