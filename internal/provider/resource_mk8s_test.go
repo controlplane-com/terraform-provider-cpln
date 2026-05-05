@@ -3059,6 +3059,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -3342,6 +3374,38 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
 
           external_labels = {
             cluster = "byok-acceptance"
@@ -3632,6 +3696,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -3893,6 +3989,38 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
 
           external_labels = {
             cluster = "byok-acceptance"
@@ -4157,6 +4285,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -4418,6 +4578,38 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
 
           external_labels = {
             cluster = "byok-acceptance"
@@ -4685,6 +4877,38 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
 
           external_labels = {
             cluster = "byok-acceptance"
@@ -5058,6 +5282,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -5329,6 +5585,38 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
 
           external_labels = {
             cluster = "byok-acceptance"
@@ -5625,6 +5913,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -5892,6 +6212,38 @@ resource "cpln_mk8s" "%s" {
               storage = "10Gi"
             }
           }
+
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
 
           external_labels = {
             cluster = "byok-acceptance"
@@ -6271,6 +6623,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -6552,6 +6936,38 @@ resource "cpln_mk8s" "%s" {
             }
           }
 
+          remote_write = [
+            {
+              url            = "https://prometheus.example.com/api/v1/write"
+              remote_timeout = "30s"
+              name           = "primary"
+              headers = {
+                "X-Scope-OrgID" = "byok-acceptance"
+              }
+              basic_auth = {
+                username = "byok"
+                password = "secret"
+              }
+              send_exemplars         = true
+              send_native_histograms = false
+              follow_redirects       = true
+              enable_http2           = true
+              queue_config = {
+                capacity            = "10000"
+                max_shards          = "200"
+                min_shards          = "1"
+                batch_send_deadline = "5s"
+              }
+              write_relabel_configs = [
+                {
+                  source_labels = "__name__"
+                  regex         = "go_.*"
+                  action        = "drop"
+                },
+              ]
+            },
+          ]
+
           external_labels = {
             cluster = "byok-acceptance"
           }
@@ -6718,7 +7134,6 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 						"storage": "10Gi",
 					},
 				},
-				"external_labels": map[string]interface{}{},
 			},
 			"redis": map[string]interface{}{
 				"min_cpu":    "10m",
@@ -6768,6 +7183,38 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 
 	output["config"].(map[string]interface{})["monitoring"].(map[string]interface{})["external_labels"] = map[string]interface{}{
 		"cluster": "byok-acceptance",
+	}
+
+	output["config"].(map[string]interface{})["monitoring"].(map[string]interface{})["remote_write"] = []map[string]interface{}{
+		{
+			"url":                    "https://prometheus.example.com/api/v1/write",
+			"remote_timeout":         "30s",
+			"name":                   "primary",
+			"send_exemplars":         true,
+			"send_native_histograms": false,
+			"follow_redirects":       true,
+			"enable_http2":           true,
+			"headers": map[string]interface{}{
+				"X-Scope-OrgID": "byok-acceptance",
+			},
+			"basic_auth": map[string]interface{}{
+				"username": "byok",
+				"password": "secret",
+			},
+			"queue_config": map[string]interface{}{
+				"capacity":            "10000",
+				"max_shards":          "200",
+				"min_shards":          "1",
+				"batch_send_deadline": "5s",
+			},
+			"write_relabel_configs": []map[string]interface{}{
+				{
+					"source_labels": "__name__",
+					"regex":         "go_.*",
+					"action":        "drop",
+				},
+			},
+		},
 	}
 
 	return output

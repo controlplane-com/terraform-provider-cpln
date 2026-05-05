@@ -1082,6 +1082,7 @@ Optional:
 - **max_memory** (String) Maximum memory limit for monitoring components.
 - **kube_state_metrics** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--kube_state_metrics))
 - **prometheus** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--prometheus))
+- **remote_write** (Block List) ([see below](#nestedblock--add_ons--byok--config--monitoring--remote_write))
 - **external_labels** (Map of String) Static labels appended to every metric scraped by the BYOK Prometheus stack.
 
 <a id="nestedblock--add_ons--byok--config--monitoring--kube_state_metrics"></a>
@@ -1113,6 +1114,62 @@ Primary Prometheus instance settings.
 Optional:
 
 - **storage** (String) Persistent volume size for Prometheus (for example, "50Gi").
+
+<a id="nestedblock--add_ons--byok--config--monitoring--remote_write"></a>
+
+### `add_ons.byok.config.monitoring.remote_write`
+
+Prometheus remote_write client configurations. Order is preserved as written.
+
+Optional:
+
+- **basic_auth** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--remote_write--basic_auth))
+- **authorization** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--remote_write--authorization))
+- **oauth2** (Map of String) OAuth 2.0 client configuration as flat key-value pairs.
+- **follow_redirects** (Boolean) Whether the HTTP client follows redirects.
+- **enable_http2** (Boolean) Whether to enable HTTP/2.
+- **tls_config** (Map of String) TLS configuration as flat key-value pairs.
+- **proxy_url** (String) HTTP proxy URL used for outbound requests.
+- **no_proxy** (String) Comma-separated list of hosts that bypass the proxy.
+- **proxy_from_environment** (Boolean) Whether to read proxy settings from environment variables.
+- **proxy_connect_header** (Map of String) Headers sent to the proxy on CONNECT, as flat key-value pairs.
+- **http_headers** (Map of String) Custom HTTP headers, as flat key-value pairs.
+- **url** (String) Endpoint that receives the remote_write payload.
+- **remote_timeout** (String) Per-request timeout (for example, "30s").
+- **headers** (Map of String) Custom request headers attached to every remote_write call.
+- **write_relabel_configs** (List of Map of String) Relabel rules applied to samples before they are sent.
+- **name** (String) Friendly name used in metrics for this client.
+- **send_exemplars** (Boolean) Whether to forward Prometheus exemplars.
+- **send_native_histograms** (Boolean) Whether to forward Prometheus native histograms.
+- **sigv4** (Map of String) AWS SigV4 authentication parameters as flat key-value pairs.
+- **azuread** (Map of String) Azure AD authentication parameters as flat key-value pairs.
+- **google_iam** (Map of String) Google Cloud IAM authentication parameters as flat key-value pairs.
+- **queue_config** (Map of String) Tuning parameters for the in-memory remote_write queue, as flat key-value pairs.
+
+<a id="nestedblock--add_ons--byok--config--monitoring--remote_write--basic_auth"></a>
+
+### `add_ons.byok.config.monitoring.remote_write.basic_auth`
+
+HTTP basic authentication credentials.
+
+Optional:
+
+- **username** (String) Username for HTTP basic authentication.
+- **username_file** (String) Path to a file containing the username.
+- **password** (String, Sensitive) Password for HTTP basic authentication.
+- **password_file** (String) Path to a file containing the password.
+
+<a id="nestedblock--add_ons--byok--config--monitoring--remote_write--authorization"></a>
+
+### `add_ons.byok.config.monitoring.remote_write.authorization`
+
+HTTP Authorization header credentials.
+
+Optional:
+
+- **type** (String) Authorization scheme (for example, "Bearer").
+- **credentials** (String, Sensitive) Authorization credentials.
+- **credentials_file** (String) Path to a file containing the credentials.
 
 <a id="nestedblock--add_ons--byok--config--redis"></a>
 
@@ -1461,6 +1518,38 @@ resource "cpln_mk8s" "generic" {
                         }
                     }
 
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
+
                     external_labels = {
                         cluster = "byok-acceptance"
                     }
@@ -1744,6 +1833,38 @@ resource "cpln_mk8s" "hetzner" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -2045,6 +2166,38 @@ resource "cpln_mk8s" "aws" {
                         }
                     }
 
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
+
                     external_labels = {
                         cluster = "byok-acceptance"
                     }
@@ -2305,6 +2458,38 @@ resource "cpln_mk8s" "linode" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -2568,6 +2753,38 @@ resource "cpln_mk8s" "oblivus" {
                         }
                     }
 
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
+
                     external_labels = {
                         cluster = "byok-acceptance"
                     }
@@ -2828,6 +3045,38 @@ resource "cpln_mk8s" "lambdalabs" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -3094,6 +3343,38 @@ resource "cpln_mk8s" "paperspace" {
                         }
                     }
 
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
+
                     external_labels = {
                         cluster = "byok-acceptance"
                     }
@@ -3335,6 +3616,38 @@ resource "cpln_mk8s" "ephemeral" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -3604,6 +3917,38 @@ resource "cpln_mk8s" "triton" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -3875,6 +4220,38 @@ resource "cpln_mk8s" "triton" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -4169,6 +4546,38 @@ resource "cpln_mk8s" "triton" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
@@ -4686,6 +5095,38 @@ resource "cpln_mk8s" "gcp-provider" {
                         }
                     }
 
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
+
                     external_labels = {
                         cluster = "byok-acceptance"
                     }
@@ -4943,6 +5384,38 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                             storage = "10Gi"
                         }
                     }
+
+                    remote_write = [
+                        {
+                            url            = "https://prometheus.example.com/api/v1/write"
+                            remote_timeout = "30s"
+                            name           = "primary"
+                            headers = {
+                                "X-Scope-OrgID" = "byok-acceptance"
+                            }
+                            basic_auth = {
+                                username = "byok"
+                                password = "secret"
+                            }
+                            send_exemplars         = true
+                            send_native_histograms = false
+                            follow_redirects       = true
+                            enable_http2           = true
+                            queue_config = {
+                                capacity            = "10000"
+                                max_shards          = "200"
+                                min_shards          = "1"
+                                batch_send_deadline = "5s"
+                            }
+                            write_relabel_configs = [
+                                {
+                                    source_labels = "__name__"
+                                    regex         = "go_.*"
+                                    action        = "drop"
+                                },
+                            ]
+                        },
+                    ]
 
                     external_labels = {
                         cluster = "byok-acceptance"
