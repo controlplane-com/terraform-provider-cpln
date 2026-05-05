@@ -520,6 +520,7 @@ type Mk8sByokAddOnConfig struct {
 	Middlebox     *Mk8sByokAddOnConfigMiddlebox   `json:"middlebox,omitempty"`
 	Common        *Mk8sByokAddOnConfigCommon      `json:"common,omitempty"`
 	Longhorn      *Mk8sByokAddOnConfigLonghorn    `json:"longhorn,omitempty"`
+	Byok          *Mk8sByokAddOnConfigByok        `json:"byok,omitempty"`
 	Ingress       *Mk8sByokAddOnConfigIngress     `json:"ingress,omitempty"`
 	Istio         *Mk8sByokAddOnConfigIstio       `json:"istio,omitempty"`
 	LogSplitter   *Mk8sByokAddOnConfigLogSplitter `json:"logSplitter,omitempty"`
@@ -564,6 +565,10 @@ type Mk8sByokAddOnConfigLonghorn struct {
 	NumberOfReplicas *int  `json:"numberOfReplicas,omitempty"`
 	Replicas         *int  `json:"replicas,omitempty"`
 	IsDefault        *bool `json:"isDefault,omitempty"`
+}
+
+type Mk8sByokAddOnConfigByok struct {
+	NoDefaultStorageClasses *bool `json:"noDefaultStorageClasses,omitempty"`
 }
 
 type Mk8sByokAddOnConfigIngress struct {
