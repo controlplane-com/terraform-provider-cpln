@@ -561,7 +561,9 @@ type Mk8sByokAddOnConfigCommonPdb struct {
 }
 
 type Mk8sByokAddOnConfigLonghorn struct {
-	Replicas *int `json:"replicas,omitempty"`
+	NumberOfReplicas *int  `json:"numberOfReplicas,omitempty"`
+	Replicas         *int  `json:"replicas,omitempty"`
+	IsDefault        *bool `json:"isDefault,omitempty"`
 }
 
 type Mk8sByokAddOnConfigIngress struct {

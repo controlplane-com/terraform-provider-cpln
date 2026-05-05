@@ -978,7 +978,9 @@ Longhorn persistent volume settings.
 
 Optional:
 
+- **number_of_replicas** (Number) Replica factor for Longhorn volumes. Minimum: `1`.
 - **replicas** (Number) Replica factor for Longhorn volumes. Minimum: `1`.
+- **is_default** (Boolean) Mark Longhorn as the default storage class.
 
 <a id="nestedblock--add_ons--byok--config--ingress"></a>
 
@@ -1387,7 +1389,9 @@ resource "cpln_mk8s" "generic" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -1661,7 +1665,9 @@ resource "cpln_mk8s" "hetzner" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -1951,7 +1957,9 @@ resource "cpln_mk8s" "aws" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -2202,7 +2210,9 @@ resource "cpln_mk8s" "linode" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -2454,7 +2464,9 @@ resource "cpln_mk8s" "oblivus" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -2705,7 +2717,9 @@ resource "cpln_mk8s" "lambdalabs" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -2960,7 +2974,9 @@ resource "cpln_mk8s" "paperspace" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -3192,7 +3208,9 @@ resource "cpln_mk8s" "ephemeral" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -3451,7 +3469,9 @@ resource "cpln_mk8s" "triton" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -3712,7 +3732,9 @@ resource "cpln_mk8s" "triton" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -3996,7 +4018,9 @@ resource "cpln_mk8s" "triton" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -4502,7 +4526,9 @@ resource "cpln_mk8s" "gcp-provider" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
@@ -4750,7 +4776,9 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                 }
 
                 longhorn = {
-                    replicas = 2
+                    number_of_replicas = 2
+                    replicas           = 2
+                    is_default         = true
                 }
 
                 ingress = {
