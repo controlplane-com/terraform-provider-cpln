@@ -866,6 +866,13 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								int32validator.Between(1, 65534),
 							},
 						},
+						"run_as_user": schema.Int32Attribute{
+							Description: "The user id assigned to all container processes.",
+							Optional:    true,
+							Validators: []validator.Int32{
+								int32validator.Between(1, 65534),
+							},
+						},
 					},
 				},
 				Validators: []validator.List{
@@ -3140,6 +3147,7 @@ func (wro *WorkloadResourceOperator) buildSecurityOptions(state types.List) *cli
 	// Construct and return the output
 	return &client.WorkloadSecurityOptions{
 		FileSystemGroupId: BuildInt(block.FileSystemGroupId),
+		RunAsUser:         BuildInt(block.RunAsUser),
 	}
 }
 
@@ -4303,6 +4311,7 @@ func (wro *WorkloadResourceOperator) flattenSecurityOptions(input *client.Worklo
 	// Build a single block
 	block := models.SecurityOptionsModel{
 		FileSystemGroupId: FlattenInt(input.FileSystemGroupId),
+		RunAsUser:         FlattenInt(input.RunAsUser),
 	}
 
 	// Return the successfully created types.List
