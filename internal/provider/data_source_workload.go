@@ -236,6 +236,10 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 								},
 							},
 						},
+						"suspended_status": schema.StringAttribute{
+							Description: "Computed suspension state of the workload. Valid values: `notSuspended`, `partiallySuspended`, `suspended`.",
+							Computed:    true,
+						},
 					},
 				},
 			},
