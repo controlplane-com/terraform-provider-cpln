@@ -3,6 +3,7 @@ package cpln
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/mk8s"
@@ -1547,6 +1548,150 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 														},
 													},
 												},
+												"remote_write": schema.ListNestedAttribute{
+													Description: "Prometheus remote_write client configurations. Order is preserved as written.",
+													Optional:    true,
+													NestedObject: schema.NestedAttributeObject{
+														Attributes: map[string]schema.Attribute{
+															"basic_auth": schema.SingleNestedAttribute{
+																Description: "HTTP basic authentication credentials.",
+																Optional:    true,
+																Attributes: map[string]schema.Attribute{
+																	"username": schema.StringAttribute{
+																		Description: "Username for HTTP basic authentication.",
+																		Optional:    true,
+																	},
+																	"username_file": schema.StringAttribute{
+																		Description: "Path to a file containing the username.",
+																		Optional:    true,
+																	},
+																	"password": schema.StringAttribute{
+																		Description: "Password for HTTP basic authentication.",
+																		Optional:    true,
+																		Sensitive:   true,
+																	},
+																	"password_file": schema.StringAttribute{
+																		Description: "Path to a file containing the password.",
+																		Optional:    true,
+																	},
+																},
+															},
+															"authorization": schema.SingleNestedAttribute{
+																Description: "HTTP Authorization header credentials.",
+																Optional:    true,
+																Attributes: map[string]schema.Attribute{
+																	"type": schema.StringAttribute{
+																		Description: "Authorization scheme (for example, \"Bearer\").",
+																		Optional:    true,
+																	},
+																	"credentials": schema.StringAttribute{
+																		Description: "Authorization credentials.",
+																		Optional:    true,
+																		Sensitive:   true,
+																	},
+																	"credentials_file": schema.StringAttribute{
+																		Description: "Path to a file containing the credentials.",
+																		Optional:    true,
+																	},
+																},
+															},
+															"oauth2": schema.MapAttribute{
+																Description: "OAuth 2.0 client configuration as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+																Sensitive:   true,
+															},
+															"follow_redirects": schema.BoolAttribute{
+																Description: "Whether the HTTP client follows redirects.",
+																Optional:    true,
+															},
+															"enable_http2": schema.BoolAttribute{
+																Description: "Whether to enable HTTP/2.",
+																Optional:    true,
+															},
+															"tls_config": schema.MapAttribute{
+																Description: "TLS configuration as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+															},
+															"proxy_url": schema.StringAttribute{
+																Description: "HTTP proxy URL used for outbound requests.",
+																Optional:    true,
+															},
+															"no_proxy": schema.StringAttribute{
+																Description: "Comma-separated list of hosts that bypass the proxy.",
+																Optional:    true,
+															},
+															"proxy_from_environment": schema.BoolAttribute{
+																Description: "Whether to read proxy settings from environment variables.",
+																Optional:    true,
+															},
+															"proxy_connect_header": schema.MapAttribute{
+																Description: "Headers sent to the proxy on CONNECT, as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+															},
+															"http_headers": schema.MapAttribute{
+																Description: "Custom HTTP headers, as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+															},
+															"url": schema.StringAttribute{
+																Description: "Endpoint that receives the remote_write payload.",
+																Optional:    true,
+															},
+															"remote_timeout": schema.StringAttribute{
+																Description: "Per-request timeout (for example, \"30s\").",
+																Optional:    true,
+															},
+															"headers": schema.MapAttribute{
+																Description: "Custom request headers attached to every remote_write call.",
+																ElementType: types.StringType,
+																Optional:    true,
+															},
+															"write_relabel_configs": schema.ListAttribute{
+																Description: "Relabel rules applied to samples before they are sent.",
+																ElementType: types.MapType{ElemType: types.StringType},
+																Optional:    true,
+															},
+															"name": schema.StringAttribute{
+																Description: "Friendly name used in metrics for this client.",
+																Optional:    true,
+															},
+															"send_exemplars": schema.BoolAttribute{
+																Description: "Whether to forward Prometheus exemplars.",
+																Optional:    true,
+															},
+															"send_native_histograms": schema.BoolAttribute{
+																Description: "Whether to forward Prometheus native histograms.",
+																Optional:    true,
+															},
+															"sigv4": schema.MapAttribute{
+																Description: "AWS SigV4 authentication parameters as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+																Sensitive:   true,
+															},
+															"azuread": schema.MapAttribute{
+																Description: "Azure AD authentication parameters as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+																Sensitive:   true,
+															},
+															"google_iam": schema.MapAttribute{
+																Description: "Google Cloud IAM authentication parameters as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+																Sensitive:   true,
+															},
+															"queue_config": schema.MapAttribute{
+																Description: "Tuning parameters for the in-memory remote_write queue, as flat key-value pairs.",
+																ElementType: types.StringType,
+																Optional:    true,
+															},
+														},
+													},
+												},
 												"external_labels": schema.MapAttribute{
 													Description: "Static labels appended to every metric scraped by the BYOK Prometheus stack.",
 													ElementType: types.StringType,
@@ -2397,7 +2542,8 @@ func defaultByokConfigValue() types.Object {
 			"max_memory":         types.StringValue("20Gi"),
 			"kube_state_metrics": ksm,
 			"prometheus":         prometheus,
-			"external_labels":    types.MapValueMust(types.StringType, map[string]attr.Value{}),
+			"remote_write":       types.ListNull(models.AddOnsByokMonitoringRemoteWriteModel{}.AttributeTypes()),
+			"external_labels":    types.MapNull(types.StringType),
 		},
 	)
 
@@ -4249,6 +4395,7 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMonitoring(state types.Object) *c
 		MaxMemory:        BuildString(block.MaxMemory),
 		KubeStateMetrics: mro.buildAddOnByokMonitoringKubeStateMetrics(block.KubeStateMetrics),
 		Prometheus:       mro.buildAddOnByokMonitoringPrometheus(block.Prometheus),
+		RemoteWrite:      mro.buildAddOnByokMonitoringRemoteWrite(block.RemoteWrite),
 		ExternalLabels:   mro.BuildMapString(block.ExternalLabels),
 	}
 }
@@ -4299,6 +4446,135 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringPrometheusMain(state ty
 	return &client.Mk8sByokAddOnConfigMonitoringPrometheusMain{
 		Storage: BuildString(block.Storage),
 	}
+}
+
+// buildAddOnByokMonitoringRemoteWrite constructs a slice of Mk8sByokAddOnConfigMonitoringRemoteWrite from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWrite(state types.List) *[]client.Mk8sByokAddOnConfigMonitoringRemoteWrite {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.AddOnsByokMonitoringRemoteWriteModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Construct the output slice
+	output := make([]client.Mk8sByokAddOnConfigMonitoringRemoteWrite, 0, len(blocks))
+
+	// Iterate over each block and build the output entry
+	for _, block := range blocks {
+		// Append the constructed entry to the output slice
+		output = append(output, client.Mk8sByokAddOnConfigMonitoringRemoteWrite{
+			BasicAuth:            mro.buildAddOnByokMonitoringRemoteWriteBasicAuth(block.BasicAuth),
+			Authorization:        mro.buildAddOnByokMonitoringRemoteWriteAuthorization(block.Authorization),
+			Oauth2:               mro.BuildMapString(block.Oauth2),
+			FollowRedirects:      BuildBool(block.FollowRedirects),
+			EnableHttp2:          BuildBool(block.EnableHttp2),
+			TlsConfig:            mro.BuildMapString(block.TlsConfig),
+			ProxyUrl:             BuildString(block.ProxyUrl),
+			NoProxy:              BuildString(block.NoProxy),
+			ProxyFromEnvironment: BuildBool(block.ProxyFromEnvironment),
+			ProxyConnectHeader:   mro.BuildMapString(block.ProxyConnectHeader),
+			HttpHeaders:          mro.BuildMapString(block.HttpHeaders),
+			Url:                  BuildString(block.Url),
+			RemoteTimeout:        BuildString(block.RemoteTimeout),
+			Headers:              mro.BuildMapString(block.Headers),
+			WriteRelabelConfigs:  mro.buildAddOnByokMonitoringRemoteWriteWriteRelabelConfigs(block.WriteRelabelConfigs),
+			Name:                 BuildString(block.Name),
+			SendExemplars:        BuildBool(block.SendExemplars),
+			SendNativeHistograms: BuildBool(block.SendNativeHistograms),
+			Sigv4:                mro.BuildMapString(block.Sigv4),
+			Azuread:              mro.BuildMapString(block.Azuread),
+			GoogleIam:            mro.BuildMapString(block.GoogleIam),
+			QueueConfig:          mro.BuildMapString(block.QueueConfig),
+		})
+	}
+
+	// Return the constructed slice
+	return &output
+}
+
+// buildAddOnByokMonitoringRemoteWriteBasicAuth constructs a Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWriteBasicAuth(state types.Object) *client.Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMonitoringRemoteWriteBasicAuthModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth{
+		Username:     BuildString(block.Username),
+		UsernameFile: BuildString(block.UsernameFile),
+		Password:     BuildString(block.Password),
+		PasswordFile: BuildString(block.PasswordFile),
+	}
+}
+
+// buildAddOnByokMonitoringRemoteWriteAuthorization constructs a Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWriteAuthorization(state types.Object) *client.Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AddOnsByokMonitoringRemoteWriteAuthorizationModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization{
+		Type:            BuildString(block.Type),
+		Credentials:     BuildString(block.Credentials),
+		CredentialsFile: BuildString(block.CredentialsFile),
+	}
+}
+
+// buildAddOnByokMonitoringRemoteWriteWriteRelabelConfigs converts a Terraform list of string maps into a slice of generic maps.
+func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWriteWriteRelabelConfigs(state types.List) *[]map[string]interface{} {
+	// Return nil when the list is null or unknown
+	if state.IsNull() || state.IsUnknown() {
+		return nil
+	}
+
+	// Decode list elements as types.Map slice
+	mapElements := []types.Map{}
+	mro.Diags.Append(state.ElementsAs(mro.Ctx, &mapElements, false)...)
+
+	// Abort on diagnostics errors
+	if mro.Diags.HasError() {
+		return nil
+	}
+
+	// Construct the output slice
+	output := make([]map[string]interface{}, 0, len(mapElements))
+
+	// Iterate over each map element and build the output entry
+	for _, mapElement := range mapElements {
+		// Materialize the underlying map[string]string from the Terraform map element
+		mapValues := map[string]string{}
+		mro.Diags.Append(mapElement.ElementsAs(mro.Ctx, &mapValues, false)...)
+
+		// Abort on diagnostics errors
+		if mro.Diags.HasError() {
+			return nil
+		}
+
+		// Convert the typed string map into a generic interface map
+		entry := make(map[string]interface{}, len(mapValues))
+
+		// Copy each key-value pair into the generic entry
+		for key, value := range mapValues {
+			entry[key] = value
+		}
+
+		// Append the converted entry to the output slice
+		output = append(output, entry)
+	}
+
+	// Return the constructed slice
+	return &output
 }
 
 // buildAddOnByokRedisString constructs a Mk8sByokAddOnConfigRedisString from the given Terraform state.
@@ -6185,6 +6461,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoring(input *client.Mk8sBy
 		MaxMemory:        types.StringPointerValue(input.MaxMemory),
 		KubeStateMetrics: mro.flattenAddOnByokMonitoringKubeStateMetrics(input.KubeStateMetrics),
 		Prometheus:       mro.flattenAddOnByokMonitoringPrometheus(input.Prometheus),
+		RemoteWrite:      mro.flattenAddOnByokMonitoringRemoteWrite(input.RemoteWrite),
 		ExternalLabels:   FlattenMapString(input.ExternalLabels),
 	}
 
@@ -6250,6 +6527,147 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringPrometheusMain(input 
 
 	// Return the successfully created types.Object
 	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoringRemoteWrite transforms *[]client.Mk8sByokAddOnConfigMonitoringRemoteWrite into a types.List.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWrite(input *[]client.Mk8sByokAddOnConfigMonitoringRemoteWrite) types.List {
+	// Get element type
+	elementType := models.AddOnsByokMonitoringRemoteWriteModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.AddOnsByokMonitoringRemoteWriteModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block mirroring the API entry
+		blocks = append(blocks, models.AddOnsByokMonitoringRemoteWriteModel{
+			BasicAuth:            mro.flattenAddOnByokMonitoringRemoteWriteBasicAuth(item.BasicAuth),
+			Authorization:        mro.flattenAddOnByokMonitoringRemoteWriteAuthorization(item.Authorization),
+			Oauth2:               FlattenMapString(item.Oauth2),
+			FollowRedirects:      types.BoolPointerValue(item.FollowRedirects),
+			EnableHttp2:          types.BoolPointerValue(item.EnableHttp2),
+			TlsConfig:            FlattenMapString(item.TlsConfig),
+			ProxyUrl:             types.StringPointerValue(item.ProxyUrl),
+			NoProxy:              types.StringPointerValue(item.NoProxy),
+			ProxyFromEnvironment: types.BoolPointerValue(item.ProxyFromEnvironment),
+			ProxyConnectHeader:   FlattenMapString(item.ProxyConnectHeader),
+			HttpHeaders:          FlattenMapString(item.HttpHeaders),
+			Url:                  types.StringPointerValue(item.Url),
+			RemoteTimeout:        types.StringPointerValue(item.RemoteTimeout),
+			Headers:              FlattenMapString(item.Headers),
+			WriteRelabelConfigs:  mro.flattenAddOnByokMonitoringRemoteWriteWriteRelabelConfigs(item.WriteRelabelConfigs),
+			Name:                 types.StringPointerValue(item.Name),
+			SendExemplars:        types.BoolPointerValue(item.SendExemplars),
+			SendNativeHistograms: types.BoolPointerValue(item.SendNativeHistograms),
+			Sigv4:                FlattenMapString(item.Sigv4),
+			Azuread:              FlattenMapString(item.Azuread),
+			GoogleIam:            FlattenMapString(item.GoogleIam),
+			QueueConfig:          FlattenMapString(item.QueueConfig),
+		})
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, blocks)
+}
+
+// flattenAddOnByokMonitoringRemoteWriteBasicAuth transforms *client.Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWriteBasicAuth(input *client.Mk8sByokAddOnConfigMonitoringRemoteWriteBasicAuth) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMonitoringRemoteWriteBasicAuthModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMonitoringRemoteWriteBasicAuthModel{
+		Username:     types.StringPointerValue(input.Username),
+		UsernameFile: types.StringPointerValue(input.UsernameFile),
+		Password:     types.StringPointerValue(input.Password),
+		PasswordFile: types.StringPointerValue(input.PasswordFile),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoringRemoteWriteAuthorization transforms *client.Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWriteAuthorization(input *client.Mk8sByokAddOnConfigMonitoringRemoteWriteAuthorization) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsByokMonitoringRemoteWriteAuthorizationModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsByokMonitoringRemoteWriteAuthorizationModel{
+		Type:            types.StringPointerValue(input.Type),
+		Credentials:     types.StringPointerValue(input.Credentials),
+		CredentialsFile: types.StringPointerValue(input.CredentialsFile),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
+}
+
+// flattenAddOnByokMonitoringRemoteWriteWriteRelabelConfigs converts a slice of generic maps into a Terraform list of string maps.
+func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWriteWriteRelabelConfigs(input *[]map[string]interface{}) types.List {
+	// Define the element type for the resulting list
+	elementType := types.MapType{ElemType: types.StringType}
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the slice of map values
+	mapElements := make([]attr.Value, 0, len(*input))
+
+	// Iterate over the slice and construct the typed map elements
+	for _, item := range *input {
+		// Define the typed values for this map entry
+		typedValues := make(map[string]attr.Value, len(item))
+
+		// Convert each value to a Terraform string
+		for key, value := range item {
+			// Coerce the raw value into a string representation
+			if str, ok := value.(string); ok {
+				typedValues[key] = types.StringValue(str)
+			} else {
+				typedValues[key] = types.StringValue(fmt.Sprintf("%v", value))
+			}
+		}
+
+		// Construct a Terraform map for this entry
+		mapValue, mapDiag := types.MapValue(types.StringType, typedValues)
+
+		// Merge any diagnostics from the conversion into the main diagnostics
+		mro.Diags.Append(mapDiag...)
+
+		// Append the converted map to the output slice
+		mapElements = append(mapElements, mapValue)
+	}
+
+	// Construct the final Terraform list
+	listValue, listDiag := types.ListValue(elementType, mapElements)
+
+	// Merge any diagnostics from the conversion into the main diagnostics
+	mro.Diags.Append(listDiag...)
+
+	// Return the successfully constructed list
+	return listValue
 }
 
 // flattenAddOnByokRedisString transforms *client.Mk8sByokAddOnConfigRedisString into a types.Object.

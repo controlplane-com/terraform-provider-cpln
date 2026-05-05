@@ -1529,6 +1529,7 @@ type AddOnsByokMonitoringModel struct {
 	MaxMemory        types.String `tfsdk:"max_memory"`
 	KubeStateMetrics types.Object `tfsdk:"kube_state_metrics"`
 	Prometheus       types.Object `tfsdk:"prometheus"`
+	RemoteWrite      types.List   `tfsdk:"remote_write"`
 	ExternalLabels   types.Map    `tfsdk:"external_labels"`
 }
 
@@ -1539,6 +1540,7 @@ func (a AddOnsByokMonitoringModel) AttributeTypes() attr.Type {
 			"max_memory":         types.StringType,
 			"kube_state_metrics": AddOnsByokMonitoringKubeStateMetricsModel{}.AttributeTypes(),
 			"prometheus":         AddOnsByokMonitoringPrometheusModel{}.AttributeTypes(),
+			"remote_write":       types.ListType{ElemType: AddOnsByokMonitoringRemoteWriteModel{}.AttributeTypes()},
 			"external_labels":    types.MapType{ElemType: types.StringType},
 		},
 	}
@@ -1582,6 +1584,100 @@ func (a AddOnsByokMonitoringPrometheusMainModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"storage": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring -> Remote Write //
+
+type AddOnsByokMonitoringRemoteWriteModel struct {
+	BasicAuth            types.Object `tfsdk:"basic_auth"`
+	Authorization        types.Object `tfsdk:"authorization"`
+	Oauth2               types.Map    `tfsdk:"oauth2"`
+	FollowRedirects      types.Bool   `tfsdk:"follow_redirects"`
+	EnableHttp2          types.Bool   `tfsdk:"enable_http2"`
+	TlsConfig            types.Map    `tfsdk:"tls_config"`
+	ProxyUrl             types.String `tfsdk:"proxy_url"`
+	NoProxy              types.String `tfsdk:"no_proxy"`
+	ProxyFromEnvironment types.Bool   `tfsdk:"proxy_from_environment"`
+	ProxyConnectHeader   types.Map    `tfsdk:"proxy_connect_header"`
+	HttpHeaders          types.Map    `tfsdk:"http_headers"`
+	Url                  types.String `tfsdk:"url"`
+	RemoteTimeout        types.String `tfsdk:"remote_timeout"`
+	Headers              types.Map    `tfsdk:"headers"`
+	WriteRelabelConfigs  types.List   `tfsdk:"write_relabel_configs"`
+	Name                 types.String `tfsdk:"name"`
+	SendExemplars        types.Bool   `tfsdk:"send_exemplars"`
+	SendNativeHistograms types.Bool   `tfsdk:"send_native_histograms"`
+	Sigv4                types.Map    `tfsdk:"sigv4"`
+	Azuread              types.Map    `tfsdk:"azuread"`
+	GoogleIam            types.Map    `tfsdk:"google_iam"`
+	QueueConfig          types.Map    `tfsdk:"queue_config"`
+}
+
+func (a AddOnsByokMonitoringRemoteWriteModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"basic_auth":             AddOnsByokMonitoringRemoteWriteBasicAuthModel{}.AttributeTypes(),
+			"authorization":          AddOnsByokMonitoringRemoteWriteAuthorizationModel{}.AttributeTypes(),
+			"oauth2":                 types.MapType{ElemType: types.StringType},
+			"follow_redirects":       types.BoolType,
+			"enable_http2":           types.BoolType,
+			"tls_config":             types.MapType{ElemType: types.StringType},
+			"proxy_url":              types.StringType,
+			"no_proxy":               types.StringType,
+			"proxy_from_environment": types.BoolType,
+			"proxy_connect_header":   types.MapType{ElemType: types.StringType},
+			"http_headers":           types.MapType{ElemType: types.StringType},
+			"url":                    types.StringType,
+			"remote_timeout":         types.StringType,
+			"headers":                types.MapType{ElemType: types.StringType},
+			"write_relabel_configs":  types.ListType{ElemType: types.MapType{ElemType: types.StringType}},
+			"name":                   types.StringType,
+			"send_exemplars":         types.BoolType,
+			"send_native_histograms": types.BoolType,
+			"sigv4":                  types.MapType{ElemType: types.StringType},
+			"azuread":                types.MapType{ElemType: types.StringType},
+			"google_iam":             types.MapType{ElemType: types.StringType},
+			"queue_config":           types.MapType{ElemType: types.StringType},
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring -> Remote Write -> Basic Auth //
+
+type AddOnsByokMonitoringRemoteWriteBasicAuthModel struct {
+	Username     types.String `tfsdk:"username"`
+	UsernameFile types.String `tfsdk:"username_file"`
+	Password     types.String `tfsdk:"password"`
+	PasswordFile types.String `tfsdk:"password_file"`
+}
+
+func (a AddOnsByokMonitoringRemoteWriteBasicAuthModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"username":      types.StringType,
+			"username_file": types.StringType,
+			"password":      types.StringType,
+			"password_file": types.StringType,
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Monitoring -> Remote Write -> Authorization //
+
+type AddOnsByokMonitoringRemoteWriteAuthorizationModel struct {
+	Type            types.String `tfsdk:"type"`
+	Credentials     types.String `tfsdk:"credentials"`
+	CredentialsFile types.String `tfsdk:"credentials_file"`
+}
+
+func (a AddOnsByokMonitoringRemoteWriteAuthorizationModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"type":             types.StringType,
+			"credentials":      types.StringType,
+			"credentials_file": types.StringType,
 		},
 	}
 }
