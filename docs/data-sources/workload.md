@@ -461,6 +461,7 @@ Read-Only:
 Read-Only:
 
 - **file_system_group_id** (Number) Group ID applied to mounted volumes.
+- **run_as_user** (Number) The user id assigned to all container processes.
 
 <a id="nestedblock--load_balancer"></a>
 

@@ -575,6 +575,10 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Description: "The group id assigned to any mounted volume.",
 							Computed:    true,
 						},
+						"run_as_user": schema.Int32Attribute{
+							Description: "The user id assigned to all container processes.",
+							Computed:    true,
+						},
 					},
 				},
 			},

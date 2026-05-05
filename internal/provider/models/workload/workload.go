@@ -659,12 +659,14 @@ func (r RolloutOptionsModel) AttributeTypes() attr.Type {
 
 type SecurityOptionsModel struct {
 	FileSystemGroupId types.Int32 `tfsdk:"file_system_group_id"`
+	RunAsUser         types.Int32 `tfsdk:"run_as_user"`
 }
 
 func (s SecurityOptionsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"file_system_group_id": types.Int32Type,
+			"run_as_user":          types.Int32Type,
 		},
 	}
 }

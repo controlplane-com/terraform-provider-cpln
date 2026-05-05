@@ -503,6 +503,7 @@ Allows for the configuration of the `file system group id` and `geo location`.
 Optional:
 
 - **file_system_group_id** (Number) The group id assigned to any mounted volume.
+- **run_as_user** (Number) The user id assigned to all container processes.
 
 <a id="nestedblock--load_balancer"></a>
 
@@ -845,6 +846,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1077,6 +1079,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1268,6 +1271,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1398,6 +1402,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   job {
@@ -1583,6 +1588,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -1784,6 +1790,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -2028,6 +2035,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {
@@ -2242,6 +2250,7 @@ resource "cpln_workload" "new" {
 
   security_options {
     file_system_group_id = 1
+    run_as_user          = 1000
   }
 
   load_balancer {

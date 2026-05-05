@@ -287,6 +287,7 @@ type WorkloadRolloutOptions struct {
 // Security Options
 type WorkloadSecurityOptions struct {
 	FileSystemGroupId *int `json:"filesystemGroupId,omitempty"`
+	RunAsUser         *int `json:"runAsUser,omitempty"`
 }
 
 // WorkloadLoadBalancer - Workload Load Balancer
