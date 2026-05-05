@@ -545,8 +545,10 @@ type Mk8sByokAddOnConfigJuicefs struct {
 }
 
 type Mk8sByokAddOnConfigMiddlebox struct {
-	Enabled            *bool `json:"enabled,omitempty"`
-	BandwidthAlertMbps *int  `json:"bandwidthAlertMbps,omitempty"`
+	Enabled            *bool   `json:"enabled,omitempty"`
+	BandwidthAlertMbps *int    `json:"bandwidthAlertMbps,omitempty"`
+	Port               *int    `json:"port,omitempty"`
+	IP                 *string `json:"ip,omitempty"`
 }
 
 type Mk8sByokAddOnConfigCommon struct {
