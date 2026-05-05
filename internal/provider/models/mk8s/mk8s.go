@@ -1529,6 +1529,7 @@ type AddOnsByokMonitoringModel struct {
 	MaxMemory        types.String `tfsdk:"max_memory"`
 	KubeStateMetrics types.Object `tfsdk:"kube_state_metrics"`
 	Prometheus       types.Object `tfsdk:"prometheus"`
+	ExternalLabels   types.Map    `tfsdk:"external_labels"`
 }
 
 func (a AddOnsByokMonitoringModel) AttributeTypes() attr.Type {
@@ -1538,6 +1539,7 @@ func (a AddOnsByokMonitoringModel) AttributeTypes() attr.Type {
 			"max_memory":         types.StringType,
 			"kube_state_metrics": AddOnsByokMonitoringKubeStateMetricsModel{}.AttributeTypes(),
 			"prometheus":         AddOnsByokMonitoringPrometheusModel{}.AttributeTypes(),
+			"external_labels":    types.MapType{ElemType: types.StringType},
 		},
 	}
 }

@@ -1082,6 +1082,7 @@ Optional:
 - **max_memory** (String) Maximum memory limit for monitoring components.
 - **kube_state_metrics** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--kube_state_metrics))
 - **prometheus** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--prometheus))
+- **external_labels** (Map of String) Static labels appended to every metric scraped by the BYOK Prometheus stack.
 
 <a id="nestedblock--add_ons--byok--config--monitoring--kube_state_metrics"></a>
 
@@ -1459,6 +1460,10 @@ resource "cpln_mk8s" "generic" {
                             storage = "10Gi"
                         }
                     }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
+                    }
                 }
 
                 redis = {
@@ -1738,6 +1743,10 @@ resource "cpln_mk8s" "hetzner" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -2035,6 +2044,10 @@ resource "cpln_mk8s" "aws" {
                             storage = "10Gi"
                         }
                     }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
+                    }
                 }
 
                 redis = {
@@ -2291,6 +2304,10 @@ resource "cpln_mk8s" "linode" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -2550,6 +2567,10 @@ resource "cpln_mk8s" "oblivus" {
                             storage = "10Gi"
                         }
                     }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
+                    }
                 }
 
                 redis = {
@@ -2806,6 +2827,10 @@ resource "cpln_mk8s" "lambdalabs" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -3068,6 +3093,10 @@ resource "cpln_mk8s" "paperspace" {
                             storage = "10Gi"
                         }
                     }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
+                    }
                 }
 
                 redis = {
@@ -3305,6 +3334,10 @@ resource "cpln_mk8s" "ephemeral" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -3570,6 +3603,10 @@ resource "cpln_mk8s" "triton" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -3837,6 +3874,10 @@ resource "cpln_mk8s" "triton" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -4127,6 +4168,10 @@ resource "cpln_mk8s" "triton" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
@@ -4640,6 +4685,10 @@ resource "cpln_mk8s" "gcp-provider" {
                             storage = "10Gi"
                         }
                     }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
+                    }
                 }
 
                 redis = {
@@ -4893,6 +4942,10 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                         main = {
                             storage = "10Gi"
                         }
+                    }
+
+                    external_labels = {
+                        cluster = "byok-acceptance"
                     }
                 }
 
