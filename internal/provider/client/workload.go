@@ -348,8 +348,8 @@ type WorkloadStatusHealthCheck struct {
 	Success     *bool   `json:"success,omitempty"`
 	Code        *int    `json:"code,omitempty"`
 	Message     *string `json:"message,omitempty"`
-	Failures    *int    `failures:"parentId,omitempty"`
-	Successes   *int    `successes:"parentId,omitempty"`
+	Failures    *int    `json:"failures,omitempty"`
+	Successes   *int    `json:"successes,omitempty"`
 	LastChecked *string `json:"lastChecked,omitempty"`
 }
 
