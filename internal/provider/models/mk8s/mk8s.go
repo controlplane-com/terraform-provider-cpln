@@ -1373,13 +1373,17 @@ func (a AddOnsByokCommonPdbModel) AttributeTypes() attr.Type {
 // Add Ons -> Byok -> Config -> Longhorn //
 
 type AddOnsByokLonghornModel struct {
-	Replicas types.Int32 `tfsdk:"replicas"`
+	NumberOfReplicas types.Int32 `tfsdk:"number_of_replicas"`
+	Replicas         types.Int32 `tfsdk:"replicas"`
+	IsDefault        types.Bool  `tfsdk:"is_default"`
 }
 
 func (a AddOnsByokLonghornModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"replicas": types.Int32Type,
+			"number_of_replicas": types.Int32Type,
+			"replicas":           types.Int32Type,
+			"is_default":         types.BoolType,
 		},
 	}
 }

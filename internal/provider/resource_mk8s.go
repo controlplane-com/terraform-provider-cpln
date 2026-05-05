@@ -1348,12 +1348,23 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 											Description: "Longhorn persistent volume settings.",
 											Optional:    true,
 											Attributes: map[string]schema.Attribute{
+												"number_of_replicas": schema.Int32Attribute{
+													Description: "Replica factor for Longhorn volumes. Minimum: 1.",
+													Optional:    true,
+													Validators: []validator.Int32{
+														int32validator.AtLeast(1),
+													},
+												},
 												"replicas": schema.Int32Attribute{
 													Description: "Replica factor for Longhorn volumes. Minimum: 1.",
 													Optional:    true,
 													Validators: []validator.Int32{
 														int32validator.AtLeast(1),
 													},
+												},
+												"is_default": schema.BoolAttribute{
+													Description: "Mark Longhorn as the default storage class.",
+													Optional:    true,
 												},
 											},
 										},
@@ -2249,7 +2260,9 @@ func defaultByokConfigValue() types.Object {
 	longhorn := types.ObjectValueMust(
 		longhornTypes,
 		map[string]attr.Value{
-			"replicas": types.Int32Value(2),
+			"number_of_replicas": types.Int32Null(),
+			"replicas":           types.Int32Value(2),
+			"is_default":         types.BoolNull(),
 		},
 	)
 
@@ -4058,7 +4071,9 @@ func (mro *Mk8sResourceOperator) buildAddOnByokLonghorn(state types.Object) *cli
 
 	// Construct and return the output
 	return &client.Mk8sByokAddOnConfigLonghorn{
-		Replicas: BuildInt(block.Replicas),
+		NumberOfReplicas: BuildInt(block.NumberOfReplicas),
+		Replicas:         BuildInt(block.Replicas),
+		IsDefault:        BuildBool(block.IsDefault),
 	}
 }
 
@@ -5942,7 +5957,9 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokLonghorn(input *client.Mk8sByok
 
 	// Build a single block
 	block := models.AddOnsByokLonghornModel{
-		Replicas: FlattenInt(input.Replicas),
+		NumberOfReplicas: FlattenInt(input.NumberOfReplicas),
+		Replicas:         FlattenInt(input.Replicas),
+		IsDefault:        types.BoolPointerValue(input.IsDefault),
 	}
 
 	// Return the successfully created types.Object

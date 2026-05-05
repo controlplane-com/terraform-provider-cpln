@@ -2999,7 +2999,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -3273,7 +3275,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -3552,7 +3556,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -3804,7 +3810,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -4057,7 +4065,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -4309,7 +4319,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -4566,7 +4578,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -4928,7 +4942,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -5190,7 +5206,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -5475,7 +5493,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -5733,7 +5753,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -6101,7 +6123,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -6372,7 +6396,9 @@ resource "cpln_mk8s" "%s" {
         }
 
         longhorn = {
-          replicas = 2
+          number_of_replicas = 2
+          replicas           = 2
+          is_default         = true
         }
 
         ingress = {
@@ -6628,6 +6654,9 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 
 	output["config"].(map[string]interface{})["middlebox"].(map[string]interface{})["port"] = 8443
 	output["config"].(map[string]interface{})["middlebox"].(map[string]interface{})["ip"] = "10.0.0.5"
+
+	output["config"].(map[string]interface{})["longhorn"].(map[string]interface{})["number_of_replicas"] = 2
+	output["config"].(map[string]interface{})["longhorn"].(map[string]interface{})["is_default"] = true
 
 	return output
 }

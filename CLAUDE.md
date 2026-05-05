@@ -210,7 +210,7 @@ Before reaching for `List*` anything, ask: **does the order of entries carry mea
 - **Order does not matter** (e.g. a collection keyed by some inner field, set membership, per-location options uniqued by `locationLink`) → `Set` family + `types.Set`.
 - **Each entry has a natural string key** → `Map` family + `types.Map` (cleaner than carrying the key inside each object).
 
-Heuristic: if the API's Joi schema uses `.custom(makeUnique('<field>'))` or any other uniqueness/identity constraint without `.sort()`, the field is conceptually unordered — use **Set**. Using `List` for an unordered collection causes spurious plan diffs whenever the API returns entries in a different order than the user wrote them. The same rule applies to flat collections: `[]string` whose order doesn't matter is a `Set` (use `BuildSetString` / `FlattenSetString`), not a `List`.
+Heuristic: if the upstream API schema marks a collection as unique-by-key or otherwise unordered (no `.sort()`), the field is conceptually unordered — use **Set**. Using `List` for an unordered collection causes spurious plan diffs whenever the API returns entries in a different order than the user wrote them. The same rule applies to flat collections: `[]string` whose order doesn't matter is a `Set` (use `BuildSetString` / `FlattenSetString`), not a `List`.
 
 ### Schema → model mapping (prefer the **Attribute** column for new code)
 
@@ -330,7 +330,7 @@ Rules:
   - `SetNestedAttribute` → `types.Set`
   - `MapAttribute` → `types.Map`
   - `StringAttribute` / `Int32Attribute` / `Float32Attribute` / `Float64Attribute` / `BoolAttribute` → matching `types.<Scalar>`
-- Joi schema mapping (per the API spec it mirrors): `.number()` → `types.Float64`, `.number().integer()` → `types.Int32`, `.string()` → `types.String`, `.boolean()` → `types.Bool`.
+- Upstream API schema mapping (per the API spec it mirrors): a plain number field → `types.Float64`, an integer-constrained number → `types.Int32`, a string field → `types.String`, a boolean field → `types.Bool`.
 
 ## 8. Client structs (`internal/provider/client/<kind>.go`)
 
@@ -618,8 +618,9 @@ The CI workflow pre-installs the Terraform CLI before running acceptance tests.
 - **Prefer object over list-as-block** for new single-nested attributes. `schema.SingleNestedAttribute` + `types.Object` is the modern shape; reach for `ListNestedBlock` only when matching legacy code in the same resource. (Section 6.)
 - **Templates are starting points, not stop-points.** `templates/resource_skeleton.txt` and `templates/resource_test_skeleton.txt` give the bones; add Builders/Flatteners/Schemas sections as needed by reading neighboring files.
 - **Comment density is non-negotiable.** Every function carries a one-line description, every step inside it carries a comment. This is the project's norm — do not "trim".
-- **Plural surgery, plural fix.** If you add an attribute to one place, find every analog (HCL configs, test checkers, defaults helper, doc examples, etc.) and update them all. Half-finished additions are the most common style break in this repo (see prior `// TODO: Add byok test here` placeholders). Use the §14 checklist as the canonical list of files to touch.
-- **Joi → Go primitive types** are tracked via the upstream API schema. When in doubt, search the corresponding `controlplane/nodelibs/schema/src/*.ts` file for the Joi definition and translate per Section 7.
+- **Plural surgery, plural fix.** If you add an attribute to one place, find every analog (HCL configs, test checkers, defaults helper, doc examples, etc.) and update them all. Half-finished additions are the most common style break in this repo (see prior `// TODO: Add byok test here` placeholders).
+- **API field types → Go primitive types** are tracked via the upstream API schema. When in doubt, ask the user to point you at the schema definition for the kind and translate per Section 7.
+- **Field order follows the upstream API schema, top-to-bottom.** When adding or reordering fields on a struct/model/schema/builder/flattener/default-helper/test-HCL/docs, mirror the order they appear in the kind's upstream schema definition (ask the user when unsure where it lives). Apply this to every parallel surface so they read in sync: client struct, model struct, model `AttributeTypes()` map, `*NestedAttribute`'s `Attributes:` map in the schema, default-value helper map, builder field assignments, flattener field assignments, every test HCL block, and the docs schema-field list and example HCL blocks. The upstream schema is the source of truth — reading any provider surface should preview the schema's field ordering. **Why:** keeping order aligned makes diffs trivial to review against the API schema, prevents subtle mismatches when copy/pasting between surfaces, and pre-empts churn from someone "alphabetizing" later. **How to apply:** when you read the upstream schema, capture the literal field order; when you write each surface, lay the fields out in that exact order; when you reorder one surface, reorder all of them in the same commit.
 - **No emojis in code, comments, commits, or docs unless the user asks.**
 - **Never delete or rewrite working code as a shortcut.** If a hook or test fails, fix the root cause.
 
