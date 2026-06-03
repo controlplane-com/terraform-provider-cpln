@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -494,8 +495,9 @@ func (eo *EntityOperator[Plan]) FlattenQuery(input *client.Query) types.List {
 }
 
 // FlattenTracing transforms a client.Tracing object into separate Terraform types.List values for each provider.
-func (eo *EntityOperator[Plan]) FlattenTracing(input *client.Tracing) (types.List, types.List, types.List) {
-	return FlattenTracing(eo.Ctx, eo.Diags, input)
+// priorLightstep carries the prior lightstep_tracing block so the user's chosen credentials link form is preserved.
+func (eo *EntityOperator[Plan]) FlattenTracing(input *client.Tracing, priorLightstep types.List, org string) (types.List, types.List, types.List) {
+	return FlattenTracing(eo.Ctx, eo.Diags, input, priorLightstep, org)
 }
 
 // FlattenLoadBalancerIpSet normalizes the LoadBalancer IP set string based on existing state and input.
@@ -543,6 +545,100 @@ func (eo *EntityOperator[Plan]) FlattenLoadBalancerIpSet(state types.String, inp
 
 	// Return the normalized IP set as a Terraform String value
 	return types.StringValue(value)
+}
+
+// FlattenLinkString normalizes an API-returned self-link back to the form the user wrote in prior plan/state.
+func FlattenLinkString(state types.String, input *string, org string) types.String {
+	// Return a null string when the API value is absent
+	if input == nil {
+		return types.StringNull()
+	}
+
+	// Dereference the API value once for readability
+	apiValue := *input
+
+	// Without a known prior value, defer to the API form
+	if state.IsNull() || state.IsUnknown() {
+		return types.StringValue(apiValue)
+	}
+
+	// Pick the short form when the prior state used it and the API value is namespaced under /org/<org>/
+	orgPrefix := fmt.Sprintf("/org/%s", org)
+	if strings.HasPrefix(apiValue, orgPrefix+"/") {
+		// Compute the short form by stripping /org/<org>, leaving "//..."
+		shortForm := "/" + strings.TrimPrefix(apiValue, orgPrefix)
+
+		// Prefer the short form when the prior state already used it
+		if state.ValueString() == shortForm {
+			return types.StringValue(shortForm)
+		}
+	}
+
+	// Default to the API form
+	return types.StringValue(apiValue)
+}
+
+// FlattenLinkSet is the set-flavored counterpart to FlattenLinkString. For each API-returned link it picks
+// the short form when the prior state set contained the matching short form, and otherwise emits the API form.
+func FlattenLinkSet(diags *diag.Diagnostics, state types.Set, input *[]string, org string) types.Set {
+	// Return a null set when there is no input to flatten
+	if input == nil {
+		return types.SetNull(types.StringType)
+	}
+
+	// Build a lookup of values currently held in the prior state
+	priorValues := map[string]struct{}{}
+
+	// Populate the prior-state lookup when state has known values
+	if !state.IsNull() && !state.IsUnknown() {
+		for _, elem := range state.Elements() {
+			// Only string elements are expected in a link set; ignore everything else
+			if s, ok := elem.(types.String); ok && !s.IsNull() && !s.IsUnknown() {
+				priorValues[s.ValueString()] = struct{}{}
+			}
+		}
+	}
+
+	// Compute the "/org/<org>" prefix used to strip the org segment when shortening
+	orgPrefix := fmt.Sprintf("/org/%s", org)
+
+	// Collect the normalized values in the order returned by the API
+	values := make([]attr.Value, 0, len(*input))
+
+	// Iterate each API-returned link and pick the form to emit
+	for _, link := range *input {
+		// Default to the API form
+		chosen := link
+
+		// Compute the short form if the link starts with /org/<org>
+		if strings.HasPrefix(link, orgPrefix+"/") {
+			// Drop the /org/<org> prefix; the remainder already begins with "/", yielding "//..."
+			shortForm := "/" + strings.TrimPrefix(link, orgPrefix)
+
+			// Prefer the short form when the prior state already used it
+			if _, hadShort := priorValues[shortForm]; hadShort {
+				chosen = shortForm
+			}
+		}
+
+		// Append the chosen value to the result
+		values = append(values, types.StringValue(chosen))
+	}
+
+	// Convert the collected values into a Terraform set
+	result, d := types.SetValue(types.StringType, values)
+	diags.Append(d...)
+	return result
+}
+
+// FlattenLinkString delegates to the free FlattenLinkString function for use from within an EntityOperator context.
+func (eo *EntityOperator[Plan]) FlattenLinkString(state types.String, input *string, org string) types.String {
+	return FlattenLinkString(state, input, org)
+}
+
+// FlattenLinksSet delegates to the free FlattenLinkSet function for use from within an EntityOperator context.
+func (eo *EntityOperator[Plan]) FlattenLinksSet(state types.Set, input *[]string, org string) types.Set {
+	return FlattenLinkSet(eo.Diags, state, input, org)
 }
 
 /*** Entity Operations ***/
@@ -1058,7 +1154,8 @@ func flattenQuerySpecTerms(ctx context.Context, diags *diag.Diagnostics, input *
 }
 
 // FlattenTracing transforms a client.Tracing object into separate Terraform types.List values for each provider.
-func FlattenTracing(ctx context.Context, diags *diag.Diagnostics, input *client.Tracing) (types.List, types.List, types.List) {
+// priorLightstep carries the prior lightstep_tracing block so the user's chosen credentials link form is preserved.
+func FlattenTracing(ctx context.Context, diags *diag.Diagnostics, input *client.Tracing, priorLightstep types.List, org string) (types.List, types.List, types.List) {
 	// Determine attribute types for each tracing provider
 	lightstepTracingElementType := models.LightstepTracingModel{}.AttributeTypes()
 	otelTracingElementType := models.OtelTracingModel{}.AttributeTypes()
@@ -1070,7 +1167,7 @@ func FlattenTracing(ctx context.Context, diags *diag.Diagnostics, input *client.
 	}
 
 	// Flatten Lightstep tracing block with sampling and custom tags
-	lightstepTracingList := flattenLightstepTracing(ctx, diags, input.Provider.Lightstep, input.Sampling, input.CustomTags)
+	lightstepTracingList := flattenLightstepTracing(ctx, diags, input.Provider.Lightstep, input.Sampling, input.CustomTags, priorLightstep, org)
 
 	// Flatten Otel tracing block with sampling and custom tags
 	otelTracingList := flattenOtelTracing(ctx, diags, input.Provider.Otel, input.Sampling, input.CustomTags)
@@ -1083,7 +1180,7 @@ func FlattenTracing(ctx context.Context, diags *diag.Diagnostics, input *client.
 }
 
 // flattenLightstepTracing transforms client.LightstepTracing into a Terraform types.List.
-func flattenLightstepTracing(ctx context.Context, diags *diag.Diagnostics, input *client.TracingProviderLightstep, sampling *float64, customTags *map[string]client.TracingCustomTag) types.List {
+func flattenLightstepTracing(ctx context.Context, diags *diag.Diagnostics, input *client.TracingProviderLightstep, sampling *float64, customTags *map[string]client.TracingCustomTag, priorLightstep types.List, org string) types.List {
 	// Get attribute types
 	elementType := models.LightstepTracingModel{}.AttributeTypes()
 
@@ -1093,16 +1190,33 @@ func flattenLightstepTracing(ctx context.Context, diags *diag.Diagnostics, input
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior credentials link so its user-chosen form (short //secret/... vs long) is preserved
+	priorCredentials := priorLightstepCredentials(ctx, diags, priorLightstep)
+
 	// Build a single block
 	block := models.LightstepTracingModel{
 		Sampling:    FlattenFloat64(sampling),
 		Endpoint:    types.StringPointerValue(input.Endpoint),
-		Credentials: types.StringPointerValue(input.Credentials),
+		Credentials: FlattenLinkString(priorCredentials, input.Credentials, org),
 		CustomTags:  flattenCustomTags(customTags),
 	}
 
 	// Return the successfully created types.List
 	return FlattenList(ctx, diags, []models.LightstepTracingModel{block})
+}
+
+// priorLightstepCredentials extracts the prior lightstep_tracing credentials link, or a null string when absent.
+func priorLightstepCredentials(ctx context.Context, diags *diag.Diagnostics, priorLightstep types.List) types.String {
+	// Walk the prior lightstep_tracing block list
+	blocks, ok := BuildList[models.LightstepTracingModel](ctx, diags, priorLightstep)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior credentials link
+	return blocks[0].Credentials
 }
 
 // flattenOtelTracing transforms client.OtelTelemetry into a Terraform types.List.
@@ -1198,20 +1312,31 @@ func FlattenRouteHeadersRequest(ctx context.Context, diags *diag.Diagnostics, re
 }
 
 // FlattenRouteMirror transforms []DomainRouteMirror into a Terraform types.List.
-func FlattenRouteMirror(ctx context.Context, diags *diag.Diagnostics, input *[]client.DomainRouteMirror) types.List {
+// The priorState carries the route's prior mirror blocks so the user's chosen workload_link form
+// (short //gvc/.../workload/... vs long /org/<org>/...) is preserved across the API round-trip.
+func FlattenRouteMirror(ctx context.Context, diags *diag.Diagnostics, priorState types.List, input *[]client.DomainRouteMirror, org string) types.List {
 	elementType := domainmodel.RouteMirrorModel{}.AttributeTypes()
 
 	if input == nil || len(*input) == 0 {
 		return types.ListNull(elementType)
 	}
 
+	// Build a lookup of prior mirror workload_link values keyed by their trailing workload name
+	priorWorkloadLinks := priorRouteMirrorWorkloadLinks(ctx, diags, priorState)
+
 	// Define the blocks slice
 	blocks := []domainmodel.RouteMirrorModel{}
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
+		// Resolve the prior workload_link for this mirror by its trailing workload name (zero value when absent)
+		var priorWorkloadLink types.String
+		if item.WorkloadLink != nil {
+			priorWorkloadLink = priorWorkloadLinks[GetNameFromSelfLink(*item.WorkloadLink)]
+		}
+
 		block := domainmodel.RouteMirrorModel{
-			WorkloadLink: types.StringPointerValue(item.WorkloadLink),
+			WorkloadLink: FlattenLinkString(priorWorkloadLink, item.WorkloadLink, org),
 			Port:         FlattenInt(item.Port),
 			Percent:      FlattenFloat64(item.Percent),
 		}
@@ -1220,6 +1345,34 @@ func FlattenRouteMirror(ctx context.Context, diags *diag.Diagnostics, input *[]c
 	}
 
 	return FlattenList(ctx, diags, blocks)
+}
+
+// priorRouteMirrorWorkloadLinks builds a lookup of prior mirror workload_link values keyed by their trailing workload name.
+func priorRouteMirrorWorkloadLinks(ctx context.Context, diags *diag.Diagnostics, priorState types.List) map[string]types.String {
+	// Initialize the lookup
+	result := map[string]types.String{}
+
+	// Walk the prior mirror blocks
+	blocks, ok := BuildList[domainmodel.RouteMirrorModel](ctx, diags, priorState)
+
+	// Return an empty lookup when no prior blocks exist
+	if !ok {
+		return result
+	}
+
+	// Populate the lookup keyed by the trailing workload name
+	for _, block := range blocks {
+		// Skip blocks with no usable workload_link
+		if block.WorkloadLink.IsNull() || block.WorkloadLink.IsUnknown() {
+			continue
+		}
+
+		// Record the prior workload_link under its trailing workload name
+		result[GetNameFromSelfLink(block.WorkloadLink.ValueString())] = block.WorkloadLink
+	}
+
+	// Return the populated lookup
+	return result
 }
 
 // Blocks //

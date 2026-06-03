@@ -4825,13 +4825,16 @@ func (mro *Mk8sResourceOperator) flattenHetznerProvider(input *client.Mk8sHetzne
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior token_secret_link to preserve the user's chosen form
+	priorTokenSecretLink := mro.priorHetznerTokenSecretLink()
+
 	// Build a single block
 	block := models.HetznerProviderModel{
 		Region:                   types.StringPointerValue(input.Region),
 		HetznerLabels:            FlattenMapString(input.HetznerLabels),
 		Networking:               mro.flattenNetworking(input.Networking),
 		PreInstallScript:         types.StringPointerValue(input.PreInstallScript),
-		TokenSecretLink:          types.StringPointerValue(input.TokenSecretLink),
+		TokenSecretLink:          mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		NetworkId:                types.StringPointerValue(input.NetworkId),
 		FirewallId:               types.StringPointerValue(input.FirewallId),
 		NodePools:                mro.flattenHetznerProviderNodePools(input.NodePools),
@@ -5023,10 +5026,13 @@ func (mro *Mk8sResourceOperator) flattenLinodeProvider(input *client.Mk8sLinodeP
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior token_secret_link to preserve the user's chosen form
+	priorTokenSecretLink := mro.priorLinodeTokenSecretLink()
+
 	// Build a single block
 	block := models.LinodeProviderModel{
 		Region:           types.StringPointerValue(input.Region),
-		TokenSecretLink:  types.StringPointerValue(input.TokenSecretLink),
+		TokenSecretLink:  mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		FirewallId:       types.StringPointerValue(input.FirewallId),
 		NodePools:        mro.flattenLinodeProviderNodePools(input.NodePools),
 		Image:            types.StringPointerValue(input.Image),
@@ -5091,10 +5097,13 @@ func (mro *Mk8sResourceOperator) flattenOblivusProvider(input *client.Mk8sOblivu
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior token_secret_link to preserve the user's chosen form
+	priorTokenSecretLink := mro.priorOblivusTokenSecretLink()
+
 	// Build a single block
 	block := models.OblivusProviderModel{
 		Datacenter:        types.StringPointerValue(input.Datacenter),
-		TokenSecretLink:   types.StringPointerValue(input.TokenSecretLink),
+		TokenSecretLink:   mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		NodePools:         mro.flattenOblivusProviderNodePools(input.NodePools),
 		SshKeys:           FlattenSetString(input.SshKeys),
 		UnmanagedNodePool: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
@@ -5153,10 +5162,13 @@ func (mro *Mk8sResourceOperator) flattenLambdalabsProvider(input *client.Mk8sLam
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior token_secret_link to preserve the user's chosen form
+	priorTokenSecretLink := mro.priorLambdalabsTokenSecretLink()
+
 	// Build a single block
 	block := models.LambdalabsProviderModel{
 		Region:             types.StringPointerValue(input.Region),
-		TokenSecretLink:    types.StringPointerValue(input.TokenSecretLink),
+		TokenSecretLink:    mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		NodePools:          mro.flattenLambdalabsProviderNodePools(input.NodePools),
 		SshKey:             types.StringPointerValue(input.SshKey),
 		UnmanagedNodePools: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
@@ -5216,10 +5228,13 @@ func (mro *Mk8sResourceOperator) flattenPaperspaceProvider(input *client.Mk8sPap
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior token_secret_link to preserve the user's chosen form
+	priorTokenSecretLink := mro.priorPaperspaceTokenSecretLink()
+
 	// Build a single block
 	block := models.PaperspaceProviderModel{
 		Region:             types.StringPointerValue(input.Region),
-		TokenSecretLink:    types.StringPointerValue(input.TokenSecretLink),
+		TokenSecretLink:    mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		SharedDrives:       FlattenSetString(input.SharedDrives),
 		NodePools:          mro.flattenPaperspaceProviderNodePools(input.NodePools),
 		Autoscaler:         mro.flattenAutoscaler(input.Autoscaler),
@@ -5371,12 +5386,15 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderConnection(input *client.M
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior private_key_secret_link to preserve the user's chosen form
+	priorPrivateKeySecretLink := mro.priorTritonPrivateKeySecretLink()
+
 	// Build a single block
 	block := models.TritonProviderConnectionModel{
 		Url:                  types.StringPointerValue(input.Url),
 		Account:              types.StringPointerValue(input.Account),
 		User:                 types.StringPointerValue(input.User),
-		PrivateKeySecretLink: types.StringPointerValue(input.PrivateKeySecretLink),
+		PrivateKeySecretLink: mro.FlattenLinkString(priorPrivateKeySecretLink, input.PrivateKeySecretLink, mro.Client.Org),
 	}
 
 	// Return the successfully created types.List
@@ -5536,11 +5554,14 @@ func (mro *Mk8sResourceOperator) flattenAzureProvider(input *client.Mk8sAzurePro
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior sdk_secret_link to preserve the user's chosen form
+	priorSdkSecretLink := mro.priorAzureSdkSecretLink()
+
 	// Build a single block
 	block := models.AzureProviderModel{
 		Location:         types.StringPointerValue(input.Location),
 		SubscriptionId:   types.StringPointerValue(input.SubscriptionId),
-		SdkSecretLink:    types.StringPointerValue(input.SdkSecretLink),
+		SdkSecretLink:    mro.FlattenLinkString(priorSdkSecretLink, input.SdkSecretLink, mro.Client.Org),
 		ResourceGroup:    types.StringPointerValue(input.ResourceGroup),
 		Networking:       mro.flattenNetworking(input.Networking),
 		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
@@ -5651,13 +5672,16 @@ func (mro *Mk8sResourceOperator) flattenDigitalOceanProvider(input *client.Mk8sD
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior token_secret_link to preserve the user's chosen form
+	priorTokenSecretLink := mro.priorDigitalOceanTokenSecretLink()
+
 	// Build a single block
 	block := models.DigitalOceanProviderModel{
 		Region:           types.StringPointerValue(input.Region),
 		DigitalOceanTags: FlattenSetString(input.DigitalOceanTags),
 		Networking:       mro.flattenNetworking(input.Networking),
 		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
-		TokenSecretLink:  types.StringPointerValue(input.TokenSecretLink),
+		TokenSecretLink:  mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		VpcId:            types.StringPointerValue(input.VpcId),
 		NodePools:        mro.flattenDigitalOceanProviderNodePools(input.NodePools),
 		Image:            types.StringPointerValue(input.Image),
@@ -5719,6 +5743,9 @@ func (mro *Mk8sResourceOperator) flattenGcpProvider(input *client.Mk8sGcpProvide
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior sa_key_link to preserve the user's chosen form
+	priorSaKeyLink := mro.priorGcpSaKeyLink()
+
 	// Build a single block
 	block := models.GcpProviderModel{
 		ProjectId:        types.StringPointerValue(input.ProjectId),
@@ -5727,7 +5754,7 @@ func (mro *Mk8sResourceOperator) flattenGcpProvider(input *client.Mk8sGcpProvide
 		Tags:             FlattenSetString(input.Tags),
 		Metadata:         FlattenMapString(input.Metadata),
 		Network:          types.StringPointerValue(input.Network),
-		SaKeyLink:        types.StringPointerValue(input.SaKeyLink),
+		SaKeyLink:        mro.FlattenLinkString(priorSaKeyLink, input.SaKeyLink, mro.Client.Org),
 		Networking:       mro.flattenNetworking(input.Networking),
 		PreInstallScript: types.StringPointerValue(input.PreInstallScript),
 		Image:            mro.flattenGcpProviderImage(input.Image),
@@ -6114,7 +6141,7 @@ func (mro *Mk8sResourceOperator) flattenAddOnByok(input *client.Mk8sByokAddOn) t
 	// Build a single block
 	block := models.AddOnsByokModel{
 		IgnoreUpdates: types.BoolPointerValue(input.IgnoreUpdates),
-		Location:      types.StringPointerValue(input.Location),
+		Location:      mro.FlattenLinkString(mro.priorByokLocation(), input.Location, mro.Client.Org),
 		Config:        mro.flattenAddOnByokConfig(input.Config),
 	}
 
@@ -6947,4 +6974,162 @@ func (mro *Mk8sResourceOperator) flattenStatusAddOnAwsConfig(input *client.Mk8sA
 
 	// Return the successfully created types.List
 	return FlattenList(mro.Ctx, mro.Diags, []models.StatusAddOnsAwsStatusModel{block})
+}
+
+// Helpers //
+
+// priorHetznerTokenSecretLink extracts the prior plan/state value of hetzner_provider.token_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorHetznerTokenSecretLink() types.String {
+	// Walk the prior plan/state's hetzner_provider list
+	blocks, ok := BuildList[models.HetznerProviderModel](mro.Ctx, mro.Diags, mro.Plan.HetznerProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior token_secret_link
+	return blocks[0].TokenSecretLink
+}
+
+// priorLinodeTokenSecretLink extracts the prior plan/state value of linode_provider.token_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorLinodeTokenSecretLink() types.String {
+	// Walk the prior plan/state's linode_provider list
+	blocks, ok := BuildList[models.LinodeProviderModel](mro.Ctx, mro.Diags, mro.Plan.LinodeProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior token_secret_link
+	return blocks[0].TokenSecretLink
+}
+
+// priorOblivusTokenSecretLink extracts the prior plan/state value of oblivus_provider.token_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorOblivusTokenSecretLink() types.String {
+	// Walk the prior plan/state's oblivus_provider list
+	blocks, ok := BuildList[models.OblivusProviderModel](mro.Ctx, mro.Diags, mro.Plan.OblivusProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior token_secret_link
+	return blocks[0].TokenSecretLink
+}
+
+// priorLambdalabsTokenSecretLink extracts the prior plan/state value of lambdalabs_provider.token_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorLambdalabsTokenSecretLink() types.String {
+	// Walk the prior plan/state's lambdalabs_provider list
+	blocks, ok := BuildList[models.LambdalabsProviderModel](mro.Ctx, mro.Diags, mro.Plan.LambdalabsProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior token_secret_link
+	return blocks[0].TokenSecretLink
+}
+
+// priorPaperspaceTokenSecretLink extracts the prior plan/state value of paperspace_provider.token_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorPaperspaceTokenSecretLink() types.String {
+	// Walk the prior plan/state's paperspace_provider list
+	blocks, ok := BuildList[models.PaperspaceProviderModel](mro.Ctx, mro.Diags, mro.Plan.PaperspaceProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior token_secret_link
+	return blocks[0].TokenSecretLink
+}
+
+// priorTritonPrivateKeySecretLink extracts the prior plan/state value of triton_provider.connection.private_key_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorTritonPrivateKeySecretLink() types.String {
+	// Walk the prior plan/state's triton_provider list
+	providers, ok := BuildList[models.TritonProviderModel](mro.Ctx, mro.Diags, mro.Plan.TritonProvider)
+
+	// Return a null string when no prior provider block exists
+	if !ok || len(providers) == 0 {
+		return types.StringNull()
+	}
+
+	// Walk the prior connection list
+	connections, ok := BuildList[models.TritonProviderConnectionModel](mro.Ctx, mro.Diags, providers[0].Connection)
+
+	// Return a null string when no prior connection block exists
+	if !ok || len(connections) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior private_key_secret_link
+	return connections[0].PrivateKeySecretLink
+}
+
+// priorAzureSdkSecretLink extracts the prior plan/state value of azure_provider.sdk_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorAzureSdkSecretLink() types.String {
+	// Walk the prior plan/state's azure_provider list
+	blocks, ok := BuildList[models.AzureProviderModel](mro.Ctx, mro.Diags, mro.Plan.AzureProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior sdk_secret_link
+	return blocks[0].SdkSecretLink
+}
+
+// priorDigitalOceanTokenSecretLink extracts the prior plan/state value of digital_ocean_provider.token_secret_link, or a null string.
+func (mro *Mk8sResourceOperator) priorDigitalOceanTokenSecretLink() types.String {
+	// Walk the prior plan/state's digital_ocean_provider list
+	blocks, ok := BuildList[models.DigitalOceanProviderModel](mro.Ctx, mro.Diags, mro.Plan.DigitalOceanProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior token_secret_link
+	return blocks[0].TokenSecretLink
+}
+
+// priorGcpSaKeyLink extracts the prior plan/state value of gcp_provider.sa_key_link, or a null string.
+func (mro *Mk8sResourceOperator) priorGcpSaKeyLink() types.String {
+	// Walk the prior plan/state's gcp_provider list
+	blocks, ok := BuildList[models.GcpProviderModel](mro.Ctx, mro.Diags, mro.Plan.GcpProvider)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior sa_key_link
+	return blocks[0].SaKeyLink
+}
+
+// priorByokLocation extracts the prior plan/state value of add_ons.byok.location, or a null string.
+func (mro *Mk8sResourceOperator) priorByokLocation() types.String {
+	// Walk the prior plan/state's add_ons list
+	addOns, ok := BuildList[models.AddOnsModel](mro.Ctx, mro.Diags, mro.Plan.AddOns)
+
+	// Return a null string when no prior add_ons block exists
+	if !ok || len(addOns) == 0 {
+		return types.StringNull()
+	}
+
+	// Walk the prior byok object
+	byok, ok := BuildObject[models.AddOnsByokModel](mro.Ctx, mro.Diags, addOns[0].Byok)
+
+	// Return a null string when no prior byok block exists
+	if !ok || byok == nil {
+		return types.StringNull()
+	}
+
+	// Return the prior location
+	return byok.Location
 }

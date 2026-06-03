@@ -953,9 +953,12 @@ func (iro *IdentityResourceOperator) flattenAws(input *client.IdentityAws) types
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior block to preserve the user's chosen cloud_account_link form
+	priorCloudAccountLink := iro.priorAwsCloudAccountLink()
+
 	// Build a single block
 	block := models.AwsAccessPolicyModel{
-		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		CloudAccountLink: iro.FlattenLinkString(priorCloudAccountLink, input.CloudAccountLink, iro.Client.Org),
 		PolicyRefs:       FlattenSetString(input.PolicyRefs),
 		RoleName:         types.StringPointerValue(input.RoleName),
 		TrustPolicy:      iro.flattenAwsTrustPolicy(input.TrustPolicy),
@@ -1065,17 +1068,21 @@ func (iro *IdentityResourceOperator) flattenGcp(input *client.IdentityGcp) types
 	// Declare a variable to hold planned scopes of the GCP block
 	var plannedScopes *string
 
+	// Declare a variable to hold the prior cloud_account_link so its user-chosen form is preserved
+	priorCloudAccountLink := types.StringNull()
+
 	// Build the planned GCP
 	plannedGcp, ok := BuildList[models.GcpAccessPolicyModel](iro.Ctx, iro.Diags, iro.Plan.GcpAccessPolicy)
 
-	// Extract the planned scopes from the planned GCP block
+	// Extract the planned scopes and cloud_account_link from the planned GCP block
 	if ok && len(plannedGcp) != 0 {
 		plannedScopes = BuildString(plannedGcp[0].Scopes)
+		priorCloudAccountLink = plannedGcp[0].CloudAccountLink
 	}
 
 	// Build a single block
 	block := models.GcpAccessPolicyModel{
-		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		CloudAccountLink: iro.FlattenLinkString(priorCloudAccountLink, input.CloudAccountLink, iro.Client.Org),
 		Scopes:           iro.flattenGcpScopes(plannedScopes, input.Scopes),
 		ServiceAccount:   types.StringPointerValue(input.ServiceAccount),
 		Binding:          iro.flattenGcpBinding(input.Bindings),
@@ -1183,9 +1190,12 @@ func (iro *IdentityResourceOperator) flattenAzure(input *client.IdentityAzure) t
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior block to preserve the user's chosen cloud_account_link form
+	priorCloudAccountLink := iro.priorAzureCloudAccountLink()
+
 	// Build a single block
 	block := models.AzureAccessPolicyModel{
-		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		CloudAccountLink: iro.FlattenLinkString(priorCloudAccountLink, input.CloudAccountLink, iro.Client.Org),
 		RoleAssignment:   iro.flattenAzureRoleAssignment(input.RoleAssignments),
 	}
 
@@ -1234,9 +1244,12 @@ func (iro *IdentityResourceOperator) flattenNgs(input *client.IdentityNgs) types
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior block to preserve the user's chosen cloud_account_link form
+	priorCloudAccountLink := iro.priorNgsCloudAccountLink()
+
 	// Build a single block
 	block := models.NgsAccessPolicyModel{
-		CloudAccountLink: types.StringPointerValue(input.CloudAccountLink),
+		CloudAccountLink: iro.FlattenLinkString(priorCloudAccountLink, input.CloudAccountLink, iro.Client.Org),
 		Subs:             FlattenInt(input.Subs),
 		Data:             FlattenInt(input.Data),
 		Payload:          FlattenInt(input.Payload),
@@ -1302,15 +1315,24 @@ func (iro *IdentityResourceOperator) flattenNetworkResources(input *[]client.Ide
 		return types.SetNull(elementType)
 	}
 
+	// Build a lookup of prior agent_link values keyed by network_resource name
+	priorAgentLinks := iro.priorNetworkResourceAgentLinks()
+
 	// Define the blocks slice
 	var blocks []models.NetworkResourceModel
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
+		// Resolve the prior agent_link for this network_resource by name (zero value when absent)
+		var priorAgentLink types.String
+		if item.Name != nil {
+			priorAgentLink = priorAgentLinks[*item.Name]
+		}
+
 		// Construct a block
 		block := models.NetworkResourceModel{
 			Name:       types.StringPointerValue(item.Name),
-			AgentLink:  types.StringPointerValue(item.AgentLink),
+			AgentLink:  iro.FlattenLinkString(priorAgentLink, item.AgentLink, iro.Client.Org),
 			IPs:        FlattenSetString(item.IPs),
 			FQDN:       types.StringPointerValue(item.FQDN),
 			ResolverIP: types.StringPointerValue(item.ResolverIP),
@@ -1498,4 +1520,74 @@ func tryUnmarshalJSONMapOrArray(value string) (interface{}, bool) {
 	}
 
 	return parsed, true
+}
+
+// priorAwsCloudAccountLink extracts the prior plan/state value of aws_access_policy.cloud_account_link, or a null string.
+func (iro *IdentityResourceOperator) priorAwsCloudAccountLink() types.String {
+	// Walk the prior plan/state's aws_access_policy list
+	blocks, ok := BuildList[models.AwsAccessPolicyModel](iro.Ctx, iro.Diags, iro.Plan.AwsAccessPolicy)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior cloud_account_link
+	return blocks[0].CloudAccountLink
+}
+
+// priorAzureCloudAccountLink extracts the prior plan/state value of azure_access_policy.cloud_account_link, or a null string.
+func (iro *IdentityResourceOperator) priorAzureCloudAccountLink() types.String {
+	// Walk the prior plan/state's azure_access_policy list
+	blocks, ok := BuildList[models.AzureAccessPolicyModel](iro.Ctx, iro.Diags, iro.Plan.AzureAccessPolicy)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior cloud_account_link
+	return blocks[0].CloudAccountLink
+}
+
+// priorNgsCloudAccountLink extracts the prior plan/state value of ngs_access_policy.cloud_account_link, or a null string.
+func (iro *IdentityResourceOperator) priorNgsCloudAccountLink() types.String {
+	// Walk the prior plan/state's ngs_access_policy list
+	blocks, ok := BuildList[models.NgsAccessPolicyModel](iro.Ctx, iro.Diags, iro.Plan.NgsAccessPolicy)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior cloud_account_link
+	return blocks[0].CloudAccountLink
+}
+
+// priorNetworkResourceAgentLinks builds a lookup of prior agent_link values keyed by network_resource name.
+func (iro *IdentityResourceOperator) priorNetworkResourceAgentLinks() map[string]types.String {
+	// Initialize the lookup
+	result := map[string]types.String{}
+
+	// Walk the prior plan/state's network_resource set
+	blocks, ok := BuildSet[models.NetworkResourceModel](iro.Ctx, iro.Diags, iro.Plan.NetworkResource)
+
+	// Return an empty lookup when no prior blocks exist
+	if !ok {
+		return result
+	}
+
+	// Populate the lookup keyed by name
+	for _, block := range blocks {
+		// Skip blocks with no usable name
+		if block.Name.IsNull() || block.Name.IsUnknown() {
+			continue
+		}
+
+		// Record the prior agent_link under its name
+		result[block.Name.ValueString()] = block.AgentLink
+	}
+
+	// Return the populated lookup
+	return result
 }

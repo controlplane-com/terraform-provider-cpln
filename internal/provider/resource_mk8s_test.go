@@ -708,7 +708,7 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 						},
 					},
 					"pre_install_script": "#! echo hello world",
-					"token_secret_link":  "/org/terraform-test-org/secret/hetzner",
+					"token_secret_link":  "//secret/hetzner",
 					"network_id":         "2808575",
 					"node_pool": []map[string]interface{}{
 						{
@@ -1021,7 +1021,7 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 			c.TestCheckNestedBlocks("linode_provider", []map[string]interface{}{
 				{
 					"region":            "fr-par",
-					"token_secret_link": "/org/terraform-test-org/secret/linode",
+					"token_secret_link": "//secret/linode",
 					"firewall_id":       "168425",
 					"image":             "linode/ubuntu24.04",
 					"authorized_users":  []string{"juliancpln"},
@@ -1161,7 +1161,7 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 			c.TestCheckNestedBlocks("oblivus_provider", []map[string]interface{}{
 				{
 					"datacenter":         "OSL1",
-					"token_secret_link":  "/org/terraform-test-org/secret/oblivus",
+					"token_secret_link":  "//secret/oblivus",
 					"pre_install_script": "#! echo hello world",
 					"node_pool": []map[string]interface{}{
 						{
@@ -1303,7 +1303,7 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 			c.TestCheckNestedBlocks("lambdalabs_provider", []map[string]interface{}{
 				{
 					"region":             "europe-central-1",
-					"token_secret_link":  "/org/terraform-test-org/secret/lambdalabs",
+					"token_secret_link":  "//secret/lambdalabs",
 					"ssh_key":            "julian-test",
 					"pre_install_script": "#! echo hello world",
 					"node_pool": []map[string]interface{}{
@@ -1444,7 +1444,7 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 			c.TestCheckNestedBlocks("paperspace_provider", []map[string]interface{}{
 				{
 					"region":             "CA1",
-					"token_secret_link":  "/org/terraform-test-org/secret/paperspace",
+					"token_secret_link":  "//secret/paperspace",
 					"pre_install_script": "#! echo hello world",
 					"shared_drives":      []string{"california"},
 					"network_id":         "nla0jotp",
@@ -1722,7 +1722,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 							"url":                     "https://us-central-1.api.mnx.io",
 							"account":                 "eric_controlplane.com",
 							"user":                    "julian_controlplane.com",
-							"private_key_secret_link": "/org/terraform-test-org/secret/triton",
+							"private_key_secret_link": "//secret/triton",
 						},
 					},
 					"load_balancer": []map[string]interface{}{
@@ -1869,7 +1869,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 							"url":                     "https://us-central-1.api.mnx.io",
 							"account":                 "eric_controlplane.com",
 							"user":                    "julian_controlplane.com",
-							"private_key_secret_link": "/org/terraform-test-org/secret/triton",
+							"private_key_secret_link": "//secret/triton",
 						},
 					},
 					"load_balancer": []map[string]interface{}{
@@ -2016,7 +2016,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 							"url":                     "https://us-central-1.api.mnx.io",
 							"account":                 "eric_controlplane.com",
 							"user":                    "julian_controlplane.com",
-							"private_key_secret_link": "/org/terraform-test-org/secret/triton",
+							"private_key_secret_link": "//secret/triton",
 						},
 					},
 					"load_balancer": []map[string]interface{}{
@@ -2180,7 +2180,7 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 				{
 					"location":        "westeurope",
 					"subscription_id": "02d033d5-6d7a-4d45-88e3-43d778647918",
-					"sdk_secret_link": "/org/terraform-test-org/secret/azure",
+					"sdk_secret_link": "//secret/azure",
 					"resource_group":  "cloudaccount-azure",
 					"ssh_keys":        []string{"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDMxAYXeva5Y0xNWK0zh711a751LD+A9JEXIBfgv0sib mk8s-test"},
 					"network_id":      "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1",
@@ -2327,7 +2327,7 @@ func (mrt *Mk8sResourceTest) BuildDigitalOceanProviderTestStep(resourceName stri
 			c.TestCheckNestedBlocks("digital_ocean_provider", []map[string]interface{}{
 				{
 					"region":             "ams3",
-					"token_secret_link":  "/org/terraform-test-org/secret/digitalocean",
+					"token_secret_link":  "//secret/digitalocean",
 					"vpc_id":             "dc4f7d2c-9edb-445d-8253-a7e7a18f6061",
 					"image":              "almalinux-8-x64",
 					"ssh_keys":           []string{"36908990"},
@@ -2450,7 +2450,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 						"eat":   "hamburger",
 					},
 					"network":     "mk8s",
-					"sa_key_link": "/org/terraform-test-org/secret/gcp",
+					"sa_key_link": "//secret/gcp",
 					"networking": []map[string]interface{}{
 						{
 							"service_network": "10.43.0.0/16",
@@ -2603,7 +2603,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 						"play":  "basketball",
 					},
 					"network":     "mk8s",
-					"sa_key_link": "/org/terraform-test-org/secret/gcp",
+					"sa_key_link": "//secret/gcp",
 					"networking": []map[string]interface{}{
 						{
 							"service_network": "10.43.0.0/16",
@@ -3172,7 +3172,7 @@ resource "cpln_mk8s" "%s" {
     }
 
     pre_install_script = "#! echo hello world"
-    token_secret_link  = "/org/terraform-test-org/secret/hetzner"
+    token_secret_link  = "//secret/hetzner"
     network_id         = "2808575"
 
     node_pool {
@@ -3797,7 +3797,7 @@ resource "cpln_mk8s" "%s" {
 
   linode_provider {
     region             = "fr-par"
-    token_secret_link  = "/org/terraform-test-org/secret/linode"
+    token_secret_link  = "//secret/linode"
     firewall_id        = "168425"
     image              = "linode/ubuntu24.04"
     authorized_users   = ["juliancpln"]
@@ -4091,7 +4091,7 @@ resource "cpln_mk8s" "%s" {
 
   oblivus_provider {
     datacenter         = "OSL1"
-    token_secret_link  = "/org/terraform-test-org/secret/oblivus"
+    token_secret_link  = "//secret/oblivus"
     pre_install_script = "#! echo hello world"
 
     node_pool {
@@ -4386,7 +4386,7 @@ resource "cpln_mk8s" "%s" {
 
   lambdalabs_provider {
     region             = "europe-central-1"
-    token_secret_link  = "/org/terraform-test-org/secret/lambdalabs"
+    token_secret_link  = "//secret/lambdalabs"
     ssh_key            = "julian-test"
     pre_install_script = "#! echo hello world"
 
@@ -4680,7 +4680,7 @@ resource "cpln_mk8s" "%s" {
 
   paperspace_provider {
     region             = "CA1"
-    token_secret_link  = "/org/terraform-test-org/secret/paperspace"
+    token_secret_link  = "//secret/paperspace"
     shared_drives      = ["california"]
     pre_install_script = "#! echo hello world"
     network_id         = "nla0jotp"
@@ -5090,7 +5090,7 @@ resource "cpln_mk8s" "%s" {
       url                     = "https://us-central-1.api.mnx.io"
       account                 = "eric_controlplane.com"
       user                    = "julian_controlplane.com"
-      private_key_secret_link = "/org/terraform-test-org/secret/triton"
+      private_key_secret_link = "//secret/triton"
     }
 
     load_balancer {
@@ -5394,7 +5394,7 @@ resource "cpln_mk8s" "%s" {
       url                     = "https://us-central-1.api.mnx.io"
       account                 = "eric_controlplane.com"
       user                    = "julian_controlplane.com"
-      private_key_secret_link = "/org/terraform-test-org/secret/triton"
+      private_key_secret_link = "//secret/triton"
     }
 
     load_balancer {
@@ -5698,7 +5698,7 @@ resource "cpln_mk8s" "%s" {
       url                     = "https://us-central-1.api.mnx.io"
       account                 = "eric_controlplane.com"
       user                    = "julian_controlplane.com"
-      private_key_secret_link = "/org/terraform-test-org/secret/triton"
+      private_key_secret_link = "//secret/triton"
     }
 
     load_balancer {
@@ -6015,7 +6015,7 @@ resource "cpln_mk8s" "%s" {
   azure_provider {
     location        = "westeurope"
     subscription_id = "02d033d5-6d7a-4d45-88e3-43d778647918"
-    sdk_secret_link = "/org/terraform-test-org/secret/azure"
+    sdk_secret_link = "//secret/azure"
     resource_group  = "cloudaccount-azure"
     ssh_keys        = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDMxAYXeva5Y0xNWK0zh711a751LD+A9JEXIBfgv0sib mk8s-test"]
     network_id      = "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1"
@@ -6314,7 +6314,7 @@ resource "cpln_mk8s" "%s" {
 
   digital_ocean_provider {
     region            = "ams3"
-    token_secret_link = "/org/terraform-test-org/secret/digitalocean"
+    token_secret_link = "//secret/digitalocean"
     vpc_id            = "dc4f7d2c-9edb-445d-8253-a7e7a18f6061"
     image             = "almalinux-8-x64"
     ssh_keys          = ["36908990"]
@@ -6418,7 +6418,7 @@ resource "cpln_mk8s" "%s" {
     region             = "us-west1"
     tags               = ["tag1", "tag2", "tag3"]
     network            = "mk8s"
-    sa_key_link        = "/org/terraform-test-org/secret/gcp"
+    sa_key_link        = "//secret/gcp"
     pre_install_script = "#! echo hello world"
 
     labels = {
@@ -6727,7 +6727,7 @@ resource "cpln_mk8s" "%s" {
     region             = "us-west1"
     tags               = ["tag1", "tag2"]
     network            = "mk8s"
-    sa_key_link        = "/org/terraform-test-org/secret/gcp"
+    sa_key_link        = "//secret/gcp"
     pre_install_script = "#! echo hello world"
 
     labels = {

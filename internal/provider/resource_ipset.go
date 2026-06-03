@@ -199,7 +199,7 @@ func (isro *IpSetResourceOperator) MapResponseToState(apiResp *client.IpSet, isC
 
 	// Just in case GVC spec is nil
 	if apiResp.Spec != nil {
-		state.Link = types.StringPointerValue(apiResp.Spec.Link)
+		state.Link = isro.FlattenLinkString(isro.Plan.Link, apiResp.Spec.Link, isro.Client.Org)
 		state.Locations = isro.flattenLocations(apiResp.Spec.Locations)
 	} else {
 		state.Link = types.StringNull()
@@ -277,14 +277,23 @@ func (isro *IpSetResourceOperator) flattenLocations(input *[]client.IpSetLocatio
 		return types.SetNull(elementType)
 	}
 
+	// Build a lookup of prior location name links keyed by their trailing location name
+	priorNames := isro.priorLocationLinksByName()
+
 	// Define the blocks slice
 	var blocks []models.LocationModel
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
+		// Resolve the prior name link for this location by its trailing name (zero value when absent)
+		var priorName types.String
+		if item.Name != nil {
+			priorName = priorNames[GetNameFromSelfLink(*item.Name)]
+		}
+
 		// Construct a block
 		block := models.LocationModel{
-			Name:            types.StringPointerValue(item.Name),
+			Name:            isro.FlattenLinkString(priorName, item.Name, isro.Client.Org),
 			RetentionPolicy: types.StringPointerValue(item.RetentionPolicy),
 		}
 
@@ -349,4 +358,34 @@ func (isro *IpSetResourceOperator) flattenStatusIpAddresses(input *[]client.IpSe
 
 	// Return the successfully created types.List
 	return FlattenList(isro.Ctx, isro.Diags, blocks)
+}
+
+// Helpers //
+
+// priorLocationLinksByName builds a lookup of prior location name links keyed by their trailing location name.
+func (isro *IpSetResourceOperator) priorLocationLinksByName() map[string]types.String {
+	// Initialize the lookup
+	result := map[string]types.String{}
+
+	// Walk the prior plan/state's location set
+	blocks, ok := BuildSet[models.LocationModel](isro.Ctx, isro.Diags, isro.Plan.Locations)
+
+	// Return an empty lookup when no prior blocks exist
+	if !ok {
+		return result
+	}
+
+	// Populate the lookup keyed by the trailing location name
+	for _, block := range blocks {
+		// Skip blocks with no usable name
+		if block.Name.IsNull() || block.Name.IsUnknown() {
+			continue
+		}
+
+		// Record the prior name link under its trailing location name
+		result[GetNameFromSelfLink(block.Name.ValueString())] = block.Name
+	}
+
+	// Return the populated lookup
+	return result
 }

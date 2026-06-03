@@ -319,12 +319,12 @@ func (irt *IdentityResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCa
 			}),
 			c.TestCheckNestedBlocks("azure_access_policy", []map[string]interface{}{
 				{
-					"cloud_account_link": GetSelfLink(OrgName, "cloudaccount", fmt.Sprintf("tf-ca-azure-%s", irt.RandomName)),
+					"cloud_account_link": fmt.Sprintf("//cloudaccount/tf-ca-azure-%s", irt.RandomName),
 				},
 			}),
 			c.TestCheckNestedBlocks("ngs_access_policy", []map[string]interface{}{
 				{
-					"cloud_account_link": GetSelfLink(OrgName, "cloudaccount", fmt.Sprintf("tf-ca-ngs-%s", irt.RandomName)),
+					"cloud_account_link": fmt.Sprintf("//cloudaccount/tf-ca-ngs-%s", irt.RandomName),
 				},
 			}),
 		),
@@ -396,7 +396,7 @@ func (irt *IdentityResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCa
 			}),
 			c.TestCheckNestedBlocks("azure_access_policy", []map[string]interface{}{
 				{
-					"cloud_account_link": GetSelfLink(OrgName, "cloudaccount", fmt.Sprintf("tf-ca-azure-%s", irt.RandomName)),
+					"cloud_account_link": fmt.Sprintf("//cloudaccount/tf-ca-azure-%s", irt.RandomName),
 					"role_assignment": []map[string]interface{}{
 						{
 							"scope": "/subscriptions/d0d1e522-0825-415a-8b07-f7759b5c8a7e/resourceGroups/CP-Test-Resource-Group",
@@ -411,7 +411,7 @@ func (irt *IdentityResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCa
 			}),
 			c.TestCheckNestedBlocks("ngs_access_policy", []map[string]interface{}{
 				{
-					"cloud_account_link": GetSelfLink(OrgName, "cloudaccount", fmt.Sprintf("tf-ca-ngs-%s", irt.RandomName)),
+					"cloud_account_link": fmt.Sprintf("//cloudaccount/tf-ca-ngs-%s", irt.RandomName),
 					"pub": []map[string]interface{}{
 						{
 							"allow": []string{"pa1", "pa2"},
@@ -582,11 +582,11 @@ resource "cpln_identity" "%s" {
   }
 
   azure_access_policy {
-    cloud_account_link = cpln_cloud_account.azure.self_link
+    cloud_account_link = "//cloudaccount/${cpln_cloud_account.azure.name}"
   }
 
   ngs_access_policy {
-    cloud_account_link = cpln_cloud_account.ngs.self_link
+    cloud_account_link = "//cloudaccount/${cpln_cloud_account.ngs.name}"
   }
 }
 `, OrgName, irt.RandomName, c.GvcConfig, c.ResourceName, c.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, c.GvcCase.Name,
@@ -672,7 +672,7 @@ resource "cpln_identity" "%s" {
   }
 
   azure_access_policy {
-    cloud_account_link = cpln_cloud_account.azure.self_link
+    cloud_account_link = "//cloudaccount/${cpln_cloud_account.azure.name}"
 
     role_assignment {
       scope = "/subscriptions/d0d1e522-0825-415a-8b07-f7759b5c8a7e/resourceGroups/CP-Test-Resource-Group"
@@ -686,7 +686,7 @@ resource "cpln_identity" "%s" {
   }
 
   ngs_access_policy {
-    cloud_account_link = cpln_cloud_account.ngs.self_link
+    cloud_account_link = "//cloudaccount/${cpln_cloud_account.ngs.name}"
 
     pub {
       allow = ["pa1", "pa2"]

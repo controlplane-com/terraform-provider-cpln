@@ -884,12 +884,15 @@ func (dro *DomainResourceOperator) flattenSpec(input *client.DomainSpec) types.L
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior spec-level link values so their user-chosen forms are preserved
+	priorGvcLink, priorWorkloadLink := dro.priorSpecLinks()
+
 	// Build a single block
 	block := models.SpecModel{
 		DnsMode:             types.StringPointerValue(input.DnsMode),
-		GvcLink:             types.StringPointerValue(input.GvcLink),
+		GvcLink:             dro.FlattenLinkString(priorGvcLink, input.GvcLink, dro.Client.Org),
 		CertChallengeType:   types.StringPointerValue(input.CertChallengeType),
-		WorkloadLink:        types.StringPointerValue(input.WorkloadLink),
+		WorkloadLink:        dro.FlattenLinkString(priorWorkloadLink, input.WorkloadLink, dro.Client.Org),
 		AcceptAllHosts:      types.BoolPointerValue(input.AcceptAllHosts),
 		AcceptAllSubdomains: types.BoolPointerValue(input.AcceptAllSubdomains),
 		Ports:               dro.flattenSpecPorts(input.Ports),
@@ -924,17 +927,18 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
+		// Resolve the port number for use as the stable key into prior plan/state
+		portNum := 0
+		if item.Number != nil {
+			portNum = *item.Number
+		}
+
 		// Construct a block
 		block := models.SpecPortsModel{
 			Number:   FlattenInt(item.Number),
 			Protocol: types.StringPointerValue(item.Protocol),
 			Cors:     dro.flattenSpecPortCors(item.Cors),
-			TLS:      dro.flattenSpecPortTls(item.TLS),
-		}
-
-		portNum := 0
-		if item.Number != nil {
-			portNum = *item.Number
+			TLS:      dro.flattenSpecPortTls(item.TLS, portNum),
 		}
 
 		if isImport {
@@ -1009,7 +1013,7 @@ func (dro *DomainResourceOperator) flattenSpecPortCorsAllowOrigins(input *[]clie
 }
 
 // flattenSpecPortTls transforms client.DomainTLS into a Terraform types.List.
-func (dro *DomainResourceOperator) flattenSpecPortTls(input *client.DomainTLS) types.List {
+func (dro *DomainResourceOperator) flattenSpecPortTls(input *client.DomainTLS, portNum int) types.List {
 	// Get attribute types
 	elementType := models.SpecPortsTlsModel{}.AttributeTypes()
 
@@ -1019,12 +1023,15 @@ func (dro *DomainResourceOperator) flattenSpecPortTls(input *client.DomainTLS) t
 		return types.ListNull(elementType)
 	}
 
+	// Resolve the prior secret_link values for client and server certificates at this port
+	priorClientSecretLink, priorServerSecretLink := dro.priorPortTlsCertificateSecretLinks(portNum)
+
 	// Build a single block
 	block := models.SpecPortsTlsModel{
 		MinProtocolVersion: types.StringPointerValue(input.MinProtocolVersion),
 		CipherSuites:       FlattenSetString(input.CipherSuites),
-		ClientCertificate:  dro.flattenSpecPortTlsCertificate(input.ClientCertificate),
-		ServerCertificate:  dro.flattenSpecPortTlsCertificate(input.ServerCertificate),
+		ClientCertificate:  dro.flattenSpecPortTlsCertificate(input.ClientCertificate, priorClientSecretLink),
+		ServerCertificate:  dro.flattenSpecPortTlsCertificate(input.ServerCertificate, priorServerSecretLink),
 	}
 
 	// Return the successfully created types.List
@@ -1032,7 +1039,7 @@ func (dro *DomainResourceOperator) flattenSpecPortTls(input *client.DomainTLS) t
 }
 
 // flattenSpecPortTlsCertificate transforms client.DomainCertificate into a Terraform types.List.
-func (dro *DomainResourceOperator) flattenSpecPortTlsCertificate(input *client.DomainCertificate) types.List {
+func (dro *DomainResourceOperator) flattenSpecPortTlsCertificate(input *client.DomainCertificate, priorSecretLink types.String) types.List {
 	// Get attribute types
 	elementType := models.SpecPortsTlsCertificateModel{}.AttributeTypes()
 
@@ -1044,7 +1051,7 @@ func (dro *DomainResourceOperator) flattenSpecPortTlsCertificate(input *client.D
 
 	// Build a single block
 	block := models.SpecPortsTlsCertificateModel{
-		SecretLink: types.StringPointerValue(input.SecretLink),
+		SecretLink: dro.FlattenLinkString(priorSecretLink, input.SecretLink, dro.Client.Org),
 	}
 
 	// Return the successfully created types.List
@@ -1066,6 +1073,10 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
 	}
 
+	// Build lookups of prior workload_link values and mirror blocks keyed by route key for this port
+	priorWorkloadLinks := dro.priorRouteWorkloadLinks(portNum)
+	priorMirrors := dro.priorRouteMirrors(portNum)
+
 	// Filter API routes to only include those matching plan inline route keys
 	blocks := []models.RouteModel{}
 
@@ -1074,17 +1085,21 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 			continue
 		}
 
+		// Resolve the prior workload_link and mirror list for this route by key (zero value when absent)
+		priorWorkloadLink := priorWorkloadLinks[DomainRouteKey(item)]
+		priorMirror := priorMirrors[DomainRouteKey(item)]
+
 		block := models.RouteModel{
 			Prefix:        types.StringPointerValue(item.Prefix),
 			ReplacePrefix: types.StringPointerValue(item.ReplacePrefix),
 			Regex:         types.StringPointerValue(item.Regex),
-			WorkloadLink:  types.StringPointerValue(item.WorkloadLink),
+			WorkloadLink:  dro.FlattenLinkString(priorWorkloadLink, item.WorkloadLink, dro.Client.Org),
 			Port:          FlattenInt(item.Port),
 			HostPrefix:    types.StringPointerValue(item.HostPrefix),
 			HostRegex:     types.StringPointerValue(item.HostRegex),
 			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
 			Replica:       FlattenInt(item.Replica),
-			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, item.Mirror),
+			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
 		}
 
 		blocks = append(blocks, block)
@@ -1105,18 +1120,22 @@ func (dro *DomainResourceOperator) flattenRoutes(input *[]client.DomainRoute) ty
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
+		// Resolve the prior workload_link and mirror list by scanning all prior route blocks for a matching key
+		priorWorkloadLink := dro.priorRouteWorkloadLinkAnyPort(DomainRouteKey(item))
+		priorMirror := dro.priorRouteMirrorAnyPort(DomainRouteKey(item))
+
 		// Construct a block
 		block := models.RouteModel{
 			Prefix:        types.StringPointerValue(item.Prefix),
 			ReplacePrefix: types.StringPointerValue(item.ReplacePrefix),
 			Regex:         types.StringPointerValue(item.Regex),
-			WorkloadLink:  types.StringPointerValue(item.WorkloadLink),
+			WorkloadLink:  dro.FlattenLinkString(priorWorkloadLink, item.WorkloadLink, dro.Client.Org),
 			Port:          FlattenInt(item.Port),
 			HostPrefix:    types.StringPointerValue(item.HostPrefix),
 			HostRegex:     types.StringPointerValue(item.HostRegex),
 			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
 			Replica:       FlattenInt(item.Replica),
-			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, item.Mirror),
+			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1447,4 +1466,277 @@ func (dro *DomainResourceOperator) routeModelKey(route models.RouteModel) string
 	}
 
 	return ""
+}
+
+// priorSpecLinks extracts the prior spec-level gvc_link and workload_link from the planned state.
+func (dro *DomainResourceOperator) priorSpecLinks() (types.String, types.String) {
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return null strings when no prior spec exists
+	if !ok || len(specs) == 0 {
+		return types.StringNull(), types.StringNull()
+	}
+
+	// Return the prior gvc_link and workload_link
+	return specs[0].GvcLink, specs[0].WorkloadLink
+}
+
+// priorRouteWorkloadLinks builds a lookup of prior route workload_link values keyed by route key for a given port.
+func (dro *DomainResourceOperator) priorRouteWorkloadLinks(portNum int) map[string]types.String {
+	// Initialize the lookup
+	result := map[string]types.String{}
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return an empty lookup when no prior spec exists
+	if !ok {
+		return result
+	}
+
+	// Iterate planned specs to find the matching port and its routes
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Resolve the port number for matching
+			pNum := 0
+			if !port.Number.IsNull() && !port.Number.IsUnknown() {
+				pNum = int(port.Number.ValueInt32())
+			}
+
+			// Skip ports that do not match the requested port
+			if pNum != portNum {
+				continue
+			}
+
+			// Build the prior routes list for this port
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			// Record each prior route's workload_link under its stable key
+			for _, route := range routes {
+				key := dro.routeModelKey(route)
+				if key == "" {
+					continue
+				}
+				result[key] = route.WorkloadLink
+			}
+		}
+	}
+
+	// Return the populated lookup
+	return result
+}
+
+// priorRouteWorkloadLinkAnyPort returns the prior workload_link for a route matching the given key across all ports.
+func (dro *DomainResourceOperator) priorRouteWorkloadLinkAnyPort(key string) types.String {
+	// Skip blank keys to avoid spurious matches
+	if key == "" {
+		return types.StringNull()
+	}
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return a null string when no prior spec exists
+	if !ok {
+		return types.StringNull()
+	}
+
+	// Iterate planned specs to scan every port's routes
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Build the prior routes list for this port
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			// Return the first prior route whose key matches
+			for _, route := range routes {
+				if dro.routeModelKey(route) == key {
+					return route.WorkloadLink
+				}
+			}
+		}
+	}
+
+	// Return a null string when no matching prior route is found
+	return types.StringNull()
+}
+
+// priorRouteMirrors builds a lookup of prior route mirror blocks keyed by route key for a given port.
+func (dro *DomainResourceOperator) priorRouteMirrors(portNum int) map[string]types.List {
+	// Initialize the lookup
+	result := map[string]types.List{}
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return an empty lookup when no prior spec exists
+	if !ok {
+		return result
+	}
+
+	// Iterate planned specs to find the matching port and its routes
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Resolve the port number for matching
+			pNum := 0
+			if !port.Number.IsNull() && !port.Number.IsUnknown() {
+				pNum = int(port.Number.ValueInt32())
+			}
+
+			// Skip ports that do not match the requested port
+			if pNum != portNum {
+				continue
+			}
+
+			// Build the prior routes list for this port
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			// Record each prior route's mirror list under its stable key
+			for _, route := range routes {
+				key := dro.routeModelKey(route)
+				if key == "" {
+					continue
+				}
+				result[key] = route.Mirror
+			}
+		}
+	}
+
+	// Return the populated lookup
+	return result
+}
+
+// priorRouteMirrorAnyPort returns the prior route mirror list for a route matching the given key across all ports.
+func (dro *DomainResourceOperator) priorRouteMirrorAnyPort(key string) types.List {
+	// Default to a null mirror list
+	nullList := types.ListNull(models.RouteMirrorModel{}.AttributeTypes())
+
+	// Skip blank keys to avoid spurious matches
+	if key == "" {
+		return nullList
+	}
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return a null list when no prior spec exists
+	if !ok {
+		return nullList
+	}
+
+	// Iterate planned specs to scan every port's routes
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Build the prior routes list for this port
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			// Return the first prior route's mirror list whose key matches
+			for _, route := range routes {
+				if dro.routeModelKey(route) == key {
+					return route.Mirror
+				}
+			}
+		}
+	}
+
+	// Return a null list when no matching prior route is found
+	return nullList
+}
+
+// priorPortTlsCertificateSecretLinks returns prior client and server certificate secret_link values for a given port.
+func (dro *DomainResourceOperator) priorPortTlsCertificateSecretLinks(portNum int) (types.String, types.String) {
+	// Default values when no prior data is available
+	priorClient, priorServer := types.StringNull(), types.StringNull()
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return null strings when no prior spec exists
+	if !ok {
+		return priorClient, priorServer
+	}
+
+	// Iterate planned specs to find the matching port
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Resolve the port number for matching
+			pNum := 0
+			if !port.Number.IsNull() && !port.Number.IsUnknown() {
+				pNum = int(port.Number.ValueInt32())
+			}
+
+			// Skip ports that do not match the requested port
+			if pNum != portNum {
+				continue
+			}
+
+			// Build the prior TLS block list
+			tlsBlocks, ok := BuildList[models.SpecPortsTlsModel](dro.Ctx, dro.Diags, port.TLS)
+			if !ok || len(tlsBlocks) == 0 {
+				continue
+			}
+
+			// Extract prior client certificate secret_link
+			clientBlocks, ok := BuildList[models.SpecPortsTlsCertificateModel](dro.Ctx, dro.Diags, tlsBlocks[0].ClientCertificate)
+			if ok && len(clientBlocks) != 0 {
+				priorClient = clientBlocks[0].SecretLink
+			}
+
+			// Extract prior server certificate secret_link
+			serverBlocks, ok := BuildList[models.SpecPortsTlsCertificateModel](dro.Ctx, dro.Diags, tlsBlocks[0].ServerCertificate)
+			if ok && len(serverBlocks) != 0 {
+				priorServer = serverBlocks[0].SecretLink
+			}
+		}
+	}
+
+	// Return the resolved values
+	return priorClient, priorServer
 }

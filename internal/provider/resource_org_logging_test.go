@@ -193,7 +193,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate1TestStep(initialCase ProviderTes
 			c.TestCheckNestedBlocks("coralogix_logging", []map[string]interface{}{
 				{
 					"cluster":     "coralogix.com",
-					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"credentials": fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
 					"app":         "{workload}",
 					"subsystem":   "{org}",
 				},
@@ -244,7 +244,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate3TestStep(initialCase ProviderTes
 			c.TestCheckNestedBlocks("logzio_logging", []map[string]interface{}{
 				{
 					"listener_host": c.LogzioListenerHost,
-					"credentials":   GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"credentials":   fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -267,7 +267,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate4TestStep(initialCase ProviderTes
 			c.TestCheckNestedBlocks("logzio_logging", []map[string]interface{}{
 				{
 					"listener_host": c.LogzioListenerHost,
-					"credentials":   GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"credentials":   fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -353,7 +353,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate7TestStep(initialCase ProviderTes
 							"path":        "/var/log/elasticsearch/",
 							"index":       "my-index",
 							"type":        "my-type",
-							"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-userpass-elastic-generic-%s", olrt.RandomName)),
+							"credentials": fmt.Sprintf("//secret/tf-userpass-elastic-generic-%s", olrt.RandomName),
 						},
 					},
 				},
@@ -383,7 +383,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate8TestStep(initialCase ProviderTes
 					"extract_fields": map[string]interface{}{
 						"log_level": "$.level",
 					},
-					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"credentials": fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -427,7 +427,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate10TestStep(initialCase ProviderTe
 			c.TestCheckNestedBlocks("stackdriver_logging", []map[string]interface{}{
 				{
 					"location":    "us-east4",
-					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"credentials": fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -494,7 +494,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate12TestStep(initialCase ProviderTe
 				},
 				{
 					"host":        "http-intake.logs.datadoghq.com",
-					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", olrt.RandomName)),
+					"credentials": fmt.Sprintf("//secret/tf-opaque-random-datadog-01-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -528,7 +528,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate13TestStep(initialCase ProviderTe
 				},
 				{
 					"host":        "http-intake.logs.datadoghq.com",
-					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-random-datadog-01-%s", olrt.RandomName)),
+					"credentials": fmt.Sprintf("//secret/tf-opaque-random-datadog-01-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -553,7 +553,7 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate14TestStep(initialCase ProviderTe
 					"headers": map[string]interface{}{
 						"x-api-key": "test-key",
 					},
-					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-opaque-%s", olrt.RandomName)),
+					"credentials": fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
 				},
 			}),
 		),
@@ -633,7 +633,7 @@ resource "cpln_org_logging" "%s" {
     cluster = "coralogix.com"
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque.self_link
+    credentials = "//secret/${cpln_secret.opaque.name}"
 
     // Supported variables for App and Subsystem are:
     // {org}, {gvc}, {workload}, {location}
@@ -740,7 +740,7 @@ resource "cpln_org_logging" "%s" {
     listener_host = "%s"
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque.self_link  
+    credentials = "//secret/${cpln_secret.opaque.name}"  
   }
 }
 `, olrt.RandomName, c.ResourceName, c.LogzioListenerHost)
@@ -860,7 +860,7 @@ resource "cpln_org_logging" "%s" {
       path  = "/var/log/elasticsearch/"
       index = "my-index"
       type  = "my-type"
-      credentials = cpln_secret.userpass-elastic-generic.self_link
+      credentials = "//secret/${cpln_secret.userpass-elastic-generic.name}"
     }
   }
 }
@@ -904,7 +904,7 @@ resource "cpln_org_logging" "%s" {
     }
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque.self_link
+    credentials = "//secret/${cpln_secret.opaque.name}"
   }
 }
 `, olrt.RandomName, c.ResourceName)
@@ -953,7 +953,7 @@ resource "cpln_org_logging" "%s" {
     location = "us-east4"
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque.self_link
+    credentials = "//secret/${cpln_secret.opaque.name}"
   }
 }
 `, olrt.RandomName, c.ResourceName)
@@ -1009,7 +1009,7 @@ resource "cpln_org_logging" "%s" {
     }
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque.self_link
+    credentials = "//secret/${cpln_secret.opaque.name}"
   }
 }
 `, olrt.RandomName, c.ResourceName)
@@ -1120,7 +1120,7 @@ resource "cpln_org_logging" "%s" {
     host = "http-intake.logs.datadoghq.com"
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque-datadog-1.self_link
+    credentials = "//secret/${cpln_secret.opaque-datadog-1.name}"
   }
 }
 `, olrt.RandomName, c.ResourceName)
@@ -1205,7 +1205,7 @@ resource "cpln_org_logging" "%s" {
     host = "http-intake.logs.datadoghq.com"
 
     // Opaque Secret Only
-    credentials = cpln_secret.opaque-datadog-1.self_link
+    credentials = "//secret/${cpln_secret.opaque-datadog-1.name}"
   }
 }
 `, olrt.RandomName, c.ResourceName)

@@ -39,7 +39,7 @@ func TestAccControlPlaneCloudAccount_basic(t *testing.T) {
 		resourceName: "cpln_cloud_account.azure",
 		name:         "cloud-account-azure" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum),
 		data:         fmt.Sprintf("/org/%s/secret/tf_secret_azure", OrgName),
-		updateData:   fmt.Sprintf("/org/%s/secret/tf_secret_azure_updated", OrgName),
+		updateData:   "//secret/tf_secret_azure_updated",
 	}
 
 	var gcp = CloudAccountResourceTest{
@@ -53,7 +53,7 @@ func TestAccControlPlaneCloudAccount_basic(t *testing.T) {
 		resourceName: "cpln_cloud_account.ngs",
 		name:         "cloud-account-ngs" + acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum),
 		data:         fmt.Sprintf("/org/%s/secret/tf_secret_nats", OrgName),
-		updateData:   fmt.Sprintf("/org/%s/secret/tf_secret_nats_updated", OrgName),
+		updateData:   "//secret/tf_secret_nats_updated",
 	}
 
 	// Run the acceptance test case for the resource, covering create, read, update, and import functionalities
