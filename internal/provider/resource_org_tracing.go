@@ -162,7 +162,7 @@ func (otr *OrgTracingResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Map the API response to the Terraform state
-	finalState := otr.buildState(ctx, &resp.Diagnostics, responsePayload)
+	finalState := otr.buildState(ctx, &resp.Diagnostics, plannedState, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -202,7 +202,7 @@ func (otr *OrgTracingResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	// Map the API response to the Terraform state
-	finalState := otr.buildState(ctx, &resp.Diagnostics, responsePayload)
+	finalState := otr.buildState(ctx, &resp.Diagnostics, plannedState, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -247,7 +247,7 @@ func (otr *OrgTracingResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Map the API response to the Terraform finalState
-	finalState := otr.buildState(ctx, &resp.Diagnostics, responsePayload)
+	finalState := otr.buildState(ctx, &resp.Diagnostics, plannedState, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -296,7 +296,7 @@ func (otr *OrgTracingResource) buildRequest(ctx context.Context, diags *diag.Dia
 }
 
 // buildState creates a state model from response payload.
-func (otr *OrgTracingResource) buildState(ctx context.Context, diags *diag.Diagnostics, apiResp *client.Org) OrgTracingResourceModel {
+func (otr *OrgTracingResource) buildState(ctx context.Context, diags *diag.Diagnostics, plan OrgTracingResourceModel, apiResp *client.Org) OrgTracingResourceModel {
 	// Initialize empty state model
 	state := OrgTracingResourceModel{}
 
@@ -311,7 +311,7 @@ func (otr *OrgTracingResource) buildState(ctx context.Context, diags *diag.Diagn
 	// Only process tracing if Spec is non-nil
 	if apiResp.Spec != nil {
 		// Extract tracing configurations from spec
-		lightstepTracing, otelTracing, cplnTracing := FlattenTracing(ctx, diags, apiResp.Spec.Tracing)
+		lightstepTracing, otelTracing, cplnTracing := FlattenTracing(ctx, diags, apiResp.Spec.Tracing, plan.LightstepTracing, otr.client.Org)
 
 		// Set specific attributes
 		state.LightstepTracing = lightstepTracing

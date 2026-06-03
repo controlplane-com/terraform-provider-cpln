@@ -575,13 +575,13 @@ func (drr *DomainRouteResource) buildState(ctx context.Context, diags *diag.Diag
 	state.Prefix = types.StringPointerValue(route.Prefix)
 	state.ReplacePrefix = types.StringPointerValue(route.ReplacePrefix)
 	state.Regex = types.StringPointerValue(route.Regex)
-	state.WorkloadLink = types.StringPointerValue(route.WorkloadLink)
+	state.WorkloadLink = FlattenLinkString(plan.WorkloadLink, route.WorkloadLink, drr.client.Org)
 	state.Port = FlattenInt(route.Port)
 	state.HostPrefix = types.StringPointerValue(route.HostPrefix)
 	state.HostRegex = types.StringPointerValue(route.HostRegex)
 	state.Headers = FlattenRouteHeaders(ctx, diags, route.Headers)
 	state.Replica = FlattenInt(route.Replica)
-	state.Mirror = FlattenRouteMirror(ctx, diags, route.Mirror)
+	state.Mirror = FlattenRouteMirror(ctx, diags, plan.Mirror, route.Mirror, drr.client.Org)
 
 	// Return completed state model
 	return state

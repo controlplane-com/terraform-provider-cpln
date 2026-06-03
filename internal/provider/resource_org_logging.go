@@ -458,7 +458,7 @@ func (olr *OrgLoggingResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	// Map the API response to the Terraform state
-	finalState := olr.buildState(ctx, &resp.Diagnostics, responsePayload)
+	finalState := olr.buildState(ctx, &resp.Diagnostics, plannedState, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -498,7 +498,7 @@ func (olr *OrgLoggingResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	// Map the API response to the Terraform state
-	finalState := olr.buildState(ctx, &resp.Diagnostics, responsePayload)
+	finalState := olr.buildState(ctx, &resp.Diagnostics, plannedState, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -543,7 +543,7 @@ func (olr *OrgLoggingResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	// Map the API response to the Terraform finalState
-	finalState := olr.buildState(ctx, &resp.Diagnostics, responsePayload)
+	finalState := olr.buildState(ctx, &resp.Diagnostics, plannedState, responsePayload)
 
 	// Return if an error has occurred during the state creation
 	if resp.Diagnostics.HasError() {
@@ -635,9 +635,12 @@ func (olr *OrgLoggingResource) buildRequest(ctx context.Context, diags *diag.Dia
 }
 
 // buildState creates a state model from response payload.
-func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagnostics, apiResp *client.Org) OrgLoggingResourceModel {
+func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagnostics, plan OrgLoggingResourceModel, apiResp *client.Org) OrgLoggingResourceModel {
 	// Initialize empty state model
 	state := OrgLoggingResourceModel{}
+
+	// Build a lookup of prior credential link values so the user's chosen link form is preserved on read
+	priorCredentials := olr.collectPriorCredentialLinks(ctx, diags, plan)
 
 	// Set specific attributes
 	state.ID = types.StringPointerValue(apiResp.Name)
@@ -728,16 +731,16 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 		}
 
 		// Flatten loggings
-		state.S3Logging = olr.flattenS3Logging(ctx, diags, &s3Array)
-		state.CoralogixLogging = olr.flattenCoralogixLogging(ctx, diags, &coralogixArray)
-		state.DatadogLogging = olr.flattenDatadogLogging(ctx, diags, &dataDogArray)
-		state.LogzioLogging = olr.flattenLogzioLogging(ctx, diags, &logzioArray)
-		state.ElasticLogging = olr.flattenElasticLogging(ctx, diags, &elasticArray)
-		state.CloudWatchLogging = olr.flattenCloudWatchLogging(ctx, diags, &cloudWatchArray)
+		state.S3Logging = olr.flattenS3Logging(ctx, diags, priorCredentials, &s3Array)
+		state.CoralogixLogging = olr.flattenCoralogixLogging(ctx, diags, priorCredentials, &coralogixArray)
+		state.DatadogLogging = olr.flattenDatadogLogging(ctx, diags, priorCredentials, &dataDogArray)
+		state.LogzioLogging = olr.flattenLogzioLogging(ctx, diags, priorCredentials, &logzioArray)
+		state.ElasticLogging = olr.flattenElasticLogging(ctx, diags, priorCredentials, &elasticArray)
+		state.CloudWatchLogging = olr.flattenCloudWatchLogging(ctx, diags, priorCredentials, &cloudWatchArray)
 		state.FluentdLogging = olr.flattenFluentdLogging(ctx, diags, &fluentdArray)
-		state.StackdriverLogging = olr.flattenStackdriverLogging(ctx, diags, &stackdriverArray)
+		state.StackdriverLogging = olr.flattenStackdriverLogging(ctx, diags, priorCredentials, &stackdriverArray)
 		state.SyslogLogging = olr.flattenSyslogLogging(ctx, diags, &syslogArray)
-		state.OpenTelemetryLogging = olr.flattenOpenTelemetryLogging(ctx, diags, &openTelemetryArray)
+		state.OpenTelemetryLogging = olr.flattenOpenTelemetryLogging(ctx, diags, priorCredentials, &openTelemetryArray)
 	}
 
 	// Return completed state model
@@ -1172,7 +1175,7 @@ func (olr *OrgLoggingResource) buildOpenTelemetryLogging(ctx context.Context, di
 // Flatteners //
 
 // flattenS3Logging transforms *[]client.S3Logging into a types.Set.
-func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag.Diagnostics, input *[]client.S3Logging) types.Set {
+func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.S3Logging) types.Set {
 	// Get attribute types
 	elementType := models.S3LoggingModel{}.AttributeTypes()
 
@@ -1192,7 +1195,7 @@ func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag
 			Bucket:      types.StringPointerValue(item.Bucket),
 			Region:      types.StringPointerValue(item.Region),
 			Prefix:      types.StringPointerValue(item.Prefix),
-			Credentials: types.StringPointerValue(item.Credentials),
+			Credentials: olr.flattenCredentialLink(priorCredentials, item.Credentials),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1204,7 +1207,7 @@ func (olr *OrgLoggingResource) flattenS3Logging(ctx context.Context, diags *diag
 }
 
 // flattenCoralogixLogging transforms *[]client.CoralogixLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.CoralogixLogging) types.Set {
+func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.CoralogixLogging) types.Set {
 	// Get attribute types
 	elementType := models.CoralogixLoggingModel{}.AttributeTypes()
 
@@ -1222,7 +1225,7 @@ func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diag
 		// Construct a block
 		block := models.CoralogixLoggingModel{
 			Cluster:     types.StringPointerValue(item.Cluster),
-			Credentials: types.StringPointerValue(item.Credentials),
+			Credentials: olr.flattenCredentialLink(priorCredentials, item.Credentials),
 			App:         types.StringPointerValue(item.App),
 			Subsystem:   types.StringPointerValue(item.Subsystem),
 		}
@@ -1236,7 +1239,7 @@ func (olr *OrgLoggingResource) flattenCoralogixLogging(ctx context.Context, diag
 }
 
 // flattenDatadogLogging transforms *[]client.DatadogLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.DatadogLogging) types.Set {
+func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.DatadogLogging) types.Set {
 	// Get attribute types
 	elementType := models.DatadogLoggingModel{}.AttributeTypes()
 
@@ -1254,7 +1257,7 @@ func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags 
 		// Construct a block
 		block := models.DatadogLoggingModel{
 			Host:        types.StringPointerValue(item.Host),
-			Credentials: types.StringPointerValue(item.Credentials),
+			Credentials: olr.flattenCredentialLink(priorCredentials, item.Credentials),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1266,7 +1269,7 @@ func (olr *OrgLoggingResource) flattenDatadogLogging(ctx context.Context, diags 
 }
 
 // flattenLogzioLogging transforms *[]client.LogzioLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.LogzioLogging) types.Set {
+func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.LogzioLogging) types.Set {
 	// Get attribute types
 	elementType := models.LogzioLoggingModel{}.AttributeTypes()
 
@@ -1284,7 +1287,7 @@ func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *
 		// Construct a block
 		block := models.LogzioLoggingModel{
 			ListenerHost: types.StringPointerValue(item.ListenerHost),
-			Credentials:  types.StringPointerValue(item.Credentials),
+			Credentials:  olr.flattenCredentialLink(priorCredentials, item.Credentials),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1296,7 +1299,7 @@ func (olr *OrgLoggingResource) flattenLogzioLogging(ctx context.Context, diags *
 }
 
 // flattenElasticLogging transforms *[]client.ElasticLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.ElasticLogging) types.Set {
+func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.ElasticLogging) types.Set {
 	// Get attribute types
 	elementType := models.ElasticLoggingModel{}.AttributeTypes()
 
@@ -1313,9 +1316,9 @@ func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags 
 	for _, item := range *input {
 		// Construct a block
 		block := models.ElasticLoggingModel{
-			AWS:          olr.flattenElasticLoggingAws(ctx, diags, item.AWS),
-			ElasticCloud: olr.flattenElasticLoggingElasticCloud(ctx, diags, item.ElasticCloud),
-			Generic:      olr.flattenElasticLoggingGeneric(ctx, diags, item.Generic),
+			AWS:          olr.flattenElasticLoggingAws(ctx, diags, priorCredentials, item.AWS),
+			ElasticCloud: olr.flattenElasticLoggingElasticCloud(ctx, diags, priorCredentials, item.ElasticCloud),
+			Generic:      olr.flattenElasticLoggingGeneric(ctx, diags, priorCredentials, item.Generic),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1327,7 +1330,7 @@ func (olr *OrgLoggingResource) flattenElasticLogging(ctx context.Context, diags 
 }
 
 // flattenElasticLoggingAws transforms *client.AWSLogging into a types.List.
-func (olr *OrgLoggingResource) flattenElasticLoggingAws(ctx context.Context, diags *diag.Diagnostics, input *client.AWSLogging) types.List {
+func (olr *OrgLoggingResource) flattenElasticLoggingAws(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *client.AWSLogging) types.List {
 	// Get attribute types
 	elementType := models.ElasticLoggingAwsModel{}.AttributeTypes()
 
@@ -1343,7 +1346,7 @@ func (olr *OrgLoggingResource) flattenElasticLoggingAws(ctx context.Context, dia
 		Port:        FlattenInt(input.Port),
 		Index:       types.StringPointerValue(input.Index),
 		Type:        types.StringPointerValue(input.Type),
-		Credentials: types.StringPointerValue(input.Credentials),
+		Credentials: olr.flattenCredentialLink(priorCredentials, input.Credentials),
 		Region:      types.StringPointerValue(input.Region),
 	}
 
@@ -1352,7 +1355,7 @@ func (olr *OrgLoggingResource) flattenElasticLoggingAws(ctx context.Context, dia
 }
 
 // flattenElasticLoggingElasticCloud transforms *client.ElasticCloudLogging into a types.List.
-func (olr *OrgLoggingResource) flattenElasticLoggingElasticCloud(ctx context.Context, diags *diag.Diagnostics, input *client.ElasticCloudLogging) types.List {
+func (olr *OrgLoggingResource) flattenElasticLoggingElasticCloud(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *client.ElasticCloudLogging) types.List {
 	// Get attribute types
 	elementType := models.ElasticLoggingElasticCloudModel{}.AttributeTypes()
 
@@ -1366,7 +1369,7 @@ func (olr *OrgLoggingResource) flattenElasticLoggingElasticCloud(ctx context.Con
 	block := models.ElasticLoggingElasticCloudModel{
 		Index:       types.StringPointerValue(input.Index),
 		Type:        types.StringPointerValue(input.Type),
-		Credentials: types.StringPointerValue(input.Credentials),
+		Credentials: olr.flattenCredentialLink(priorCredentials, input.Credentials),
 		CloudID:     types.StringPointerValue(input.CloudID),
 	}
 
@@ -1375,7 +1378,7 @@ func (olr *OrgLoggingResource) flattenElasticLoggingElasticCloud(ctx context.Con
 }
 
 // flattenElasticLoggingGeneric transforms *client.GenericLogging into a types.List.
-func (olr *OrgLoggingResource) flattenElasticLoggingGeneric(ctx context.Context, diags *diag.Diagnostics, input *client.GenericLogging) types.List {
+func (olr *OrgLoggingResource) flattenElasticLoggingGeneric(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *client.GenericLogging) types.List {
 	// Get attribute types
 	elementType := models.ElasticLoggingGenericModel{}.AttributeTypes()
 
@@ -1392,7 +1395,7 @@ func (olr *OrgLoggingResource) flattenElasticLoggingGeneric(ctx context.Context,
 		Path:        types.StringPointerValue(input.Path),
 		Index:       types.StringPointerValue(input.Index),
 		Type:        types.StringPointerValue(input.Type),
-		Credentials: types.StringPointerValue(input.Credentials),
+		Credentials: olr.flattenCredentialLink(priorCredentials, input.Credentials),
 	}
 
 	// Return the successfully created types.List
@@ -1400,7 +1403,7 @@ func (olr *OrgLoggingResource) flattenElasticLoggingGeneric(ctx context.Context,
 }
 
 // flattenCloudWatchLogging transforms *[]client.CloudWatchLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenCloudWatchLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.CloudWatchLogging) types.Set {
+func (olr *OrgLoggingResource) flattenCloudWatchLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.CloudWatchLogging) types.Set {
 	// Get attribute types
 	elementType := models.CloudWatchModel{}.AttributeTypes()
 
@@ -1418,7 +1421,7 @@ func (olr *OrgLoggingResource) flattenCloudWatchLogging(ctx context.Context, dia
 		// Construct a block
 		block := models.CloudWatchModel{
 			Region:        types.StringPointerValue(item.Region),
-			Credentials:   types.StringPointerValue(item.Credentials),
+			Credentials:   olr.flattenCredentialLink(priorCredentials, item.Credentials),
 			RetentionDays: FlattenInt(item.RetentionDays),
 			GroupName:     types.StringPointerValue(item.GroupName),
 			StreamName:    types.StringPointerValue(item.StreamName),
@@ -1464,7 +1467,7 @@ func (olr *OrgLoggingResource) flattenFluentdLogging(ctx context.Context, diags 
 }
 
 // flattenStackdriverLogging transforms *[]client.StackdriverLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenStackdriverLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.StackdriverLogging) types.Set {
+func (olr *OrgLoggingResource) flattenStackdriverLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.StackdriverLogging) types.Set {
 	// Get attribute types
 	elementType := models.StackdriverLoggingModel{}.AttributeTypes()
 
@@ -1481,7 +1484,7 @@ func (olr *OrgLoggingResource) flattenStackdriverLogging(ctx context.Context, di
 	for _, item := range *input {
 		// Construct a block
 		block := models.StackdriverLoggingModel{
-			Credentials: types.StringPointerValue(item.Credentials),
+			Credentials: olr.flattenCredentialLink(priorCredentials, item.Credentials),
 			Location:    types.StringPointerValue(item.Location),
 		}
 
@@ -1527,7 +1530,7 @@ func (olr *OrgLoggingResource) flattenSyslogLogging(ctx context.Context, diags *
 }
 
 // flattenOpenTelemetryLogging transforms *[]client.OpenTelemetryLogging into a types.Set.
-func (olr *OrgLoggingResource) flattenOpenTelemetryLogging(ctx context.Context, diags *diag.Diagnostics, input *[]client.OpenTelemetryLogging) types.Set {
+func (olr *OrgLoggingResource) flattenOpenTelemetryLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.OpenTelemetryLogging) types.Set {
 	// Get attribute types
 	elementType := models.OpenTelemetryLoggingModel{}.AttributeTypes()
 
@@ -1546,7 +1549,7 @@ func (olr *OrgLoggingResource) flattenOpenTelemetryLogging(ctx context.Context, 
 		block := models.OpenTelemetryLoggingModel{
 			Endpoint:    types.StringPointerValue(item.Endpoint),
 			Headers:     FlattenMapString(item.Headers),
-			Credentials: types.StringPointerValue(item.Credentials),
+			Credentials: olr.flattenCredentialLink(priorCredentials, item.Credentials),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1572,4 +1575,115 @@ func (olr *OrgLoggingResource) validateLoggings(diags *diag.Diagnostics, logging
 		diags.AddError("Empty Logging", "at least one external logging providers must be defined")
 		return
 	}
+}
+
+// Helpers //
+
+// flattenCredentialLink normalizes an API-returned credential secret link to the form the user wrote in prior state.
+func (olr *OrgLoggingResource) flattenCredentialLink(priorCredentials map[string]types.String, input *string) types.String {
+	// Return a null string when the API value is absent
+	if input == nil {
+		return types.StringNull()
+	}
+
+	// Resolve the prior credential link sharing this secret name (zero value when absent)
+	prior := priorCredentials[GetNameFromSelfLink(*input)]
+
+	// Preserve the user's chosen link form
+	return FlattenLinkString(prior, input, olr.client.Org)
+}
+
+// collectPriorCredentialLinks builds a lookup of prior credential link values keyed by their trailing secret name.
+func (olr *OrgLoggingResource) collectPriorCredentialLinks(ctx context.Context, diags *diag.Diagnostics, plan OrgLoggingResourceModel) map[string]types.String {
+	// Initialize the lookup
+	result := map[string]types.String{}
+
+	// record adds a credential link to the lookup keyed by its trailing secret name
+	record := func(credential types.String) {
+		// Skip null or unknown credential values
+		if credential.IsNull() || credential.IsUnknown() {
+			return
+		}
+
+		// Record the credential link under its trailing secret name
+		result[GetNameFromSelfLink(credential.ValueString())] = credential
+	}
+
+	// Collect prior S3 logging credentials
+	if blocks, ok := BuildSet[models.S3LoggingModel](ctx, diags, plan.S3Logging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior Coralogix logging credentials
+	if blocks, ok := BuildSet[models.CoralogixLoggingModel](ctx, diags, plan.CoralogixLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior Datadog logging credentials
+	if blocks, ok := BuildSet[models.DatadogLoggingModel](ctx, diags, plan.DatadogLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior Logz.io logging credentials
+	if blocks, ok := BuildSet[models.LogzioLoggingModel](ctx, diags, plan.LogzioLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior Elastic logging credentials across its aws, elastic_cloud, and generic sub-blocks
+	if blocks, ok := BuildSet[models.ElasticLoggingModel](ctx, diags, plan.ElasticLogging); ok {
+		for _, b := range blocks {
+			// Collect prior Elastic AWS credentials
+			if aws, ok := BuildList[models.ElasticLoggingAwsModel](ctx, diags, b.AWS); ok {
+				for _, a := range aws {
+					record(a.Credentials)
+				}
+			}
+
+			// Collect prior Elastic Cloud credentials
+			if cloud, ok := BuildList[models.ElasticLoggingElasticCloudModel](ctx, diags, b.ElasticCloud); ok {
+				for _, c := range cloud {
+					record(c.Credentials)
+				}
+			}
+
+			// Collect prior Elastic Generic credentials
+			if generic, ok := BuildList[models.ElasticLoggingGenericModel](ctx, diags, b.Generic); ok {
+				for _, g := range generic {
+					record(g.Credentials)
+				}
+			}
+		}
+	}
+
+	// Collect prior CloudWatch logging credentials
+	if blocks, ok := BuildSet[models.CloudWatchModel](ctx, diags, plan.CloudWatchLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior Stackdriver logging credentials
+	if blocks, ok := BuildSet[models.StackdriverLoggingModel](ctx, diags, plan.StackdriverLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior OpenTelemetry logging credentials
+	if blocks, ok := BuildSet[models.OpenTelemetryLoggingModel](ctx, diags, plan.OpenTelemetryLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Return the populated lookup
+	return result
 }

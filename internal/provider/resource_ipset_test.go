@@ -157,7 +157,8 @@ func (isrt *IpSetResourceTest) BuildInitialTestStep(resourceName string, name st
 
 // BuildUpdate1TestStep returns a test step for the update.
 func (isrt *IpSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase, resourceName string) resource.TestStep {
-	// Create the test case with metadata and descriptions
+	// Use the long-form (/org/<org>/gvc/...) link here; the location block below uses the short form for one
+	// entry and the long form for the other, so both link-normalization branches are verified end-to-end.
 	c := IpSetResourceTestCase{
 		ProviderTestCase: initialCase,
 		Link:             fmt.Sprintf("/org/%s/gvc/default-gvc", OrgName),
@@ -172,7 +173,7 @@ func (isrt *IpSetResourceTest) BuildUpdate1TestStep(initialCase ProviderTestCase
 			resource.TestCheckResourceAttr(c.ResourceAddress, "link", c.Link),
 			c.TestCheckNestedBlocks("location", []map[string]interface{}{
 				{
-					"name":             fmt.Sprintf("/org/%s/location/aws-eu-central-1", OrgName),
+					"name":             "//location/aws-eu-central-1",
 					"retention_policy": "keep",
 				},
 				{
@@ -210,7 +211,7 @@ resource "cpln_ipset" "%s" {
 	link = "%s"
 
   location {
-    name             = "/org/%s/location/aws-eu-central-1"
+    name             = "//location/aws-eu-central-1"
     retention_policy = "keep"
   }
 
@@ -219,7 +220,7 @@ resource "cpln_ipset" "%s" {
     retention_policy = "keep"
   }
 }
-`, c.ResourceName, c.Name, c.DescriptionUpdate, c.Link, OrgName, OrgName)
+`, c.ResourceName, c.Name, c.DescriptionUpdate, c.Link, OrgName)
 }
 
 /*** Resource Test Case ***/

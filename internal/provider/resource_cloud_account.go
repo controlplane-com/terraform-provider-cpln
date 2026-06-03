@@ -469,7 +469,7 @@ func (caro *CloudAccountResourceOperator) flattenAzure(cloudAccount *client.Clou
 
 	// Populate the properties in the block with the data from the input data
 	if cloudAccount.Data != nil {
-		block.SecretLink = types.StringPointerValue(cloudAccount.Data.SecretLink)
+		block.SecretLink = caro.FlattenLinkString(caro.priorAzureSecretLink(), cloudAccount.Data.SecretLink, caro.Client.Org)
 	}
 
 	// Return the successfully created types.List
@@ -511,7 +511,7 @@ func (caro *CloudAccountResourceOperator) flattenNgs(cloudAccount *client.CloudA
 
 	// Populate the properties in the block with the data from the input data
 	if cloudAccount.Data != nil {
-		block.SecretLink = types.StringPointerValue(cloudAccount.Data.SecretLink)
+		block.SecretLink = caro.FlattenLinkString(caro.priorNgsSecretLink(), cloudAccount.Data.SecretLink, caro.Client.Org)
 	}
 
 	// Return the successfully created types.List
@@ -535,4 +535,34 @@ func (caro *CloudAccountResourceOperator) flattenStatus(cloudAccount *client.Clo
 
 	// Return the successfully created types.List
 	return FlattenList(caro.Ctx, caro.Diags, []models.StatusModel{block})
+}
+
+// Helpers //
+
+// priorAzureSecretLink extracts the prior plan/state value of azure.secret_link, or a null string.
+func (caro *CloudAccountResourceOperator) priorAzureSecretLink() types.String {
+	// Walk the prior plan/state's azure list
+	blocks, ok := BuildList[models.AzureModel](caro.Ctx, caro.Diags, caro.Plan.Azure)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior secret_link
+	return blocks[0].SecretLink
+}
+
+// priorNgsSecretLink extracts the prior plan/state value of ngs.secret_link, or a null string.
+func (caro *CloudAccountResourceOperator) priorNgsSecretLink() types.String {
+	// Walk the prior plan/state's ngs list
+	blocks, ok := BuildList[models.NgsModel](caro.Ctx, caro.Diags, caro.Plan.Ngs)
+
+	// Return a null string when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull()
+	}
+
+	// Return the prior secret_link
+	return blocks[0].SecretLink
 }

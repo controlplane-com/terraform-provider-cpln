@@ -410,8 +410,9 @@ func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, e
 	// Convert tracing custom tags to map[string]interface{}
 	customTags := grt.ConvertCustomTagsToMap(*c.Tracing.CustomTags)
 
-	// Initialize the tracing block
-	lightstepTracingWithOptionalsBlock := grt.LightstepTracingWithOptionals(c, opaqueSecretCase.GetSelfLinkAttr(), customTags)
+	// Initialize the tracing block; write credentials in short form (//secret/...) while still referencing the
+	// secret resource so the implicit dependency is preserved and link-form preservation is verified end-to-end.
+	lightstepTracingWithOptionalsBlock := grt.LightstepTracingWithOptionals(c, `"//secret/${cpln_secret.opaque.name}"`, customTags)
 
 	// Initialize and return the test step
 	return resource.TestStep{
@@ -427,7 +428,7 @@ func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, e
 				{
 					"sampling":    fmt.Sprintf("%.0f", *c.Tracing.Sampling),
 					"endpoint":    *c.Tracing.Provider.Lightstep.Endpoint,
-					"credentials": opaqueSecretCase.GetSelfLink(),
+					"credentials": fmt.Sprintf("//secret/%s", opaqueSecretCase.Name),
 					"custom_tags": customTags,
 				},
 			}),
@@ -463,7 +464,7 @@ func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, e
 					"enabled":       "true",
 					"identity_link": fmt.Sprintf("/org/%s/gvc/%s/identity/non-existant-identity", OrgName, c.Name),
 					"secrets": []string{
-						fmt.Sprintf("/org/%s/secret/non-existant-secret-01", OrgName),
+						"//secret/non-existant-secret-01",
 						fmt.Sprintf("/org/%s/secret/non-existant-secret-02", OrgName),
 						fmt.Sprintf("/org/%s/secret/non-existant-secret-03", OrgName),
 					},
@@ -977,7 +978,7 @@ resource "cpln_gvc" "%s" {
   keda {
     enabled       = true
     identity_link = "/org/%s/gvc/%s/identity/non-existant-identity"
-    secrets       = ["/org/terraform-test-org/secret/non-existant-secret-01", "/org/terraform-test-org/secret/non-existant-secret-02", "/org/terraform-test-org/secret/non-existant-secret-03"]
+    secrets       = ["//secret/non-existant-secret-01", "/org/terraform-test-org/secret/non-existant-secret-02", "/org/terraform-test-org/secret/non-existant-secret-03"]
   }
 }
 `, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),

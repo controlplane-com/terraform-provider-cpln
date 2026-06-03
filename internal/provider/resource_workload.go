@@ -2179,7 +2179,7 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.RequestRetryPolicy = types.ListNull(models.RequestRetryPolicyModel{}.AttributeTypes())
 	} else {
 		state.Type = types.StringPointerValue(apiResp.Spec.Type)
-		state.IdentityLink = types.StringPointerValue(apiResp.Spec.IdentityLink)
+		state.IdentityLink = wro.FlattenLinkString(wro.Plan.IdentityLink, apiResp.Spec.IdentityLink, wro.Client.Org)
 		state.Containers = wro.flattenContainers(apiResp.Spec.Containers)
 		state.Firewall = wro.flattenFirewall(apiResp.Spec.FirewallConfig)
 		state.Options = wro.flattenOptions(apiResp.Spec.DefaultOptions)
@@ -3910,10 +3910,13 @@ func (wro *WorkloadResourceOperator) flattenFirewallInternal(input *client.Workl
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior state's inbound_allow_workload set so we can preserve the user's chosen link form
+	priorInboundAllowWorkload := wro.priorInboundAllowWorkload()
+
 	// Build a single block
 	block := models.FirewallInternalModel{
 		InboundAllowType:     types.StringPointerValue(input.InboundAllowType),
-		InboundAllowWorkload: FlattenSetString(input.InboundAllowWorkload),
+		InboundAllowWorkload: wro.FlattenLinksSet(priorInboundAllowWorkload, input.InboundAllowWorkload, wro.Client.Org),
 	}
 
 	// Return the successfully created types.List
@@ -4683,4 +4686,31 @@ func (wro *WorkloadResourceOperator) flattenStatusLoadBalancer(input *[]client.W
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, blocks)
+}
+
+// Helpers //
+
+// priorInboundAllowWorkload returns the inbound_allow_workload set from the prior plan/state, or a null set if absent.
+func (wro *WorkloadResourceOperator) priorInboundAllowWorkload() types.Set {
+	// Default to a null set when no prior value is reachable
+	nullSet := types.SetNull(types.StringType)
+
+	// Walk the prior plan's firewall_spec block list
+	firewallBlocks, ok := BuildList[models.FirewallModel](wro.Ctx, wro.Diags, wro.Plan.Firewall)
+
+	// Stop here if the firewall_spec block is absent
+	if !ok || len(firewallBlocks) == 0 {
+		return nullSet
+	}
+
+	// Walk the prior plan's internal block list
+	internalBlocks, ok := BuildList[models.FirewallInternalModel](wro.Ctx, wro.Diags, firewallBlocks[0].Internal)
+
+	// Stop here if the internal block is absent
+	if !ok || len(internalBlocks) == 0 {
+		return nullSet
+	}
+
+	// Return the prior inbound_allow_workload set
+	return internalBlocks[0].InboundAllowWorkload
 }

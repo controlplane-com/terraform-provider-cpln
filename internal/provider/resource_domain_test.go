@@ -42,7 +42,7 @@ type DomainResourceTest struct {
 type DomainInlineRouteConfig struct {
 	Prefix       string
 	Regex        string
-	WorkloadLink string // HCL expression (e.g., "cpln_workload.new.self_link")
+	WorkloadLink string // HCL expression (e.g., `"//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"`)
 	Port         int
 }
 
@@ -443,7 +443,7 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 	}
 
 	// Construct the workload self link
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 
 	// Initialize and return the inital test step
 	return resource.TestStep{
@@ -689,7 +689,7 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 	}
 
 	// Construct the workload self link
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 
 	// Initialize and return the inital test step
 	return resource.TestStep{
@@ -886,7 +886,7 @@ func (drt *DomainResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase
 	}
 
 	// Construct the workload self link
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 
 	// Initialize and return the test step
 	return resource.TestStep{
@@ -973,7 +973,7 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 	}
 
 	// Construct the workload self link
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 
 	// Initialize and return the test step
 	return resource.TestStep{
@@ -1060,7 +1060,7 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 // BuildCoexistenceCreateTestStep returns a test step that creates a subdomain with both inline and external routes.
 func (drt *DomainResourceTest) BuildCoexistenceCreateTestStep(subDomainName string) resource.TestStep {
 	// Define necessary variables
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
 
 	// Create the sub-domain test case
@@ -1091,7 +1091,7 @@ func (drt *DomainResourceTest) BuildCoexistenceCreateTestStep(subDomainName stri
 	// Initialize and return the test step
 	return resource.TestStep{
 		Config: drt.hclBase() + drt.hclSubDomainWithInlineRoutes(subDomainName, "create with coexistence", []DomainInlineRouteConfig{
-			{Prefix: "/inline-a", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+			{Prefix: "/inline-a", WorkloadLink: `"//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"`, Port: 8080},
 		}) +
 			drt.hclDomainRoute("route-a", "/ext-a", "", 8080) +
 			drt.hclDomainRoute("route-b", "/ext-b", "", 8080),
@@ -1184,7 +1184,7 @@ func (drt *DomainResourceTest) BuildNoRoutesTestStep(subDomainName string, descr
 // BuildExternalRoutesOnlyTestStep returns a test step with cpln_domain_route resources only (no inline routes).
 func (drt *DomainResourceTest) BuildExternalRoutesOnlyTestStep(subDomainName string, description string) resource.TestStep {
 	// Define necessary variables
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
 
 	// Create the sub-domain test case
@@ -1257,7 +1257,7 @@ func (drt *DomainResourceTest) BuildExternalRoutesOnlyTestStep(subDomainName str
 // BuildCoexistenceTestStep returns a test step with both inline routes and cpln_domain_route resources.
 func (drt *DomainResourceTest) BuildCoexistenceTestStep(subDomainName string) resource.TestStep {
 	// Define necessary variables
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
 
 	// Create the sub-domain test case
@@ -1288,8 +1288,8 @@ func (drt *DomainResourceTest) BuildCoexistenceTestStep(subDomainName string) re
 	// Initialize and return the test step
 	return resource.TestStep{
 		Config: drt.hclBase() + drt.hclSubDomainWithInlineRoutes(subDomainName, "coexistence", []DomainInlineRouteConfig{
-			{Prefix: "/inline-a", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
-			{Prefix: "/inline-b", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+			{Prefix: "/inline-a", WorkloadLink: `"//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"`, Port: 8080},
+			{Prefix: "/inline-b", WorkloadLink: `"//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"`, Port: 8080},
 		}) +
 			drt.hclDomainRoute("route-a", "/ext-a", "", 8080) +
 			drt.hclDomainRoute("route-b", "/ext-b", "", 8080),
@@ -1345,7 +1345,7 @@ func (drt *DomainResourceTest) BuildCoexistenceTestStep(subDomainName string) re
 // BuildInlineOnlyTestStep returns a test step with only inline routes (no cpln_domain_route).
 func (drt *DomainResourceTest) BuildInlineOnlyTestStep(subDomainName string) resource.TestStep {
 	// Define necessary variables
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 
 	// Create the sub-domain test case
 	subDomain := DomainResourceTestCase{
@@ -1360,8 +1360,8 @@ func (drt *DomainResourceTest) BuildInlineOnlyTestStep(subDomainName string) res
 	// Initialize and return the test step
 	return resource.TestStep{
 		Config: drt.hclBase() + drt.hclSubDomainWithInlineRoutes(subDomainName, "inline only", []DomainInlineRouteConfig{
-			{Prefix: "/inline-a", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
-			{Prefix: "/inline-b", WorkloadLink: "cpln_workload.new.self_link", Port: 8080},
+			{Prefix: "/inline-a", WorkloadLink: `"//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"`, Port: 8080},
+			{Prefix: "/inline-b", WorkloadLink: `"//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"`, Port: 8080},
 		}),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			subDomain.TestCheckNestedBlocks("spec", []map[string]interface{}{
@@ -1404,7 +1404,7 @@ func (drt *DomainResourceTest) BuildInlineOnlyTestStep(subDomainName string) res
 // BuildOptionalTlsCreateTestStep returns a test step that creates a TCP subdomain without a tls block.
 func (drt *DomainResourceTest) BuildOptionalTlsCreateTestStep(subDomainName string) resource.TestStep {
 	// Define necessary variables
-	workloadSelfLink := GetSelfLinkWithGvc(OrgName, "workload", fmt.Sprintf("gvc-%s", drt.RandomName), fmt.Sprintf("workload-%s", drt.RandomName))
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
 
 	// Create the sub-domain test case
 	subDomain := DomainResourceTestCase{
@@ -1731,7 +1731,7 @@ resource "cpln_domain" "%s" {
 resource "cpln_domain_route" "first-route" {
   domain_link   = %s
   prefix        = "/first"
-  workload_link = cpln_workload.new.self_link
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
   replica       = 1
 }
 
@@ -1741,7 +1741,7 @@ resource "cpln_domain_route" "second-route" {
 
   prefix         = "/second"
   replace_prefix = "/"
-  workload_link  = cpln_workload.new.self_link
+  workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
   port 		       = 443
   host_prefix    = "my.thing."
   replica        = 0
@@ -1756,13 +1756,13 @@ resource "cpln_domain_route" "second-route" {
   }
 
   mirror {
-    workload_link = cpln_workload.new.self_link
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
     port          = 8080
     percent       = 50
   }
 
   mirror {
-    workload_link = cpln_workload.new.self_link
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
     percent       = 25.5
   }
 }
@@ -1773,7 +1773,7 @@ resource "cpln_domain_route" "third-route" {
 
   prefix         = "/third"
   replace_prefix = "/"
-  workload_link  = cpln_workload.new.self_link
+  workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
   port 		       = 443
   host_regex     = "reg"
 
@@ -1790,7 +1790,7 @@ resource "cpln_domain_route" "third-route" {
 resource "cpln_domain_route" "fourth-route" {
   domain_link   = cpln_domain.subdomain.self_link
   regex         = "/user/.*/profile"
-  workload_link = cpln_workload.new.self_link
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
   port          = 80
 }
 `, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate,
@@ -1993,7 +1993,7 @@ resource "cpln_domain" "%s" {
 resource "cpln_domain_route" "first-route" {
   domain_link   = %s
   prefix        = "/first"
-  workload_link = cpln_workload.new.self_link
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
 }
 
 resource "cpln_domain_route" "second-route" {
@@ -2002,7 +2002,7 @@ resource "cpln_domain_route" "second-route" {
 
   prefix         = "/second"
   replace_prefix = "/"
-  workload_link  = cpln_workload.new.self_link
+  workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
   port 		       = 443
   host_prefix    = "my.thing."
 
@@ -2016,13 +2016,13 @@ resource "cpln_domain_route" "second-route" {
   }
 
   mirror {
-    workload_link = cpln_workload.new.self_link
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
     port          = 8080
     percent       = 50
   }
 
   mirror {
-    workload_link = cpln_workload.new.self_link
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
     percent       = 25.5
   }
 }
@@ -2176,24 +2176,24 @@ resource "cpln_domain" "%s" {
 
       route {
         prefix        = "/api"
-        workload_link = cpln_workload.new.self_link
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
         port          = 8080
       }
 
       route {
         prefix         = "/app"
         replace_prefix = "/"
-        workload_link  = cpln_workload.new.self_link
+        workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
         port           = 8080
 
         mirror {
-          workload_link = cpln_workload.new.self_link
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
           port          = 8080
           percent       = 50
         }
 
         mirror {
-          workload_link = cpln_workload.new.self_link
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
           percent       = 25.5
         }
       }
@@ -2348,11 +2348,11 @@ resource "cpln_domain" "%s" {
 
       route {
         prefix        = "/api"
-        workload_link = cpln_workload.new.self_link
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
         port          = 8080
 
         mirror {
-          workload_link = cpln_workload.new.self_link
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
           port          = 8080
           percent       = 75
         }
@@ -2361,7 +2361,7 @@ resource "cpln_domain" "%s" {
       route {
         prefix         = "/app"
         replace_prefix = "/"
-        workload_link  = cpln_workload.new.self_link
+        workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
         port           = 8080
 
         headers {
@@ -2373,14 +2373,14 @@ resource "cpln_domain" "%s" {
         }
 
         mirror {
-          workload_link = cpln_workload.new.self_link
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
           percent       = 30
         }
       }
 
       route {
         regex         = "/user/.*/profile"
-        workload_link = cpln_workload.new.self_link
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
         port          = 8080
       }
     }
@@ -2559,7 +2559,7 @@ resource "cpln_domain" "subdomain" {
 
       route {
         prefix        = "/"
-        workload_link = cpln_workload.new.self_link
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
         port          = 8080
       }
     }
@@ -2581,7 +2581,7 @@ func (drt *DomainResourceTest) hclDomainRoute(resourceName string, prefix string
 resource "cpln_domain_route" "%s" {
   domain_link   = cpln_domain.subdomain.self_link
   %s
-  workload_link = cpln_workload.new.self_link
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
   port          = %d
 }
 `, resourceName, routeKey, port)

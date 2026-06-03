@@ -924,7 +924,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
-			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", fmt.Sprintf("//gvc/%s/identity/identity-%s", wrt.GvcCase.Name, wrt.RandomName)),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(c.Extras)),
 			c.TestCheckNestedBlocks("container", []map[string]interface{}{
@@ -1055,7 +1055,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 					"internal": []map[string]interface{}{
 						{
 							"inbound_allow_type":     "workload-list",
-							"inbound_allow_workload": []string{"/org/terraform-test-org/gvc/new/workload/non-existing-workload-01", "/org/terraform-test-org/gvc/new/workload/non-existing-workload-02"},
+							"inbound_allow_workload": []string{"//gvc/new/workload/non-existing-workload-01", "/org/terraform-test-org/gvc/new/workload/non-existing-workload-02"},
 						},
 					},
 				},
@@ -3332,7 +3332,7 @@ resource "cpln_workload" "%s" {
 
   gvc                  = %s
   type                 = "serverless"
-  identity_link        = cpln_identity.new.self_link
+  identity_link        = "//gvc/${cpln_identity.new.gvc}/identity/${cpln_identity.new.name}"
   support_dynamic_tags = true
   extras               = jsonencode(%s)
 
@@ -3445,7 +3445,7 @@ resource "cpln_workload" "%s" {
 
     internal {
       inbound_allow_type     = "workload-list"
-      inbound_allow_workload = ["/org/terraform-test-org/gvc/new/workload/non-existing-workload-01", "/org/terraform-test-org/gvc/new/workload/non-existing-workload-02"]
+      inbound_allow_workload = ["//gvc/new/workload/non-existing-workload-01", "/org/terraform-test-org/gvc/new/workload/non-existing-workload-02"]
     }
   }
 

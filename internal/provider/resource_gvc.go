@@ -506,7 +506,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 	// Just in case GVC spec is nil
 	if gvc.Spec != nil {
 		// Extract tracing configurations from spec
-		lightstepTracing, otelTracing, cplnTracing := gro.FlattenTracing(gvc.Spec.Tracing)
+		lightstepTracing, otelTracing, cplnTracing := gro.FlattenTracing(gvc.Spec.Tracing, gro.Plan.LightstepTracing, gro.Client.Org)
 
 		// Set specific attributes
 		state.Locations = gro.flattenStaticPlacement(gvc.Spec.StaticPlacement)
@@ -1086,13 +1086,32 @@ func (gro *GvcResourceOperator) flattenKeda(input *client.GvcKeda) types.List {
 		return types.ListNull(elementType)
 	}
 
+	// Extract the prior keda block to preserve the user's chosen link forms
+	priorIdentityLink, priorSecrets := gro.priorKedaLinks()
+
 	// Build a single block
 	block := models.KedaModel{
 		Enabled:      types.BoolPointerValue(input.Enabled),
-		IdentityLink: types.StringPointerValue(input.IdentityLink),
-		Secrets:      FlattenSetString(input.Secrets),
+		IdentityLink: gro.FlattenLinkString(priorIdentityLink, input.IdentityLink, gro.Client.Org),
+		Secrets:      gro.FlattenLinksSet(priorSecrets, input.Secrets, gro.Client.Org),
 	}
 
 	// Return the successfully created types.List
 	return FlattenList(gro.Ctx, gro.Diags, []models.KedaModel{block})
+}
+
+// Helpers //
+
+// priorKedaLinks extracts the prior plan/state values of keda.identity_link and keda.secrets.
+func (gro *GvcResourceOperator) priorKedaLinks() (types.String, types.Set) {
+	// Walk the prior plan/state's keda list
+	blocks, ok := BuildList[models.KedaModel](gro.Ctx, gro.Diags, gro.Plan.Keda)
+
+	// Return null values when no prior block exists
+	if !ok || len(blocks) == 0 {
+		return types.StringNull(), types.SetNull(types.StringType)
+	}
+
+	// Return the prior identity_link and secrets
+	return blocks[0].IdentityLink, blocks[0].Secrets
 }
