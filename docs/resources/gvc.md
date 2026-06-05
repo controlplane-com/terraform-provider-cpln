@@ -28,6 +28,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
 - **keda** (Block List, Max: 1) ([see below](#nestedblock--keda)).
+- **location_query** (Block List, Max: 1) ([see below](#nestedblock--location_query)).
 - **location_options** (Block List) ([see below](#nestedblock--location_options)).
 
 ~> **Note** Only one of the tracing blocks can be defined.
@@ -118,6 +119,40 @@ Optional:
 - **identity_link** (String) A link to an Identity resource that will be used for KEDA. This will allow the keda operator to access cloud and network resources.
 - **secrets** (List of String) A list of secrets to be used as TriggerAuthentication objects. The TriggerAuthentication object will be named after the secret and can be used by triggers on workloads in this GVC.
 
+<a id="nestedblock--location_query"></a>
+
+### `location_query`
+
+A query that dynamically selects the locations making up the Global Virtual Cloud.
+
+Optional:
+
+- **fetch** (String) Type of fetch. Specify either: `links` or `items`. Default: `items`.
+- **spec** (Block List, Max: 1) ([see below](#nestedblock--location_query--spec)).
+
+<a id="nestedblock--location_query--spec"></a>
+
+### `location_query.spec`
+
+Optional:
+
+- **match** (String) Type of match. Available values: `all`, `any`, `none`. Default: `all`.
+- **terms** (Block List) ([see below](#nestedblock--location_query--spec--terms)).
+
+<a id="nestedblock--location_query--spec--terms"></a>
+
+### `location_query.spec.terms`
+
+Terms can only contain one of the following attributes: `property`, `rel`, `tag`.
+
+Optional:
+
+- **op** (String) Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `~`, `=~`, `exists`, `!exists`, `contains`. Default: `=`.
+- **property** (String) Property to use for query evaluation.
+- **rel** (String) Relation to use for query evaluation.
+- **tag** (String) Tag key to use for query evaluation.
+- **value** (String) Testing value for query evaluation.
+
 <a id="nestedblock--location_options"></a>
 
 ### `location_options`
@@ -200,6 +235,22 @@ resource "cpln_gvc" "example" {
     name         = "aws-us-west-2"
     routing_tier = 2
   }
+
+  # As an alternative to the explicit `locations` list above, a `location_query`
+  # can dynamically select the locations making up the GVC.
+  # location_query {
+  #   fetch = "links"
+  #
+  #   spec {
+  #     match = "all"
+  #
+  #     terms {
+  #       op       = "="
+  #       property = "provider"
+  #       value    = "aws"
+  #     }
+  #   }
+  # }
 
   # domain = "app.example.com"
   pull_secrets = [cpln_secret.docker.name]

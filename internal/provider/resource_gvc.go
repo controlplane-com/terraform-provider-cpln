@@ -38,6 +38,7 @@ type GvcResourceModel struct {
 	EntityBaseModel
 	Alias                types.String `tfsdk:"alias"`
 	Locations            types.Set    `tfsdk:"locations"`
+	LocationQuery        types.List   `tfsdk:"location_query"`
 	LocationOptions      types.Set    `tfsdk:"location_options"`
 	PullSecrets          types.Set    `tfsdk:"pull_secrets"`
 	Domain               types.String `tfsdk:"domain"`
@@ -208,6 +209,13 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 			"lightstep_tracing":    gr.LightstepTracingSchema(),
 			"otel_tracing":         gr.OtelTracingSchema(),
 			"controlplane_tracing": gr.ControlPlaneTracingSchema(),
+			"location_query": schema.ListNestedBlock{
+				Description:  "A query that dynamically selects the locations making up the Global Virtual Cloud.",
+				NestedObject: gr.QuerySchema(),
+				Validators: []validator.List{
+					listvalidator.SizeAtMost(1),
+				},
+			},
 			"location_options": schema.SetNestedBlock{
 				Description: "Per-location routing options for DNS geo routing. Allows configuring priority-based failover and latency adjustments per location. Each entry references a location listed in `locations`.",
 				NestedObject: schema.NestedBlockObject{
@@ -478,7 +486,7 @@ func (gro *GvcResourceOperator) NewAPIRequest(isUpdate bool) client.Gvc {
 	}
 
 	// Set specific attributes
-	spec.StaticPlacement = gro.buildStaticPlacement(gro.Plan.Locations, gro.Plan.LocationOptions)
+	spec.StaticPlacement = gro.buildStaticPlacement(gro.Plan.Locations, gro.Plan.LocationQuery, gro.Plan.LocationOptions)
 	spec.PullSecretLinks = gro.buildPullSecrets(gro.Plan.PullSecrets)
 	spec.Domain = BuildString(gro.Plan.Domain)
 	spec.EndpointNamingFormat = BuildString(gro.Plan.EndpointNamingFormat)
@@ -510,6 +518,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 
 		// Set specific attributes
 		state.Locations = gro.flattenStaticPlacement(gvc.Spec.StaticPlacement)
+		state.LocationQuery = gro.flattenLocationQuery(gvc.Spec.StaticPlacement)
 		state.LocationOptions = gro.flattenLocationOptions(gvc.Spec.StaticPlacement)
 		state.PullSecrets = gro.flattenPullSecrets(gvc.Spec.PullSecretLinks)
 		state.Domain = types.StringPointerValue(gvc.Spec.Domain)
@@ -523,6 +532,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 		state.Keda = gro.flattenKeda(gvc.Spec.Keda)
 	} else {
 		state.Locations = types.SetNull(types.StringType)
+		state.LocationQuery = types.ListNull(commonmodels.QueryModel{}.AttributeTypes())
 		state.LocationOptions = types.SetNull(models.LocationOptionsModel{}.AttributeTypes())
 		state.PullSecrets = types.SetNull(types.StringType)
 		state.Domain = types.StringNull()
@@ -563,7 +573,7 @@ func (aro *GvcResourceOperator) InvokeDelete(name string) error {
 // Builders //
 
 // buildStaticPlacement constructs a client.StaticPlacement from Terraform state.
-func (gro *GvcResourceOperator) buildStaticPlacement(locations types.Set, locationOptions types.Set) *client.GvcStaticPlacement {
+func (gro *GvcResourceOperator) buildStaticPlacement(locations types.Set, locationQuery types.List, locationOptions types.Set) *client.GvcStaticPlacement {
 	// Build the optional list of location links from the locations set
 	var locationLinks *[]string
 	if !locations.IsNull() && !locations.IsUnknown() {
@@ -584,17 +594,21 @@ func (gro *GvcResourceOperator) buildStaticPlacement(locations types.Set, locati
 		locationLinks = &links
 	}
 
+	// Build the optional location query that dynamically selects locations
+	query := gro.BuildQuery(locationQuery)
+
 	// Build the optional list of per-location routing options
 	options := gro.buildLocationOptions(locationOptions)
 
-	// Skip emitting the StaticPlacement object when neither locations nor options were provided
-	if locationLinks == nil && options == nil {
+	// Skip emitting the StaticPlacement object when none of locations, query, or options were provided
+	if locationLinks == nil && query == nil && options == nil {
 		return nil
 	}
 
 	// Construct and return the output
 	return &client.GvcStaticPlacement{
 		LocationLinks:   locationLinks,
+		LocationQuery:   query,
 		LocationOptions: options,
 	}
 }
@@ -883,6 +897,17 @@ func (gro *GvcResourceOperator) flattenLocationOptions(input *client.GvcStaticPl
 
 	// Return the successfully created types.Set
 	return FlattenSet(gro.Ctx, gro.Diags, blocks)
+}
+
+// flattenLocationQuery transforms client.StaticPlacement.LocationQuery into a Terraform types.List.
+func (gro *GvcResourceOperator) flattenLocationQuery(input *client.GvcStaticPlacement) types.List {
+	// Return a null list when StaticPlacement or its LocationQuery is missing
+	if input == nil || input.LocationQuery == nil {
+		return types.ListNull(commonmodels.QueryModel{}.AttributeTypes())
+	}
+
+	// Delegate to the shared query flattener
+	return gro.FlattenQuery(input.LocationQuery)
 }
 
 // flattenPullSecrets transforms []string into a Terraform types.Set.

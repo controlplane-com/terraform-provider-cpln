@@ -256,11 +256,11 @@ func (r *EntityBase) QuerySchema() schema.NestedBlockObject {
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
 									"op": schema.StringAttribute{
-										Description: "Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `exists`, `!exists`. Default: `=`.",
+										Description: "Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `~`, `=~`, `exists`, `!exists`, `contains`. Default: `=`.",
 										Optional:    true,
 										Computed:    true,
 										Validators: []validator.String{
-											stringvalidator.OneOf("=", ">", ">=", "<", "<=", "!=", "~", "exists", "!exists"),
+											stringvalidator.OneOf("=", ">", ">=", "<", "<=", "!=", "~", "=~", "exists", "!exists", "contains"),
 										},
 										Default: stringdefault.StaticString("="),
 									},

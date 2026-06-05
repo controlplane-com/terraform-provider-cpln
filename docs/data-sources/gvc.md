@@ -28,6 +28,7 @@ The following attributes are exported:
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
 - **controlplane_tracing** (Block List, Max: 1) ([see below](#nestedblock--controlplane_tracing)).
+- **location_query** (Block List, Max: 1) ([see below](#nestedblock--location_query)).
 - **location_options** (Block Set) ([see below](#nestedblock--location_options)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
 
@@ -53,6 +54,34 @@ The following attributes are exported:
 
 - **sampling** (Int) Determines what percentage of requests should be traced.
 - **custom_tags** (Map of String) Key-value map of custom tags.
+
+<a id="nestedblock--location_query"></a>
+
+### `location_query`
+
+A query that dynamically selects the locations making up the Global Virtual Cloud.
+
+- **fetch** (String) Type of fetch. Specify either: `links` or `items`. Default: `items`.
+- **spec** (Block List, Max: 1) ([see below](#nestedblock--location_query--spec)).
+
+<a id="nestedblock--location_query--spec"></a>
+
+### `location_query.spec`
+
+- **match** (String) Type of match. Available values: `all`, `any`, `none`. Default: `all`.
+- **terms** (Block List) ([see below](#nestedblock--location_query--spec--terms)).
+
+<a id="nestedblock--location_query--spec--terms"></a>
+
+### `location_query.spec.terms`
+
+Terms can only contain one of the following attributes: `property`, `rel`, `tag`.
+
+- **op** (String) Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `~`, `=~`, `exists`, `!exists`, `contains`. Default: `=`.
+- **property** (String) Property to use for query evaluation.
+- **rel** (String) Relation to use for query evaluation.
+- **tag** (String) Tag key to use for query evaluation.
+- **value** (String) Testing value for query evaluation.
 
 <a id="nestedblock--location_options"></a>
 
