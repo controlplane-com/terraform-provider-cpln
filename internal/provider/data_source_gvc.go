@@ -109,6 +109,59 @@ func (d *GvcDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 			"lightstep_tracing":    d.LightstepTracingSchema(),
 			"otel_tracing":         d.OtelTracingSchema(),
 			"controlplane_tracing": d.ControlPlaneTracingSchema(),
+			"location_query": schema.ListNestedBlock{
+				Description: "A query that dynamically selects the locations making up the Global Virtual Cloud.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"fetch": schema.StringAttribute{
+							Description: "Type of fetch. Specify either: `links` or `items`. Default: `items`.",
+							Computed:    true,
+						},
+					},
+					Blocks: map[string]schema.Block{
+						"spec": schema.ListNestedBlock{
+							Description: "",
+							NestedObject: schema.NestedBlockObject{
+								Attributes: map[string]schema.Attribute{
+									"match": schema.StringAttribute{
+										Description: "Type of match. Available values: `all`, `any`, `none`. Default: `all`.",
+										Computed:    true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"terms": schema.ListNestedBlock{
+										Description: "Terms can only contain one of the following attributes: `property`, `rel`, `tag`.",
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"op": schema.StringAttribute{
+													Description: "Type of query operation. Available values: `=`, `>`, `>=`, `<`, `<=`, `!=`, `~`, `=~`, `exists`, `!exists`, `contains`. Default: `=`.",
+													Computed:    true,
+												},
+												"property": schema.StringAttribute{
+													Description: "Property to use for query evaluation.",
+													Computed:    true,
+												},
+												"rel": schema.StringAttribute{
+													Description: "Relation to use for query evaluation.",
+													Computed:    true,
+												},
+												"tag": schema.StringAttribute{
+													Description: "Tag key to use for query evaluation.",
+													Computed:    true,
+												},
+												"value": schema.StringAttribute{
+													Description: "Testing value for query evaluation.",
+													Computed:    true,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			"location_options": schema.SetNestedBlock{
 				Description: "Per-location routing options for DNS geo routing. Allows configuring priority-based failover and latency adjustments per location. Each entry references a location listed in `locations`.",
 				NestedObject: schema.NestedBlockObject{

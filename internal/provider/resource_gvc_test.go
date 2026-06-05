@@ -48,6 +48,7 @@ func NewGvcResourceTest() GvcResourceTest {
 	steps = append(steps, resourceTest.NewOrgNamingScenario()...)
 	steps = append(steps, resourceTest.NewDefaultNamingScenario()...)
 	steps = append(steps, resourceTest.NewLocationOptionsLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewLocationQueryLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -239,6 +240,42 @@ func (grt *GvcResourceTest) NewLocationOptionsLifecycleScenario() []resource.Tes
 		multiAllStep,
 		shrunkStep,
 		multiAllStep,
+		absentStep,
+	}
+}
+
+// NewLocationQueryLifecycleScenario walks the location_query ListNestedBlock through its full state lifecycle to catch state-drift bugs at empty/null transitions and across query/term cardinality changes.
+func (grt *GvcResourceTest) NewLocationQueryLifecycleScenario() []resource.TestStep {
+	// Generate a unique name for the resource
+	random := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
+	name := fmt.Sprintf("gvc-loc-query-%s", random)
+	resourceName := "with-location-query-lifecycle"
+
+	// Create a shared test case for all lifecycle steps
+	c := GvcResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "gvc",
+			ResourceName:      resourceName,
+			ResourceAddress:   fmt.Sprintf("cpln_gvc.%s", resourceName),
+			Name:              name,
+			Description:       name,
+			DescriptionUpdate: name,
+		},
+	}
+
+	// Build the lifecycle test steps
+	absentStep := grt.BuildLocationQueryAbsentStep(c)
+	requiredOnlyStep := grt.BuildLocationQueryRequiredOnlyStep(c)
+	allAttributesStep := grt.BuildLocationQueryAllAttributesStep(c)
+	modifiedStep := grt.BuildLocationQueryModifiedStep(c)
+
+	// Walk the lifecycle: absent → minimal → full (3 terms) → modified (1 term) → full (regrow) → absent
+	return []resource.TestStep{
+		absentStep,
+		requiredOnlyStep,
+		allAttributesStep,
+		modifiedStep,
+		allAttributesStep,
 		absentStep,
 	}
 }
@@ -765,6 +802,111 @@ func (grt *GvcResourceTest) BuildLocationOptionsShrunkStep(c GvcResourceTestCase
 	}
 }
 
+// BuildLocationQueryAbsentStep returns a test step where the GVC has no location_query block configured.
+func (grt *GvcResourceTest) BuildLocationQueryAbsentStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationQueryAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "location_query.#", "0"),
+		),
+	}
+}
+
+// BuildLocationQueryRequiredOnlyStep returns a test step with a single location_query carrying only a minimal spec term, exercising the computed defaults for fetch, match, and op.
+func (grt *GvcResourceTest) BuildLocationQueryRequiredOnlyStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationQueryRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("location_query", []map[string]interface{}{
+				{
+					"fetch": "items",
+					"spec": []map[string]interface{}{
+						{
+							"match": "all",
+							"terms": []map[string]interface{}{
+								{
+									"op":       "=",
+									"property": "provider",
+									"value":    "aws",
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildLocationQueryAllAttributesStep returns a test step with a location_query carrying every attribute and three terms exercising property, tag, and rel.
+func (grt *GvcResourceTest) BuildLocationQueryAllAttributesStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationQueryAllAttributesHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("location_query", []map[string]interface{}{
+				{
+					"fetch": "links",
+					"spec": []map[string]interface{}{
+						{
+							"match": "any",
+							"terms": []map[string]interface{}{
+								{
+									"op":       "=",
+									"property": "provider",
+									"value":    "aws",
+								},
+								{
+									"op":    "!=",
+									"tag":   "cpln/continent",
+									"value": "Antarctica",
+								},
+								{
+									"op":       "exists",
+									"property": "region",
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildLocationQueryModifiedStep returns a test step with a single-term location_query that differs from the all-attributes step, exercising the update round-trip and term-count reduction.
+func (grt *GvcResourceTest) BuildLocationQueryModifiedStep(c GvcResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: grt.LocationQueryModifiedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("location_query", []map[string]interface{}{
+				{
+					"fetch": "items",
+					"spec": []map[string]interface{}{
+						{
+							"match": "none",
+							"terms": []map[string]interface{}{
+								{
+									"op":       "=",
+									"property": "region",
+									"value":    "eu-central-1",
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // LocationOptionsAbsentHcl returns the HCL for a GVC with no location_options block configured.
@@ -855,6 +997,114 @@ resource "cpln_gvc" "%s" {
     routing_tier         = 1
     latency_offset_ms    = 0
     latency_tolerance_ms = 150
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationQueryAbsentHcl returns the HCL for a GVC with no location_query block configured.
+func (grt *GvcResourceTest) LocationQueryAbsentHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationQueryRequiredOnlyHcl returns the HCL for a GVC with a single location_query carrying only a minimal spec term.
+func (grt *GvcResourceTest) LocationQueryRequiredOnlyHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  location_query {
+    spec {
+      terms {
+        property = "provider"
+        value    = "aws"
+      }
+    }
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationQueryAllAttributesHcl returns the HCL for a GVC with a location_query carrying every attribute and three terms exercising property and tag with varied operators.
+func (grt *GvcResourceTest) LocationQueryAllAttributesHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  location_query {
+    fetch = "links"
+
+    spec {
+      match = "any"
+
+      terms {
+        op       = "="
+        property = "provider"
+        value    = "aws"
+      }
+
+      terms {
+        op    = "!="
+        tag   = "cpln/continent"
+        value = "Antarctica"
+      }
+
+      terms {
+        op       = "exists"
+        property = "region"
+      }
+    }
+  }
+}
+`, c.ResourceName, c.Name, c.Description)
+}
+
+// LocationQueryModifiedHcl returns the HCL for a GVC with a single-term location_query that differs from the all-attributes config.
+func (grt *GvcResourceTest) LocationQueryModifiedHcl(c GvcResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_gvc" "%s" {
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  location_query {
+    fetch = "items"
+
+    spec {
+      match = "none"
+
+      terms {
+        op       = "="
+        property = "region"
+        value    = "eu-central-1"
+      }
+    }
   }
 }
 `, c.ResourceName, c.Name, c.Description)
