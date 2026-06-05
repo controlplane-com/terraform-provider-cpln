@@ -1,3 +1,8 @@
+## 1.2.28
+
+- Add location_query block to GVC resource and data source.
+- Fix inconsistent plan results by preserving user-chosen self-link forms across resources.
+
 ## 1.2.27
 
 - Bump dependencies to patch jwt/v5 and quic-go vulnerabilities.
