@@ -1,3 +1,7 @@
+## 1.2.29
+
+- Extend workload termination grace period validation.
+
 ## 1.2.28
 
 - Add location_query block to GVC resource and data source.
