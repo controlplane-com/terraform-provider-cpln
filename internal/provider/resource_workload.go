@@ -845,12 +845,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							},
 						},
 						"termination_grace_period_seconds": schema.Int32Attribute{
-							Description: "The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run.",
+							Description: "The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run. Valid values: `0` - `3600`. Default: `90`. Note: the API caps this at `900` unless the workload is tagged with `cpln/relaxGracePeriodMax`.",
 							Optional:    true,
 							Computed:    true,
 							Default:     int32default.StaticInt32(90),
 							Validators: []validator.Int32{
-								int32validator.Between(0, 900),
+								int32validator.Between(0, 3600),
 							},
 						},
 					},
