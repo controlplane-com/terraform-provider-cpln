@@ -79,6 +79,7 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps = append(steps, resourceTest.NewStandardScenario()...)
 	steps = append(steps, resourceTest.NewCronScenario()...)
 	steps = append(steps, resourceTest.NewStatefulScenario()...)
+	steps = append(steps, resourceTest.NewVmScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -243,6 +244,41 @@ func (wrt *WorkloadResourceTest) NewStatefulScenario() []resource.TestStep {
 		// Update & Read
 		caseUpdate1,
 		// Revert the resource to its initial state
+		initialStep,
+	}
+}
+
+// NewVmScenario defines a vm workload test case including creation, an update, import, and state restoration.
+func (wrt *WorkloadResourceTest) NewVmScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-vm-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, initialStep := wrt.BuildVmTestStep(name)
+	caseUpdate1 := wrt.BuildVmUpdate1TestStep(initialConfig.ProviderTestCase)
+	caseUpdate2 := wrt.BuildVmUpdate2TestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps. The slice walks the VM through its full lifecycle:
+	// absent optional blocks -> add cloud-init/access-credential -> grow collections and flip
+	// the boot-source/cloud-init xor branches -> shrink back -> remove the optional blocks again.
+	// Re-using initialStep and caseUpdate1 on the way down exercises the build/flatten round-trip
+	// at every cardinality without drift.
+	return []resource.TestStep{
+		// Create & Read (oci boot source, no cloud-init/access-credential)
+		initialStep,
+		// Import State
+		{
+			ResourceName:  initialConfig.ResourceAddress,
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
+		},
+		// Update & Read (add cloud-init + a single access-credential)
+		caseUpdate1,
+		// Update & Read (flip to http boot source + base64 cloud-init, grow collections to two entries)
+		caseUpdate2,
+		// Update & Read (shrink back to the single-entry oci configuration)
+		caseUpdate1,
+		// Revert the resource to its initial state (remove the optional blocks entirely)
 		initialStep,
 	}
 }
@@ -2717,6 +2753,404 @@ func (wrt *WorkloadResourceTest) BuildStatefulUpdate1TestStep(initialCase Provid
 	}
 }
 
+// BuildVmTestStep constructs the initial test configuration and test step for a vm workload.
+func (wrt *WorkloadResourceTest) BuildVmTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "workload",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_workload.new",
+			Name:              name,
+			GvcName:           wrt.GvcCase.Name,
+			Description:       name,
+			DescriptionUpdate: "workload default description updated",
+		},
+	}
+
+	// Initialize and return the inital test step
+	return c, resource.TestStep{
+		Config: wrt.VmHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":   "vm-container",
+					"cpu":    "2000m",
+					"memory": "2Gi",
+					"volume": []map[string]interface{}{
+						{
+							"uri":        fmt.Sprintf("cpln://volumeset/vmdata-%s", wrt.RandomName),
+							"name":       "data-disk",
+							"bus":        "virtio",
+							"boot_order": "2",
+						},
+					},
+				},
+			}),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"guest_os":     "linux",
+				"run_strategy": "Always",
+				"hostname":     "vm-host",
+				"boot_disk": map[string]interface{}{
+					"bus":        "virtio",
+					"boot_order": "1",
+					"source": map[string]interface{}{
+						"oci": map[string]interface{}{
+							"image": "quay.io/containerdisks/ubuntu:22.04",
+						},
+					},
+					"persist": map[string]interface{}{
+						"volume_set": fmt.Sprintf("cpln://volumeset/vmboot-%s", wrt.RandomName),
+					},
+				},
+				"cpu": map[string]interface{}{
+					"sockets": "2",
+					"threads": "1",
+				},
+				"firmware": map[string]interface{}{
+					"bootloader":  "efi",
+					"secure_boot": "false",
+					"uuid":        "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f",
+					"smbios": map[string]interface{}{
+						"manufacturer": "ControlPlane",
+						"product":      "cpln-vm",
+					},
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "UTC",
+				},
+			}),
+		),
+	}
+}
+
+// BuildVmUpdate1TestStep returns the first update test step for a vm workload based on the initial test case.
+func (wrt *WorkloadResourceTest) BuildVmUpdate1TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the update test step
+	return resource.TestStep{
+		Config: wrt.VmUpdate1Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":   "vm-container",
+					"cpu":    "4000m",
+					"memory": "4Gi",
+					"volume": []map[string]interface{}{
+						{
+							"uri":        fmt.Sprintf("cpln://volumeset/vmdata-%s", wrt.RandomName),
+							"name":       "data-disk",
+							"bus":        "scsi",
+							"boot_order": "2",
+						},
+					},
+				},
+			}),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"guest_os":     "linux",
+				"run_strategy": "Manual",
+				"hostname":     "vm-host-updated",
+				"subdomain":    "vms",
+				"boot_disk": map[string]interface{}{
+					"bus":        "virtio",
+					"boot_order": "1",
+					"source": map[string]interface{}{
+						"oci": map[string]interface{}{
+							"image": "quay.io/containerdisks/ubuntu:24.04",
+						},
+					},
+					"persist": map[string]interface{}{
+						"volume_set": fmt.Sprintf("cpln://volumeset/vmboot-%s", wrt.RandomName),
+					},
+				},
+				"cpu": map[string]interface{}{
+					"sockets": "4",
+					"threads": "2",
+				},
+				"firmware": map[string]interface{}{
+					"bootloader":  "efi",
+					"secure_boot": "false",
+					"uuid":        "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f",
+					"serial":      "vm-serial-01",
+					"smbios": map[string]interface{}{
+						"manufacturer": "ControlPlane",
+						"product":      "cpln-vm",
+						"version":      "2.0",
+						"sku":          "sku-01",
+						"family":       "cpln",
+					},
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"cloud_init": map[string]interface{}{
+					"user_data":              "#cloud-config\nruncmd:\n  - echo hello\n",
+					"ssh_public_key_secrets": []string{GetSelfLink(OrgName, "secret", fmt.Sprintf("vm-ssh-%s", wrt.RandomName))},
+				},
+				"access_credential": []map[string]interface{}{
+					{
+						"ssh_public_key_secret": GetSelfLink(OrgName, "secret", fmt.Sprintf("vm-ssh-%s", wrt.RandomName)),
+						"users":                 []string{"root", "ubuntu"},
+						"delivery_method":       "qemuGuestAgent",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "America/New_York",
+				},
+			}),
+		),
+	}
+}
+
+// BuildVmUpdate2TestStep returns the second update test step for a vm workload, flipping the boot source to
+// http and cloud-init to base64, growing the access-credential and ssh-key collections to two entries, and
+// exercising the remaining enum values (sata bus, bios bootloader, configDrive delivery, RerunOnFailure).
+func (wrt *WorkloadResourceTest) BuildVmUpdate2TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the update test step
+	return resource.TestStep{
+		Config: wrt.VmUpdate2Hcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "identity_link", GetSelfLinkWithGvc(OrgName, "identity", wrt.GvcCase.Name, fmt.Sprintf("identity-%s", wrt.RandomName))),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "true"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "extras", CanonicalizeEnvoyJSON(`{"tolerations":[{"key":"cpln.io/nodeType","operator":"Equal","value":"vm","effect":"NoSchedule"}]}`)),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":        "vm-container",
+					"cpu":         "4000m",
+					"memory":      "4Gi",
+					"inherit_env": "true",
+					"ports": []map[string]interface{}{
+						{
+							"protocol": "tcp",
+							"number":   "8080",
+						},
+						{
+							"protocol": "http",
+							"number":   "80",
+						},
+					},
+					"env": map[string]interface{}{
+						"ENV_KEY": "env-value",
+						"APP_ENV": "production",
+					},
+					"metrics": []map[string]interface{}{
+						{
+							"port":         "8181",
+							"path":         "/metrics",
+							"drop_metrics": []string{"envoy_.*", "go_gc_.*"},
+						},
+					},
+					"readiness_probe": []map[string]interface{}{
+						{
+							"tcp_socket": []map[string]interface{}{
+								{
+									"port": "8080",
+								},
+							},
+							"initial_delay_seconds": "5",
+							"period_seconds":        "10",
+							"timeout_seconds":       "2",
+							"success_threshold":     "1",
+							"failure_threshold":     "3",
+						},
+					},
+					"liveness_probe": []map[string]interface{}{
+						{
+							"http_get": []map[string]interface{}{
+								{
+									"path":   "/healthz",
+									"port":   "80",
+									"scheme": "HTTP",
+									"http_headers": map[string]interface{}{
+										"X-Custom-Header": "custom-value",
+									},
+								},
+							},
+							"initial_delay_seconds": "10",
+							"period_seconds":        "15",
+							"timeout_seconds":       "3",
+							"success_threshold":     "1",
+							"failure_threshold":     "5",
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":        fmt.Sprintf("cpln://volumeset/vmdata-%s", wrt.RandomName),
+							"name":       "data-disk",
+							"bus":        "virtio",
+							"boot_order": "2",
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("firewall_spec", []map[string]interface{}{
+				{
+					"external": []map[string]interface{}{
+						{
+							"inbound_allow_cidr":      []string{"0.0.0.0/0"},
+							"inbound_blocked_cidr":    []string{"192.0.2.1"},
+							"outbound_allow_hostname": []string{"*.controlplane.com"},
+							"outbound_allow_cidr":     []string{},
+							"outbound_blocked_cidr":   []string{"198.51.100.1"},
+							"outbound_allow_port": []map[string]interface{}{
+								{
+									"protocol": "https",
+									"number":   "443",
+								},
+							},
+							"http": []map[string]interface{}{
+								{
+									"inbound_header_filter": []map[string]interface{}{
+										{
+											"key":            "X-Allowed",
+											"allowed_values": []string{"^v1$", "^v2$"},
+										},
+									},
+								},
+							},
+						},
+					},
+					"internal": []map[string]interface{}{
+						{
+							"inbound_allow_type":     "same-gvc",
+							"inbound_allow_workload": []string{},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
+				{
+					"direct": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"ipset":   "vm-ipset",
+							"port": []map[string]interface{}{
+								{
+									"external_port":  "8080",
+									"protocol":       "TCP",
+									"scheme":         "tcp",
+									"container_port": "80",
+								},
+							},
+						},
+					},
+					"geo_location": []map[string]interface{}{
+						{
+							"enabled": "true",
+							"headers": []map[string]interface{}{
+								{
+									"asn":     "x-geo-asn",
+									"city":    "x-geo-city",
+									"country": "x-geo-country",
+									"region":  "x-geo-region",
+								},
+							},
+						},
+					},
+				},
+			}),
+			c.TestCheckNestedBlocks("request_retry_policy", []map[string]interface{}{
+				{
+					"attempts": "3",
+					"retry_on": []string{"connect-failure", "refused-stream", "unavailable"},
+				},
+			}),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"guest_os":     "linux",
+				"run_strategy": "RerunOnFailure",
+				"hostname":     "vm-host-2",
+				"subdomain":    "vms2",
+				"boot_disk": map[string]interface{}{
+					"bus":        "sata",
+					"boot_order": "1",
+					"source": map[string]interface{}{
+						"http": map[string]interface{}{
+							"url":      "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img",
+							"checksum": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+						},
+					},
+					"persist": map[string]interface{}{
+						"volume_set": fmt.Sprintf("cpln://volumeset/vmboot-%s", wrt.RandomName),
+					},
+				},
+				"cpu": map[string]interface{}{
+					"sockets": "4",
+					"threads": "2",
+				},
+				"firmware": map[string]interface{}{
+					"bootloader":  "bios",
+					"secure_boot": "false",
+					"uuid":        "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f",
+					"serial":      "vm-serial-02",
+					"smbios": map[string]interface{}{
+						"manufacturer": "ControlPlane",
+						"product":      "cpln-vm",
+						"version":      "3.0",
+						"sku":          "sku-02",
+						"family":       "cpln",
+					},
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"cloud_init": map[string]interface{}{
+					"user_data_base64": "I2Nsb3VkLWNvbmZpZwpwYWNrYWdlczoKICAtIGh0b3AK",
+					"ssh_public_key_secrets": []string{
+						GetSelfLink(OrgName, "secret", fmt.Sprintf("vm-ssh-%s", wrt.RandomName)),
+						GetSelfLink(OrgName, "secret", fmt.Sprintf("vm-ssh2-%s", wrt.RandomName)),
+					},
+				},
+				"access_credential": []map[string]interface{}{
+					{
+						"ssh_public_key_secret": GetSelfLink(OrgName, "secret", fmt.Sprintf("vm-ssh-%s", wrt.RandomName)),
+						"users":                 []string{"root", "ubuntu", "admin"},
+						"delivery_method":       "configDrive",
+					},
+					{
+						"ssh_public_key_secret": GetSelfLink(OrgName, "secret", fmt.Sprintf("vm-ssh2-%s", wrt.RandomName)),
+						"users":                 []string{"deploy"},
+						"delivery_method":       "qemuGuestAgent",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "Europe/London",
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // ServerlessRequiredOnlyHcl returns a minimal serverless workload configuration with only required fields set.
@@ -4957,6 +5391,578 @@ resource "cpln_workload" "%s" {
 }
 `, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate,
 		wrt.GvcCase.GetResourceNameAttr(), c.Extras, c.Envoy,
+	)
+}
+
+// VmHcl returns a vm workload configuration with an OCI boot disk, persistent boot volume, cpu topology, firmware, and a data disk.
+func (wrt *WorkloadResourceTest) VmHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_volume_set" "vm_data" {
+  depends_on = [%s]
+
+  name              = "vmdata-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_volume_set.vm_boot, cpln_volume_set.vm_data]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "vm"
+
+  container {
+    name   = "vm-container"
+    cpu    = "2000m"
+    memory = "2Gi"
+
+    volume {
+      uri        = "cpln://volumeset/vmdata-${var.random_name}"
+      name       = "data-disk"
+      bus        = "virtio"
+      boot_order = 2
+    }
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+
+      bus        = "virtio"
+      boot_order = 1
+    }
+
+    cpu = {
+      sockets = 2
+      threads = 1
+    }
+
+    firmware = {
+      bootloader  = "efi"
+      secure_boot = false
+      uuid        = "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f"
+
+      smbios = {
+        manufacturer = "ControlPlane"
+        product      = "cpln-vm"
+      }
+    }
+
+    guest_os = "linux"
+
+    network = [
+      {
+        name = "default"
+      }
+    ]
+
+    run_strategy = "Always"
+
+    clock = {
+      timezone = "UTC"
+    }
+
+    hostname = "vm-host"
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress,
+		wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmUpdate1Hcl returns an updated vm workload configuration with cloud-init, access credentials, full firmware, and modified topology.
+func (wrt *WorkloadResourceTest) VmUpdate1Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_volume_set" "vm_data" {
+  depends_on = [%s]
+
+  name              = "vmdata-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_secret" "vm_ssh" {
+  name = "vm-ssh-${var.random_name}"
+
+  opaque {
+    payload  = "c3NoLXJzYSBBQUFBQjNOemFDMTljMkVBQUFBREFRQUJBQUFB"
+    encoding = "base64"
+  }
+}
+
+resource "cpln_policy" "vm_secrets" {
+  name        = "vm-secrets-${var.random_name}"
+  target_kind = "secret"
+  target      = "all"
+
+  binding {
+    permissions     = ["reveal"]
+    principal_links = [cpln_identity.new.self_link]
+  }
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_identity.new, cpln_policy.vm_secrets, cpln_volume_set.vm_boot, cpln_volume_set.vm_data, cpln_secret.vm_ssh]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc           = %s
+  type          = "vm"
+  identity_link = cpln_identity.new.self_link
+
+  container {
+    name   = "vm-container"
+    cpu    = "4000m"
+    memory = "4Gi"
+
+    volume {
+      uri        = "cpln://volumeset/vmdata-${var.random_name}"
+      name       = "data-disk"
+      bus        = "scsi"
+      boot_order = 2
+    }
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:24.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+
+      bus        = "virtio"
+      boot_order = 1
+    }
+
+    cpu = {
+      sockets = 4
+      threads = 2
+    }
+
+    firmware = {
+      bootloader  = "efi"
+      secure_boot = false
+      uuid        = "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f"
+      serial      = "vm-serial-01"
+
+      smbios = {
+        manufacturer = "ControlPlane"
+        product      = "cpln-vm"
+        version      = "2.0"
+        sku          = "sku-01"
+        family       = "cpln"
+      }
+    }
+
+    guest_os = "linux"
+
+    network = [
+      {
+        name = "default"
+      }
+    ]
+
+    cloud_init = {
+      user_data              = "#cloud-config\nruncmd:\n  - echo hello\n"
+      ssh_public_key_secrets = [cpln_secret.vm_ssh.self_link]
+    }
+
+    access_credential = [
+      {
+        ssh_public_key_secret = cpln_secret.vm_ssh.self_link
+        users                 = ["root", "ubuntu"]
+        delivery_method       = "qemuGuestAgent"
+      }
+    ]
+
+    run_strategy = "Manual"
+
+    clock = {
+      timezone = "America/New_York"
+    }
+
+    hostname  = "vm-host-updated"
+    subdomain = "vms"
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress,
+		wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmUpdate2Hcl returns a fully-featured vm workload. On top of the vm block (http boot source, base64
+// cloud-init, two access-credentials/ssh-keys, and the remaining enum values), it layers on every
+// workload-level attribute that round-trips cleanly with type=vm: identity_link, support_dynamic_tags, an
+// enriched container (ports, env, inherit_env, metrics, tcp_socket/http_get probes), firewall_spec,
+// load_balancer (direct + geo_location), and request_retry_policy. This surfaces any conflict between vm
+// and other workload features.
+//
+// Intentionally omitted because the API REJECTS them for type=vm: security_options, job, container
+// image/port/command/args/lifecycle/working_directory, exec & grpc probes, load_balancer.replica_direct.
+//
+// Intentionally omitted because the API STRIPS Computed/defaulted fields for type=vm, which collides with
+// the provider's client-side defaults and produces an "inconsistent result after apply": the whole
+// `options` block (capacity_ai defaults true but is stripped; autoscaling only allows metric=disabled) and
+// `rollout_options` (scaling_policy defaults OrderedReady but is stripped, as is max_surge_replicas). The
+// existing cron scenario avoids `options` for the same reason. Surfacing those cleanly needs the provider
+// to skip those defaults for type=vm; until then they can't be asserted without perpetual drift.
+//
+// Also omitted: sidecar/extras (envoy filters and BYOK k8s modifications are not meaningful on a cloud GVC).
+func (wrt *WorkloadResourceTest) VmUpdate2Hcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_volume_set" "vm_data" {
+  depends_on = [%s]
+
+  name              = "vmdata-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_secret" "vm_ssh" {
+  name = "vm-ssh-${var.random_name}"
+
+  opaque {
+    payload  = "c3NoLXJzYSBBQUFBQjNOemFDMTljMkVBQUFBREFRQUJBQUFB"
+    encoding = "base64"
+  }
+}
+
+resource "cpln_secret" "vm_ssh2" {
+  name = "vm-ssh2-${var.random_name}"
+
+  opaque {
+    payload  = "c3NoLXJzYSBBQUFBQjNOemFDMTljMkVCQkJCQ0RRQUJCQkJC"
+    encoding = "base64"
+  }
+}
+
+resource "cpln_policy" "vm_secrets" {
+  name        = "vm-secrets-${var.random_name}"
+  target_kind = "secret"
+  target      = "all"
+
+  binding {
+    permissions     = ["reveal"]
+    principal_links = [cpln_identity.new.self_link]
+  }
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_identity.new, cpln_policy.vm_secrets, cpln_volume_set.vm_boot, cpln_volume_set.vm_data, cpln_secret.vm_ssh, cpln_secret.vm_ssh2]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc                  = %s
+  type                 = "vm"
+  identity_link        = cpln_identity.new.self_link
+  support_dynamic_tags = true
+  extras               = jsonencode({ tolerations = [{ key = "cpln.io/nodeType", operator = "Equal", value = "vm", effect = "NoSchedule" }] })
+
+  container {
+    name        = "vm-container"
+    cpu         = "4000m"
+    memory      = "4Gi"
+    inherit_env = true
+
+    ports {
+      protocol = "tcp"
+      number   = 8080
+    }
+
+    ports {
+      protocol = "http"
+      number   = 80
+    }
+
+    env = {
+      ENV_KEY = "env-value"
+      APP_ENV = "production"
+    }
+
+    metrics {
+      port         = 8181
+      path         = "/metrics"
+      drop_metrics = ["envoy_.*", "go_gc_.*"]
+    }
+
+    readiness_probe {
+      tcp_socket {
+        port = 8080
+      }
+
+      initial_delay_seconds = 5
+      period_seconds        = 10
+      timeout_seconds       = 2
+      success_threshold     = 1
+      failure_threshold     = 3
+    }
+
+    liveness_probe {
+      http_get {
+        path   = "/healthz"
+        port   = 80
+        scheme = "HTTP"
+
+        http_headers = {
+          "X-Custom-Header" = "custom-value"
+        }
+      }
+
+      initial_delay_seconds = 10
+      period_seconds        = 15
+      timeout_seconds       = 3
+      success_threshold     = 1
+      failure_threshold     = 5
+    }
+
+    volume {
+      uri        = "cpln://volumeset/vmdata-${var.random_name}"
+      name       = "data-disk"
+      bus        = "virtio"
+      boot_order = 2
+    }
+  }
+
+  firewall_spec {
+    external {
+      inbound_allow_cidr      = ["0.0.0.0/0"]
+      inbound_blocked_cidr    = ["192.0.2.1"]
+      outbound_allow_hostname = ["*.controlplane.com"]
+      outbound_allow_cidr     = []
+      outbound_blocked_cidr   = ["198.51.100.1"]
+
+      outbound_allow_port {
+        protocol = "https"
+        number   = 443
+      }
+
+      http {
+        inbound_header_filter {
+          key            = "X-Allowed"
+          allowed_values = ["^v1$", "^v2$"]
+        }
+      }
+    }
+
+    internal {
+      inbound_allow_type     = "same-gvc"
+      inbound_allow_workload = []
+    }
+  }
+
+  load_balancer {
+    direct {
+      enabled = true
+      ipset   = "vm-ipset"
+
+      port {
+        external_port  = 8080
+        protocol       = "TCP"
+        scheme         = "tcp"
+        container_port = 80
+      }
+    }
+
+    geo_location {
+      enabled = true
+
+      headers {
+        asn     = "x-geo-asn"
+        city    = "x-geo-city"
+        country = "x-geo-country"
+        region  = "x-geo-region"
+      }
+    }
+  }
+
+  request_retry_policy {
+    attempts = 3
+    retry_on = ["connect-failure", "refused-stream", "unavailable"]
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        http = {
+          url      = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+          checksum = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+
+      bus        = "sata"
+      boot_order = 1
+    }
+
+    cpu = {
+      sockets = 4
+      threads = 2
+    }
+
+    firmware = {
+      bootloader  = "bios"
+      secure_boot = false
+      uuid        = "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f"
+      serial      = "vm-serial-02"
+
+      smbios = {
+        manufacturer = "ControlPlane"
+        product      = "cpln-vm"
+        version      = "3.0"
+        sku          = "sku-02"
+        family       = "cpln"
+      }
+    }
+
+    guest_os = "linux"
+
+    network = [
+      {
+        name = "default"
+      }
+    ]
+
+    cloud_init = {
+      user_data_base64       = "I2Nsb3VkLWNvbmZpZwpwYWNrYWdlczoKICAtIGh0b3AK"
+      ssh_public_key_secrets = [cpln_secret.vm_ssh.self_link, cpln_secret.vm_ssh2.self_link]
+    }
+
+    access_credential = [
+      {
+        ssh_public_key_secret = cpln_secret.vm_ssh.self_link
+        users                 = ["root", "ubuntu", "admin"]
+        delivery_method       = "configDrive"
+      },
+      {
+        ssh_public_key_secret = cpln_secret.vm_ssh2.self_link
+        users                 = ["deploy"]
+        delivery_method       = "qemuGuestAgent"
+      }
+    ]
+
+    run_strategy = "RerunOnFailure"
+
+    clock = {
+      timezone = "Europe/London"
+    }
+
+    hostname  = "vm-host-2"
+    subdomain = "vms2"
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress,
+		wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
 	)
 }
 

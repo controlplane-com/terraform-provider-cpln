@@ -1040,8 +1040,10 @@ type AddOnsModel struct {
 	AwsECR                types.List   `tfsdk:"aws_ecr"`
 	AwsELB                types.List   `tfsdk:"aws_elb"`
 	AzureACR              types.List   `tfsdk:"azure_acr"`
-	Byok                  types.Object `tfsdk:"byok"`
 	Sysbox                types.Bool   `tfsdk:"sysbox"`
+	Byok                  types.Object `tfsdk:"byok"`
+	Kubevirt              types.Object `tfsdk:"kubevirt"`
+	NodeLocalDns          types.Bool   `tfsdk:"node_local_dns"`
 }
 
 func (a AddOnsModel) AttributeTypes() attr.Type {
@@ -1060,8 +1062,10 @@ func (a AddOnsModel) AttributeTypes() attr.Type {
 			"aws_ecr":                 types.ListType{ElemType: AddOnsHasRoleArnModel{}.AttributeTypes()},
 			"aws_elb":                 types.ListType{ElemType: AddOnsHasRoleArnModel{}.AttributeTypes()},
 			"azure_acr":               types.ListType{ElemType: AddOnsAzureAcrModel{}.AttributeTypes()},
-			"byok":                    AddOnsByokModel{}.AttributeTypes(),
 			"sysbox":                  types.BoolType,
+			"byok":                    AddOnsByokModel{}.AttributeTypes(),
+			"kubevirt":                AddOnsKubevirtModel{}.AttributeTypes(),
+			"node_local_dns":          types.BoolType,
 		},
 	}
 }
@@ -1192,6 +1196,20 @@ func (a AddOnsNvidiaModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"taint_gpu_nodes": types.BoolType,
+		},
+	}
+}
+
+// Add Ons -> Kubevirt //
+
+type AddOnsKubevirtModel struct {
+	ScratchSpaceStorageClass types.String `tfsdk:"scratch_space_storage_class"`
+}
+
+func (a AddOnsKubevirtModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"scratch_space_storage_class": types.StringType,
 		},
 	}
 }

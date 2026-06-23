@@ -17,9 +17,20 @@ type Workloads struct {
 // Workload - GVC Workload
 type Workload struct {
 	Base
+	Health      *WorkloadHealth `json:"health,omitempty"`
 	Spec        *WorkloadSpec   `json:"spec,omitempty"`
 	SpecReplace *WorkloadSpec   `json:"$replace/spec,omitempty"`
 	Status      *WorkloadStatus `json:"status,omitempty"`
+}
+
+// WorkloadHealth - Workload Health Summary (read-only)
+type WorkloadHealth struct {
+	Readiness      *string `json:"readiness,omitempty"`
+	SyncFailed     *bool   `json:"syncFailed,omitempty"`
+	ReadyLocations *int    `json:"readyLocations,omitempty"`
+	TotalLocations *int    `json:"totalLocations,omitempty"`
+	ReadyReplicas  *int    `json:"readyReplicas,omitempty"`
+	TotalReplicas  *int    `json:"totalReplicas,omitempty"`
 }
 
 // WorkloadSpec - Workload Specifications
@@ -38,6 +49,7 @@ type WorkloadSpec struct {
 	LoadBalancer       *WorkloadLoadBalancer       `json:"loadBalancer,omitempty"`
 	Extras             *any                        `json:"extras,omitempty"`
 	RequestRetryPolicy *WorkloadRequestRetryPolicy `json:"requestRetryPolicy,omitempty"`
+	Vm                 *WorkloadVm                 `json:"vm,omitempty"`
 }
 
 // WorkloadContainer - Workload Container Definition
@@ -147,6 +159,9 @@ type WorkloadContainerVolume struct {
 	Uri            *string `json:"uri,omitempty"`
 	RecoveryPolicy *string `json:"recoveryPolicy,omitempty"`
 	Path           *string `json:"path,omitempty"`
+	Name           *string `json:"name,omitempty"`      // Only valid for workloads of type 'vm'
+	Bus            *string `json:"bus,omitempty"`       // Enum: "virtio", "sata", "scsi" - Only valid for workloads of type 'vm'
+	BootOrder      *int    `json:"bootOrder,omitempty"` // Only valid for workloads of type 'vm'
 }
 
 // WorkloadFirewall - Firewall Config
@@ -326,6 +341,100 @@ type WorkloadLoadBalancerGeoLocationHeaders struct {
 type WorkloadRequestRetryPolicy struct {
 	Attempts *int      `json:"attempts,omitempty"`
 	RetryOn  *[]string `json:"retryOn,omitempty"`
+}
+
+// WorkloadVm - VM-only configuration for workloads of type 'vm'
+type WorkloadVm struct {
+	BootDisk          *WorkloadVmBootDisk           `json:"bootDisk,omitempty"`
+	Cpu               *WorkloadVmCpu                `json:"cpu,omitempty"`
+	Firmware          *WorkloadVmFirmware           `json:"firmware,omitempty"`
+	GuestOS           *string                       `json:"guestOS,omitempty"` // Enum: "linux", "windows"
+	Networks          *[]WorkloadVmNetwork          `json:"networks,omitempty"`
+	CloudInit         *WorkloadVmCloudInit          `json:"cloudInit,omitempty"`
+	AccessCredentials *[]WorkloadVmAccessCredential `json:"accessCredentials,omitempty"`
+	RunStrategy       *string                       `json:"runStrategy,omitempty"` // Enum: "Always", "RerunOnFailure", "Manual", "Halted"
+	Clock             *WorkloadVmClock              `json:"clock,omitempty"`
+	Hostname          *string                       `json:"hostname,omitempty"`
+	Subdomain         *string                       `json:"subdomain,omitempty"`
+}
+
+// WorkloadVmBootDisk - VM Boot Disk
+type WorkloadVmBootDisk struct {
+	Source    *WorkloadVmBootDiskSource  `json:"source,omitempty"`
+	Persist   *WorkloadVmBootDiskPersist `json:"persist,omitempty"`
+	Bus       *string                    `json:"bus,omitempty"` // Enum: "virtio", "sata", "scsi"
+	BootOrder *int                       `json:"bootOrder,omitempty"`
+}
+
+// WorkloadVmBootDiskSource - VM Boot Disk Source
+type WorkloadVmBootDiskSource struct {
+	Oci  *WorkloadVmBootDiskSourceOci  `json:"oci,omitempty"`
+	Http *WorkloadVmBootDiskSourceHttp `json:"http,omitempty"`
+}
+
+// WorkloadVmBootDiskSourceOci - VM Boot Disk OCI Source
+type WorkloadVmBootDiskSourceOci struct {
+	Image *string `json:"image,omitempty"`
+}
+
+// WorkloadVmBootDiskSourceHttp - VM Boot Disk HTTP Source
+type WorkloadVmBootDiskSourceHttp struct {
+	Url      *string `json:"url,omitempty"`
+	Checksum *string `json:"checksum,omitempty"`
+}
+
+// WorkloadVmBootDiskPersist - VM Boot Disk Persistence
+type WorkloadVmBootDiskPersist struct {
+	VolumeSet *string `json:"volumeSet,omitempty"`
+}
+
+// WorkloadVmCpu - VM CPU Topology
+type WorkloadVmCpu struct {
+	Sockets *int `json:"sockets,omitempty"`
+	Threads *int `json:"threads,omitempty"`
+}
+
+// WorkloadVmFirmware - VM Firmware
+type WorkloadVmFirmware struct {
+	Bootloader *string                   `json:"bootloader,omitempty"` // Enum: "bios", "efi"
+	SecureBoot *bool                     `json:"secureBoot,omitempty"`
+	Uuid       *string                   `json:"uuid,omitempty"`
+	Serial     *string                   `json:"serial,omitempty"`
+	Smbios     *WorkloadVmFirmwareSmbios `json:"smbios,omitempty"`
+}
+
+// WorkloadVmFirmwareSmbios - VM Firmware SMBIOS
+type WorkloadVmFirmwareSmbios struct {
+	Manufacturer *string `json:"manufacturer,omitempty"`
+	Product      *string `json:"product,omitempty"`
+	Version      *string `json:"version,omitempty"`
+	Sku          *string `json:"sku,omitempty"`
+	Family       *string `json:"family,omitempty"`
+}
+
+// WorkloadVmNetwork - VM Network Interface
+type WorkloadVmNetwork struct {
+	Name *string `json:"name,omitempty"`
+}
+
+// WorkloadVmCloudInit - VM Cloud-Init Configuration
+type WorkloadVmCloudInit struct {
+	UserData            *string   `json:"userData,omitempty"`
+	UserDataBase64      *string   `json:"userDataBase64,omitempty"`
+	UserDataSecret      *string   `json:"userDataSecret,omitempty"`
+	SshPublicKeySecrets *[]string `json:"sshPublicKeySecrets,omitempty"`
+}
+
+// WorkloadVmAccessCredential - VM Access Credential
+type WorkloadVmAccessCredential struct {
+	SshPublicKeySecret *string   `json:"sshPublicKeySecret,omitempty"`
+	Users              *[]string `json:"users,omitempty"`
+	DeliveryMethod     *string   `json:"deliveryMethod,omitempty"` // Enum: "qemuGuestAgent", "configDrive"
+}
+
+// WorkloadVmClock - VM Clock
+type WorkloadVmClock struct {
+	Timezone *string `json:"timezone,omitempty"`
 }
 
 // WorkloadStatus - Workload Status

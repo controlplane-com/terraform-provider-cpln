@@ -58,6 +58,7 @@ type WorkloadResourceModel struct {
 	LoadBalancer       types.List   `tfsdk:"load_balancer"`
 	Extras             types.String `tfsdk:"extras"`
 	RequestRetryPolicy types.List   `tfsdk:"request_retry_policy"`
+	Vm                 types.Object `tfsdk:"vm"`
 	Status             types.List   `tfsdk:"status"`
 }
 
@@ -137,10 +138,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"type": schema.StringAttribute{
-				Description: "Workload Type. Either `serverless`, `standard`, `stateful`, or `cron`.",
+				Description: "Workload Type. Either `serverless`, `standard`, `stateful`, `cron`, or `vm`.",
 				Required:    true,
 				Validators: []validator.String{
-					stringvalidator.OneOf("serverless", "standard", "stateful", "cron"),
+					stringvalidator.OneOf("serverless", "standard", "stateful", "cron", "vm"),
 				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -162,6 +163,317 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 			"extras": schema.StringAttribute{
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
 				Optional:    true,
+			},
+			"vm": schema.SingleNestedAttribute{
+				Description: "VM-only configuration. Required when `type` is `vm`; rejected otherwise.",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"boot_disk": schema.SingleNestedAttribute{
+						Description: "Boot disk configuration. When `source` is omitted, `containers[0].image` is used as an OCI containerDisk.",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"source": schema.SingleNestedAttribute{
+								Description: "Boot disk image source. Exactly one of `oci` or `http` must be specified.",
+								Optional:    true,
+								Attributes: map[string]schema.Attribute{
+									"oci": schema.SingleNestedAttribute{
+										Description: "Boot from an OCI containerDisk image.",
+										Optional:    true,
+										Validators: []validator.Object{
+											objectvalidator.ExactlyOneOf(
+												path.MatchRelative().AtParent().AtName("oci"),
+												path.MatchRelative().AtParent().AtName("http"),
+											),
+										},
+										Attributes: map[string]schema.Attribute{
+											"image": schema.StringAttribute{
+												Description: "Full image reference of a containerDisk (e.g., `quay.io/containerdisks/ubuntu:22.04` or `/org/<org>/image/<name>:<tag>`).",
+												Required:    true,
+											},
+										},
+									},
+									"http": schema.SingleNestedAttribute{
+										Description: "Boot disk image fetched over HTTP/HTTPS. Requires `persist.volume_set`.",
+										Optional:    true,
+										Attributes: map[string]schema.Attribute{
+											"url": schema.StringAttribute{
+												Description: "HTTP/HTTPS URL of the boot disk image.",
+												Required:    true,
+											},
+											"checksum": schema.StringAttribute{
+												Description: "Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.",
+												Optional:    true,
+											},
+										},
+									},
+								},
+							},
+							"persist": schema.SingleNestedAttribute{
+								Description: "Per-replica boot PVC populated via CDI. Required for any non-OCI source.",
+								Optional:    true,
+								Attributes: map[string]schema.Attribute{
+									"volume_set": schema.StringAttribute{
+										Description: "VolumeSet URI used to provision one PVC per replica for the boot disk. Format: `cpln://volumeset/<name>`.",
+										Required:    true,
+									},
+								},
+							},
+							"bus": schema.StringAttribute{
+								Description: "Disk bus exposed to the guest. Valid values: `virtio`, `sata`, `scsi`. Default: `virtio`.",
+								Optional:    true,
+								Computed:    true,
+								Default:     stringdefault.StaticString("virtio"),
+								Validators: []validator.String{
+									stringvalidator.OneOf("virtio", "sata", "scsi"),
+								},
+							},
+							"boot_order": schema.Int32Attribute{
+								Description: "Boot order of the boot disk. Valid values: `1` - `16`. Default: `1`.",
+								Optional:    true,
+								Computed:    true,
+								Default:     int32default.StaticInt32(1),
+								Validators: []validator.Int32{
+									int32validator.Between(1, 16),
+								},
+							},
+						},
+					},
+					"cpu": schema.SingleNestedAttribute{
+						Description: "CPU topology visible to the guest. Cores are derived from `containers[0].cpu`.",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"sockets": schema.Int32Attribute{
+								Description: "CPU sockets visible to the guest. Valid values: `1` - `32`.",
+								Optional:    true,
+								Validators: []validator.Int32{
+									int32validator.Between(1, 32),
+								},
+							},
+							"threads": schema.Int32Attribute{
+								Description: "CPU threads per core visible to the guest. Valid values: `1` - `8`.",
+								Optional:    true,
+								Validators: []validator.Int32{
+									int32validator.Between(1, 8),
+								},
+							},
+						},
+					},
+					"firmware": schema.SingleNestedAttribute{
+						Description: "Firmware configuration for the guest.",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"bootloader": schema.StringAttribute{
+								Description: "Bootloader used by the guest. Valid values: `bios`, `efi`. Default: `efi`.",
+								Optional:    true,
+								Computed:    true,
+								Default:     stringdefault.StaticString("efi"),
+								Validators: []validator.String{
+									stringvalidator.OneOf("bios", "efi"),
+								},
+							},
+							"secure_boot": schema.BoolAttribute{
+								Description: "Enable UEFI Secure Boot. Default: `false`.",
+								Optional:    true,
+								Computed:    true,
+								Default:     booldefault.StaticBool(false),
+							},
+							"uuid": schema.StringAttribute{
+								Description: "Fixed SMBIOS UUID for the VM. KubeVirt generates one when omitted.",
+								Optional:    true,
+							},
+							"serial": schema.StringAttribute{
+								Description: "SMBIOS system serial number reported to the guest.",
+								Optional:    true,
+								Validators: []validator.String{
+									stringvalidator.LengthAtMost(64),
+								},
+							},
+							"smbios": schema.SingleNestedAttribute{
+								Description: "SMBIOS system information reported to the guest.",
+								Optional:    true,
+								Attributes: map[string]schema.Attribute{
+									"manufacturer": schema.StringAttribute{
+										Description: "SMBIOS system manufacturer.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.LengthAtMost(64),
+										},
+									},
+									"product": schema.StringAttribute{
+										Description: "SMBIOS system product name.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.LengthAtMost(64),
+										},
+									},
+									"version": schema.StringAttribute{
+										Description: "SMBIOS system version.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.LengthAtMost(64),
+										},
+									},
+									"sku": schema.StringAttribute{
+										Description: "SMBIOS system SKU.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.LengthAtMost(64),
+										},
+									},
+									"family": schema.StringAttribute{
+										Description: "SMBIOS system family.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.LengthAtMost(64),
+										},
+									},
+								},
+							},
+						},
+					},
+					"guest_os": schema.StringAttribute{
+						Description: "Guest operating system family. Drives the per-OS cloud-init payload. Valid values: `linux`, `windows`. Default: `linux`.",
+						Optional:    true,
+						Computed:    true,
+						Default:     stringdefault.StaticString("linux"),
+						Validators: []validator.String{
+							stringvalidator.OneOf("linux", "windows"),
+						},
+					},
+					"network": schema.ListNestedAttribute{
+						Description: "Pod-network interfaces for the VM. Only a single network is supported.",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"name": schema.StringAttribute{
+									Description: "Network interface name. Default: `default`.",
+									Optional:    true,
+									Computed:    true,
+									Default:     stringdefault.StaticString("default"),
+									Validators: []validator.String{
+										stringvalidator.RegexMatches(
+											regexp.MustCompile(`^[a-z0-9-]+$`),
+											"must contain only lowercase alphanumeric characters and dashes",
+										),
+										stringvalidator.LengthAtMost(15),
+									},
+								},
+							},
+						},
+						Validators: []validator.List{
+							listvalidator.SizeAtMost(1),
+						},
+					},
+					"cloud_init": schema.SingleNestedAttribute{
+						Description: "Cloud-init configuration for the guest. Exactly one of `user_data`, `user_data_base64`, or `user_data_secret` must be specified.",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"user_data": schema.StringAttribute{
+								Description: "Inline cloud-init user-data. Not encrypted at rest in the data-service - use `user_data_secret` for sensitive payloads.",
+								Optional:    true,
+								Validators: []validator.String{
+									stringvalidator.LengthAtMost(16384),
+									stringvalidator.ExactlyOneOf(
+										path.MatchRelative().AtParent().AtName("user_data"),
+										path.MatchRelative().AtParent().AtName("user_data_base64"),
+										path.MatchRelative().AtParent().AtName("user_data_secret"),
+									),
+								},
+							},
+							"user_data_base64": schema.StringAttribute{
+								Description: "Inline cloud-init user-data, base64-encoded. Same caveats as `user_data`.",
+								Optional:    true,
+								Validators: []validator.String{
+									stringvalidator.LengthAtMost(22000),
+								},
+							},
+							"user_data_secret": schema.StringAttribute{
+								Description: "Secret containing cloud-init user-data (key: `userdata` or `user-data`).",
+								Optional:    true,
+							},
+							"ssh_public_key_secrets": schema.SetAttribute{
+								Description: "SSH public keys injected via cloud-init. Each Secret may carry one or more keys.",
+								ElementType: types.StringType,
+								Optional:    true,
+							},
+						},
+					},
+					"access_credential": schema.SetNestedAttribute{
+						Description: "SSH public keys injected at runtime via the guest agent or config drive.",
+						Optional:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"ssh_public_key_secret": schema.StringAttribute{
+									Description: "Secret containing the SSH public keys to inject.",
+									Required:    true,
+								},
+								"users": schema.SetAttribute{
+									Description: "Guest OS users the SSH public keys are injected for.",
+									ElementType: types.StringType,
+									Required:    true,
+								},
+								"delivery_method": schema.StringAttribute{
+									Description: "Delivery method for the access credential. Valid values: `qemuGuestAgent`, `configDrive`. Default: `qemuGuestAgent`.",
+									Optional:    true,
+									Computed:    true,
+									Default:     stringdefault.StaticString("qemuGuestAgent"),
+									Validators: []validator.String{
+										stringvalidator.OneOf("qemuGuestAgent", "configDrive"),
+									},
+								},
+							},
+						},
+						Validators: []validator.Set{
+							setvalidator.SizeAtMost(8),
+						},
+					},
+					"run_strategy": schema.StringAttribute{
+						Description: "KubeVirt RunStrategy. Use `Halted` to keep the pool defined but powered off. Valid values: `Always`, `RerunOnFailure`, `Manual`, `Halted`. Default: `Always`.",
+						Optional:    true,
+						Computed:    true,
+						Default:     stringdefault.StaticString("Always"),
+						Validators: []validator.String{
+							stringvalidator.OneOf("Always", "RerunOnFailure", "Manual", "Halted"),
+						},
+					},
+					"clock": schema.SingleNestedAttribute{
+						Description: "Guest clock configuration.",
+						Optional:    true,
+						Attributes: map[string]schema.Attribute{
+							"timezone": schema.StringAttribute{
+								Description: "Guest timezone. Default: `UTC`.",
+								Optional:    true,
+								Computed:    true,
+								Default:     stringdefault.StaticString("UTC"),
+								Validators: []validator.String{
+									stringvalidator.LengthAtMost(64),
+								},
+							},
+						},
+					},
+					"hostname": schema.StringAttribute{
+						Description: "Hostname reported to the guest.",
+						Optional:    true,
+						Validators: []validator.String{
+							stringvalidator.RegexMatches(
+								regexp.MustCompile(`^[a-z0-9-]+$`),
+								"must contain only lowercase alphanumeric characters and dashes",
+							),
+							stringvalidator.LengthAtMost(63),
+						},
+					},
+					"subdomain": schema.StringAttribute{
+						Description: "Subdomain used by the guest for replica-to-replica addressing.",
+						Optional:    true,
+						Validators: []validator.String{
+							stringvalidator.RegexMatches(
+								regexp.MustCompile(`^[a-z0-9-]+$`),
+								"must contain only lowercase alphanumeric characters and dashes",
+							),
+							stringvalidator.LengthAtMost(63),
+						},
+					},
+				},
 			},
 			"status": schema.ListNestedAttribute{
 				Description: "Status of the workload.",
@@ -340,8 +652,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							},
 						},
 						"image": schema.StringAttribute{
-							Description: "The full image and tag path.",
-							Required:    true,
+							Description: "The full image and tag path. Required for all workload types except `vm`, which boots from `vm.boot_disk.source` instead.",
+							Optional:    true,
 						},
 						"working_directory": schema.StringAttribute{
 							Description: "Override the working directory. Must be an absolute path.",
@@ -579,8 +891,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 										},
 									},
 									"path": schema.StringAttribute{
-										Description: "File path added to workload pointing to the volume.",
-										Required:    true,
+										Description: "File path added to workload pointing to the volume. Required for non-`vm` workloads; rejected for `vm` workloads (the volume is attached to the VM as a block device).",
+										Optional:    true,
 										Validators: []validator.String{
 											stringvalidator.RegexMatches(
 												regexp.MustCompile(`^/.*`),
@@ -593,6 +905,31 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 												"/var", "/var/",
 												"/var/log", "/var/log/",
 											),
+										},
+									},
+									"name": schema.StringAttribute{
+										Description: "VM disk name. Required for `vm` workloads; rejected for other workload types.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.RegexMatches(
+												regexp.MustCompile(`^[a-z0-9-]+$`),
+												"must contain only lowercase alphanumeric characters and dashes",
+											),
+											stringvalidator.LengthAtMost(63),
+										},
+									},
+									"bus": schema.StringAttribute{
+										Description: "VM disk bus. Only valid for `vm` workloads. A `cpln://secret/` volume on a `sata` or `scsi` bus is presented to the guest as a read-only CD-ROM. Valid values: `virtio`, `sata`, `scsi`.",
+										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.OneOf("virtio", "sata", "scsi"),
+										},
+									},
+									"boot_order": schema.Int32Attribute{
+										Description: "VM disk boot order. Only valid for `vm` workloads. Valid values: `1` - `16`.",
+										Optional:    true,
+										Validators: []validator.Int32{
+											int32validator.Between(1, 16),
 										},
 									},
 								},
@@ -1846,7 +2183,6 @@ func (wrv *WorkloadResourceValidator) Validate() {
 		return
 	}
 
-
 	// Build planned rollout options
 	rolloutOptions, ok := BuildList[models.RolloutOptionsModel](wrv.Ctx, wrv.Diags, wrv.Plan.RolloutOptions)
 
@@ -2144,6 +2480,7 @@ func (wro *WorkloadResourceOperator) NewAPIRequest(isUpdate bool) client.Workloa
 	spec.LoadBalancer = wro.buildLoadBalancer(wro.Plan.LoadBalancer)
 	spec.Extras = wro.buildExtras(wro.Plan.Extras)
 	spec.RequestRetryPolicy = wro.buildRequestRetryPolicy(wro.Plan.RequestRetryPolicy)
+	spec.Vm = wro.buildVm(wro.Plan.Vm)
 
 	// Return constructed request payload
 	return requestPayload
@@ -2177,6 +2514,7 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.LoadBalancer = types.ListNull(models.LoadBalancerModel{}.AttributeTypes())
 		state.Extras = types.StringNull()
 		state.RequestRetryPolicy = types.ListNull(models.RequestRetryPolicyModel{}.AttributeTypes())
+		state.Vm = types.ObjectNull(models.VmModel{}.AttributeTypes().(types.ObjectType).AttrTypes)
 	} else {
 		state.Type = types.StringPointerValue(apiResp.Spec.Type)
 		state.IdentityLink = wro.FlattenLinkString(wro.Plan.IdentityLink, apiResp.Spec.IdentityLink, wro.Client.Org)
@@ -2192,6 +2530,7 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.LoadBalancer = wro.flattenLoadBalancer(wro.Plan.LoadBalancer, apiResp.Spec.LoadBalancer)
 		state.Extras = wro.flattenExtras(apiResp.Spec.Extras)
 		state.RequestRetryPolicy = wro.flattenRequestRetryPolicy(apiResp.Spec.RequestRetryPolicy)
+		state.Vm = wro.flattenVm(apiResp.Spec.Vm)
 	}
 
 	// Return completed state model
@@ -2621,6 +2960,9 @@ func (wro *WorkloadResourceOperator) buildContainerVolume(state types.Set) *[]cl
 			Uri:            BuildString(block.Uri),
 			RecoveryPolicy: BuildString(block.RecoveryPolicy),
 			Path:           BuildString(block.Path),
+			Name:           BuildString(block.Name),
+			Bus:            BuildString(block.Bus),
+			BootOrder:      BuildInt(block.BootOrder),
 		}
 
 		// Add the item to the output slice
@@ -3313,6 +3655,267 @@ func (wro *WorkloadResourceOperator) buildRequestRetryPolicy(state types.List) *
 	}
 }
 
+// buildVm constructs a WorkloadVm from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVm(state types.Object) *client.WorkloadVm {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVm{
+		BootDisk:          wro.buildVmBootDisk(block.BootDisk),
+		Cpu:               wro.buildVmCpu(block.Cpu),
+		Firmware:          wro.buildVmFirmware(block.Firmware),
+		GuestOS:           BuildString(block.GuestOs),
+		Networks:          wro.buildVmNetworks(block.Networks),
+		CloudInit:         wro.buildVmCloudInit(block.CloudInit),
+		AccessCredentials: wro.buildVmAccessCredentials(block.AccessCredentials),
+		RunStrategy:       BuildString(block.RunStrategy),
+		Clock:             wro.buildVmClock(block.Clock),
+		Hostname:          BuildString(block.Hostname),
+		Subdomain:         BuildString(block.Subdomain),
+	}
+}
+
+// buildVmBootDisk constructs a WorkloadVmBootDisk from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmBootDisk(state types.Object) *client.WorkloadVmBootDisk {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmBootDiskModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmBootDisk{
+		Source:    wro.buildVmBootDiskSource(block.Source),
+		Persist:   wro.buildVmBootDiskPersist(block.Persist),
+		Bus:       BuildString(block.Bus),
+		BootOrder: BuildInt(block.BootOrder),
+	}
+}
+
+// buildVmBootDiskSource constructs a WorkloadVmBootDiskSource from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmBootDiskSource(state types.Object) *client.WorkloadVmBootDiskSource {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmBootDiskSourceModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmBootDiskSource{
+		Oci:  wro.buildVmBootDiskSourceOci(block.Oci),
+		Http: wro.buildVmBootDiskSourceHttp(block.Http),
+	}
+}
+
+// buildVmBootDiskSourceOci constructs a WorkloadVmBootDiskSourceOci from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmBootDiskSourceOci(state types.Object) *client.WorkloadVmBootDiskSourceOci {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmBootDiskSourceOciModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmBootDiskSourceOci{
+		Image: BuildString(block.Image),
+	}
+}
+
+// buildVmBootDiskSourceHttp constructs a WorkloadVmBootDiskSourceHttp from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmBootDiskSourceHttp(state types.Object) *client.WorkloadVmBootDiskSourceHttp {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmBootDiskSourceHttpModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmBootDiskSourceHttp{
+		Url:      BuildString(block.Url),
+		Checksum: BuildString(block.Checksum),
+	}
+}
+
+// buildVmBootDiskPersist constructs a WorkloadVmBootDiskPersist from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmBootDiskPersist(state types.Object) *client.WorkloadVmBootDiskPersist {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmBootDiskPersistModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmBootDiskPersist{
+		VolumeSet: BuildString(block.VolumeSet),
+	}
+}
+
+// buildVmCpu constructs a WorkloadVmCpu from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmCpu(state types.Object) *client.WorkloadVmCpu {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmCpuModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmCpu{
+		Sockets: BuildInt(block.Sockets),
+		Threads: BuildInt(block.Threads),
+	}
+}
+
+// buildVmFirmware constructs a WorkloadVmFirmware from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmFirmware(state types.Object) *client.WorkloadVmFirmware {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmFirmwareModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmFirmware{
+		Bootloader: BuildString(block.Bootloader),
+		SecureBoot: BuildBool(block.SecureBoot),
+		Uuid:       BuildString(block.Uuid),
+		Serial:     BuildString(block.Serial),
+		Smbios:     wro.buildVmFirmwareSmbios(block.Smbios),
+	}
+}
+
+// buildVmFirmwareSmbios constructs a WorkloadVmFirmwareSmbios from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmFirmwareSmbios(state types.Object) *client.WorkloadVmFirmwareSmbios {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmFirmwareSmbiosModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmFirmwareSmbios{
+		Manufacturer: BuildString(block.Manufacturer),
+		Product:      BuildString(block.Product),
+		Version:      BuildString(block.Version),
+		Sku:          BuildString(block.Sku),
+		Family:       BuildString(block.Family),
+	}
+}
+
+// buildVmNetworks constructs a []client.WorkloadVmNetwork from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmNetworks(state types.List) *[]client.WorkloadVmNetwork {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.VmNetworkModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.WorkloadVmNetwork{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.WorkloadVmNetwork{
+			Name: BuildString(block.Name),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildVmCloudInit constructs a WorkloadVmCloudInit from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmCloudInit(state types.Object) *client.WorkloadVmCloudInit {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmCloudInitModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmCloudInit{
+		UserData:            BuildString(block.UserData),
+		UserDataBase64:      BuildString(block.UserDataBase64),
+		UserDataSecret:      BuildString(block.UserDataSecret),
+		SshPublicKeySecrets: wro.BuildSetString(block.SshPublicKeySecrets),
+	}
+}
+
+// buildVmAccessCredentials constructs a []client.WorkloadVmAccessCredential from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmAccessCredentials(state types.Set) *[]client.WorkloadVmAccessCredential {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.VmAccessCredentialModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or set was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.WorkloadVmAccessCredential{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.WorkloadVmAccessCredential{
+			SshPublicKeySecret: BuildString(block.SshPublicKeySecret),
+			Users:              wro.BuildSetString(block.Users),
+			DeliveryMethod:     BuildString(block.DeliveryMethod),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildVmClock constructs a WorkloadVmClock from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildVmClock(state types.Object) *client.WorkloadVmClock {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.VmClockModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadVmClock{
+		Timezone: BuildString(block.Timezone),
+	}
+}
+
 // Flatteners //
 
 // flattenContainers transforms *[]client.WorkloadContainer into a Terraform types.List.
@@ -3761,6 +4364,9 @@ func (wro *WorkloadResourceOperator) flattenContainerVolume(input *[]client.Work
 			Uri:            types.StringPointerValue(item.Uri),
 			RecoveryPolicy: types.StringPointerValue(item.RecoveryPolicy),
 			Path:           types.StringPointerValue(item.Path),
+			Name:           types.StringPointerValue(item.Name),
+			Bus:            types.StringPointerValue(item.Bus),
+			BootOrder:      FlattenInt(item.BootOrder),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -4515,6 +5121,313 @@ func (wro *WorkloadResourceOperator) flattenRequestRetryPolicy(input *client.Wor
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.RequestRetryPolicyModel{block})
+}
+
+// flattenVm transforms *client.WorkloadVm into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVm(input *client.WorkloadVm) types.Object {
+	// Get attribute types
+	elementType := models.VmModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmModel{
+		BootDisk:          wro.flattenVmBootDisk(input.BootDisk),
+		Cpu:               wro.flattenVmCpu(input.Cpu),
+		Firmware:          wro.flattenVmFirmware(input.Firmware),
+		GuestOs:           types.StringPointerValue(input.GuestOS),
+		Networks:          wro.flattenVmNetworks(input.Networks),
+		CloudInit:         wro.flattenVmCloudInit(input.CloudInit),
+		AccessCredentials: wro.flattenVmAccessCredentials(input.AccessCredentials),
+		RunStrategy:       types.StringPointerValue(input.RunStrategy),
+		Clock:             wro.flattenVmClock(input.Clock),
+		Hostname:          types.StringPointerValue(input.Hostname),
+		Subdomain:         types.StringPointerValue(input.Subdomain),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmBootDisk transforms *client.WorkloadVmBootDisk into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmBootDisk(input *client.WorkloadVmBootDisk) types.Object {
+	// Get attribute types
+	elementType := models.VmBootDiskModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmBootDiskModel{
+		Source:    wro.flattenVmBootDiskSource(input.Source),
+		Persist:   wro.flattenVmBootDiskPersist(input.Persist),
+		Bus:       types.StringPointerValue(input.Bus),
+		BootOrder: FlattenInt(input.BootOrder),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmBootDiskSource transforms *client.WorkloadVmBootDiskSource into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmBootDiskSource(input *client.WorkloadVmBootDiskSource) types.Object {
+	// Get attribute types
+	elementType := models.VmBootDiskSourceModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmBootDiskSourceModel{
+		Oci:  wro.flattenVmBootDiskSourceOci(input.Oci),
+		Http: wro.flattenVmBootDiskSourceHttp(input.Http),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmBootDiskSourceOci transforms *client.WorkloadVmBootDiskSourceOci into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmBootDiskSourceOci(input *client.WorkloadVmBootDiskSourceOci) types.Object {
+	// Get attribute types
+	elementType := models.VmBootDiskSourceOciModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmBootDiskSourceOciModel{
+		Image: types.StringPointerValue(input.Image),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmBootDiskSourceHttp transforms *client.WorkloadVmBootDiskSourceHttp into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmBootDiskSourceHttp(input *client.WorkloadVmBootDiskSourceHttp) types.Object {
+	// Get attribute types
+	elementType := models.VmBootDiskSourceHttpModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmBootDiskSourceHttpModel{
+		Url:      types.StringPointerValue(input.Url),
+		Checksum: types.StringPointerValue(input.Checksum),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmBootDiskPersist transforms *client.WorkloadVmBootDiskPersist into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmBootDiskPersist(input *client.WorkloadVmBootDiskPersist) types.Object {
+	// Get attribute types
+	elementType := models.VmBootDiskPersistModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmBootDiskPersistModel{
+		VolumeSet: types.StringPointerValue(input.VolumeSet),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmCpu transforms *client.WorkloadVmCpu into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmCpu(input *client.WorkloadVmCpu) types.Object {
+	// Get attribute types
+	elementType := models.VmCpuModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmCpuModel{
+		Sockets: FlattenInt(input.Sockets),
+		Threads: FlattenInt(input.Threads),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmFirmware transforms *client.WorkloadVmFirmware into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmFirmware(input *client.WorkloadVmFirmware) types.Object {
+	// Get attribute types
+	elementType := models.VmFirmwareModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmFirmwareModel{
+		Bootloader: types.StringPointerValue(input.Bootloader),
+		SecureBoot: types.BoolPointerValue(input.SecureBoot),
+		Uuid:       types.StringPointerValue(input.Uuid),
+		Serial:     types.StringPointerValue(input.Serial),
+		Smbios:     wro.flattenVmFirmwareSmbios(input.Smbios),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmFirmwareSmbios transforms *client.WorkloadVmFirmwareSmbios into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmFirmwareSmbios(input *client.WorkloadVmFirmwareSmbios) types.Object {
+	// Get attribute types
+	elementType := models.VmFirmwareSmbiosModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmFirmwareSmbiosModel{
+		Manufacturer: types.StringPointerValue(input.Manufacturer),
+		Product:      types.StringPointerValue(input.Product),
+		Version:      types.StringPointerValue(input.Version),
+		Sku:          types.StringPointerValue(input.Sku),
+		Family:       types.StringPointerValue(input.Family),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmNetworks transforms *[]client.WorkloadVmNetwork into a types.List.
+func (wro *WorkloadResourceOperator) flattenVmNetworks(input *[]client.WorkloadVmNetwork) types.List {
+	// Get attribute types
+	elementType := models.VmNetworkModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.VmNetworkModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.VmNetworkModel{
+			Name: types.StringPointerValue(item.Name),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
+}
+
+// flattenVmCloudInit transforms *client.WorkloadVmCloudInit into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmCloudInit(input *client.WorkloadVmCloudInit) types.Object {
+	// Get attribute types
+	elementType := models.VmCloudInitModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmCloudInitModel{
+		UserData:            types.StringPointerValue(input.UserData),
+		UserDataBase64:      types.StringPointerValue(input.UserDataBase64),
+		UserDataSecret:      types.StringPointerValue(input.UserDataSecret),
+		SshPublicKeySecrets: FlattenSetString(input.SshPublicKeySecrets),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenVmAccessCredentials transforms *[]client.WorkloadVmAccessCredential into a types.List.
+func (wro *WorkloadResourceOperator) flattenVmAccessCredentials(input *[]client.WorkloadVmAccessCredential) types.Set {
+	// Get attribute types
+	elementType := models.VmAccessCredentialModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null set
+		return types.SetNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.VmAccessCredentialModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.VmAccessCredentialModel{
+			SshPublicKeySecret: types.StringPointerValue(item.SshPublicKeySecret),
+			Users:              FlattenSetString(item.Users),
+			DeliveryMethod:     types.StringPointerValue(item.DeliveryMethod),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
+}
+
+// flattenVmClock transforms *client.WorkloadVmClock into a types.Object.
+func (wro *WorkloadResourceOperator) flattenVmClock(input *client.WorkloadVmClock) types.Object {
+	// Get attribute types
+	elementType := models.VmClockModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.VmClockModel{
+		Timezone: types.StringPointerValue(input.Timezone),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
 }
 
 // flattenStatus transforms *client.WorkloadStatus into a Terraform types.List.

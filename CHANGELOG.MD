@@ -1,3 +1,10 @@
+## 1.2.30
+
+- Add vm type and vm block to workload resource and data source.
+- Add health block to workload data source.
+- Add kubevirt addon to mk8s BYOK addon configuration.
+- Add node_local_dns addon to mk8s BYOK addon configuration.
+
 ## 1.2.29
 
 - Extend workload termination grace period validation.
