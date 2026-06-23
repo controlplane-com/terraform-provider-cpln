@@ -14,7 +14,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 
 - **name** (String) Name of the Workload.
 - **gvc** (String) Name of the associated GVC.
-- **type** (String) Workload Type. Either `serverless`, `standard`, `stateful`, or `cron`.
+- **type** (String) Workload Type. Either `serverless`, `standard`, `stateful`, `cron`, or `vm`.
 - **container** (Block List) ([see below](#nestedblock--container)).
 
 ### Optional
@@ -32,6 +32,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
 - **request_retry_policy** (Block List, Max: 1) ([see below](#nestedblock--request_retry_policy))
+- **vm** (Attributes) VM-only configuration. Required when `type` is `vm`; rejected otherwise. ([see below](#nestedblock--vm))
 
 <a id="nestedblock--container"></a>
 
@@ -254,8 +255,14 @@ Volumes mounted on a container can be from multiple sources. Refer to the [workl
 Required:
 
 - **uri** (String) URI of a volume hosted at Control Plane (Volume Set) or at a cloud provider (AWS, Azure, GCP).
+
+Optional:
+
 - **recovery_policy** (String) Only applicable to persistent volumes, this determines what Control Plane will do when creating a new workload replica if a corresponding volume exists. Available Values: `retain`, `recycle`. Default: `retain`. **DEPRECATED - No longer being used.**
-- **path** (String) The file path to the mounted volume.
+- **path** (String) The file path to the mounted volume. Required for non-`vm` workloads; rejected for `vm` workloads (the volume is attached to the VM as a block device).
+- **name** (String) VM disk name. Required for `vm` workloads; rejected for other workload types.
+- **bus** (String) VM disk bus. Only valid for `vm` workloads. A `cpln://secret/` volume on a `sata` or `scsi` bus is presented to the guest as a read-only CD-ROM. Valid values: `virtio`, `sata`, `scsi`.
+- **boot_order** (Number) VM disk boot order. Only valid for `vm` workloads. Valid values: `1` - `16`.
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
@@ -572,6 +579,151 @@ Optional:
 
 - **attempts** (Number) Default: `2`
 - **retry_on** (List of String)
+
+<a id="nestedblock--vm"></a>
+
+### `vm`
+
+VM-only configuration for workloads of `type` `vm`. The single `container` boots from `vm.boot_disk` and must not set `image`.
+
+Optional:
+
+- **boot_disk** (Attributes) Boot disk configuration ([see below](#nestedblock--vm--boot_disk)).
+- **cpu** (Attributes) CPU topology visible to the guest ([see below](#nestedblock--vm--cpu)).
+- **firmware** (Attributes) Firmware configuration for the guest ([see below](#nestedblock--vm--firmware)).
+- **guest_os** (String) Guest operating system family. Drives the per-OS cloud-init payload. Valid values: `linux`, `windows`. Default: `linux`.
+- **network** (Attributes List, Max: 1) Pod-network interface for the VM ([see below](#nestedblock--vm--network)).
+- **cloud_init** (Attributes) Cloud-init configuration for the guest ([see below](#nestedblock--vm--cloud_init)).
+- **access_credential** (Attributes Set, Max: 8) SSH public keys injected at runtime ([see below](#nestedblock--vm--access_credential)).
+- **run_strategy** (String) KubeVirt RunStrategy. Use `Halted` to keep the pool defined but powered off. Valid values: `Always`, `RerunOnFailure`, `Manual`, `Halted`. Default: `Always`.
+- **clock** (Attributes) Guest clock configuration ([see below](#nestedblock--vm--clock)).
+- **hostname** (String) Hostname reported to the guest.
+- **subdomain** (String) Subdomain used by the guest for replica-to-replica addressing.
+
+<a id="nestedblock--vm--boot_disk"></a>
+
+### `vm.boot_disk`
+
+Boot disk configuration. When `source` is omitted, `containers[0].image` is used as an OCI containerDisk.
+
+Optional:
+
+- **source** (Attributes) Boot disk image source. Exactly one of `oci` or `http` must be specified ([see below](#nestedblock--vm--boot_disk--source)).
+- **persist** (Attributes) Per-replica boot PVC populated via CDI. Required for any non-OCI source ([see below](#nestedblock--vm--boot_disk--persist)).
+- **bus** (String) Disk bus exposed to the guest. Valid values: `virtio`, `sata`, `scsi`. Default: `virtio`.
+- **boot_order** (Number) Boot order of the boot disk. Valid values: `1` - `16`. Default: `1`.
+
+<a id="nestedblock--vm--boot_disk--source"></a>
+
+### `vm.boot_disk.source`
+
+Optional:
+
+- **oci** (Attributes) Boot from an OCI containerDisk image ([see below](#nestedblock--vm--boot_disk--source--oci)).
+- **http** (Attributes) Boot disk image fetched over HTTP/HTTPS. Requires `persist.volume_set` ([see below](#nestedblock--vm--boot_disk--source--http)).
+
+<a id="nestedblock--vm--boot_disk--source--oci"></a>
+
+### `vm.boot_disk.source.oci`
+
+Required:
+
+- **image** (String) Full image reference of a containerDisk (e.g., `quay.io/containerdisks/ubuntu:22.04` or `/org/<org>/image/<name>:<tag>`).
+
+<a id="nestedblock--vm--boot_disk--source--http"></a>
+
+### `vm.boot_disk.source.http`
+
+Required:
+
+- **url** (String) HTTP/HTTPS URL of the boot disk image.
+
+Optional:
+
+- **checksum** (String) Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.
+
+<a id="nestedblock--vm--boot_disk--persist"></a>
+
+### `vm.boot_disk.persist`
+
+Required:
+
+- **volume_set** (String) VolumeSet URI used to provision one PVC per replica for the boot disk. Format: `cpln://volumeset/<name>`.
+
+<a id="nestedblock--vm--cpu"></a>
+
+### `vm.cpu`
+
+Optional:
+
+- **sockets** (Number) CPU sockets visible to the guest. Valid values: `1` - `32`.
+- **threads** (Number) CPU threads per core visible to the guest. Valid values: `1` - `8`.
+
+<a id="nestedblock--vm--firmware"></a>
+
+### `vm.firmware`
+
+Optional:
+
+- **bootloader** (String) Bootloader used by the guest. Valid values: `bios`, `efi`. Default: `efi`.
+- **secure_boot** (Boolean) Enable UEFI Secure Boot. Default: `false`.
+- **uuid** (String) Fixed SMBIOS UUID for the VM. KubeVirt generates one when omitted.
+- **serial** (String) SMBIOS system serial number reported to the guest.
+- **smbios** (Attributes) SMBIOS system information reported to the guest ([see below](#nestedblock--vm--firmware--smbios)).
+
+<a id="nestedblock--vm--firmware--smbios"></a>
+
+### `vm.firmware.smbios`
+
+Optional:
+
+- **manufacturer** (String) SMBIOS system manufacturer.
+- **product** (String) SMBIOS system product name.
+- **version** (String) SMBIOS system version.
+- **sku** (String) SMBIOS system SKU.
+- **family** (String) SMBIOS system family.
+
+<a id="nestedblock--vm--network"></a>
+
+### `vm.network`
+
+Optional:
+
+- **name** (String) Network interface name. Default: `default`.
+
+<a id="nestedblock--vm--cloud_init"></a>
+
+### `vm.cloud_init`
+
+Cloud-init configuration for the guest. Exactly one of `user_data`, `user_data_base64`, or `user_data_secret` must be specified.
+
+Optional:
+
+- **user_data** (String) Inline cloud-init user-data. Not encrypted at rest in the data-service - use `user_data_secret` for sensitive payloads.
+- **user_data_base64** (String) Inline cloud-init user-data, base64-encoded. Same caveats as `user_data`.
+- **user_data_secret** (String) Secret containing cloud-init user-data (key: `userdata` or `user-data`).
+- **ssh_public_key_secrets** (Set of String) SSH public keys injected via cloud-init. Each Secret may carry one or more keys.
+
+<a id="nestedblock--vm--access_credential"></a>
+
+### `vm.access_credential`
+
+Required:
+
+- **ssh_public_key_secret** (String) Secret containing the SSH public keys to inject.
+- **users** (Set of String) Guest OS users the SSH public keys are injected for.
+
+Optional:
+
+- **delivery_method** (String) Delivery method for the access credential. Valid values: `qemuGuestAgent`, `configDrive`. Default: `qemuGuestAgent`.
+
+<a id="nestedblock--vm--clock"></a>
+
+### `vm.clock`
+
+Optional:
+
+- **timezone** (String) Guest timezone. Default: `UTC`.
 
 ## Outputs
 
@@ -2298,6 +2450,177 @@ resource "cpln_workload" "new" {
       }
     }
   })
+}
+```
+
+## Example Usage - VM Workload
+
+```terraform
+resource "cpln_gvc" "example" {
+  name        = "gvc-example"
+  description = "Example GVC"
+
+  locations = ["aws-eu-central-1"]
+
+  tags = {
+    terraform_generated = "true"
+  }
+}
+
+# Per-replica boot disk, populated via CDI from the boot source.
+resource "cpln_volume_set" "vm_boot" {
+  name              = "vm-boot"
+  gvc               = cpln_gvc.example.name
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+# Additional data disk attached to the VM as a block device.
+resource "cpln_volume_set" "vm_data" {
+  name              = "vm-data"
+  gvc               = cpln_gvc.example.name
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+# Secret holding the SSH public key(s) injected into the guest.
+resource "cpln_secret" "vm_ssh" {
+  name = "vm-ssh"
+
+  opaque {
+    payload  = "c3NoLXJzYSBBQUFBQjNOemFDMTljMkVBQUFBREFRQUJBQUFB"
+    encoding = "base64"
+  }
+}
+
+# Identity assigned to the workload so it can reveal the SSH secret(s).
+resource "cpln_identity" "vm" {
+  name = "identity-vm-example"
+  gvc  = cpln_gvc.example.name
+}
+
+# Grant the identity `reveal` access to the SSH secret(s) referenced by the VM.
+# Without this, the workload runs with no identity and is not allowed to reveal
+# the secret(s), so workload updates stay paused.
+resource "cpln_policy" "vm_secrets" {
+  name        = "policy-vm-secrets"
+  target_kind = "secret"
+
+  target_links = [cpln_secret.vm_ssh.name]
+
+  binding {
+    permissions     = ["reveal"]
+    principal_links = [cpln_identity.vm.self_link]
+  }
+}
+
+resource "cpln_workload" "example" {
+  depends_on = [cpln_policy.vm_secrets]
+
+  name        = "workload-vm-example"
+  description = "Example VM Workload"
+
+  gvc           = cpln_gvc.example.name
+  type          = "vm"
+  identity_link = cpln_identity.vm.self_link
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "vm-container"
+    cpu    = "2000m"
+    memory = "2Gi"
+
+    # VM disks attach as block devices (no `path`). `name` is required; `bus` and `boot_order` are optional.
+    volume {
+      uri        = "cpln://volumeset/${cpln_volume_set.vm_data.name}"
+      name       = "data-disk"
+      bus        = "virtio"
+      boot_order = 2
+    }
+  }
+
+  vm = {
+    boot_disk = {
+      # Exactly one of `oci` or `http` must be specified.
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+
+        # http = {
+        #   url      = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+        #   checksum = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        # }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/${cpln_volume_set.vm_boot.name}"
+      }
+
+      bus        = "virtio"
+      boot_order = 1
+    }
+
+    cpu = {
+      sockets = 2
+      threads = 1
+    }
+
+    firmware = {
+      bootloader  = "efi"
+      secure_boot = false
+      uuid        = "5d8e7a3c-1f2b-4c6d-8e9f-0a1b2c3d4e5f"
+      serial      = "vm-serial-01"
+
+      smbios = {
+        manufacturer = "ControlPlane"
+        product      = "cpln-vm"
+        version      = "1.0"
+        sku          = "sku-01"
+        family       = "cpln"
+      }
+    }
+
+    guest_os = "linux"
+
+    network = [
+      {
+        name = "default"
+      }
+    ]
+
+    cloud_init = {
+      # Exactly one of `user_data`, `user_data_base64`, or `user_data_secret` must be specified.
+      user_data = "#cloud-config\nruncmd:\n  - echo hello\n"
+
+      # user_data_base64 = "I2Nsb3VkLWNvbmZpZwo="
+      # user_data_secret = cpln_secret.vm_ssh.self_link
+
+      ssh_public_key_secrets = [cpln_secret.vm_ssh.self_link]
+    }
+
+    access_credential = [
+      {
+        ssh_public_key_secret = cpln_secret.vm_ssh.self_link
+        users                 = ["root", "ubuntu"]
+        delivery_method       = "qemuGuestAgent"
+      }
+    ]
+
+    run_strategy = "Always"
+
+    clock = {
+      timezone = "UTC"
+    }
+
+    hostname  = "vm-host"
+    subdomain = "vms"
+  }
 }
 ```
 

@@ -241,6 +241,9 @@ type ContainerVolumeModel struct {
 	Uri            types.String `tfsdk:"uri"`
 	RecoveryPolicy types.String `tfsdk:"recovery_policy"`
 	Path           types.String `tfsdk:"path"`
+	Name           types.String `tfsdk:"name"`
+	Bus            types.String `tfsdk:"bus"`
+	BootOrder      types.Int32  `tfsdk:"boot_order"`
 }
 
 func (c ContainerVolumeModel) AttributeTypes() attr.Type {
@@ -249,6 +252,9 @@ func (c ContainerVolumeModel) AttributeTypes() attr.Type {
 			"uri":             types.StringType,
 			"recovery_policy": types.StringType,
 			"path":            types.StringType,
+			"name":            types.StringType,
+			"bus":             types.StringType,
+			"boot_order":      types.Int32Type,
 		},
 	}
 }
@@ -775,6 +781,270 @@ func (r RequestRetryPolicyModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"attempts": types.Int32Type,
 			"retry_on": types.SetType{ElemType: types.StringType},
+		},
+	}
+}
+
+// VM //
+
+type VmModel struct {
+	BootDisk          types.Object `tfsdk:"boot_disk"`
+	Cpu               types.Object `tfsdk:"cpu"`
+	Firmware          types.Object `tfsdk:"firmware"`
+	GuestOs           types.String `tfsdk:"guest_os"`
+	Networks          types.List   `tfsdk:"network"`
+	CloudInit         types.Object `tfsdk:"cloud_init"`
+	AccessCredentials types.Set    `tfsdk:"access_credential"`
+	RunStrategy       types.String `tfsdk:"run_strategy"`
+	Clock             types.Object `tfsdk:"clock"`
+	Hostname          types.String `tfsdk:"hostname"`
+	Subdomain         types.String `tfsdk:"subdomain"`
+}
+
+func (v VmModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"boot_disk":         VmBootDiskModel{}.AttributeTypes(),
+			"cpu":               VmCpuModel{}.AttributeTypes(),
+			"firmware":          VmFirmwareModel{}.AttributeTypes(),
+			"guest_os":          types.StringType,
+			"network":           types.ListType{ElemType: VmNetworkModel{}.AttributeTypes()},
+			"cloud_init":        VmCloudInitModel{}.AttributeTypes(),
+			"access_credential": types.SetType{ElemType: VmAccessCredentialModel{}.AttributeTypes()},
+			"run_strategy":      types.StringType,
+			"clock":             VmClockModel{}.AttributeTypes(),
+			"hostname":          types.StringType,
+			"subdomain":         types.StringType,
+		},
+	}
+}
+
+// VM -> Boot Disk //
+
+type VmBootDiskModel struct {
+	Source    types.Object `tfsdk:"source"`
+	Persist   types.Object `tfsdk:"persist"`
+	Bus       types.String `tfsdk:"bus"`
+	BootOrder types.Int32  `tfsdk:"boot_order"`
+}
+
+func (v VmBootDiskModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"source":     VmBootDiskSourceModel{}.AttributeTypes(),
+			"persist":    VmBootDiskPersistModel{}.AttributeTypes(),
+			"bus":        types.StringType,
+			"boot_order": types.Int32Type,
+		},
+	}
+}
+
+// VM -> Boot Disk -> Source //
+
+type VmBootDiskSourceModel struct {
+	Oci  types.Object `tfsdk:"oci"`
+	Http types.Object `tfsdk:"http"`
+}
+
+func (v VmBootDiskSourceModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"oci":  VmBootDiskSourceOciModel{}.AttributeTypes(),
+			"http": VmBootDiskSourceHttpModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// VM -> Boot Disk -> Source -> OCI //
+
+type VmBootDiskSourceOciModel struct {
+	Image types.String `tfsdk:"image"`
+}
+
+func (v VmBootDiskSourceOciModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"image": types.StringType,
+		},
+	}
+}
+
+// VM -> Boot Disk -> Source -> HTTP //
+
+type VmBootDiskSourceHttpModel struct {
+	Url      types.String `tfsdk:"url"`
+	Checksum types.String `tfsdk:"checksum"`
+}
+
+func (v VmBootDiskSourceHttpModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"url":      types.StringType,
+			"checksum": types.StringType,
+		},
+	}
+}
+
+// VM -> Boot Disk -> Persist //
+
+type VmBootDiskPersistModel struct {
+	VolumeSet types.String `tfsdk:"volume_set"`
+}
+
+func (v VmBootDiskPersistModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"volume_set": types.StringType,
+		},
+	}
+}
+
+// VM -> CPU //
+
+type VmCpuModel struct {
+	Sockets types.Int32 `tfsdk:"sockets"`
+	Threads types.Int32 `tfsdk:"threads"`
+}
+
+func (v VmCpuModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"sockets": types.Int32Type,
+			"threads": types.Int32Type,
+		},
+	}
+}
+
+// VM -> Firmware //
+
+type VmFirmwareModel struct {
+	Bootloader types.String `tfsdk:"bootloader"`
+	SecureBoot types.Bool   `tfsdk:"secure_boot"`
+	Uuid       types.String `tfsdk:"uuid"`
+	Serial     types.String `tfsdk:"serial"`
+	Smbios     types.Object `tfsdk:"smbios"`
+}
+
+func (v VmFirmwareModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"bootloader":  types.StringType,
+			"secure_boot": types.BoolType,
+			"uuid":        types.StringType,
+			"serial":      types.StringType,
+			"smbios":      VmFirmwareSmbiosModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// VM -> Firmware -> SMBIOS //
+
+type VmFirmwareSmbiosModel struct {
+	Manufacturer types.String `tfsdk:"manufacturer"`
+	Product      types.String `tfsdk:"product"`
+	Version      types.String `tfsdk:"version"`
+	Sku          types.String `tfsdk:"sku"`
+	Family       types.String `tfsdk:"family"`
+}
+
+func (v VmFirmwareSmbiosModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"manufacturer": types.StringType,
+			"product":      types.StringType,
+			"version":      types.StringType,
+			"sku":          types.StringType,
+			"family":       types.StringType,
+		},
+	}
+}
+
+// VM -> Network //
+
+type VmNetworkModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+func (v VmNetworkModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name": types.StringType,
+		},
+	}
+}
+
+// VM -> Cloud Init //
+
+type VmCloudInitModel struct {
+	UserData            types.String `tfsdk:"user_data"`
+	UserDataBase64      types.String `tfsdk:"user_data_base64"`
+	UserDataSecret      types.String `tfsdk:"user_data_secret"`
+	SshPublicKeySecrets types.Set    `tfsdk:"ssh_public_key_secrets"`
+}
+
+func (v VmCloudInitModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"user_data":              types.StringType,
+			"user_data_base64":       types.StringType,
+			"user_data_secret":       types.StringType,
+			"ssh_public_key_secrets": types.SetType{ElemType: types.StringType},
+		},
+	}
+}
+
+// VM -> Access Credential //
+
+type VmAccessCredentialModel struct {
+	SshPublicKeySecret types.String `tfsdk:"ssh_public_key_secret"`
+	Users              types.Set    `tfsdk:"users"`
+	DeliveryMethod     types.String `tfsdk:"delivery_method"`
+}
+
+func (v VmAccessCredentialModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"ssh_public_key_secret": types.StringType,
+			"users":                 types.SetType{ElemType: types.StringType},
+			"delivery_method":       types.StringType,
+		},
+	}
+}
+
+// VM -> Clock //
+
+type VmClockModel struct {
+	Timezone types.String `tfsdk:"timezone"`
+}
+
+func (v VmClockModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"timezone": types.StringType,
+		},
+	}
+}
+
+// Health //
+
+type HealthModel struct {
+	Readiness      types.String `tfsdk:"readiness"`
+	SyncFailed     types.Bool   `tfsdk:"sync_failed"`
+	ReadyLocations types.Int32  `tfsdk:"ready_locations"`
+	TotalLocations types.Int32  `tfsdk:"total_locations"`
+	ReadyReplicas  types.Int32  `tfsdk:"ready_replicas"`
+	TotalReplicas  types.Int32  `tfsdk:"total_replicas"`
+}
+
+func (h HealthModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"readiness":       types.StringType,
+			"sync_failed":     types.BoolType,
+			"ready_locations": types.Int32Type,
+			"total_locations": types.Int32Type,
+			"ready_replicas":  types.Int32Type,
+			"total_replicas":  types.Int32Type,
 		},
 	}
 }

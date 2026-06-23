@@ -761,8 +761,10 @@ Optional:
 - **aws_ecr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--ecr))
 - **aws_elb** (Block List, Max: 1) ([see below](#nestedblock--add_ons--aws--elb))
 - **azure_acr** (Block List, Max: 1) ([see below](#nestedblock--add_ons--azure_acr))
-- **byok** (Object) ([see below](#nestedblock--add_ons--byok))
 - **sysbox** (Boolean)
+- **byok** (Object) ([see below](#nestedblock--add_ons--byok))
+- **kubevirt** (Attributes) ([see below](#nestedblock--add_ons--kubevirt))
+- **node_local_dns** (Boolean) Per-node CoreDNS cache. Required by the kubevirt add-on.
 
 <a id="nestedblock--add_ons--azure_workload_identity"></a>
 
@@ -1246,6 +1248,14 @@ The following attributes are exported:
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **status** (Block List, Max: 1) ([see below](#nestedblock--status)).
 
+<a id="nestedblock--add_ons--kubevirt"></a>
+
+### `add_ons.kubevirt`
+
+Optional:
+
+- **scratch_space_storage_class** (String) Filesystem-mode StorageClass CDI uses for import scratch space. Required when the cluster default StorageClass is block-mode.
+
 <a id="nestedblock--status"></a>
 
 ### `status`
@@ -1421,6 +1431,8 @@ resource "cpln_mk8s" "generic" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -1593,7 +1605,11 @@ resource "cpln_mk8s" "generic" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -1737,6 +1753,8 @@ resource "cpln_mk8s" "hetzner" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -1909,7 +1927,11 @@ resource "cpln_mk8s" "hetzner" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -2069,6 +2091,8 @@ resource "cpln_mk8s" "aws" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -2241,7 +2265,11 @@ resource "cpln_mk8s" "aws" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -2362,6 +2390,8 @@ resource "cpln_mk8s" "linode" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -2534,7 +2564,11 @@ resource "cpln_mk8s" "linode" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -2656,6 +2690,8 @@ resource "cpln_mk8s" "oblivus" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -2828,7 +2864,11 @@ resource "cpln_mk8s" "oblivus" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -2948,6 +2988,8 @@ resource "cpln_mk8s" "lambdalabs" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
 
         byok = {
             ignore_updates = false
@@ -3246,6 +3288,8 @@ resource "cpln_mk8s" "paperspace" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -3418,7 +3462,11 @@ resource "cpln_mk8s" "paperspace" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -3519,6 +3567,8 @@ resource "cpln_mk8s" "ephemeral" {
         azure_acr {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
+
+        sysbox = true
 
         byok = {
             ignore_updates = false
@@ -3821,6 +3871,8 @@ resource "cpln_mk8s" "triton" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -3993,7 +4045,11 @@ resource "cpln_mk8s" "triton" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -4124,6 +4180,8 @@ resource "cpln_mk8s" "triton" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -4296,7 +4354,11 @@ resource "cpln_mk8s" "triton" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -4450,6 +4512,8 @@ resource "cpln_mk8s" "triton" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -4622,7 +4686,11 @@ resource "cpln_mk8s" "triton" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -4758,7 +4826,11 @@ resource "cpln_mk8s" "azure" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -4858,7 +4930,11 @@ resource "cpln_mk8s" "digital-ocean-provider" {
             taint_gpu_nodes = true
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -4998,6 +5074,8 @@ resource "cpln_mk8s" "gcp-provider" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -5170,7 +5248,11 @@ resource "cpln_mk8s" "gcp-provider" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```
@@ -5288,6 +5370,8 @@ resource "cpln_mk8s" "digital-ocean-provider" {
             client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
         }
 
+        sysbox = true
+
         byok = {
             ignore_updates = false
             location       = "/org/terraform-test-org/location/test-byok"
@@ -5460,7 +5544,11 @@ resource "cpln_mk8s" "digital-ocean-provider" {
             }
         }
 
-        sysbox = true
+        kubevirt = {
+            scratch_space_storage_class = "longhorn"
+        }
+
+        node_local_dns = true
     }
 }
 ```

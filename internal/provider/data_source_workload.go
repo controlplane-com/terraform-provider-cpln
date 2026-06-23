@@ -4,9 +4,11 @@ import (
 	"context"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
+	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/workload"
 	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -16,6 +18,16 @@ var (
 	_ datasource.DataSource              = &WorkloadDataSource{}
 	_ datasource.DataSourceWithConfigure = &WorkloadDataSource{}
 )
+
+/*** Data Source Model ***/
+
+// WorkloadDataSourceModel holds the Terraform state for the data source.
+type WorkloadDataSourceModel struct {
+	WorkloadResourceModel
+	Health types.Object `tfsdk:"health"`
+}
+
+/*** Data Source Configuration ***/
 
 // WorkloadDataSource is the data source implementation.
 type WorkloadDataSource struct {
@@ -77,7 +89,7 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				},
 			},
 			"type": schema.StringAttribute{
-				Description: "Workload Type. Either `serverless`, `standard`, `stateful`, or `cron`.",
+				Description: "Workload Type. Either `serverless`, `standard`, `stateful`, `cron`, or `vm`.",
 				Computed:    true,
 			},
 			"identity_link": schema.StringAttribute{
@@ -91,6 +103,210 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 			"extras": schema.StringAttribute{
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
 				Computed:    true,
+			},
+			"vm": schema.SingleNestedAttribute{
+				Description: "VM-only configuration. Present when `type` is `vm`.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"boot_disk": schema.SingleNestedAttribute{
+						Description: "Boot disk configuration.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"source": schema.SingleNestedAttribute{
+								Description: "Boot disk image source.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"oci": schema.SingleNestedAttribute{
+										Description: "Boot from an OCI containerDisk image.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"image": schema.StringAttribute{
+												Description: "Full image reference of a containerDisk.",
+												Computed:    true,
+											},
+										},
+									},
+									"http": schema.SingleNestedAttribute{
+										Description: "Boot disk image fetched over HTTP/HTTPS.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"url": schema.StringAttribute{
+												Description: "HTTP/HTTPS URL of the boot disk image.",
+												Computed:    true,
+											},
+											"checksum": schema.StringAttribute{
+												Description: "Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+							"persist": schema.SingleNestedAttribute{
+								Description: "Per-replica boot PVC populated via CDI.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"volume_set": schema.StringAttribute{
+										Description: "VolumeSet URI used to provision one PVC per replica for the boot disk.",
+										Computed:    true,
+									},
+								},
+							},
+							"bus": schema.StringAttribute{
+								Description: "Disk bus exposed to the guest. Either `virtio`, `sata`, or `scsi`.",
+								Computed:    true,
+							},
+							"boot_order": schema.Int32Attribute{
+								Description: "Boot order of the boot disk.",
+								Computed:    true,
+							},
+						},
+					},
+					"cpu": schema.SingleNestedAttribute{
+						Description: "CPU topology visible to the guest.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"sockets": schema.Int32Attribute{
+								Description: "CPU sockets visible to the guest.",
+								Computed:    true,
+							},
+							"threads": schema.Int32Attribute{
+								Description: "CPU threads per core visible to the guest.",
+								Computed:    true,
+							},
+						},
+					},
+					"firmware": schema.SingleNestedAttribute{
+						Description: "Firmware configuration for the guest.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"bootloader": schema.StringAttribute{
+								Description: "Bootloader used by the guest. Either `bios` or `efi`.",
+								Computed:    true,
+							},
+							"secure_boot": schema.BoolAttribute{
+								Description: "Whether UEFI Secure Boot is enabled.",
+								Computed:    true,
+							},
+							"uuid": schema.StringAttribute{
+								Description: "Fixed SMBIOS UUID for the VM.",
+								Computed:    true,
+							},
+							"serial": schema.StringAttribute{
+								Description: "SMBIOS system serial number reported to the guest.",
+								Computed:    true,
+							},
+							"smbios": schema.SingleNestedAttribute{
+								Description: "SMBIOS system information reported to the guest.",
+								Computed:    true,
+								Attributes: map[string]schema.Attribute{
+									"manufacturer": schema.StringAttribute{
+										Description: "SMBIOS system manufacturer.",
+										Computed:    true,
+									},
+									"product": schema.StringAttribute{
+										Description: "SMBIOS system product name.",
+										Computed:    true,
+									},
+									"version": schema.StringAttribute{
+										Description: "SMBIOS system version.",
+										Computed:    true,
+									},
+									"sku": schema.StringAttribute{
+										Description: "SMBIOS system SKU.",
+										Computed:    true,
+									},
+									"family": schema.StringAttribute{
+										Description: "SMBIOS system family.",
+										Computed:    true,
+									},
+								},
+							},
+						},
+					},
+					"guest_os": schema.StringAttribute{
+						Description: "Guest operating system family. Either `linux` or `windows`.",
+						Computed:    true,
+					},
+					"network": schema.ListNestedAttribute{
+						Description: "Pod-network interfaces for the VM.",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"name": schema.StringAttribute{
+									Description: "Network interface name.",
+									Computed:    true,
+								},
+							},
+						},
+					},
+					"cloud_init": schema.SingleNestedAttribute{
+						Description: "Cloud-init configuration for the guest.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"user_data": schema.StringAttribute{
+								Description: "Inline cloud-init user-data.",
+								Computed:    true,
+							},
+							"user_data_base64": schema.StringAttribute{
+								Description: "Inline cloud-init user-data, base64-encoded.",
+								Computed:    true,
+							},
+							"user_data_secret": schema.StringAttribute{
+								Description: "Secret containing cloud-init user-data.",
+								Computed:    true,
+							},
+							"ssh_public_key_secrets": schema.SetAttribute{
+								Description: "SSH public keys injected via cloud-init.",
+								ElementType: types.StringType,
+								Computed:    true,
+							},
+						},
+					},
+					"access_credential": schema.SetNestedAttribute{
+						Description: "SSH public keys injected at runtime via the guest agent or config drive.",
+						Computed:    true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"ssh_public_key_secret": schema.StringAttribute{
+									Description: "Secret containing the SSH public keys to inject.",
+									Computed:    true,
+								},
+								"users": schema.SetAttribute{
+									Description: "Guest OS users the SSH public keys are injected for.",
+									ElementType: types.StringType,
+									Computed:    true,
+								},
+								"delivery_method": schema.StringAttribute{
+									Description: "Delivery method for the access credential. Either `qemuGuestAgent` or `configDrive`.",
+									Computed:    true,
+								},
+							},
+						},
+					},
+					"run_strategy": schema.StringAttribute{
+						Description: "KubeVirt RunStrategy. Either `Always`, `RerunOnFailure`, `Manual`, or `Halted`.",
+						Computed:    true,
+					},
+					"clock": schema.SingleNestedAttribute{
+						Description: "Guest clock configuration.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"timezone": schema.StringAttribute{
+								Description: "Guest timezone.",
+								Computed:    true,
+							},
+						},
+					},
+					"hostname": schema.StringAttribute{
+						Description: "Hostname reported to the guest.",
+						Computed:    true,
+					},
+					"subdomain": schema.StringAttribute{
+						Description: "Subdomain used by the guest for replica-to-replica addressing.",
+						Computed:    true,
+					},
+				},
 			},
 			"status": schema.ListNestedAttribute{
 				Description: "Status of the workload.",
@@ -240,6 +456,36 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Description: "Computed suspension state of the workload. Valid values: `notSuspended`, `partiallySuspended`, `suspended`.",
 							Computed:    true,
 						},
+					},
+				},
+			},
+			"health": schema.SingleNestedAttribute{
+				Description: "Health summary of the workload.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"readiness": schema.StringAttribute{
+						Description: "Readiness of the workload.",
+						Computed:    true,
+					},
+					"sync_failed": schema.BoolAttribute{
+						Description: "Whether the most recent sync of the workload failed.",
+						Computed:    true,
+					},
+					"ready_locations": schema.Int32Attribute{
+						Description: "Number of locations where the workload is ready.",
+						Computed:    true,
+					},
+					"total_locations": schema.Int32Attribute{
+						Description: "Total number of locations the workload is deployed to.",
+						Computed:    true,
+					},
+					"ready_replicas": schema.Int32Attribute{
+						Description: "Number of ready replicas across all locations.",
+						Computed:    true,
+					},
+					"total_replicas": schema.Int32Attribute{
+						Description: "Total number of replicas across all locations.",
+						Computed:    true,
 					},
 				},
 			},
@@ -395,7 +641,19 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 										Computed:    true,
 									},
 									"path": schema.StringAttribute{
-										Description: "File path added to workload pointing to the volume.",
+										Description: "File path added to workload pointing to the volume. Required for non-`vm` workloads; rejected for `vm` workloads (the volume is attached to the VM as a block device).",
+										Computed:    true,
+									},
+									"name": schema.StringAttribute{
+										Description: "VM disk name. Required for `vm` workloads; rejected for other workload types.",
+										Computed:    true,
+									},
+									"bus": schema.StringAttribute{
+										Description: "VM disk bus. Only valid for `vm` workloads. Valid values: `virtio`, `sata`, `scsi`.",
+										Computed:    true,
+									},
+									"boot_order": schema.Int32Attribute{
+										Description: "VM disk boot order. Only valid for `vm` workloads.",
 										Computed:    true,
 									},
 								},
@@ -698,10 +956,10 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 // Read fetches the current state of the resource.
 func (d *WorkloadDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	// Declare variable to hold existing state
-	var state WorkloadResourceModel
+	var config WorkloadDataSourceModel
 
 	// Populate state from request and capture diagnostics
-	resp.Diagnostics.Append(req.Config.Get(ctx, &state)...)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 
 	// Abort if diagnostics errors occurred
 	if resp.Diagnostics.HasError() {
@@ -709,11 +967,11 @@ func (d *WorkloadDataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	// Create a new operator instance
-	operator := d.Operations.NewOperator(ctx, &resp.Diagnostics, state)
+	// Create a new operator instance using the shared resource model
+	operator := d.Operations.NewOperator(ctx, &resp.Diagnostics, config.WorkloadResourceModel)
 
 	// Invoke API to read resource details
-	apiResp, code, err := operator.InvokeRead(state.Name.ValueString())
+	apiResp, code, err := operator.InvokeRead(config.Name.ValueString())
 
 	// Remove resource from state if not found
 	if code == 404 {
@@ -732,7 +990,10 @@ func (d *WorkloadDataSource) Read(ctx context.Context, req datasource.ReadReques
 	}
 
 	// Build new state from API response
-	newState := operator.MapResponseToState(apiResp, true)
+	newState := WorkloadDataSourceModel{
+		WorkloadResourceModel: operator.MapResponseToState(apiResp, true),
+		Health:                flattenWorkloadHealth(ctx, &resp.Diagnostics, apiResp.Health),
+	}
 
 	// Abort if diagnostics errors occurred
 	if resp.Diagnostics.HasError() {
@@ -1094,4 +1355,31 @@ func (d *WorkloadDataSource) LocalOptionsSchema() schema.ListNestedBlock {
 
 	// Return the fully configured local options schema
 	return options
+}
+
+/*** Flatteners ***/
+
+// flattenWorkloadHealth transforms *client.WorkloadHealth into a types.Object.
+func flattenWorkloadHealth(ctx context.Context, diags *diag.Diagnostics, input *client.WorkloadHealth) types.Object {
+	// Get attribute types
+	elementType := models.HealthModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.HealthModel{
+		Readiness:      types.StringPointerValue(input.Readiness),
+		SyncFailed:     types.BoolPointerValue(input.SyncFailed),
+		ReadyLocations: FlattenInt(input.ReadyLocations),
+		TotalLocations: FlattenInt(input.TotalLocations),
+		ReadyReplicas:  FlattenInt(input.ReadyReplicas),
+		TotalReplicas:  FlattenInt(input.TotalReplicas),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(ctx, diags, &block)
 }

@@ -1775,6 +1775,20 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								},
 							},
 						},
+						"kubevirt": schema.SingleNestedAttribute{
+							Description: "Enables type=vm workloads by installing the KubeVirt and CDI operators on the cluster.",
+							Optional:    true,
+							Attributes: map[string]schema.Attribute{
+								"scratch_space_storage_class": schema.StringAttribute{
+									Description: "Filesystem-mode StorageClass CDI uses for import scratch space. Required when the cluster default StorageClass is block-mode.",
+									Optional:    true,
+								},
+							},
+						},
+						"node_local_dns": schema.BoolAttribute{
+							Description: "Per-node CoreDNS cache. Required by the kubevirt add-on.",
+							Optional:    true,
+						},
 					},
 					Blocks: map[string]schema.Block{
 						"azure_workload_identity": schema.ListNestedBlock{
@@ -3880,8 +3894,10 @@ func (mro *Mk8sResourceOperator) buildAddOns(state types.List) *client.Mk8sSpecA
 		AwsECR:                mro.buildAddOnAwsConfig(block.AwsECR),
 		AwsELB:                mro.buildAddOnAwsConfig(block.AwsELB),
 		AzureACR:              mro.buildAddOnAzureAcr(block.AzureACR),
-		Byok:                  mro.buildAddOnByok(block.Byok),
 		Sysbox:                mro.buildAddOnConfig(block.Sysbox),
+		Byok:                  mro.buildAddOnByok(block.Byok),
+		Kubevirt:              mro.buildAddOnKubevirt(block.Kubevirt),
+		NodeLocalDns:          mro.buildAddOnConfig(block.NodeLocalDns),
 	}
 }
 
@@ -4054,6 +4070,22 @@ func (mro *Mk8sResourceOperator) buildAddOnNvidia(state types.List) *client.Mk8s
 	// Construct and return the output
 	return &client.Mk8sNvidiaAddOn{
 		TaintGPUNodes: BuildBool(block.TaintGpuNodes),
+	}
+}
+
+// buildAddOnKubevirt constructs a Mk8sKubevirtAddOn from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAddOnKubevirt(state types.Object) *client.Mk8sKubevirtAddOn {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.AddOnsKubevirtModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sKubevirtAddOn{
+		ScratchSpaceStorageClass: BuildString(block.ScratchSpaceStorageClass),
 	}
 }
 
@@ -5869,6 +5901,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 	var plannedAwsWorkloadIdentity *bool
 	var plannedLocalPathStorage *bool
 	var plannedSysbox *bool
+	var plannedNodeLocalDns *bool
 
 	// Build planned addons
 	plannedAddons, ok := BuildList[models.AddOnsModel](mro.Ctx, mro.Diags, mro.Plan.AddOns)
@@ -5880,6 +5913,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		plannedAwsWorkloadIdentity = BuildBool(plannedAddons[0].AwsWorkloadIdentity)
 		plannedLocalPathStorage = BuildBool(plannedAddons[0].LocalPathStorage)
 		plannedSysbox = BuildBool(plannedAddons[0].Sysbox)
+		plannedNodeLocalDns = BuildBool(plannedAddons[0].NodeLocalDns)
 	}
 
 	// Build a single block
@@ -5897,8 +5931,10 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		AwsECR:                mro.flattenAddOnAwsConfig(input.AwsECR),
 		AwsELB:                mro.flattenAddOnAwsConfig(input.AwsELB),
 		AzureACR:              mro.flattenAddOnAzureAcr(input.AzureACR),
-		Byok:                  mro.flattenAddOnByok(input.Byok),
 		Sysbox:                mro.flattenAddOnConfig(plannedSysbox, input.Sysbox),
+		Byok:                  mro.flattenAddOnByok(input.Byok),
+		Kubevirt:              mro.flattenAddOnKubevirt(input.Kubevirt),
+		NodeLocalDns:          mro.flattenAddOnConfig(plannedNodeLocalDns, input.NodeLocalDns),
 	}
 
 	// Return the successfully created types.List
@@ -6085,6 +6121,26 @@ func (mro *Mk8sResourceOperator) flattenAddOnNvidia(input *client.Mk8sNvidiaAddO
 
 	// Return the successfully created types.List
 	return FlattenList(mro.Ctx, mro.Diags, []models.AddOnsNvidiaModel{block})
+}
+
+// flattenAddOnKubevirt transforms *client.Mk8sKubevirtAddOn into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAddOnKubevirt(input *client.Mk8sKubevirtAddOn) types.Object {
+	// Get attribute types
+	elementType := models.AddOnsKubevirtModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AddOnsKubevirtModel{
+		ScratchSpaceStorageClass: types.StringPointerValue(input.ScratchSpaceStorageClass),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
 }
 
 // flattenAddOnAwsConfig transforms *client.Mk8sAwsAddOnConfig into a types.List.

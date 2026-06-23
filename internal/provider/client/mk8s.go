@@ -84,6 +84,8 @@ type Mk8sSpecAddOns struct {
 	AzureACR              *Mk8sAzureACRAddOn              `json:"azureACR,omitempty"`
 	Sysbox                *Mk8sNonCustomizableAddonConfig `json:"sysbox,omitempty"`
 	Byok                  *Mk8sByokAddOn                  `json:"byok,omitempty"`
+	Kubevirt              *Mk8sKubevirtAddOn              `json:"kubevirt,omitempty"`
+	NodeLocalDns          *Mk8sNonCustomizableAddonConfig `json:"nodeLocalDns,omitempty"`
 }
 
 // Providers //
@@ -697,6 +699,10 @@ type Mk8sByokAddOnConfigInternalDns struct {
 	MaxCpu    *string `json:"maxCpu,omitempty"`
 	MinMemory *string `json:"minMemory,omitempty"`
 	MaxMemory *string `json:"maxMemory,omitempty"`
+}
+
+type Mk8sKubevirtAddOn struct {
+	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
 }
 
 /*** Status ***/

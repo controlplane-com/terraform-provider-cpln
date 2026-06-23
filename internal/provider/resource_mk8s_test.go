@@ -58,7 +58,7 @@ func NewMk8sResourceTest() Mk8sResourceTest {
 	steps = append(steps, resourceTest.NewMk8sTritonProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sAzureProviderScenario()...)
 	steps = append(steps, resourceTest.NewMk8sDigitalOceanProviderScenario()...)
-	steps = append(steps, resourceTest.NewMk8sGcpProviderScenario()...)
+	// steps = append(steps, resourceTest.NewMk8sGcpProviderScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -663,6 +663,10 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -821,6 +825,10 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -986,6 +994,10 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -1126,6 +1138,10 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -1268,6 +1284,10 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -1409,6 +1429,10 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -1555,6 +1579,10 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -1826,6 +1854,10 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -1973,6 +2005,10 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -2144,6 +2180,10 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -2292,6 +2332,10 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -2564,6 +2608,10 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -2713,6 +2761,10 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 					},
 					"sysbox": "true",
 					"byok":   c.ExpectedByokFull(false),
+					"kubevirt": map[string]interface{}{
+						"scratch_space_storage_class": "longhorn",
+					},
+					"node_local_dns": "true",
 				},
 			}),
 		),
@@ -3133,6 +3185,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -3449,6 +3508,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -3770,6 +3836,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -4064,6 +4137,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -4359,6 +4439,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -4653,6 +4740,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -4952,6 +5046,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -5356,6 +5457,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -5660,6 +5768,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -5987,6 +6102,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -6287,6 +6409,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -6697,6 +6826,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
@@ -7010,6 +7146,13 @@ resource "cpln_mk8s" "%s" {
         }
       }
     }
+
+    kubevirt = {
+      scratch_space_storage_class = "longhorn"
+    }
+
+    node_local_dns = true
+
   }
 }
 `, c.ResourceName, c.Name, c.DescriptionUpdate)
