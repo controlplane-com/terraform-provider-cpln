@@ -61,6 +61,7 @@ func NewDomainResourceTest() DomainResourceTest {
 	steps = append(steps, resourceTest.NewDefaultScenario()...)
 	steps = append(steps, resourceTest.NewCoexistenceScenario()...)
 	steps = append(steps, resourceTest.NewOptionalTlsScenario()...)
+	steps = append(steps, resourceTest.NewCanaryLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -266,6 +267,34 @@ func (drt *DomainResourceTest) NewOptionalTlsScenario() []resource.TestStep {
 		// Re-plan the same configuration to confirm the API response does not
 		// reintroduce a tls block in state and the plan stays empty
 		casePlanStable,
+	}
+}
+
+// NewCanaryLifecycleScenario walks a single route's canary block through every cardinality transition on a standalone cpln_domain_route.
+func (drt *DomainResourceTest) NewCanaryLifecycleScenario() []resource.TestStep {
+	// Define the subdomain that hosts the canary route across the lifecycle
+	subDomainName := fmt.Sprintf("canary-life-%s.%s", drt.RandomName, drt.ApexDomain)
+
+	// Build the per-stage test steps
+	absentStep := drt.BuildCanaryAbsentTestStep(subDomainName)
+	requiredOnlyStep := drt.BuildCanaryRequiredOnlyTestStep(subDomainName)
+	allMultiStep := drt.BuildCanaryAllMultiTestStep(subDomainName)
+	expandedStep := drt.BuildCanaryExpandedTestStep(subDomainName)
+
+	// Walk the canary block: absent -> required-only -> all-attrs+multiple(incl weight 0) -> expand -> shrink -> remove
+	return []resource.TestStep{
+		// Route exists with no canary blocks
+		absentStep,
+		// One canary with only its required attributes (workload_link + weight)
+		requiredOnlyStep,
+		// Two canaries with every attribute set, including a weight 0 (disabled-but-retained) toggle
+		allMultiStep,
+		// Grow to three canaries so the build/flatten loop runs at a non-trivial count
+		expandedStep,
+		// Shrink back to two canaries (re-use the all-attrs step)
+		allMultiStep,
+		// Remove every canary while the route persists (re-use the absent step)
+		absentStep,
 	}
 }
 
@@ -619,6 +648,17 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 					"percent":       "25.5",
 				},
 			}),
+			domainRoute2.TestCheckNestedBlocks("canary", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"port":          "8080",
+					"weight":        "50",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"weight":        "25",
+				},
+			}),
 
 			// Third Route
 			domainRoute3.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
@@ -861,6 +901,17 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 					"percent":       "25.5",
 				},
 			}),
+			domainRoute2.TestCheckNestedBlocks("canary", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"port":          "8080",
+					"weight":        "50",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"weight":        "25",
+				},
+			}),
 		),
 	}
 }
@@ -925,6 +976,17 @@ func (drt *DomainResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase
 										{
 											"workload_link": workloadSelfLink,
 											"percent":       "25.5",
+										},
+									},
+									"canary": []map[string]interface{}{
+										{
+											"workload_link": workloadSelfLink,
+											"port":          "8080",
+											"weight":        "50",
+										},
+										{
+											"workload_link": workloadSelfLink,
+											"weight":        "25",
 										},
 									},
 								},
@@ -1004,6 +1066,13 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 											"percent":       "75",
 										},
 									},
+									"canary": []map[string]interface{}{
+										{
+											"workload_link": workloadSelfLink,
+											"port":          "8080",
+											"weight":        "75",
+										},
+									},
 								},
 								{
 									"prefix":         "/app",
@@ -1025,6 +1094,12 @@ func (drt *DomainResourceTest) BuildUpdate5TestStep(initialCase ProviderTestCase
 										{
 											"workload_link": workloadSelfLink,
 											"percent":       "30",
+										},
+									},
+									"canary": []map[string]interface{}{
+										{
+											"workload_link": workloadSelfLink,
+											"weight":        "30",
 										},
 									},
 								},
@@ -1455,6 +1530,131 @@ func (drt *DomainResourceTest) BuildOptionalTlsPlanStableTestStep(subDomainName 
 	}
 }
 
+// newCanaryLifecycleCases builds the subdomain and route test cases shared across the canary lifecycle stages.
+func (drt *DomainResourceTest) newCanaryLifecycleCases(subDomainName string) (DomainResourceTestCase, DomainRouteResourceTestCase, string) {
+	// Build the subdomain case used to resolve the route's domain_link self link
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Build the standalone route case that owns the canary blocks
+	route := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "canary-route",
+			ResourceAddress: "cpln_domain_route.canary-route",
+		},
+	}
+
+	// Construct the workload self link in the short form the config uses
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
+
+	// Return the shared cases and link
+	return subDomain, route, workloadSelfLink
+}
+
+// BuildCanaryAbsentTestStep returns a step where the route exists with no canary blocks.
+func (drt *DomainResourceTest) BuildCanaryAbsentTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload link
+	subDomain, route, workloadSelfLink := drt.newCanaryLifecycleCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.CanaryAbsentHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			route.TestCheckResourceAttr("domain_port", "443"),
+			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckResourceAttr("workload_link", workloadSelfLink),
+			// No canary blocks are present on the route
+			route.TestCheckResourceAttr("canary.#", "0"),
+		),
+	}
+}
+
+// BuildCanaryRequiredOnlyTestStep returns a step with a single canary that sets only its required attributes.
+func (drt *DomainResourceTest) BuildCanaryRequiredOnlyTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload link
+	subDomain, route, workloadSelfLink := drt.newCanaryLifecycleCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.CanaryRequiredOnlyHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckNestedBlocks("canary", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"weight":        "50",
+				},
+			}),
+		),
+	}
+}
+
+// BuildCanaryAllMultiTestStep returns a step with two canaries covering every attribute and a weight 0 toggle.
+func (drt *DomainResourceTest) BuildCanaryAllMultiTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload link
+	subDomain, route, workloadSelfLink := drt.newCanaryLifecycleCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.CanaryAllMultiHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckNestedBlocks("canary", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"port":          "8080",
+					"weight":        "60",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"weight":        "0",
+				},
+			}),
+		),
+	}
+}
+
+// BuildCanaryExpandedTestStep returns a step with three canaries so the build/flatten loop runs at a non-trivial count.
+func (drt *DomainResourceTest) BuildCanaryExpandedTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload link
+	subDomain, route, workloadSelfLink := drt.newCanaryLifecycleCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.CanaryExpandedHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckNestedBlocks("canary", []map[string]interface{}{
+				{
+					"workload_link": workloadSelfLink,
+					"port":          "8080",
+					"weight":        "30",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"weight":        "20",
+				},
+				{
+					"workload_link": workloadSelfLink,
+					"port":          "8080",
+					"weight":        "0",
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // RequiredOnlyHcl returns a minimal HCL block for a resource using only required fields.
@@ -1765,6 +1965,17 @@ resource "cpln_domain_route" "second-route" {
     workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
     percent       = 25.5
   }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    port          = 8080
+    weight        = 50
+  }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    weight        = 25
+  }
 }
 
 resource "cpln_domain_route" "third-route" {
@@ -2025,6 +2236,17 @@ resource "cpln_domain_route" "second-route" {
     workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
     percent       = 25.5
   }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    port          = 8080
+    weight        = 50
+  }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    weight        = 25
+  }
 }
 `, drt.RandomName, c.ResourceName, c.Name, c.DescriptionUpdate, subDomain.ResourceName, c.ResourceAddress, subDomain.Name, subDomain.DescriptionUpdate,
 		subDomain.GetSelfLinkAttr(),
@@ -2196,6 +2418,17 @@ resource "cpln_domain" "%s" {
           workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
           percent       = 25.5
         }
+
+        canary {
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+          port          = 8080
+          weight        = 50
+        }
+
+        canary {
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+          weight        = 25
+        }
       }
     }
   }
@@ -2356,6 +2589,12 @@ resource "cpln_domain" "%s" {
           port          = 8080
           percent       = 75
         }
+
+        canary {
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+          port          = 8080
+          weight        = 75
+        }
       }
 
       route {
@@ -2375,6 +2614,11 @@ resource "cpln_domain" "%s" {
         mirror {
           workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
           percent       = 30
+        }
+
+        canary {
+          workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+          weight        = 30
         }
       }
 
@@ -2585,6 +2829,87 @@ resource "cpln_domain_route" "%s" {
   port          = %d
 }
 `, resourceName, routeKey, port)
+}
+
+// CanaryAbsentHcl returns HCL for a route on the subdomain with no canary blocks.
+func (drt *DomainResourceTest) CanaryAbsentHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
+resource "cpln_domain_route" "canary-route" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/canary"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+}
+`
+}
+
+// CanaryRequiredOnlyHcl returns HCL for a route with a single canary that sets only its required attributes.
+func (drt *DomainResourceTest) CanaryRequiredOnlyHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
+resource "cpln_domain_route" "canary-route" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/canary"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    weight        = 50
+  }
+}
+`
+}
+
+// CanaryAllMultiHcl returns HCL for a route with two canaries covering every attribute and a weight 0 toggle.
+func (drt *DomainResourceTest) CanaryAllMultiHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
+resource "cpln_domain_route" "canary-route" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/canary"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    port          = 8080
+    weight        = 60
+  }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    weight        = 0
+  }
+}
+`
+}
+
+// CanaryExpandedHcl returns HCL for a route with three canaries so the build/flatten loop runs at a non-trivial count.
+func (drt *DomainResourceTest) CanaryExpandedHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
+resource "cpln_domain_route" "canary-route" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/canary"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    port          = 8080
+    weight        = 30
+  }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    weight        = 20
+  }
+
+  canary {
+    workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+    port          = 8080
+    weight        = 0
+  }
+}
+`
 }
 
 // domainImportWithRoutesCheck returns an ImportStateCheckFunc that verifies routes WERE imported into state.

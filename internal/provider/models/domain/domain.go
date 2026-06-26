@@ -220,6 +220,7 @@ type RouteModel struct {
 	Headers       types.List   `tfsdk:"headers"`
 	Replica       types.Int32  `tfsdk:"replica"`
 	Mirror        types.List   `tfsdk:"mirror"`
+	Canary        types.List   `tfsdk:"canary"`
 }
 
 func (r RouteModel) AttributeTypes() attr.Type {
@@ -235,6 +236,7 @@ func (r RouteModel) AttributeTypes() attr.Type {
 			"headers":        types.ListType{ElemType: RouteHeadersModel{}.AttributeTypes()},
 			"replica":        types.Int32Type,
 			"mirror":         types.ListType{ElemType: RouteMirrorModel{}.AttributeTypes()},
+			"canary":         types.ListType{ElemType: RouteCanaryModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -281,6 +283,24 @@ func (r RouteMirrorModel) AttributeTypes() attr.Type {
 			"workload_link": types.StringType,
 			"port":          types.Int32Type,
 			"percent":       types.Float64Type,
+		},
+	}
+}
+
+// Route -> Canaries //
+
+type RouteCanaryModel struct {
+	WorkloadLink types.String `tfsdk:"workload_link"`
+	Port         types.Int32  `tfsdk:"port"`
+	Weight       types.Int32  `tfsdk:"weight"`
+}
+
+func (r RouteCanaryModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"workload_link": types.StringType,
+			"port":          types.Int32Type,
+			"weight":        types.Int32Type,
 		},
 	}
 }

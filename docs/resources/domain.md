@@ -117,6 +117,7 @@ Optional:
 - **headers** (Block List, Max: 1) Modify the headers for all http requests for this route. Same structure as `cpln_domain_route` headers.
 - **replica** (Number) The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.
 - **mirror** (Block List) ([see below](#nestedblock--spec--ports--route--mirror))
+- **canary** (Block List) ([see below](#nestedblock--spec--ports--route--canary))
 
 <a id="nestedblock--spec--ports--route--mirror"></a>
 
@@ -132,6 +133,21 @@ Required:
 Optional:
 
 - **port** (Number) The port on the mirrored workload to send traffic to. If not provided, traffic will be mirrored to the first discovered port on the mirrored workload.
+
+<a id="nestedblock--spec--ports--route--canary"></a>
+
+### `spec.ports.route.canary`
+
+Routes a weighted percentage of traffic to one or more additional workloads. The combined weight of all canaries on a route must not exceed 100; the remaining weight goes to the primary workload. A canary with a weight of `0` is skipped, allowing it to be toggled on and off without removing it. Only supported on `http` and `http2` ports.
+
+Required:
+
+- **workload_link** (String) The canary workload to route a weighted percentage of traffic to.
+- **weight** (Number) The percentage of traffic to send to this canary workload. Value between 0 and 100.
+
+Optional:
+
+- **port** (Number) The port to send canary traffic to. If not provided, the first configured port on the workload is used.
 
 <a id="nestedblock--spec--ports--tls"></a>
 
@@ -331,6 +347,12 @@ resource "cpln_domain" "example_with_routes" {
         prefix        = "/api"
         workload_link = "LINK_TO_API_WORKLOAD"
         port          = 8080
+
+        canary {
+          workload_link = "LINK_TO_API_CANARY_WORKLOAD"
+          port          = 8080
+          weight        = 20
+        }
       }
 
       route {

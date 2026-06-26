@@ -57,12 +57,19 @@ type DomainRoute struct {
 	Headers       *DomainRouteHeaders  `json:"headers,omitempty"`
 	Replica       *int                 `json:"replica,omitempty"`
 	Mirror        *[]DomainRouteMirror `json:"mirror,omitempty"`
+	Canaries      *[]DomainRouteCanary `json:"canaries,omitempty"`
 }
 
 type DomainRouteMirror struct {
 	WorkloadLink *string  `json:"workloadLink,omitempty"`
 	Port         *int     `json:"port,omitempty"`
 	Percent      *float64 `json:"percent,omitempty"`
+}
+
+type DomainRouteCanary struct {
+	WorkloadLink *string `json:"workloadLink,omitempty"`
+	Port         *int    `json:"port,omitempty"`
+	Weight       *int    `json:"weight,omitempty"`
 }
 
 type DomainCors struct {
@@ -300,6 +307,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Replica = route.Replica
 						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Mirror = route.Mirror
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Canaries = route.Canaries
 
 						// Update resource
 						domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)

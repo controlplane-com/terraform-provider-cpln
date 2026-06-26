@@ -168,6 +168,8 @@ Every function gets a one-line `//` comment immediately above. The comment is de
 func (...) build<Field>(...) ...
 ```
 
+**The function doc comment is EXACTLY one line.** Do not expand it to two or three lines, even when the existing analog you are copying has a multi-line comment (e.g. `FlattenRouteMirror` carries a 3-line comment — do not replicate that; `FlattenRouteCanary` is one line). Fold any nuance (prior-state preservation, link-form handling, etc.) into that single line, or into a step comment inside the body.
+
 Every logical step inside a function gets a short narrating comment. Not narrating thoughts — narrating what the next line does. Mirror the cadence in `resource_mk8s.go`:
 
 ```go
@@ -235,6 +237,14 @@ Only reach for the block-style schema when **both** of the following are true:
 If either condition fails, use the attribute form.
 
 When you reach for an object attribute, mirror the BYOK config in `resource_mk8s.go` (`schema.SingleNestedAttribute` with `Optional: true`, `Default: objectdefault.StaticValue(default<X>Value())`) and the matching `*Model` with `AttributeTypes()` returning a `types.ObjectType`.
+
+### Naming a repeatable block/attribute — SINGULAR
+
+For a **repeatable** nested collection (a `List`/`Set` of objects where each block/element is one item), the Terraform-facing name is **singular**: the HCL block keyword, the schema map key, the `tfsdk` tag, and the Go model field are all singular — because one block reads as one item and multiple blocks form the collection. It is `mirror` and `canary`, never `mirrors`/`canaries`, exactly like the existing `mirror` block (each `mirror { }` block is one mirror destination).
+
+This holds **even when the upstream API JSON field is plural**. Keep the client struct's `json` tag matching the API verbatim (e.g. `Canaries *[]DomainRouteCanary \`json:"canaries,omitempty"\``), but make every Terraform-facing surface singular (`canary`). The Go **model** field name must equal its `tfsdk` tag — the singular block name — matching the sibling convention in `RouteModel` (`Mirror`/`mirror`, `Canary`/`canary`). So the client field (`Canaries`, follows the API) and the model field (`Canary`, follows the block) intentionally differ when the API field is plural; the build/flatten call sites bridge them.
+
+**Exception:** a `Max: 1` block that represents a single composite object uses that object's natural name, which may itself read as plural (e.g. `headers` is the one header-config block, not one of many) — that is not a repeatable-collection element, so the singular rule does not apply.
 
 ## 6.1 Builders & Flatteners — copy from templates
 
@@ -423,6 +433,7 @@ Test rules:
 - HCL configs use `fmt.Sprintf` with `c.ResourceName`, `c.Name`, `c.DescriptionUpdate` placeholders. Match the indentation and positioning of existing scenarios — including the multiple-update step ordering (`initialStep, importStep, update1, update2, update3, update2, update1, initialStep`).
 - **No HCL-generating helpers.** Every block — including new ones with variable-arity content like multiple `location_options { ... }` entries — must be written **inline** in the main HCL return string of the `*Hcl` method. Do **not** add helper methods (`grt.SomeBlockHcl`, `renderXBlocks`, `strings.Builder` loops, etc.) that build HCL fragments dynamically. Same rule for the assertion side: inline the `[]map[string]interface{}{...}` literal next to its `TestCheckNestedBlocks` call rather than introducing a `*Expected` helper.
 - **HCL lives in its own named `*Hcl` function — never inline next to `Config:`.** Each `Config: ...` field on a `resource.TestStep` must reference a named HCL function (`Config: grt.SomeStageHcl(c)`), not a `Config: fmt.Sprintf(\`...\`, ...)` literal. The HCL function lives under `// Configs //` at the bottom of the test file alongside the existing `*Hcl` methods. The step-builder file stays focused on the assertion shape; the HCL file stays focused on the literal config text. This separation is what every existing `Build*TestStep` does — keep it.
+- **All HCL-returning functions live together, contiguously, in the `// Configs //` section — one under the other.** Never scatter an HCL-returning function elsewhere in the file (after a `type ... struct`, between check helpers like `domainImportWithRoutesCheck`, or appended at the end of the file just because that was the convenient insertion point). When you add a new `*Hcl` / `hcl*` function, place it immediately adjacent to the existing HCL functions (e.g. right after the last `hcl<Foo>` helper), so the whole group reads top-to-bottom as the test's config catalog. The same grouping discipline applies to the other kinds of functions: scenarios under `// Test Scenarios //`, step builders under `// Test Cases //`, HCL builders under `// Configs //` — keep each family contiguous within its section.
 - **Use literal values for new test fields, not sprintf placeholders.** When you add a new field to an HCL test config, write the value directly inline (e.g. `routing_tier = 1`, `name = "aws-eu-central-1"`) rather than `%d` / `%s` placeholders fed from a `c.<Field>` test-case struct. Mirror the same literal in the matching assertion (e.g. `"routing_tier": "1"`). The duplication between HCL and assertion is **fine and expected** — both sides being self-evident makes tests easier to write and review than chasing placeholders back through Sprintf args. Only fall back to placeholders when the value is genuinely runtime-derived (e.g. `acctest.RandStringFromCharSet`, `OrgName`, the resource's own `c.Name`). This applies to NEW fields; pre-existing placeholder-driven HCL stays as-is.
 - When adding a new optional API field, update **every** HCL config that exercises the parent block AND the corresponding `Expected*` checker so the assertion is real. Do not leave `// TODO: Add <field> test here` placeholders behind — fill them in.
 - Use `ExpectNonEmptyPlan: true` only when a known status-attribute drift is in play.

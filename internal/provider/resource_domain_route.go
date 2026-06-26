@@ -46,6 +46,7 @@ type DomainRouteResourceModel struct {
 	Headers       types.List   `tfsdk:"headers"`
 	Replica       types.Int32  `tfsdk:"replica"`
 	Mirror        types.List   `tfsdk:"mirror"`
+	Canary        types.List   `tfsdk:"canary"`
 }
 
 /*** Resource Configuration ***/
@@ -319,6 +320,28 @@ func (drr *DomainRouteResource) Schema(ctx context.Context, req resource.SchemaR
 					},
 				},
 			},
+			"canary": schema.ListNestedBlock{
+				Description: "Routes a weighted percentage of traffic to one or more additional workloads. The combined weight of all canaries on a route must not exceed 100; the remaining weight goes to the primary workload. Only supported on http and http2 ports.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"workload_link": schema.StringAttribute{
+							Description: "The canary workload to route a weighted percentage of traffic to.",
+							Required:    true,
+						},
+						"port": schema.Int32Attribute{
+							Description: "The port to send canary traffic to. If not provided, the first configured port on the workload is used.",
+							Optional:    true,
+						},
+						"weight": schema.Int32Attribute{
+							Description: "The percentage of traffic to send to this canary workload. A weight of 0 disables the canary so it can be toggled on and off without removing it.",
+							Required:    true,
+							Validators: []validator.Int32{
+								int32validator.Between(0, 100),
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -519,6 +542,7 @@ func (drr *DomainRouteResource) buildRequest(ctx context.Context, diags *diag.Di
 	route.Headers = BuildRouteHeaders(ctx, diags, plan.Headers)
 	route.Replica = BuildInt(plan.Replica)
 	route.Mirror = BuildRouteMirror(ctx, diags, plan.Mirror)
+	route.Canaries = BuildRouteCanary(ctx, diags, plan.Canary)
 
 	// Return constructed request payload
 	return GetNameFromSelfLink(plan.DomainLink.ValueString()), int(plan.DomainPort.ValueInt32()), route
@@ -582,6 +606,7 @@ func (drr *DomainRouteResource) buildState(ctx context.Context, diags *diag.Diag
 	state.Headers = FlattenRouteHeaders(ctx, diags, route.Headers)
 	state.Replica = FlattenInt(route.Replica)
 	state.Mirror = FlattenRouteMirror(ctx, diags, plan.Mirror, route.Mirror, drr.client.Org)
+	state.Canary = FlattenRouteCanary(ctx, diags, plan.Canary, route.Canaries, drr.client.Org)
 
 	// Return completed state model
 	return state
