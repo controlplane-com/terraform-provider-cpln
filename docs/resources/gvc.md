@@ -22,6 +22,7 @@ Manages an org's [Global Virtual Cloud (GVC)](https://docs.controlplane.com/refe
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **domain** (String) Custom domain name used by associated workloads.
 - **endpoint_naming_format** (String) Customizes the subdomain format for the canonical workload endpoint. `legacy` leaves it as '${workloadName}-${gvcName}.cpln.app'. `org` follows the scheme '${workloadName}-${gvcName}.${orgEndpointPrefix}.cpln.app'.
+- **alias_workload_link** (String) A link to a workload in this GVC whose canonical endpoint backs the GVC alias DNS record. When set, the GVC alias is published as a CNAME to the workload's canonical endpoint, inheriting its HTTP health probes and per-location geo failover. When unset, the alias resolves directly to cluster ingress endpoints with no application-level health awareness. Has no effect while the referenced workload is globally suspended.
 - **env** (Array of Name-Value Pair) Key-value array of resource env variables.
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
 - **otel_tracing** (Block List, Max: 1) ([see below](#nestedblock--otel_tracing)).
@@ -218,6 +219,9 @@ resource "cpln_gvc" "example" {
 
   # Org endpoint naming format gives us: ${workloadName}-${gvcName}.${orgEndpointPrefix}.cpln.app
   endpoint_naming_format = "org"
+
+  # Publishes the GVC alias as a CNAME to the workload's canonical endpoint for health-aware DNS.
+  # alias_workload_link = "/org/terraform-test-org/gvc/gvc-example/workload/my-workload"
 
   # Example Locations: `aws-eu-central-1`, `aws-us-west-2`, `azure-east2`, `gcp-us-east1`
   locations = ["aws-eu-central-1", "aws-us-west-2"]

@@ -28,6 +28,7 @@ type GvcSpec struct {
 	PullSecretLinks      *[]string                     `json:"pullSecretLinks,omitempty"`
 	Domain               *string                       `json:"domain,omitempty"`
 	EndpointNamingFormat *string                       `json:"endpointNamingFormat,omitempty"`
+	AliasWorkloadLink    *string                       `json:"aliasWorkloadLink,omitempty"`
 	Tracing              *Tracing                      `json:"tracing,omitempty"`
 	Sidecar              *GvcSidecar                   `json:"sidecar,omitempty"`
 	Env                  *[]WorkloadContainerNameValue `json:"env,omitempty"`
@@ -37,9 +38,9 @@ type GvcSpec struct {
 
 // GvcStaticPlacement - Static Placement
 type GvcStaticPlacement struct {
-	LocationLinks   *[]string                             `json:"locationLinks,omitempty"`
-	LocationQuery   *Query                                `json:"locationQuery,omitempty"`
-	LocationOptions *[]GvcStaticPlacementLocationOption   `json:"locationOptions,omitempty"`
+	LocationLinks   *[]string                           `json:"locationLinks,omitempty"`
+	LocationQuery   *Query                              `json:"locationQuery,omitempty"`
+	LocationOptions *[]GvcStaticPlacementLocationOption `json:"locationOptions,omitempty"`
 }
 
 // GvcStaticPlacementLocationOption - Per-location DNS geo routing options

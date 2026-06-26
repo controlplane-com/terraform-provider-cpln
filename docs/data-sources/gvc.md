@@ -23,6 +23,7 @@ The following attributes are exported:
 - **tags** (Map of String) Key-value map of resource tags.
 - **self_link** (String) Full link to this resource. Can be referenced by other resources.
 - **domain** (String) Custom domain name used by associated workloads.
+- **alias_workload_link** (String) A link to a workload in this GVC whose canonical endpoint backs the GVC alias DNS record. When set, the GVC alias is published as a CNAME to the workload's canonical endpoint, inheriting its HTTP health probes and per-location geo failover. When unset, the alias resolves directly to cluster ingress endpoints with no application-level health awareness. Has no effect while the referenced workload is globally suspended.
 - **locations** (List of String) A list of [locations](https://docs.controlplane.com/reference/location#current) making up the Global Virtual Cloud.
 - **pull_secrets** (List of String) A list of [pull secret](https://docs.controlplane.com/reference/gvc#pull-secrets) names used to authenticate to any private image repository referenced by Workloads within the GVC.
 - **lightstep_tracing** (Block List, Max: 1) ([see below](#nestedblock--lightstep_tracing)).
