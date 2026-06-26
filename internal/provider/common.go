@@ -1076,6 +1076,28 @@ func BuildRouteMirror(ctx context.Context, diags *diag.Diagnostics, state types.
 	return &result
 }
 
+// BuildRouteCanary constructs a []DomainRouteCanary from Terraform state.
+func BuildRouteCanary(ctx context.Context, diags *diag.Diagnostics, state types.List) *[]client.DomainRouteCanary {
+	blocks, ok := BuildList[domainmodel.RouteCanaryModel](ctx, diags, state)
+	if !ok {
+		return nil
+	}
+
+	// Construct the result slice
+	result := []client.DomainRouteCanary{}
+
+	// Iterate over each block and construct a result item
+	for _, block := range blocks {
+		result = append(result, client.DomainRouteCanary{
+			WorkloadLink: BuildString(block.WorkloadLink),
+			Port:         BuildInt(block.Port),
+			Weight:       BuildInt(block.Weight),
+		})
+	}
+
+	return &result
+}
+
 // Flatteners //
 
 // FlattenQuery transforms client.Query into a Terraform types.List.
@@ -1354,6 +1376,68 @@ func priorRouteMirrorWorkloadLinks(ctx context.Context, diags *diag.Diagnostics,
 
 	// Walk the prior mirror blocks
 	blocks, ok := BuildList[domainmodel.RouteMirrorModel](ctx, diags, priorState)
+
+	// Return an empty lookup when no prior blocks exist
+	if !ok {
+		return result
+	}
+
+	// Populate the lookup keyed by the trailing workload name
+	for _, block := range blocks {
+		// Skip blocks with no usable workload_link
+		if block.WorkloadLink.IsNull() || block.WorkloadLink.IsUnknown() {
+			continue
+		}
+
+		// Record the prior workload_link under its trailing workload name
+		result[GetNameFromSelfLink(block.WorkloadLink.ValueString())] = block.WorkloadLink
+	}
+
+	// Return the populated lookup
+	return result
+}
+
+// FlattenRouteCanary transforms []DomainRouteCanary into a Terraform types.List, preserving the user's chosen workload_link form via priorState.
+func FlattenRouteCanary(ctx context.Context, diags *diag.Diagnostics, priorState types.List, input *[]client.DomainRouteCanary, org string) types.List {
+	elementType := domainmodel.RouteCanaryModel{}.AttributeTypes()
+
+	if input == nil || len(*input) == 0 {
+		return types.ListNull(elementType)
+	}
+
+	// Build a lookup of prior canary workload_link values keyed by their trailing workload name
+	priorWorkloadLinks := priorRouteCanaryWorkloadLinks(ctx, diags, priorState)
+
+	// Define the blocks slice
+	blocks := []domainmodel.RouteCanaryModel{}
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Resolve the prior workload_link for this canary by its trailing workload name (zero value when absent)
+		var priorWorkloadLink types.String
+		if item.WorkloadLink != nil {
+			priorWorkloadLink = priorWorkloadLinks[GetNameFromSelfLink(*item.WorkloadLink)]
+		}
+
+		block := domainmodel.RouteCanaryModel{
+			WorkloadLink: FlattenLinkString(priorWorkloadLink, item.WorkloadLink, org),
+			Port:         FlattenInt(item.Port),
+			Weight:       FlattenInt(item.Weight),
+		}
+
+		blocks = append(blocks, block)
+	}
+
+	return FlattenList(ctx, diags, blocks)
+}
+
+// priorRouteCanaryWorkloadLinks builds a lookup of prior canary workload_link values keyed by their trailing workload name.
+func priorRouteCanaryWorkloadLinks(ctx context.Context, diags *diag.Diagnostics, priorState types.List) map[string]types.String {
+	// Initialize the lookup
+	result := map[string]types.String{}
+
+	// Walk the prior canary blocks
+	blocks, ok := BuildList[domainmodel.RouteCanaryModel](ctx, diags, priorState)
 
 	// Return an empty lookup when no prior blocks exist
 	if !ok {

@@ -500,6 +500,28 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 														},
 													},
 												},
+												"canary": schema.ListNestedBlock{
+													Description: "Routes a weighted percentage of traffic to one or more additional workloads. The combined weight of all canaries on a route must not exceed 100; the remaining weight goes to the primary workload. Only supported on http and http2 ports.",
+													NestedObject: schema.NestedBlockObject{
+														Attributes: map[string]schema.Attribute{
+															"workload_link": schema.StringAttribute{
+																Description: "The canary workload to route a weighted percentage of traffic to.",
+																Required:    true,
+															},
+															"port": schema.Int32Attribute{
+																Description: "The port to send canary traffic to. If not provided, the first configured port on the workload is used.",
+																Optional:    true,
+															},
+															"weight": schema.Int32Attribute{
+																Description: "The percentage of traffic to send to this canary workload. A weight of 0 disables the canary so it can be toggled on and off without removing it.",
+																Required:    true,
+																Validators: []validator.Int32{
+																	int32validator.Between(0, 100),
+																},
+															},
+														},
+													},
+												},
 											},
 										},
 									},
@@ -861,6 +883,7 @@ func (dro *DomainResourceOperator) buildSpecPortRoutes(state types.List) *[]clie
 			Headers:       BuildRouteHeaders(dro.Ctx, dro.Diags, block.Headers),
 			Replica:       BuildInt(block.Replica),
 			Mirror:        BuildRouteMirror(dro.Ctx, dro.Diags, block.Mirror),
+			Canaries:      BuildRouteCanary(dro.Ctx, dro.Diags, block.Canary),
 		}
 
 		// Add the route to the result slice
@@ -1073,9 +1096,10 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
 	}
 
-	// Build lookups of prior workload_link values and mirror blocks keyed by route key for this port
+	// Build lookups of prior workload_link values, mirror blocks, and canary blocks keyed by route key for this port
 	priorWorkloadLinks := dro.priorRouteWorkloadLinks(portNum)
 	priorMirrors := dro.priorRouteMirrors(portNum)
+	priorCanaries := dro.priorRouteCanaries(portNum)
 
 	// Filter API routes to only include those matching plan inline route keys
 	blocks := []models.RouteModel{}
@@ -1085,9 +1109,10 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 			continue
 		}
 
-		// Resolve the prior workload_link and mirror list for this route by key (zero value when absent)
+		// Resolve the prior workload_link, mirror list, and canary list for this route by key (zero value when absent)
 		priorWorkloadLink := priorWorkloadLinks[DomainRouteKey(item)]
 		priorMirror := priorMirrors[DomainRouteKey(item)]
+		priorCanary := priorCanaries[DomainRouteKey(item)]
 
 		block := models.RouteModel{
 			Prefix:        types.StringPointerValue(item.Prefix),
@@ -1100,6 +1125,7 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
 			Replica:       FlattenInt(item.Replica),
 			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
+			Canary:        FlattenRouteCanary(dro.Ctx, dro.Diags, priorCanary, item.Canaries, dro.Client.Org),
 		}
 
 		blocks = append(blocks, block)
@@ -1120,9 +1146,10 @@ func (dro *DomainResourceOperator) flattenRoutes(input *[]client.DomainRoute) ty
 
 	// Iterate over the slice and construct the blocks
 	for _, item := range *input {
-		// Resolve the prior workload_link and mirror list by scanning all prior route blocks for a matching key
+		// Resolve the prior workload_link, mirror list, and canary list by scanning all prior route blocks for a matching key
 		priorWorkloadLink := dro.priorRouteWorkloadLinkAnyPort(DomainRouteKey(item))
 		priorMirror := dro.priorRouteMirrorAnyPort(DomainRouteKey(item))
+		priorCanary := dro.priorRouteCanaryAnyPort(DomainRouteKey(item))
 
 		// Construct a block
 		block := models.RouteModel{
@@ -1136,6 +1163,7 @@ func (dro *DomainResourceOperator) flattenRoutes(input *[]client.DomainRoute) ty
 			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
 			Replica:       FlattenInt(item.Replica),
 			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
+			Canary:        FlattenRouteCanary(dro.Ctx, dro.Diags, priorCanary, item.Canaries, dro.Client.Org),
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1674,6 +1702,108 @@ func (dro *DomainResourceOperator) priorRouteMirrorAnyPort(key string) types.Lis
 			for _, route := range routes {
 				if dro.routeModelKey(route) == key {
 					return route.Mirror
+				}
+			}
+		}
+	}
+
+	// Return a null list when no matching prior route is found
+	return nullList
+}
+
+// priorRouteCanaries builds a lookup of prior route canary blocks keyed by route key for a given port.
+func (dro *DomainResourceOperator) priorRouteCanaries(portNum int) map[string]types.List {
+	// Initialize the lookup
+	result := map[string]types.List{}
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return an empty lookup when no prior spec exists
+	if !ok {
+		return result
+	}
+
+	// Iterate planned specs to find the matching port and its routes
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Resolve the port number for matching
+			pNum := 0
+			if !port.Number.IsNull() && !port.Number.IsUnknown() {
+				pNum = int(port.Number.ValueInt32())
+			}
+
+			// Skip ports that do not match the requested port
+			if pNum != portNum {
+				continue
+			}
+
+			// Build the prior routes list for this port
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			// Record each prior route's canary list under its stable key
+			for _, route := range routes {
+				key := dro.routeModelKey(route)
+				if key == "" {
+					continue
+				}
+				result[key] = route.Canary
+			}
+		}
+	}
+
+	// Return the populated lookup
+	return result
+}
+
+// priorRouteCanaryAnyPort returns the prior route canary list for a route matching the given key across all ports.
+func (dro *DomainResourceOperator) priorRouteCanaryAnyPort(key string) types.List {
+	// Default to a null canary list
+	nullList := types.ListNull(models.RouteCanaryModel{}.AttributeTypes())
+
+	// Skip blank keys to avoid spurious matches
+	if key == "" {
+		return nullList
+	}
+
+	// Walk the prior plan/state's spec list
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+
+	// Return a null list when no prior spec exists
+	if !ok {
+		return nullList
+	}
+
+	// Iterate planned specs to scan every port's routes
+	for _, spec := range specs {
+		// Build the prior ports list
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		// Iterate planned ports
+		for _, port := range ports {
+			// Build the prior routes list for this port
+			routes, ok := BuildList[models.RouteModel](dro.Ctx, dro.Diags, port.Route)
+			if !ok {
+				continue
+			}
+
+			// Return the first prior route's canary list whose key matches
+			for _, route := range routes {
+				if dro.routeModelKey(route) == key {
+					return route.Canary
 				}
 			}
 		}

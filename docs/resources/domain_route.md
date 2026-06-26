@@ -35,6 +35,7 @@ Used in conjunction with a Domain.
 - **headers** (Block List, Max: 1) ([see below](#nestedblock--headers))
 - **replica** (Number) The replica number of a stateful workload to route to. If not provided, traffic will be routed to all replicas.
 - **mirror** (Block List) ([see below](#nestedblock--mirror))
+- **canary** (Block List) ([see below](#nestedblock--canary))
 
 <a id="nestedblock--headers"></a>
 
@@ -70,6 +71,21 @@ Required:
 Optional:
 
 - **port** (Number) The port on the mirrored workload to send traffic to. If not provided, traffic will be mirrored to the first discovered port on the mirrored workload.
+
+<a id="nestedblock--canary"></a>
+
+### `canary`
+
+Routes a weighted percentage of traffic to one or more additional workloads. The combined weight of all canaries on a route must not exceed 100; the remaining weight goes to the primary workload. A canary with a weight of `0` is skipped, allowing it to be toggled on and off without removing it. Only supported on `http` and `http2` ports.
+
+Required:
+
+- **workload_link** (String) The canary workload to route a weighted percentage of traffic to.
+- **weight** (Number) The percentage of traffic to send to this canary workload. Value between 0 and 100.
+
+Optional:
+
+- **port** (Number) The port to send canary traffic to. If not provided, the first configured port on the workload is used.
 
 ## Example Usage
 
@@ -293,6 +309,12 @@ resource "cpln_domain_route" "second-route" {
   mirror {
     workload_link = "LINK_TO_MIRROR_WORKLOAD"
     percent       = 50
+  }
+
+  canary {
+    workload_link = "LINK_TO_CANARY_WORKLOAD"
+    port          = 80
+    weight        = 25
   }
 }
 ```
