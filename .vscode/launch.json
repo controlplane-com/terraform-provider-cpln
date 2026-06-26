@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneDomain_basic",
+        "TestAccControlPlaneOrgLogging_basic",
         "-test.v"
       ]
     }

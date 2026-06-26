@@ -121,6 +121,13 @@ type OpenTelemetryLogging struct {
 	Credentials *string                 `json:"credentials,omitempty"`
 }
 
+// LokiLogging - LokiLogging
+type LokiLogging struct {
+	Endpoint    *string `json:"endpoint,omitempty"`
+	Credentials *string `json:"credentials,omitempty"`
+	TenantID    *string `json:"tenantId,omitempty"`
+}
+
 // Logging - Logging
 type Logging struct {
 	S3            *S3Logging            `json:"s3,omitempty"`
@@ -133,6 +140,7 @@ type Logging struct {
 	Stackdriver   *StackdriverLogging   `json:"stackdriver,omitempty"`
 	Syslog        *SyslogLogging        `json:"syslog,omitempty"`
 	OpenTelemetry *OpenTelemetryLogging `json:"opentelemetry,omitempty"`
+	Loki          *LokiLogging          `json:"loki,omitempty"`
 }
 
 // AuthConfig - AuthConfig
