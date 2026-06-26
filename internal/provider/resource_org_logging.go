@@ -22,7 +22,7 @@ import (
 var loggingTypes = []string{
 	"s3_logging", "coralogix_logging", "datadog_logging", "logzio_logging",
 	"elastic_logging", "cloud_watch_logging", "fluentd_logging", "stackdriver_logging",
-	"syslog_logging", "opentelemetry_logging",
+	"syslog_logging", "opentelemetry_logging", "loki_logging",
 }
 
 // Ensure resource implements required interfaces.
@@ -51,6 +51,7 @@ type OrgLoggingResourceModel struct {
 	StackdriverLogging   types.Set    `tfsdk:"stackdriver_logging"`
 	SyslogLogging        types.Set    `tfsdk:"syslog_logging"`
 	OpenTelemetryLogging types.Set    `tfsdk:"opentelemetry_logging"`
+	LokiLogging          types.Set    `tfsdk:"loki_logging"`
 }
 
 /*** Resource Configuration ***/
@@ -419,6 +420,25 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 					},
 				},
 			},
+			"loki_logging": schema.SetNestedBlock{
+				Description: "For logging and analyzing data within an org using Grafana Loki.",
+				NestedObject: schema.NestedBlockObject{
+					Attributes: map[string]schema.Attribute{
+						"endpoint": schema.StringAttribute{
+							Description: "Loki endpoint to push logs to (e.g. `https://logs-prod-012.grafana.net`).",
+							Required:    true,
+						},
+						"credentials": schema.StringAttribute{
+							Description: "Full link to a secret of type `userpass`. For Grafana Cloud, set the username to the instance ID and the password to an access token.",
+							Optional:    true,
+						},
+						"tenant_id": schema.StringAttribute{
+							Description: "The `X-Scope-OrgID` header value used for self-hosted multi-tenant Loki.",
+							Optional:    true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -617,6 +637,8 @@ func (olr *OrgLoggingResource) buildRequest(ctx context.Context, diags *diag.Dia
 			loggingToAdd = olr.buildSyslogLogging(ctx, diags, state.SyslogLogging)
 		case "opentelemetry_logging":
 			loggingToAdd = olr.buildOpenTelemetryLogging(ctx, diags, state.OpenTelemetryLogging)
+		case "loki_logging":
+			loggingToAdd = olr.buildLokiLogging(ctx, diags, state.LokiLogging)
 		default:
 			continue
 		}
@@ -676,6 +698,7 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 		var stackdriverArray []client.StackdriverLogging
 		var syslogArray []client.SyslogLogging
 		var openTelemetryArray []client.OpenTelemetryLogging
+		var lokiArray []client.LokiLogging
 
 		// Iterate over each logging entry to categorize by type
 		for _, logging := range loggings {
@@ -728,6 +751,11 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 			if logging.OpenTelemetry != nil {
 				openTelemetryArray = append(openTelemetryArray, *logging.OpenTelemetry)
 			}
+
+			// Collect Loki logging entries
+			if logging.Loki != nil {
+				lokiArray = append(lokiArray, *logging.Loki)
+			}
 		}
 
 		// Flatten loggings
@@ -741,6 +769,7 @@ func (olr *OrgLoggingResource) buildState(ctx context.Context, diags *diag.Diagn
 		state.StackdriverLogging = olr.flattenStackdriverLogging(ctx, diags, priorCredentials, &stackdriverArray)
 		state.SyslogLogging = olr.flattenSyslogLogging(ctx, diags, &syslogArray)
 		state.OpenTelemetryLogging = olr.flattenOpenTelemetryLogging(ctx, diags, priorCredentials, &openTelemetryArray)
+		state.LokiLogging = olr.flattenLokiLogging(ctx, diags, priorCredentials, &lokiArray)
 	}
 
 	// Return completed state model
@@ -1172,6 +1201,41 @@ func (olr *OrgLoggingResource) buildOpenTelemetryLogging(ctx context.Context, di
 	return &output
 }
 
+// buildLokiLogging constructs a []client.Logging from the given Terraform state.
+func (olr *OrgLoggingResource) buildLokiLogging(ctx context.Context, diags *diag.Diagnostics, state types.Set) *[]client.Logging {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.LokiLoggingModel](ctx, diags, state)
+
+	// Return nil if conversion failed or set was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Logging{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.LokiLogging{
+			Endpoint:    BuildString(block.Endpoint),
+			Credentials: BuildString(block.Credentials),
+			TenantID:    BuildString(block.TenantID),
+		}
+
+		// Construct logging
+		logging := client.Logging{
+			Loki: &item,
+		}
+
+		// Add the item to the output slice
+		output = append(output, logging)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
 // Flatteners //
 
 // flattenS3Logging transforms *[]client.S3Logging into a types.Set.
@@ -1560,6 +1624,37 @@ func (olr *OrgLoggingResource) flattenOpenTelemetryLogging(ctx context.Context, 
 	return FlattenSet(ctx, diags, blocks)
 }
 
+// flattenLokiLogging transforms *[]client.LokiLogging into a types.Set.
+func (olr *OrgLoggingResource) flattenLokiLogging(ctx context.Context, diags *diag.Diagnostics, priorCredentials map[string]types.String, input *[]client.LokiLogging) types.Set {
+	// Get attribute types
+	elementType := models.LokiLoggingModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null set
+		return types.SetNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.LokiLoggingModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.LokiLoggingModel{
+			Endpoint:    types.StringPointerValue(item.Endpoint),
+			Credentials: olr.flattenCredentialLink(priorCredentials, item.Credentials),
+			TenantID:    types.StringPointerValue(item.TenantID),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.Set
+	return FlattenSet(ctx, diags, blocks)
+}
+
 /*** Helpers ***/
 
 // ValidateLogging ensures the logging configurations meet size requirements.
@@ -1679,6 +1774,13 @@ func (olr *OrgLoggingResource) collectPriorCredentialLinks(ctx context.Context, 
 
 	// Collect prior OpenTelemetry logging credentials
 	if blocks, ok := BuildSet[models.OpenTelemetryLoggingModel](ctx, diags, plan.OpenTelemetryLogging); ok {
+		for _, b := range blocks {
+			record(b.Credentials)
+		}
+	}
+
+	// Collect prior Loki logging credentials
+	if blocks, ok := BuildSet[models.LokiLoggingModel](ctx, diags, plan.LokiLogging); ok {
 		for _, b := range blocks {
 			record(b.Credentials)
 		}

@@ -24,6 +24,7 @@ You can define up to **four** logging blocks:
 - **stackdriver_logging** (Block List, Max: 1) ([see below](#nestedblock--stackdriver_logging))
 - **syslog_logging** (Block List, Max: 1) ([see below](#nestedblock--syslog_logging))
 - **opentelemetry_logging** (Block List, Max: 1) ([see below](#nestedblock--opentelemetry_logging)).
+- **loki_logging** (Block List, Max: 1) ([see below](#nestedblock--loki_logging)).
 
 <a id="nestedblock--s3_logging"></a>
 
@@ -217,6 +218,19 @@ Optional:
 
 - **headers** (Map of String) Custom headers to include in OpenTelemetry export requests.
 - **credentials** (String) Full link to a secret of type `opaque`.
+
+<a id="nestedblock--loki_logging"></a>
+
+### `loki_logging`
+
+Required:
+
+- **endpoint** (String) Loki endpoint to push logs to (e.g. `https://logs-prod-012.grafana.net`).
+
+Optional:
+
+- **credentials** (String) Full link to a secret of type `userpass`. For Grafana Cloud, set the username to the instance ID and the password to an access token.
+- **tenant_id** (String) The `X-Scope-OrgID` header value used for self-hosted multi-tenant Loki.
 
 ## Outputs
 
@@ -599,6 +613,33 @@ resource "cpln_org_logging" "new" {
 
     // Opaque Secret Only
     credentials = cpln_secret.opaque.self_link
+  }
+}
+```
+
+### Loki
+
+```terraform
+resource "cpln_secret" "userpass" {
+  name = "example"
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "new" {
+
+  loki_logging {
+    endpoint = "https://logs-prod-012.grafana.net"
+
+    // UserPass Secret Only
+    credentials = cpln_secret.userpass.self_link
+
+    // X-Scope-OrgID for self-hosted multi-tenant Loki
+    tenant_id = "my-tenant"
   }
 }
 ```

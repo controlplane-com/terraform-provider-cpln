@@ -47,6 +47,7 @@ func NewOrgLoggingResourceTest() OrgLoggingResourceTest {
 
 	// Fill the steps slice
 	steps = append(steps, resourceTest.NewDefaultScenario()...)
+	steps = append(steps, resourceTest.NewLokiLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -116,6 +117,7 @@ func (olrt *OrgLoggingResourceTest) NewDefaultScenario() []resource.TestStep {
 	caseUpdate12 := olrt.BuildUpdate12TestStep(initialConfig.ProviderTestCase)
 	caseUpdate13 := olrt.BuildUpdate13TestStep(initialConfig.ProviderTestCase)
 	caseUpdate14 := olrt.BuildUpdate14TestStep(initialConfig.ProviderTestCase)
+	caseUpdate15 := olrt.BuildUpdate15TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -141,8 +143,34 @@ func (olrt *OrgLoggingResourceTest) NewDefaultScenario() []resource.TestStep {
 		caseUpdate12,
 		caseUpdate13,
 		caseUpdate14,
+		caseUpdate15,
 		// Revert the resource to its initial state
 		initialStep,
+	}
+}
+
+// NewLokiLifecycleScenario walks the org's loki_logging block through every cardinality transition against a constant fluentd baseline.
+func (olrt *OrgLoggingResourceTest) NewLokiLifecycleScenario() []resource.TestStep {
+	// Build the per-stage test steps
+	absentStep := olrt.BuildLokiAbsentTestStep()
+	requiredOnlyStep := olrt.BuildLokiRequiredOnlyTestStep()
+	allMultiStep := olrt.BuildLokiAllMultiTestStep()
+	expandedStep := olrt.BuildLokiExpandedTestStep()
+
+	// Walk the loki_logging block: absent -> required-only -> all-attrs+multiple -> expand -> shrink -> remove
+	return []resource.TestStep{
+		// Org logging has only the fluentd baseline; no loki blocks
+		absentStep,
+		// One loki with only its required attribute (endpoint)
+		requiredOnlyStep,
+		// Two loki blocks: one with every attribute set, one required-only
+		allMultiStep,
+		// Grow to three loki blocks so the build/flatten loop runs at a non-trivial count
+		expandedStep,
+		// Shrink back to two loki blocks (re-use the all-attrs step)
+		allMultiStep,
+		// Remove every loki block while the fluentd baseline persists (re-use the absent step)
+		absentStep,
 	}
 }
 
@@ -554,6 +582,154 @@ func (olrt *OrgLoggingResourceTest) BuildUpdate14TestStep(initialCase ProviderTe
 						"x-api-key": "test-key",
 					},
 					"credentials": fmt.Sprintf("//secret/tf-opaque-%s", olrt.RandomName),
+				},
+			}),
+		),
+	}
+}
+
+// BuildUpdate15TestStep returns a test step for the update.
+func (olrt *OrgLoggingResourceTest) BuildUpdate15TestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := OrgLoggingResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the inital test step
+	return resource.TestStep{
+		Config: olrt.HclLoggingLoki(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("loki_logging", []map[string]interface{}{
+				{
+					"endpoint":    "https://logs-prod-012.grafana.net",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-userpass-loki-%s", olrt.RandomName)),
+					"tenant_id":   "my-tenant",
+				},
+			}),
+		),
+	}
+}
+
+// newLokiLifecycleCase builds the shared test case the Loki lifecycle steps assert against, reusing the default scenario's resource.
+func (olrt *OrgLoggingResourceTest) newLokiLifecycleCase() OrgLoggingResourceTestCase {
+	// Reuse the default scenario's resource so the lifecycle continues the same org logging resource
+	return OrgLoggingResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "org",
+			ResourceName:    "tf-logging",
+			ResourceAddress: "cpln_org_logging.tf-logging",
+			Name:            OrgName,
+			Description:     OrgName,
+		},
+	}
+}
+
+// BuildLokiAbsentTestStep returns a step where org logging has only the fluentd baseline and no loki blocks.
+func (olrt *OrgLoggingResourceTest) BuildLokiAbsentTestStep() resource.TestStep {
+	// Resolve the shared lifecycle case
+	c := olrt.newLokiLifecycleCase()
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: olrt.LokiAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("fluentd_logging", []map[string]interface{}{
+				{
+					"host": "fluentd.example.com",
+					"port": "24224",
+				},
+			}),
+			// No loki blocks are present on the org logging
+			c.TestCheckResourceAttr("loki_logging.#", "0"),
+		),
+	}
+}
+
+// BuildLokiRequiredOnlyTestStep returns a step with a single loki that sets only its required attribute.
+func (olrt *OrgLoggingResourceTest) BuildLokiRequiredOnlyTestStep() resource.TestStep {
+	// Resolve the shared lifecycle case
+	c := olrt.newLokiLifecycleCase()
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: olrt.LokiRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("fluentd_logging", []map[string]interface{}{
+				{
+					"host": "fluentd.example.com",
+					"port": "24224",
+				},
+			}),
+			c.TestCheckNestedBlocks("loki_logging", []map[string]interface{}{
+				{
+					"endpoint": "https://logs-prod-002.grafana.net",
+				},
+			}),
+		),
+	}
+}
+
+// BuildLokiAllMultiTestStep returns a step with two loki blocks covering every attribute and a required-only block.
+func (olrt *OrgLoggingResourceTest) BuildLokiAllMultiTestStep() resource.TestStep {
+	// Resolve the shared lifecycle case
+	c := olrt.newLokiLifecycleCase()
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: olrt.LokiAllMultiHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("fluentd_logging", []map[string]interface{}{
+				{
+					"host": "fluentd.example.com",
+					"port": "24224",
+				},
+			}),
+			c.TestCheckNestedBlocks("loki_logging", []map[string]interface{}{
+				{
+					"endpoint":    "https://logs-prod-001.grafana.net",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-userpass-loki-life-%s", olrt.RandomName)),
+					"tenant_id":   "tenant-a",
+				},
+				{
+					"endpoint": "https://logs-prod-002.grafana.net",
+				},
+			}),
+		),
+	}
+}
+
+// BuildLokiExpandedTestStep returns a step with three loki blocks so the build/flatten loop runs at a non-trivial count.
+func (olrt *OrgLoggingResourceTest) BuildLokiExpandedTestStep() resource.TestStep {
+	// Resolve the shared lifecycle case
+	c := olrt.newLokiLifecycleCase()
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: olrt.LokiExpandedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.GetDefaultChecks(c.Description, "0"),
+			c.TestCheckNestedBlocks("fluentd_logging", []map[string]interface{}{
+				{
+					"host": "fluentd.example.com",
+					"port": "24224",
+				},
+			}),
+			c.TestCheckNestedBlocks("loki_logging", []map[string]interface{}{
+				{
+					"endpoint":    "https://logs-prod-001.grafana.net",
+					"credentials": GetSelfLink(OrgName, "secret", fmt.Sprintf("tf-userpass-loki-life-%s", olrt.RandomName)),
+					"tenant_id":   "tenant-a",
+				},
+				{
+					"endpoint": "https://logs-prod-002.grafana.net",
+				},
+				{
+					"endpoint":  "https://logs-prod-003.grafana.net",
+					"tenant_id": "tenant-c",
 				},
 			}),
 		),
@@ -1010,6 +1186,177 @@ resource "cpln_org_logging" "%s" {
 
     // Opaque Secret Only
     credentials = "//secret/${cpln_secret.opaque.name}"
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// HclLoggingLoki returns a HCL block for a resource.
+func (olrt *OrgLoggingResourceTest) HclLoggingLoki(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "userpass-loki" {
+  name        = "tf-userpass-loki-${var.random_name}"
+  description = "userpass-loki description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "userpass"
+  }
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  loki_logging {
+    endpoint = "https://logs-prod-012.grafana.net"
+
+    // UserPass Secret Only
+    credentials = cpln_secret.userpass-loki.self_link
+
+    // X-Scope-OrgID for self-hosted multi-tenant Loki
+    tenant_id = "my-tenant"
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// LokiAbsentHcl returns HCL where org logging has only the fluentd baseline and no loki blocks.
+func (olrt *OrgLoggingResourceTest) LokiAbsentHcl(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_org_logging" "%s" {
+
+  fluentd_logging {
+    host = "fluentd.example.com"
+    port = 24224
+  }
+}
+`, c.ResourceName)
+}
+
+// LokiRequiredOnlyHcl returns HCL for a single loki block that sets only its required attribute.
+func (olrt *OrgLoggingResourceTest) LokiRequiredOnlyHcl(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_org_logging" "%s" {
+
+  fluentd_logging {
+    host = "fluentd.example.com"
+    port = 24224
+  }
+
+  loki_logging {
+    endpoint = "https://logs-prod-002.grafana.net"
+  }
+}
+`, c.ResourceName)
+}
+
+// LokiAllMultiHcl returns HCL for two loki blocks covering every attribute and a required-only block.
+func (olrt *OrgLoggingResourceTest) LokiAllMultiHcl(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "userpass-loki-life" {
+  name        = "tf-userpass-loki-life-${var.random_name}"
+  description = "userpass-loki-life description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "userpass"
+  }
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  fluentd_logging {
+    host = "fluentd.example.com"
+    port = 24224
+  }
+
+  loki_logging {
+    endpoint = "https://logs-prod-001.grafana.net"
+
+    // UserPass Secret Only
+    credentials = cpln_secret.userpass-loki-life.self_link
+
+    tenant_id = "tenant-a"
+  }
+
+  loki_logging {
+    endpoint = "https://logs-prod-002.grafana.net"
+  }
+}
+`, olrt.RandomName, c.ResourceName)
+}
+
+// LokiExpandedHcl returns HCL for three loki blocks so the build/flatten loop runs at a non-trivial count.
+func (olrt *OrgLoggingResourceTest) LokiExpandedHcl(c OrgLoggingResourceTestCase) string {
+	return fmt.Sprintf(`
+variable random_name {
+  type    = string
+  default = "%s"
+}
+
+resource "cpln_secret" "userpass-loki-life" {
+  name        = "tf-userpass-loki-life-${var.random_name}"
+  description = "userpass-loki-life description"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    secret_type         = "userpass"
+  }
+
+  userpass {
+    username = "cpln_username"
+    password = "cpln_password"
+    encoding = "plain"
+  }
+}
+
+resource "cpln_org_logging" "%s" {
+
+  fluentd_logging {
+    host = "fluentd.example.com"
+    port = 24224
+  }
+
+  loki_logging {
+    endpoint = "https://logs-prod-001.grafana.net"
+
+    // UserPass Secret Only
+    credentials = cpln_secret.userpass-loki-life.self_link
+
+    tenant_id = "tenant-a"
+  }
+
+  loki_logging {
+    endpoint = "https://logs-prod-002.grafana.net"
+  }
+
+  loki_logging {
+    endpoint  = "https://logs-prod-003.grafana.net"
+    tenant_id = "tenant-c"
   }
 }
 `, olrt.RandomName, c.ResourceName)

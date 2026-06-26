@@ -366,3 +366,21 @@ func (o OpenTelemetryLoggingModel) AttributeTypes() attr.Type {
 		},
 	}
 }
+
+// Loki Logging //
+
+type LokiLoggingModel struct {
+	Endpoint    types.String `tfsdk:"endpoint"`
+	Credentials types.String `tfsdk:"credentials"`
+	TenantID    types.String `tfsdk:"tenant_id"`
+}
+
+func (l LokiLoggingModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"endpoint":    types.StringType,
+			"credentials": types.StringType,
+			"tenant_id":   types.StringType,
+		},
+	}
+}
