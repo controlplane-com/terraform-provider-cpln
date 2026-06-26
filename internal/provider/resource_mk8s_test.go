@@ -3038,8 +3038,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -3361,8 +3362,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -3689,8 +3691,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -3990,8 +3993,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -4292,8 +4296,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -4593,8 +4598,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -4899,8 +4905,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -5310,8 +5317,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -5621,8 +5629,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -5955,8 +5964,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -6262,8 +6272,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -6679,8 +6690,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -6999,8 +7011,9 @@ resource "cpln_mk8s" "%s" {
         middlebox = {
           enabled              = false
           bandwidth_alert_mbps = 650
-          port                 = 8443
           ip                   = "10.0.0.5"
+          ingress_replicas     = 2
+          port                 = 8443
         }
 
         common = {
@@ -7221,6 +7234,7 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 			"middlebox": map[string]interface{}{
 				"enabled":              false,
 				"bandwidth_alert_mbps": 650,
+				"ingress_replicas":     0,
 			},
 			"common": map[string]interface{}{
 				"deployment_replicas": 1,
@@ -7318,8 +7332,9 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 		"max_memory": "400Mi",
 	}
 
-	output["config"].(map[string]interface{})["middlebox"].(map[string]interface{})["port"] = 8443
 	output["config"].(map[string]interface{})["middlebox"].(map[string]interface{})["ip"] = "10.0.0.5"
+	output["config"].(map[string]interface{})["middlebox"].(map[string]interface{})["ingress_replicas"] = 2
+	output["config"].(map[string]interface{})["middlebox"].(map[string]interface{})["port"] = 8443
 
 	output["config"].(map[string]interface{})["longhorn"].(map[string]interface{})["number_of_replicas"] = 2
 	output["config"].(map[string]interface{})["longhorn"].(map[string]interface{})["is_default"] = true

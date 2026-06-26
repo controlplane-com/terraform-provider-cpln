@@ -1309,12 +1309,21 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 														int32validator.AtLeast(0),
 													},
 												},
-												"port": schema.Int32Attribute{
-													Description: "Listening port for the middlebox component.",
-													Optional:    true,
-												},
 												"ip": schema.StringAttribute{
 													Description: "IPv4 address bound by the middlebox component.",
+													Optional:    true,
+												},
+												"ingress_replicas": schema.Int32Attribute{
+													Description: "Number of ingress replicas deployed for the middlebox component. Default: `0`.",
+													Optional:    true,
+													Computed:    true,
+													Default:     int32default.StaticInt32(0),
+													Validators: []validator.Int32{
+														int32validator.AtLeast(0),
+													},
+												},
+												"port": schema.Int32Attribute{
+													Description: "Listening port for the middlebox component.",
 													Optional:    true,
 												},
 											},
@@ -2405,8 +2414,9 @@ func defaultByokConfigValue() types.Object {
 		map[string]attr.Value{
 			"enabled":              types.BoolValue(false),
 			"bandwidth_alert_mbps": types.Int32Value(650),
-			"port":                 types.Int32Null(),
 			"ip":                   types.StringNull(),
+			"ingress_replicas":     types.Int32Value(0),
+			"port":                 types.Int32Null(),
 		},
 	)
 
@@ -4226,8 +4236,9 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMiddlebox(state types.Object) *cl
 	return &client.Mk8sByokAddOnConfigMiddlebox{
 		Enabled:            BuildBool(block.Enabled),
 		BandwidthAlertMbps: BuildInt(block.BandwidthAlertMbps),
-		Port:               BuildInt(block.Port),
 		IP:                 BuildString(block.IP),
+		IngressReplicas:    BuildInt(block.IngressReplicas),
+		Port:               BuildInt(block.Port),
 	}
 }
 
@@ -6299,8 +6310,9 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMiddlebox(input *client.Mk8sByo
 	block := models.AddOnsByokMiddleboxModel{
 		Enabled:            types.BoolPointerValue(input.Enabled),
 		BandwidthAlertMbps: FlattenInt(input.BandwidthAlertMbps),
-		Port:               FlattenInt(input.Port),
 		IP:                 types.StringPointerValue(input.IP),
+		IngressReplicas:    FlattenInt(input.IngressReplicas),
+		Port:               FlattenInt(input.Port),
 	}
 
 	// Return the successfully created types.Object

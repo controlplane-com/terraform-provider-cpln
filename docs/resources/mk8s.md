@@ -949,8 +949,9 @@ Optional:
 
 - **enabled** (Boolean) Whether to deploy the middlebox component.
 - **bandwidth_alert_mbps** (Number) Alert threshold, in Mbps, for middlebox bandwidth usage.
-- **port** (Number) Listening port for the middlebox component.
 - **ip** (String) IPv4 address bound by the middlebox component.
+- **ingress_replicas** (Number) Number of ingress replicas deployed for the middlebox component. Default: `0`.
+- **port** (Number) Listening port for the middlebox component.
 
 <a id="nestedblock--add_ons--byok--config--common"></a>
 
@@ -1457,8 +1458,9 @@ resource "cpln_mk8s" "generic" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -1779,8 +1781,9 @@ resource "cpln_mk8s" "hetzner" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -2117,8 +2120,9 @@ resource "cpln_mk8s" "aws" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -2416,8 +2420,9 @@ resource "cpln_mk8s" "linode" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -2716,8 +2721,9 @@ resource "cpln_mk8s" "oblivus" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -3015,8 +3021,9 @@ resource "cpln_mk8s" "lambdalabs" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -3314,8 +3321,9 @@ resource "cpln_mk8s" "paperspace" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -3594,8 +3602,9 @@ resource "cpln_mk8s" "ephemeral" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -3897,8 +3906,9 @@ resource "cpln_mk8s" "triton" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -4206,8 +4216,9 @@ resource "cpln_mk8s" "triton" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -4538,8 +4549,9 @@ resource "cpln_mk8s" "triton" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -5100,8 +5112,9 @@ resource "cpln_mk8s" "gcp-provider" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
@@ -5396,8 +5409,9 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                 middlebox = {
                     enabled              = false
                     bandwidth_alert_mbps = 650
-                    port                 = 8443
                     ip                   = "10.0.0.5"
+                    ingress_replicas     = 2
+                    port                 = 8443
                 }
 
                 common = {
