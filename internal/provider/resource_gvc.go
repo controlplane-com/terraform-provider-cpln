@@ -43,6 +43,7 @@ type GvcResourceModel struct {
 	PullSecrets          types.Set    `tfsdk:"pull_secrets"`
 	Domain               types.String `tfsdk:"domain"`
 	EndpointNamingFormat types.String `tfsdk:"endpoint_naming_format"`
+	AliasWorkloadLink    types.String `tfsdk:"alias_workload_link"`
 	Env                  types.Map    `tfsdk:"env"`
 	LightstepTracing     types.List   `tfsdk:"lightstep_tracing"`
 	OtelTracing          types.List   `tfsdk:"otel_tracing"`
@@ -197,6 +198,13 @@ func (gr *GvcResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 				Validators: []validator.String{
 					stringvalidator.OneOf("default", "org", "legacy"),
+				},
+			},
+			"alias_workload_link": schema.StringAttribute{
+				Description: "A link to a workload in this GVC whose canonical endpoint backs the GVC alias DNS record. When set, the GVC alias is published as a CNAME to the workload's canonical endpoint, inheriting its HTTP health probes and per-location geo failover. When unset, the alias resolves directly to cluster ingress endpoints with no application-level health awareness. Has no effect while the referenced workload is globally suspended.",
+				Optional:    true,
+				Validators: []validator.String{
+					validators.LinkValidator{},
 				},
 			},
 			"env": schema.MapAttribute{
@@ -490,6 +498,7 @@ func (gro *GvcResourceOperator) NewAPIRequest(isUpdate bool) client.Gvc {
 	spec.PullSecretLinks = gro.buildPullSecrets(gro.Plan.PullSecrets)
 	spec.Domain = BuildString(gro.Plan.Domain)
 	spec.EndpointNamingFormat = BuildString(gro.Plan.EndpointNamingFormat)
+	spec.AliasWorkloadLink = BuildString(gro.Plan.AliasWorkloadLink)
 	spec.Tracing = gro.BuildTracing(gro.Plan.LightstepTracing, gro.Plan.OtelTracing, gro.Plan.ControlPlaneTracing)
 	spec.Sidecar = gro.buildSidecar(gro.Plan.Sidecar)
 	spec.Env = gro.buildEnv(gro.Plan.Env)
@@ -523,6 +532,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 		state.PullSecrets = gro.flattenPullSecrets(gvc.Spec.PullSecretLinks)
 		state.Domain = types.StringPointerValue(gvc.Spec.Domain)
 		state.EndpointNamingFormat = types.StringPointerValue(gvc.Spec.EndpointNamingFormat)
+		state.AliasWorkloadLink = gro.FlattenLinkString(gro.Plan.AliasWorkloadLink, gvc.Spec.AliasWorkloadLink, gro.Client.Org)
 		state.Env = gro.flattenEnv(gvc.Spec.Env)
 		state.LightstepTracing = lightstepTracing
 		state.OtelTracing = otelTracing
@@ -537,6 +547,7 @@ func (gro *GvcResourceOperator) MapResponseToState(gvc *client.Gvc, isCreate boo
 		state.PullSecrets = types.SetNull(types.StringType)
 		state.Domain = types.StringNull()
 		state.EndpointNamingFormat = types.StringNull()
+		state.AliasWorkloadLink = types.StringNull()
 		state.Env = types.MapNull(types.StringType)
 		state.LightstepTracing = types.ListNull(commonmodels.LightstepTracingModel{}.AttributeTypes())
 		state.OtelTracing = types.ListNull(commonmodels.OtelTracingModel{}.AttributeTypes())

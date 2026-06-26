@@ -458,6 +458,7 @@ func (grt *GvcResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase, e
 			c.Exists(),
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "alias_workload_link", fmt.Sprintf("//gvc/%s/workload/non-existant-workload", c.Name)),
 			c.TestCheckSetAttr("locations", c.Locations),
 			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
 			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
@@ -569,6 +570,7 @@ func (grt *GvcResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase, e
 			c.Exists(),
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "alias_workload_link", fmt.Sprintf("//gvc/%s/workload/non-existant-workload", c.Name)),
 			c.TestCheckSetAttr("locations", c.Locations),
 			c.TestCheckSetAttr("pull_secrets", c.PullSecrets),
 			c.TestCheckMapAttr("env", ConvertMapToStringMap(c.Env)),
@@ -672,6 +674,7 @@ func (grt *GvcResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase, e
 			c.Exists(),
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "endpoint_naming_format", c.EndpointNamingFormat),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "alias_workload_link", fmt.Sprintf("//gvc/%s/workload/non-existant-workload", c.Name)),
 			c.TestCheckSetAttr("locations", c.Locations),
 			c.TestCheckNestedBlocks("location_options", []map[string]interface{}{
 				{
@@ -1181,6 +1184,8 @@ resource "cpln_gvc" "%s" {
   locations              = %s
   pull_secrets           = %s
 
+  alias_workload_link = "//gvc/%s/workload/non-existant-workload"
+
   tags = {
     terraform_generated = "true"
     acceptance_test     = "true"
@@ -1232,6 +1237,7 @@ resource "cpln_gvc" "%s" {
   }
 }
 `, opaqueSecretResource, c.ResourceName, c.Name, c.DescriptionUpdate, c.EndpointNamingFormat, StringSliceToString(c.Locations), StringSliceToString(c.PullSecrets),
+		c.Name,
 		MapToHCL(c.Env, 2), tracingBlock, strconv.FormatBool(*c.LoadBalancer.Dedicated), *c.LoadBalancer.TrustedProxies, *c.LoadBalancer.IpSet,
 		strconv.FormatBool(*c.LoadBalancer.MultiZone.Enabled), *c.LoadBalancer.Redirect.Class.Status5XX, *c.LoadBalancer.Redirect.Class.Status401, c.Envoy, OrgName, c.Name,
 	)

@@ -99,6 +99,10 @@ func (d *GvcDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 					stringvalidator.OneOf("default", "org", "legacy"),
 				},
 			},
+			"alias_workload_link": schema.StringAttribute{
+				Description: "A link to a workload in this GVC whose canonical endpoint backs the GVC alias DNS record. When set, the GVC alias is published as a CNAME to the workload's canonical endpoint, inheriting its HTTP health probes and per-location geo failover. When unset, the alias resolves directly to cluster ingress endpoints with no application-level health awareness. Has no effect while the referenced workload is globally suspended.",
+				Computed:    true,
+			},
 			"env": schema.MapAttribute{
 				Description: "Key-value array of resource environment variables.",
 				ElementType: types.StringType,
