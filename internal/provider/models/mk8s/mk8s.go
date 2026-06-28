@@ -238,6 +238,7 @@ type AwsProviderNodePoolModel struct {
 	SpotAllocationStrategy              types.String `tfsdk:"spot_allocation_strategy"`
 	SubnetIds                           types.Set    `tfsdk:"subnet_ids"`
 	ExtraSecurityGroupIds               types.Set    `tfsdk:"extra_security_group_ids"`
+	CpuOptions                          types.Object `tfsdk:"cpu_options"`
 }
 
 func (a AwsProviderNodePoolModel) AttributeTypes() attr.Type {
@@ -256,6 +257,7 @@ func (a AwsProviderNodePoolModel) AttributeTypes() attr.Type {
 		"spot_allocation_strategy":                 types.StringType,
 		"subnet_ids":                               types.SetType{ElemType: types.StringType},
 		"extra_security_group_ids":                 types.SetType{ElemType: types.StringType},
+		"cpu_options":                              AwsProviderCpuOptionsModel{}.AttributeTypes(),
 	}
 
 	// Add the attributes from base
@@ -264,6 +266,20 @@ func (a AwsProviderNodePoolModel) AttributeTypes() attr.Type {
 	// Return merged object type
 	return types.ObjectType{
 		AttrTypes: merged,
+	}
+}
+
+// AWS Provider -> Node Pool -> CPU Options //
+
+type AwsProviderCpuOptionsModel struct {
+	NestedVirtualization types.Bool `tfsdk:"nested_virtualization"`
+}
+
+func (a AwsProviderCpuOptionsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"nested_virtualization": types.BoolType,
+		},
 	}
 }
 

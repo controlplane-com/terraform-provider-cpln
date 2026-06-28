@@ -259,16 +259,17 @@ type Mk8sHetznerPool struct {
 
 type Mk8sAwsPool struct {
 	Mk8sGenericPool
-	InstanceTypes                       *[]string   `json:"instanceTypes,omitempty"`
-	OverrideImage                       *Mk8sAwsAmi `json:"overrideImage,omitempty"`
-	BootDiskSize                        *int        `json:"bootDiskSize,omitempty"`
-	MinSize                             *int        `json:"minSize,omitempty"`
-	MaxSize                             *int        `json:"maxSize,omitempty"`
-	OnDemandBaseCapacity                *int        `json:"onDemandBaseCapacity,omitempty"`
-	OnDemandPercentageAboveBaseCapacity *int        `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
-	SpotAllocationStrategy              *string     `json:"spotAllocationStrategy,omitempty"`
-	SubnetIds                           *[]string   `json:"subnetIds,omitempty"`
-	ExtraSecurityGroupIds               *[]string   `json:"extraSecurityGroupIds,omitempty"`
+	InstanceTypes                       *[]string          `json:"instanceTypes,omitempty"`
+	OverrideImage                       *Mk8sAwsAmi        `json:"overrideImage,omitempty"`
+	BootDiskSize                        *int               `json:"bootDiskSize,omitempty"`
+	MinSize                             *int               `json:"minSize,omitempty"`
+	MaxSize                             *int               `json:"maxSize,omitempty"`
+	OnDemandBaseCapacity                *int               `json:"onDemandBaseCapacity,omitempty"`
+	OnDemandPercentageAboveBaseCapacity *int               `json:"onDemandPercentageAboveBaseCapacity,omitempty"`
+	SpotAllocationStrategy              *string            `json:"spotAllocationStrategy,omitempty"`
+	SubnetIds                           *[]string          `json:"subnetIds,omitempty"`
+	ExtraSecurityGroupIds               *[]string          `json:"extraSecurityGroupIds,omitempty"`
+	CpuOptions                          *Mk8sAwsCpuOptions `json:"cpuOptions,omitempty"`
 }
 
 type Mk8sLinodePool struct {
@@ -390,6 +391,10 @@ type Mk8sAwsAssumeRoleLink struct {
 	RoleArn           *string `json:"roleArn,omitempty"`
 	ExternalId        *string `json:"externalId,omitempty"`
 	SessionNamePrefix *string `json:"sessionNamePrefix,omitempty"`
+}
+
+type Mk8sAwsCpuOptions struct {
+	NestedVirtualization *bool `json:"nestedVirtualization,omitempty"`
 }
 
 // Triton Provider //

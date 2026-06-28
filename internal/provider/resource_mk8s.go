@@ -439,6 +439,16 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 										ElementType: types.StringType,
 										Optional:    true,
 									},
+									"cpu_options": schema.SingleNestedAttribute{
+										Description: "CPU options for the node pool instances.",
+										Optional:    true,
+										Attributes: map[string]schema.Attribute{
+											"nested_virtualization": schema.BoolAttribute{
+												Description: "Enable nested virtualization. Only supported on 8th generation Intel instance types (c8i, m8i, r8i and variants).",
+												Optional:    true,
+											},
+										},
+									},
 								},
 								Blocks: map[string]schema.Block{
 									"taint":          mr.GenericNodePoolTaintsSchema(),
@@ -3079,6 +3089,7 @@ func (mro *Mk8sResourceOperator) buildAwsProviderNodePools(state types.List) *[]
 			SpotAllocationStrategy:              BuildString(block.SpotAllocationStrategy),
 			SubnetIds:                           mro.BuildSetString(block.SubnetIds),
 			ExtraSecurityGroupIds:               mro.BuildSetString(block.ExtraSecurityGroupIds),
+			CpuOptions:                          mro.buildAwsProviderNodePoolCpuOptions(block.CpuOptions),
 		}
 
 		// Set embedded attributes
@@ -3092,6 +3103,22 @@ func (mro *Mk8sResourceOperator) buildAwsProviderNodePools(state types.List) *[]
 
 	// Return a pointer to the output
 	return &output
+}
+
+// buildAwsProviderNodePoolCpuOptions constructs a Mk8sAwsCpuOptions from the given Terraform state.
+func (mro *Mk8sResourceOperator) buildAwsProviderNodePoolCpuOptions(state types.Object) *client.Mk8sAwsCpuOptions {
+	// Convert Terraform object into model blocks using generic helper
+	block, ok := BuildObject[models.AwsProviderCpuOptionsModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.Mk8sAwsCpuOptions{
+		NestedVirtualization: BuildBool(block.NestedVirtualization),
+	}
 }
 
 // buildLinodeProvider constructs a Mk8sLinodeProvider from the given Terraform state.
@@ -5043,6 +5070,7 @@ func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8
 			SpotAllocationStrategy:              types.StringPointerValue(item.SpotAllocationStrategy),
 			SubnetIds:                           FlattenSetString(item.SubnetIds),
 			ExtraSecurityGroupIds:               FlattenSetString(item.ExtraSecurityGroupIds),
+			CpuOptions:                          mro.flattenAwsProviderNodePoolCpuOptions(item.CpuOptions),
 		}
 
 		// Set embedded attributes
@@ -5056,6 +5084,26 @@ func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8
 
 	// Return the successfully created types.Set
 	return FlattenList(mro.Ctx, mro.Diags, blocks)
+}
+
+// flattenAwsProviderNodePoolCpuOptions transforms *client.Mk8sAwsCpuOptions into a types.Object.
+func (mro *Mk8sResourceOperator) flattenAwsProviderNodePoolCpuOptions(input *client.Mk8sAwsCpuOptions) types.Object {
+	// Get attribute types
+	elementType := models.AwsProviderCpuOptionsModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.AwsProviderCpuOptionsModel{
+		NestedVirtualization: types.BoolPointerValue(input.NestedVirtualization),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(mro.Ctx, mro.Diags, &block)
 }
 
 // flattenLinodeProvider transforms *client.Mk8sLinodeProvider into a types.List.

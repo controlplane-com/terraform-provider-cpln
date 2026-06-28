@@ -906,7 +906,7 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 									"effect": "NoSchedule",
 								},
 							},
-							"instance_types": []string{"t4g.nano"},
+							"instance_types": []string{"c8i.large"},
 							"override_image": []map[string]interface{}{
 								{
 									"exact": "ami-0c5ee33c81cf67a7f",
@@ -920,6 +920,9 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 							"spot_allocation_strategy":                 "lowest-price",
 							"subnet_ids":                               []string{"subnet-0e564a042e2a45009"},
 							"extra_security_group_ids":                 []string{},
+							"cpu_options": map[string]interface{}{
+								"nested_virtualization": true,
+							},
 						},
 					},
 					"autoscaler": []map[string]interface{}{
@@ -3587,7 +3590,7 @@ resource "cpln_mk8s" "%s" {
         effect = "NoSchedule"
       }
 
-      instance_types = ["t4g.nano"]
+      instance_types = ["c8i.large"]
 
       override_image {
         exact = "ami-0c5ee33c81cf67a7f"
@@ -3602,6 +3605,10 @@ resource "cpln_mk8s" "%s" {
 
       subnet_ids               = ["subnet-0e564a042e2a45009"]
       extra_security_group_ids = []
+
+      cpu_options = {
+        nested_virtualization = true
+      }
     }
 
     autoscaler {

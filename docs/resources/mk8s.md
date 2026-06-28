@@ -195,6 +195,7 @@ Optional:
 - **on_demand_percentage_above_base_capacity** (Number)
 - **spot_allocation_strategy** (String)
 - **extra_security_group_ids** (List of String)
+- **cpu_options** (Object) ([see below](#nestedblock--aws_provider--node_pool--cpu_options))
 
 <a id="nestedblock--aws_provider--ami"></a>
 
@@ -208,6 +209,16 @@ Required:
 
 - **recommended** (String)
 - **exact** (String) Support SSM.
+
+<a id="nestedblock--aws_provider--node_pool--cpu_options"></a>
+
+### `aws_provider.node_pool.cpu_options`
+
+CPU options for the node pool instances.
+
+Optional:
+
+- **nested_virtualization** (Boolean) Enable nested virtualization. Only supported on 8th generation Intel instance types (c8i, m8i, r8i and variants).
 
 <a id="nestedblock--aws_provider--deploy_role_chain"></a>
 
@@ -2004,7 +2015,7 @@ resource "cpln_mk8s" "aws" {
                 effect = "NoSchedule"
             }
 
-            instance_types = ["t4g.nano"]
+            instance_types = ["c8i.large"]
 
             override_image {
                 exact = "ami-123"
@@ -2019,6 +2030,10 @@ resource "cpln_mk8s" "aws" {
 
             subnet_ids               = ["subnet-0e564a042e2a45009"]
             extra_security_group_ids = ["sg-031480aa7a1e6e38b"]
+
+            cpu_options = {
+                nested_virtualization = true
+            }
         }
 
         autoscaler {
