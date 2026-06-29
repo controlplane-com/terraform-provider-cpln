@@ -963,11 +963,14 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
 									"inbound_allow_cidr": schema.SetAttribute{
-										Description: "The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.",
+										Description: "The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet. Max: `250`.",
 										ElementType: types.StringType,
 										Optional:    true,
 										Computed:    true,
 										Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+										Validators: []validator.Set{
+											setvalidator.SizeAtMost(250),
+										},
 									},
 									"inbound_blocked_cidr": schema.SetAttribute{
 										Description: "The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.",
@@ -1011,11 +1014,9 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 													},
 												},
 												"number": schema.Int32Attribute{
-													Description: "Port number. Max: 65000",
+													Description: "Port number. Min: `80`. Max: `65000`.",
 													Required:    true,
-													Validators: []validator.Int32{
-														int32validator.AtMost(65000),
-													},
+													Validators:  append(wr.GetPortValidators(), int32validator.AtMost(65000)),
 												},
 											},
 										},
@@ -1805,7 +1806,7 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 								},
 							},
 							"max_concurrency": schema.Int32Attribute{
-								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.",
+								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out. Min: `0`. Max: `30000`. Default `0`.",
 								Optional:    true,
 								Computed:    true,
 								Default:     int32default.StaticInt32(0),
@@ -1820,7 +1821,7 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 								NestedObject: schema.NestedBlockObject{
 									Attributes: map[string]schema.Attribute{
 										"metric": schema.StringAttribute{
-											Description: "Valid values: `cpu` or `memory`.",
+											Description: "Valid values: `cpu`, `memory`, or `rps`.",
 											Optional:    true,
 											Validators: []validator.String{
 												stringvalidator.OneOf("cpu", "memory", "rps"),

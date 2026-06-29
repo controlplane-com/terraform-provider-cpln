@@ -285,7 +285,7 @@ Optional:
 
 Optional:
 
-- **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
+- **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet. Max: `250`.
 - **inbound_blocked_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
@@ -302,7 +302,7 @@ Allow outbound access to specific ports and protocols. When not specified, commu
 Required:
 
 - **protocol** (String) Either `http`, `https` or `tcp`. Default: `tcp`.
-- **number** (Number) Port number. Max: 65000
+- **number** (Number) Port number. Min: `80`. Max: `65000`.
 
 <a id="nestedblock--firewall_spec--external--http"></a>
 
@@ -375,7 +375,7 @@ Optional:
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
-- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out. Min: `0`. Max: `30000`. Default `0`.
 - **keda** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda))
 
 <a id="nestedblock--options--autoscaling--multi"></a>
@@ -384,7 +384,7 @@ Optional:
 
 Optional:
 
-- **metric** (String) Valid values: `cpu` or `memory`.
+- **metric** (String) Valid values: `cpu`, `memory`, or `rps`.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
 
 <a id="nestedblock--options--autoscaling--keda"></a>

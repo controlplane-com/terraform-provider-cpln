@@ -1171,7 +1171,7 @@ func (d *WorkloadDataSource) OptionsSchema(description string) schema.ListNested
 								Computed:    true,
 							},
 							"max_concurrency": schema.Int32Attribute{
-								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.",
+								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out. Min: `0`. Max: `30000`. Default `0`.",
 								Computed:    true,
 							},
 						},
@@ -1181,7 +1181,7 @@ func (d *WorkloadDataSource) OptionsSchema(description string) schema.ListNested
 								NestedObject: schema.NestedBlockObject{
 									Attributes: map[string]schema.Attribute{
 										"metric": schema.StringAttribute{
-											Description: "Valid values: `cpu` or `memory`.",
+											Description: "Valid values: `cpu`, `memory`, or `rps`.",
 											Computed:    true,
 										},
 										"target": schema.Int32Attribute{

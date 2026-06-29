@@ -317,7 +317,7 @@ Read-Only:
 - **min_scale** (Number) Minimum replicas allowed. Min: `0`. Max: `max_scale`. Default: `1`.
 - **max_scale** (Number) Maximum replicas allowed. Min: `0`. Default: `5`.
 - **scale_to_zero_delay** (Number) Seconds without requests before scaling to zero. Min: `30`. Max: `3600`. Default: `300`.
-- **max_concurrency** (Number) Maximum concurrent requests per replica. Min: `0`. Max: `1000`. Default: `0`.
+- **max_concurrency** (Number) Maximum concurrent requests per replica. Min: `0`. Max: `30000`. Default: `0`.
 - **multi** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--multi)).
 - **keda** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda)).
 
@@ -327,7 +327,7 @@ Read-Only:
 
 Read-Only:
 
-- **metric** (String) Either `cpu` or `memory`.
+- **metric** (String) Either `cpu`, `memory`, or `rps`.
 - **target** (Number) Target value for the metric. Min: `1`. Max: `20000`.
 
 <a id="nestedblock--options--autoscaling--keda"></a>
