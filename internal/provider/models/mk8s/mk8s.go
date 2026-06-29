@@ -238,6 +238,7 @@ type AwsProviderNodePoolModel struct {
 	SpotAllocationStrategy              types.String `tfsdk:"spot_allocation_strategy"`
 	SubnetIds                           types.Set    `tfsdk:"subnet_ids"`
 	ExtraSecurityGroupIds               types.Set    `tfsdk:"extra_security_group_ids"`
+	CpuOptions                          types.Object `tfsdk:"cpu_options"`
 }
 
 func (a AwsProviderNodePoolModel) AttributeTypes() attr.Type {
@@ -256,6 +257,7 @@ func (a AwsProviderNodePoolModel) AttributeTypes() attr.Type {
 		"spot_allocation_strategy":                 types.StringType,
 		"subnet_ids":                               types.SetType{ElemType: types.StringType},
 		"extra_security_group_ids":                 types.SetType{ElemType: types.StringType},
+		"cpu_options":                              AwsProviderCpuOptionsModel{}.AttributeTypes(),
 	}
 
 	// Add the attributes from base
@@ -264,6 +266,20 @@ func (a AwsProviderNodePoolModel) AttributeTypes() attr.Type {
 	// Return merged object type
 	return types.ObjectType{
 		AttrTypes: merged,
+	}
+}
+
+// AWS Provider -> Node Pool -> CPU Options //
+
+type AwsProviderCpuOptionsModel struct {
+	NestedVirtualization types.Bool `tfsdk:"nested_virtualization"`
+}
+
+func (a AwsProviderCpuOptionsModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"nested_virtualization": types.BoolType,
+		},
 	}
 }
 
@@ -1345,8 +1361,9 @@ func (a AddOnsByokJuicefsModel) AttributeTypes() attr.Type {
 type AddOnsByokMiddleboxModel struct {
 	Enabled            types.Bool   `tfsdk:"enabled"`
 	BandwidthAlertMbps types.Int32  `tfsdk:"bandwidth_alert_mbps"`
-	Port               types.Int32  `tfsdk:"port"`
 	IP                 types.String `tfsdk:"ip"`
+	IngressReplicas    types.Int32  `tfsdk:"ingress_replicas"`
+	Port               types.Int32  `tfsdk:"port"`
 }
 
 func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
@@ -1354,8 +1371,9 @@ func (a AddOnsByokMiddleboxModel) AttributeTypes() attr.Type {
 		AttrTypes: map[string]attr.Type{
 			"enabled":              types.BoolType,
 			"bandwidth_alert_mbps": types.Int32Type,
-			"port":                 types.Int32Type,
 			"ip":                   types.StringType,
+			"ingress_replicas":     types.Int32Type,
+			"port":                 types.Int32Type,
 		},
 	}
 }
