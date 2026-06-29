@@ -153,7 +153,7 @@ Optional:
 
 Optional:
 
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 10. Min: 0. Max: 600.
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 60. Min: 0. Max: 600.
 - **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 600.
 - **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 600.
 - **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.
@@ -266,7 +266,7 @@ Optional:
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
-~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`.
+~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`, `k8s://secret`.
 
 <a id="nestedblock--firewall_spec"></a>
 
@@ -285,7 +285,7 @@ Optional:
 
 Optional:
 
-- **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.
+- **inbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet. Max: `250`.
 - **inbound_blocked_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.
 - **outbound_allow_hostname** (List of String) The list of public hostnames that this workload is allowed to reach. No outbound access is allowed by default. A wildcard `*` is allowed on the prefix of the hostname only, ex: `*.amazonaws.com`. Use `outboundAllowCIDR` to allow access to all external websites.
 - **outbound_allow_cidr** (List of String) The list of ipv4/ipv6 addresses or cidr blocks that this workload is allowed reach. No outbound access is allowed by default. Specify '0.0.0.0/0' to allow outbound access to the public internet.
@@ -302,7 +302,7 @@ Allow outbound access to specific ports and protocols. When not specified, commu
 Required:
 
 - **protocol** (String) Either `http`, `https` or `tcp`. Default: `tcp`.
-- **number** (Number) Port number. Max: 65000
+- **number** (Number) Port number. Min: `80`. Max: `65000`.
 
 <a id="nestedblock--firewall_spec--external--http"></a>
 
@@ -375,7 +375,7 @@ Optional:
 - **min_scale** (Number) The minimum allowed number of replicas. Control Plane can scale the workload down to 0 when there is no traffic and scale up immediately to fulfill new requests. Min: `0`. Max: `max_scale`. Default `1`.
 - **max_scale** (Number) The maximum allowed number of replicas. Min: `0`. Default `5`.
 - **scale_to_zero_delay** (Number) The amount of time (in seconds) with no requests received before a workload is scaled to 0. Min: `30`. Max: `3600`. Default: `300`.
-- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.
+- **max_concurrency** (Number) A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out. Min: `0`. Max: `30000`. Default `0`.
 - **keda** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda))
 
 <a id="nestedblock--options--autoscaling--multi"></a>
@@ -384,7 +384,7 @@ Optional:
 
 Optional:
 
-- **metric** (String) Valid values: `cpu` or `memory`.
+- **metric** (String) Valid values: `cpu`, `memory`, or `rps`.
 - **target** (Number) Control Plane will scale the number of replicas for this deployment up/down in order to be as close as possible to the target metric across all replicas of a deployment. Min: `1`. Max: `20000`. Default: `95`.
 
 <a id="nestedblock--options--autoscaling--keda"></a>
@@ -590,13 +590,13 @@ Optional:
 
 - **boot_disk** (Attributes) Boot disk configuration ([see below](#nestedblock--vm--boot_disk)).
 - **cpu** (Attributes) CPU topology visible to the guest ([see below](#nestedblock--vm--cpu)).
-- **firmware** (Attributes) Firmware configuration for the guest ([see below](#nestedblock--vm--firmware)).
+- **firmware** (Attributes) Firmware configuration for the guest. Defaults to `bootloader = efi` and `secure_boot = false` when omitted. ([see below](#nestedblock--vm--firmware)).
 - **guest_os** (String) Guest operating system family. Drives the per-OS cloud-init payload. Valid values: `linux`, `windows`. Default: `linux`.
-- **network** (Attributes List, Max: 1) Pod-network interface for the VM ([see below](#nestedblock--vm--network)).
+- **network** (Attributes List, Max: 1) Pod-network interface for the VM. Defaults to a single `default` network when omitted. ([see below](#nestedblock--vm--network)).
 - **cloud_init** (Attributes) Cloud-init configuration for the guest ([see below](#nestedblock--vm--cloud_init)).
 - **access_credential** (Attributes Set, Max: 8) SSH public keys injected at runtime ([see below](#nestedblock--vm--access_credential)).
 - **run_strategy** (String) KubeVirt RunStrategy. Use `Halted` to keep the pool defined but powered off. Valid values: `Always`, `RerunOnFailure`, `Manual`, `Halted`. Default: `Always`.
-- **clock** (Attributes) Guest clock configuration ([see below](#nestedblock--vm--clock)).
+- **clock** (Attributes) Guest clock configuration. Defaults to `timezone = UTC` when omitted. ([see below](#nestedblock--vm--clock)).
 - **hostname** (String) Hostname reported to the guest.
 - **subdomain** (String) Subdomain used by the guest for replica-to-replica addressing.
 
@@ -640,7 +640,7 @@ Required:
 
 Optional:
 
-- **checksum** (String) Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.
+- **checksum** (String) Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`. Max: `160`.
 
 <a id="nestedblock--vm--boot_disk--persist"></a>
 
@@ -702,7 +702,7 @@ Optional:
 - **user_data** (String) Inline cloud-init user-data. Not encrypted at rest in the data-service - use `user_data_secret` for sensitive payloads.
 - **user_data_base64** (String) Inline cloud-init user-data, base64-encoded. Same caveats as `user_data`.
 - **user_data_secret** (String) Secret containing cloud-init user-data (key: `userdata` or `user-data`).
-- **ssh_public_key_secrets** (Set of String) SSH public keys injected via cloud-init. Each Secret may carry one or more keys.
+- **ssh_public_key_secrets** (Set of String) SSH public keys injected via cloud-init. Each Secret may carry one or more keys. Max: `8`.
 
 <a id="nestedblock--vm--access_credential"></a>
 
@@ -711,7 +711,7 @@ Optional:
 Required:
 
 - **ssh_public_key_secret** (String) Secret containing the SSH public keys to inject.
-- **users** (Set of String) Guest OS users the SSH public keys are injected for.
+- **users** (Set of String) Guest OS users the SSH public keys are injected for. Min: `1`. Max: `16`. Each user must be at most 32 characters and match `^[a-z_][a-z0-9_-]*$`.
 
 Optional:
 

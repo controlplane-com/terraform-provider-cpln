@@ -75,11 +75,13 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps := []resource.TestStep{}
 
 	// Fill the steps slice
+	steps = append(steps, resourceTest.NewK8sVolumeUriScenario()...)
 	steps = append(steps, resourceTest.NewServerlessScenario()...)
 	steps = append(steps, resourceTest.NewStandardScenario()...)
 	steps = append(steps, resourceTest.NewCronScenario()...)
 	steps = append(steps, resourceTest.NewStatefulScenario()...)
 	steps = append(steps, resourceTest.NewVmScenario()...)
+	steps = append(steps, resourceTest.NewVmDefaultsScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -137,6 +139,21 @@ func (wrt *WorkloadResourceTest) CheckDestroy(s *terraform.State) error {
 }
 
 // Test Scenarios //
+
+// NewK8sVolumeUriScenario defines a scenario verifying a k8s://secret volume uri is accepted and persisted to state.
+func (wrt *WorkloadResourceTest) NewK8sVolumeUriScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-k8s-volume-%s", wrt.RandomName)
+
+	// Build the test step
+	_, initialStep := wrt.BuildK8sVolumeUriTestStep(name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+	}
+}
 
 // NewServerlessScenario defines a full serverless workload lifecycle test case including creation, updates, import, and state restoration.
 func (wrt *WorkloadResourceTest) NewServerlessScenario() []resource.TestStep {
@@ -283,7 +300,80 @@ func (wrt *WorkloadResourceTest) NewVmScenario() []resource.TestStep {
 	}
 }
 
+// NewVmDefaultsScenario verifies the vm firmware, network, and clock object/list defaults materialize without drift when omitted.
+func (wrt *WorkloadResourceTest) NewVmDefaultsScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-vm-defaults-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, omittedStep := wrt.BuildVmDefaultsOmittedTestStep(name)
+	setStep := wrt.BuildVmDefaultsSetTestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps. Walk the optional defaulted blocks through omit -> set -> omit to
+	// prove the defaults apply on create, an explicit value overrides them, and removing the blocks
+	// re-applies the defaults (the Computed+Default revert path).
+	return []resource.TestStep{
+		// Omit firmware/network/clock -> defaults materialize
+		omittedStep,
+		// Set them explicitly -> overrides
+		setStep,
+		// Remove them again -> defaults re-apply
+		omittedStep,
+	}
+}
+
 // Test Cases //
+
+// BuildK8sVolumeUriTestStep constructs a workload test step that mounts a k8s://secret volume and asserts its uri and path persist to state.
+func (wrt *WorkloadResourceTest) BuildK8sVolumeUriTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Initialize and return the test step. A k8s://secret volume only mounts on byok clusters, but
+	// the spec is accepted at create just like an s3:// volume pointing at a missing bucket, so
+	// applying it and asserting the persisted uri/path is safe (create never waits on the deployment).
+	return c, resource.TestStep{
+		Config: wrt.K8sVolumeUriHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "false"),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":        "container-01",
+					"image":       "gcr.io/knative-samples/helloworld-go",
+					"cpu":         "50m",
+					"memory":      "128Mi",
+					"inherit_env": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "8080",
+							"protocol": "http",
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "k8s://secret/example-secret",
+							"recovery_policy": "retain",
+							"path":            "/k8s-secret",
+						},
+					},
+				},
+			}),
+		),
+	}
+}
 
 // BuildServerlessTestStep constructs the initial serverless workload test configuration and test step.
 func (wrt *WorkloadResourceTest) BuildServerlessTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
@@ -392,7 +482,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate1TestStep(initialCase Prov
 									"scheme": "HTTPS",
 								},
 							},
-							"initial_delay_seconds": "10",
+							"initial_delay_seconds": "60",
 							"period_seconds":        "10",
 							"timeout_seconds":       "1",
 							"success_threshold":     "1",
@@ -3151,7 +3241,124 @@ func (wrt *WorkloadResourceTest) BuildVmUpdate2TestStep(initialCase ProviderTest
 	}
 }
 
+// BuildVmDefaultsOmittedTestStep constructs a vm workload test step that omits firmware/network/clock and asserts the materialized defaults.
+func (wrt *WorkloadResourceTest) BuildVmDefaultsOmittedTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Initialize and return the test step
+	return c, resource.TestStep{
+		Config: wrt.VmDefaultsOmittedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"firmware": map[string]interface{}{
+					"bootloader":  "efi",
+					"secure_boot": "false",
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "UTC",
+				},
+			}),
+		),
+	}
+}
+
+// BuildVmDefaultsSetTestStep constructs a vm workload test step that sets firmware/network/clock explicitly to override the defaults.
+func (wrt *WorkloadResourceTest) BuildVmDefaultsSetTestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.VmDefaultsSetHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"firmware": map[string]interface{}{
+					"bootloader":  "bios",
+					"secure_boot": "false",
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "America/New_York",
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
+
+// K8sVolumeUriHcl returns a serverless workload configuration that mounts a k8s://secret volume to exercise the uri scheme validator.
+func (wrt *WorkloadResourceTest) K8sVolumeUriHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name = "%s"
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+
+    volume {
+      uri  = "k8s://secret/example-secret"
+      path = "/k8s-secret"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name,
+		wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
 
 // ServerlessRequiredOnlyHcl returns a minimal serverless workload configuration with only required fields set.
 func (wrt *WorkloadResourceTest) ServerlessRequiredOnlyHcl(c WorkloadResourceTestCase) string {
@@ -5963,6 +6170,139 @@ resource "cpln_workload" "%s" {
 }
 `, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress,
 		wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmDefaultsOmittedHcl returns a vm workload that omits firmware, network, and clock so their defaults are materialized.
+func (wrt *WorkloadResourceTest) VmDefaultsOmittedHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_volume_set.vm_boot]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "vm"
+
+  container {
+    name   = "vm-container"
+    cpu    = "1000m"
+    memory = "1Gi"
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmDefaultsSetHcl returns a vm workload that sets firmware, network, and clock explicitly to override their defaults.
+func (wrt *WorkloadResourceTest) VmDefaultsSetHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_volume_set.vm_boot]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "vm"
+
+  container {
+    name   = "vm-container"
+    cpu    = "1000m"
+    memory = "1Gi"
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+    }
+
+    firmware = {
+      bootloader  = "bios"
+      secure_boot = false
+    }
+
+    network = [
+      {
+        name = "default"
+      }
+    ]
+
+    clock = {
+      timezone = "America/New_York"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
 	)
 }
 

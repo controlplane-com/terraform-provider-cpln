@@ -23,6 +23,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -201,8 +203,15 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 												Required:    true,
 											},
 											"checksum": schema.StringAttribute{
-												Description: "Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.",
+												Description: "Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`. Max: `160`.",
 												Optional:    true,
+												Validators: []validator.String{
+													stringvalidator.RegexMatches(
+														regexp.MustCompile(`(?i)^sha(256|512):[a-f0-9]+$`),
+														"must be formatted as `sha256:<hex>` or `sha512:<hex>`",
+													),
+													stringvalidator.LengthAtMost(160),
+												},
 											},
 										},
 									},
@@ -215,6 +224,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									"volume_set": schema.StringAttribute{
 										Description: "VolumeSet URI used to provision one PVC per replica for the boot disk. Format: `cpln://volumeset/<name>`.",
 										Required:    true,
+										Validators: []validator.String{
+											stringvalidator.RegexMatches(
+												regexp.MustCompile(`^cpln://volumeset/[a-z0-9][a-z0-9-]{0,63}$`),
+												"must be in the form `cpln://volumeset/<name>`",
+											),
+										},
 									},
 								},
 							},
@@ -259,8 +274,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"firmware": schema.SingleNestedAttribute{
-						Description: "Firmware configuration for the guest.",
+						Description: "Firmware configuration for the guest. Defaults to `bootloader = efi` and `secure_boot = false` when omitted.",
 						Optional:    true,
+						Computed:    true,
+						Default:     objectdefault.StaticValue(defaultVmFirmwareValue()),
 						Attributes: map[string]schema.Attribute{
 							"bootloader": schema.StringAttribute{
 								Description: "Bootloader used by the guest. Valid values: `bios`, `efi`. Default: `efi`.",
@@ -341,8 +358,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"network": schema.ListNestedAttribute{
-						Description: "Pod-network interfaces for the VM. Only a single network is supported.",
+						Description: "Pod-network interfaces for the VM. Only a single network is supported. Defaults to a single `default` network when omitted.",
 						Optional:    true,
+						Computed:    true,
+						Default:     listdefault.StaticValue(defaultVmNetworkValue()),
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
@@ -392,9 +411,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								Optional:    true,
 							},
 							"ssh_public_key_secrets": schema.SetAttribute{
-								Description: "SSH public keys injected via cloud-init. Each Secret may carry one or more keys.",
+								Description: "SSH public keys injected via cloud-init. Each Secret may carry one or more keys. Max: `8`.",
 								ElementType: types.StringType,
 								Optional:    true,
+								Validators: []validator.Set{
+									setvalidator.SizeAtMost(8),
+								},
 							},
 						},
 					},
@@ -408,9 +430,19 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									Required:    true,
 								},
 								"users": schema.SetAttribute{
-									Description: "Guest OS users the SSH public keys are injected for.",
+									Description: "Guest OS users the SSH public keys are injected for. Min: `1`. Max: `16`. Each user must be at most 32 characters and match `^[a-z_][a-z0-9_-]*$`.",
 									ElementType: types.StringType,
 									Required:    true,
+									Validators: []validator.Set{
+										setvalidator.SizeBetween(1, 16),
+										setvalidator.ValueStringsAre(
+											stringvalidator.LengthAtMost(32),
+											stringvalidator.RegexMatches(
+												regexp.MustCompile(`^[a-z_][a-z0-9_-]*$`),
+												"must contain only lowercase alphanumeric characters, underscores, and dashes, and start with a letter or underscore",
+											),
+										),
+									},
 								},
 								"delivery_method": schema.StringAttribute{
 									Description: "Delivery method for the access credential. Valid values: `qemuGuestAgent`, `configDrive`. Default: `qemuGuestAgent`.",
@@ -437,8 +469,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"clock": schema.SingleNestedAttribute{
-						Description: "Guest clock configuration.",
+						Description: "Guest clock configuration. Defaults to `timezone = UTC` when omitted.",
 						Optional:    true,
+						Computed:    true,
+						Default:     objectdefault.StaticValue(defaultVmClockValue()),
 						Attributes: map[string]schema.Attribute{
 							"timezone": schema.StringAttribute{
 								Description: "Guest timezone. Default: `UTC`.",
@@ -780,8 +814,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								},
 							},
 						},
-						"readiness_probe": wr.HealthCheckSchema("readiness_probe", "Readiness Probe"),
-						"liveness_probe":  wr.HealthCheckSchema("liveness_probe", "Liveness Probe"),
+						"readiness_probe": wr.HealthCheckSchema("readiness_probe", "Readiness Probe", 10),
+						"liveness_probe":  wr.HealthCheckSchema("liveness_probe", "Liveness Probe", 60),
 						"gpu_nvidia": schema.ListNestedBlock{
 							Description: "GPUs manufactured by NVIDIA, which are specialized hardware accelerators used to offload and accelerate computationally intensive tasks within the workload.",
 							NestedObject: schema.NestedBlockObject{
@@ -876,8 +910,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 										Required:    true,
 										Validators: []validator.String{
 											stringvalidator.RegexMatches(
-												regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln|scratch):\/\/.+`),
-												"must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, or scratch://",
+												regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln|scratch|k8s):\/\/.+`),
+												"must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, scratch://, or k8s://secret",
 											),
 										},
 									},
@@ -955,11 +989,14 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
 									"inbound_allow_cidr": schema.SetAttribute{
-										Description: "The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet.",
+										Description: "The list of ipv4/ipv6 addresses or cidr blocks that are allowed to access this workload. No external access is allowed by default. Specify '0.0.0.0/0' to allow access to the public internet. Max: `250`.",
 										ElementType: types.StringType,
 										Optional:    true,
 										Computed:    true,
 										Default:     setdefault.StaticValue(types.SetValueMust(types.StringType, []attr.Value{})),
+										Validators: []validator.Set{
+											setvalidator.SizeAtMost(250),
+										},
 									},
 									"inbound_blocked_cidr": schema.SetAttribute{
 										Description: "The list of ipv4/ipv6 addresses or cidr blocks that are NOT allowed to access this workload. Addresses in the allow list will only be allowed if they do not exist in this list.",
@@ -1003,11 +1040,9 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 													},
 												},
 												"number": schema.Int32Attribute{
-													Description: "Port number. Max: 65000",
+													Description: "Port number. Min: `80`. Max: `65000`.",
 													Required:    true,
-													Validators: []validator.Int32{
-														int32validator.AtMost(65000),
-													},
+													Validators:  append(wr.GetPortValidators(), int32validator.AtMost(65000)),
 												},
 											},
 										},
@@ -1525,7 +1560,7 @@ func (wr *WorkloadResource) Delete(ctx context.Context, req resource.DeleteReque
 /*** Schemas ***/
 
 // HealthCheckSchema returns a nested block list schema for configuring workload health checks.
-func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description string) schema.ListNestedBlock {
+func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description string, initialDelaySecondsDefault int32) schema.ListNestedBlock {
 	return schema.ListNestedBlock{
 		Description: description,
 		NestedObject: schema.NestedBlockObject{
@@ -1534,7 +1569,7 @@ func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description 
 					Description: "",
 					Optional:    true,
 					Computed:    true,
-					Default:     int32default.StaticInt32(10),
+					Default:     int32default.StaticInt32(initialDelaySecondsDefault),
 					Validators: []validator.Int32{
 						int32validator.Between(0, 600),
 					},
@@ -1797,7 +1832,7 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 								},
 							},
 							"max_concurrency": schema.Int32Attribute{
-								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out.Min: `0`. Max: `1000`. Default `0`.",
+								Description: "A hard maximum for the number of concurrent requests allowed to a replica. If no replicas are available to fulfill the request then it will be queued until a replica with capacity is available and delivered as soon as one is available again. Capacity can be available from requests completing or when a new replica is available from scale out. Min: `0`. Max: `30000`. Default `0`.",
 								Optional:    true,
 								Computed:    true,
 								Default:     int32default.StaticInt32(0),
@@ -1812,7 +1847,7 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 								NestedObject: schema.NestedBlockObject{
 									Attributes: map[string]schema.Attribute{
 										"metric": schema.StringAttribute{
-											Description: "Valid values: `cpu` or `memory`.",
+											Description: "Valid values: `cpu`, `memory`, or `rps`.",
 											Optional:    true,
 											Validators: []validator.String{
 												stringvalidator.OneOf("cpu", "memory", "rps"),
@@ -2021,6 +2056,59 @@ func (wr *WorkloadResource) LocalOptionsSchema() schema.ListNestedBlock {
 
 	// Return the configured local options schema
 	return options
+}
+
+/*** Schemas Defaults ***/
+
+// defaultVmFirmwareValue returns the firmware object the API materializes when the block is omitted.
+func defaultVmFirmwareValue() types.Object {
+	// Get the firmware attribute types
+	firmwareTypes := models.VmFirmwareModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+
+	// Build and return the default firmware object
+	return types.ObjectValueMust(
+		firmwareTypes,
+		map[string]attr.Value{
+			"bootloader":  types.StringValue("efi"),
+			"secure_boot": types.BoolValue(false),
+			"uuid":        types.StringNull(),
+			"serial":      types.StringNull(),
+			"smbios":      types.ObjectNull(models.VmFirmwareSmbiosModel{}.AttributeTypes().(types.ObjectType).AttrTypes),
+		},
+	)
+}
+
+// defaultVmNetworkValue returns the network list the API materializes when the block is omitted.
+func defaultVmNetworkValue() types.List {
+	// Get the network element type
+	networkType := models.VmNetworkModel{}.AttributeTypes()
+
+	// Build and return the default network list with a single entry
+	return types.ListValueMust(
+		networkType,
+		[]attr.Value{
+			types.ObjectValueMust(
+				networkType.(types.ObjectType).AttrTypes,
+				map[string]attr.Value{
+					"name": types.StringValue("default"),
+				},
+			),
+		},
+	)
+}
+
+// defaultVmClockValue returns the clock object the API materializes when the block is omitted.
+func defaultVmClockValue() types.Object {
+	// Get the clock attribute types
+	clockTypes := models.VmClockModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+
+	// Build and return the default clock object
+	return types.ObjectValueMust(
+		clockTypes,
+		map[string]attr.Value{
+			"timezone": types.StringValue("UTC"),
+		},
+	)
 }
 
 /*** Plan Modifiers ***/
