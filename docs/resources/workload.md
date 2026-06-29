@@ -266,7 +266,7 @@ Optional:
 
 ~> **Note** The following list of paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
-~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`.
+~> **Note** The prefix of the `uri` must be in the format `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`, `k8s://secret`.
 
 <a id="nestedblock--firewall_spec"></a>
 

@@ -75,6 +75,7 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps := []resource.TestStep{}
 
 	// Fill the steps slice
+	steps = append(steps, resourceTest.NewK8sVolumeUriScenario()...)
 	steps = append(steps, resourceTest.NewServerlessScenario()...)
 	steps = append(steps, resourceTest.NewStandardScenario()...)
 	steps = append(steps, resourceTest.NewCronScenario()...)
@@ -137,6 +138,21 @@ func (wrt *WorkloadResourceTest) CheckDestroy(s *terraform.State) error {
 }
 
 // Test Scenarios //
+
+// NewK8sVolumeUriScenario defines a scenario verifying a k8s://secret volume uri is accepted and persisted to state.
+func (wrt *WorkloadResourceTest) NewK8sVolumeUriScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-k8s-volume-%s", wrt.RandomName)
+
+	// Build the test step
+	_, initialStep := wrt.BuildK8sVolumeUriTestStep(name)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read
+		initialStep,
+	}
+}
 
 // NewServerlessScenario defines a full serverless workload lifecycle test case including creation, updates, import, and state restoration.
 func (wrt *WorkloadResourceTest) NewServerlessScenario() []resource.TestStep {
@@ -284,6 +300,57 @@ func (wrt *WorkloadResourceTest) NewVmScenario() []resource.TestStep {
 }
 
 // Test Cases //
+
+// BuildK8sVolumeUriTestStep constructs a workload test step that mounts a k8s://secret volume and asserts its uri and path persist to state.
+func (wrt *WorkloadResourceTest) BuildK8sVolumeUriTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Initialize and return the test step. A k8s://secret volume only mounts on byok clusters, but
+	// the spec is accepted at create just like an s3:// volume pointing at a missing bucket, so
+	// applying it and asserting the persisted uri/path is safe (create never waits on the deployment).
+	return c, resource.TestStep{
+		Config: wrt.K8sVolumeUriHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "support_dynamic_tags", "false"),
+			c.TestCheckNestedBlocks("container", []map[string]interface{}{
+				{
+					"name":        "container-01",
+					"image":       "gcr.io/knative-samples/helloworld-go",
+					"cpu":         "50m",
+					"memory":      "128Mi",
+					"inherit_env": "false",
+					"ports": []map[string]interface{}{
+						{
+							"number":   "8080",
+							"protocol": "http",
+						},
+					},
+					"volume": []map[string]interface{}{
+						{
+							"uri":             "k8s://secret/example-secret",
+							"recovery_policy": "retain",
+							"path":            "/k8s-secret",
+						},
+					},
+				},
+			}),
+		),
+	}
+}
 
 // BuildServerlessTestStep constructs the initial serverless workload test configuration and test step.
 func (wrt *WorkloadResourceTest) BuildServerlessTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
@@ -3152,6 +3219,50 @@ func (wrt *WorkloadResourceTest) BuildVmUpdate2TestStep(initialCase ProviderTest
 }
 
 // Configs //
+
+// K8sVolumeUriHcl returns a serverless workload configuration that mounts a k8s://secret volume to exercise the uri scheme validator.
+func (wrt *WorkloadResourceTest) K8sVolumeUriHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+# Identity Resource
+resource "cpln_identity" "new" {
+  name = "identity-${var.random_name}"
+  gvc  = %s
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name = "%s"
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+
+    volume {
+      uri  = "k8s://secret/example-secret"
+      path = "/k8s-secret"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name,
+		wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
 
 // ServerlessRequiredOnlyHcl returns a minimal serverless workload configuration with only required fields set.
 func (wrt *WorkloadResourceTest) ServerlessRequiredOnlyHcl(c WorkloadResourceTestCase) string {

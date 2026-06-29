@@ -209,7 +209,7 @@ Read-Only:
 
 ~> **Note** The following paths are reserved and cannot be used: `/dev`, `/dev/log`, `/tmp`, `/var`, `/var/log`.
 
-~> **Note** Valid URI prefixes include `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, and `scratch://`.
+~> **Note** Valid URI prefixes include `s3://bucket`, `gs://bucket`, `azureblob://storageAccount/container`, `azurefs://storageAccount/share`, `cpln://secret`, `cpln://volumeset`, `scratch://`, and `k8s://secret`.
 
 Read-Only:
 

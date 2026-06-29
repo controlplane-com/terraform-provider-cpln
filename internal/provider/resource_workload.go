@@ -876,8 +876,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 										Required:    true,
 										Validators: []validator.String{
 											stringvalidator.RegexMatches(
-												regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln|scratch):\/\/.+`),
-												"must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, or scratch://",
+												regexp.MustCompile(`^(s3|gs|azureblob|azurefs|cpln|scratch|k8s):\/\/.+`),
+												"must be in the form s3://bucket, gs://bucket, azureblob://storageAccount/container, azurefs://storageAccount/share, cpln://, scratch://, or k8s://secret",
 											),
 										},
 									},
