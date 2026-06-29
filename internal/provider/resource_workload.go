@@ -203,8 +203,15 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 												Required:    true,
 											},
 											"checksum": schema.StringAttribute{
-												Description: "Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.",
+												Description: "Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`. Max: `160`.",
 												Optional:    true,
+												Validators: []validator.String{
+													stringvalidator.RegexMatches(
+														regexp.MustCompile(`(?i)^sha(256|512):[a-f0-9]+$`),
+														"must be formatted as `sha256:<hex>` or `sha512:<hex>`",
+													),
+													stringvalidator.LengthAtMost(160),
+												},
 											},
 										},
 									},
@@ -217,6 +224,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									"volume_set": schema.StringAttribute{
 										Description: "VolumeSet URI used to provision one PVC per replica for the boot disk. Format: `cpln://volumeset/<name>`.",
 										Required:    true,
+										Validators: []validator.String{
+											stringvalidator.RegexMatches(
+												regexp.MustCompile(`^cpln://volumeset/[a-z0-9][a-z0-9-]{0,63}$`),
+												"must be in the form `cpln://volumeset/<name>`",
+											),
+										},
 									},
 								},
 							},
@@ -398,9 +411,12 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								Optional:    true,
 							},
 							"ssh_public_key_secrets": schema.SetAttribute{
-								Description: "SSH public keys injected via cloud-init. Each Secret may carry one or more keys.",
+								Description: "SSH public keys injected via cloud-init. Each Secret may carry one or more keys. Max: `8`.",
 								ElementType: types.StringType,
 								Optional:    true,
+								Validators: []validator.Set{
+									setvalidator.SizeAtMost(8),
+								},
 							},
 						},
 					},
@@ -414,9 +430,19 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 									Required:    true,
 								},
 								"users": schema.SetAttribute{
-									Description: "Guest OS users the SSH public keys are injected for.",
+									Description: "Guest OS users the SSH public keys are injected for. Min: `1`. Max: `16`. Each user must be at most 32 characters and match `^[a-z_][a-z0-9_-]*$`.",
 									ElementType: types.StringType,
 									Required:    true,
+									Validators: []validator.Set{
+										setvalidator.SizeBetween(1, 16),
+										setvalidator.ValueStringsAre(
+											stringvalidator.LengthAtMost(32),
+											stringvalidator.RegexMatches(
+												regexp.MustCompile(`^[a-z_][a-z0-9_-]*$`),
+												"must contain only lowercase alphanumeric characters, underscores, and dashes, and start with a letter or underscore",
+											),
+										),
+									},
 								},
 								"delivery_method": schema.StringAttribute{
 									Description: "Delivery method for the access credential. Valid values: `qemuGuestAgent`, `configDrive`. Default: `qemuGuestAgent`.",

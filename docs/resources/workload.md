@@ -640,7 +640,7 @@ Required:
 
 Optional:
 
-- **checksum** (String) Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`.
+- **checksum** (String) Disk image checksum, formatted as `sha256:<hex>` or `sha512:<hex>`. Max: `160`.
 
 <a id="nestedblock--vm--boot_disk--persist"></a>
 
@@ -702,7 +702,7 @@ Optional:
 - **user_data** (String) Inline cloud-init user-data. Not encrypted at rest in the data-service - use `user_data_secret` for sensitive payloads.
 - **user_data_base64** (String) Inline cloud-init user-data, base64-encoded. Same caveats as `user_data`.
 - **user_data_secret** (String) Secret containing cloud-init user-data (key: `userdata` or `user-data`).
-- **ssh_public_key_secrets** (Set of String) SSH public keys injected via cloud-init. Each Secret may carry one or more keys.
+- **ssh_public_key_secrets** (Set of String) SSH public keys injected via cloud-init. Each Secret may carry one or more keys. Max: `8`.
 
 <a id="nestedblock--vm--access_credential"></a>
 
@@ -711,7 +711,7 @@ Optional:
 Required:
 
 - **ssh_public_key_secret** (String) Secret containing the SSH public keys to inject.
-- **users** (Set of String) Guest OS users the SSH public keys are injected for.
+- **users** (Set of String) Guest OS users the SSH public keys are injected for. Min: `1`. Max: `16`. Each user must be at most 32 characters and match `^[a-z_][a-z0-9_-]*$`.
 
 Optional:
 
