@@ -114,7 +114,7 @@ Read-Only:
 
 Read-Only:
 
-- **initial_delay_seconds** (Number) Initial delay before the probe runs. Default: `10`. Min: `0`. Max: `600`.
+- **initial_delay_seconds** (Number) Initial delay before the probe runs. Default: `60`. Min: `0`. Max: `600`.
 - **period_seconds** (Number) Interval between probes. Default: `10`. Min: `1`. Max: `600`.
 - **timeout_seconds** (Number) Probe timeout. Default: `1`. Min: `1`. Max: `600`.
 - **success_threshold** (Number) Minimum consecutive successes to be considered healthy. Default: `1`. Min: `1`. Max: `20`.

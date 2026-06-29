@@ -482,7 +482,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate1TestStep(initialCase Prov
 									"scheme": "HTTPS",
 								},
 							},
-							"initial_delay_seconds": "10",
+							"initial_delay_seconds": "60",
 							"period_seconds":        "10",
 							"timeout_seconds":       "1",
 							"success_threshold":     "1",

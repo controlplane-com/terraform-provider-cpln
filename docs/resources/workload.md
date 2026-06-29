@@ -153,7 +153,7 @@ Optional:
 
 Optional:
 
-- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 10. Min: 0. Max: 600.
+- **initial_delay_seconds** (Number) Initial Delay in seconds. Default: 60. Min: 0. Max: 600.
 - **period_seconds** (Number) Period Seconds. Default: 10. Min: 1. Max: 600.
 - **timeout_seconds** (Number) Timeout in seconds. Default: 1. Min: 1. Max: 600.
 - **success_threshold** (Number) Success Threshold. Default: 1. Min: 1. Max: 20.

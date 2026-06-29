@@ -788,8 +788,8 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								},
 							},
 						},
-						"readiness_probe": wr.HealthCheckSchema("readiness_probe", "Readiness Probe"),
-						"liveness_probe":  wr.HealthCheckSchema("liveness_probe", "Liveness Probe"),
+						"readiness_probe": wr.HealthCheckSchema("readiness_probe", "Readiness Probe", 10),
+						"liveness_probe":  wr.HealthCheckSchema("liveness_probe", "Liveness Probe", 60),
 						"gpu_nvidia": schema.ListNestedBlock{
 							Description: "GPUs manufactured by NVIDIA, which are specialized hardware accelerators used to offload and accelerate computationally intensive tasks within the workload.",
 							NestedObject: schema.NestedBlockObject{
@@ -1533,7 +1533,7 @@ func (wr *WorkloadResource) Delete(ctx context.Context, req resource.DeleteReque
 /*** Schemas ***/
 
 // HealthCheckSchema returns a nested block list schema for configuring workload health checks.
-func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description string) schema.ListNestedBlock {
+func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description string, initialDelaySecondsDefault int32) schema.ListNestedBlock {
 	return schema.ListNestedBlock{
 		Description: description,
 		NestedObject: schema.NestedBlockObject{
@@ -1542,7 +1542,7 @@ func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description 
 					Description: "",
 					Optional:    true,
 					Computed:    true,
-					Default:     int32default.StaticInt32(10),
+					Default:     int32default.StaticInt32(initialDelaySecondsDefault),
 					Validators: []validator.Int32{
 						int32validator.Between(0, 600),
 					},
