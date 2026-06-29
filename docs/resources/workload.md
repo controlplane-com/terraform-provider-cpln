@@ -590,13 +590,13 @@ Optional:
 
 - **boot_disk** (Attributes) Boot disk configuration ([see below](#nestedblock--vm--boot_disk)).
 - **cpu** (Attributes) CPU topology visible to the guest ([see below](#nestedblock--vm--cpu)).
-- **firmware** (Attributes) Firmware configuration for the guest ([see below](#nestedblock--vm--firmware)).
+- **firmware** (Attributes) Firmware configuration for the guest. Defaults to `bootloader = efi` and `secure_boot = false` when omitted. ([see below](#nestedblock--vm--firmware)).
 - **guest_os** (String) Guest operating system family. Drives the per-OS cloud-init payload. Valid values: `linux`, `windows`. Default: `linux`.
-- **network** (Attributes List, Max: 1) Pod-network interface for the VM ([see below](#nestedblock--vm--network)).
+- **network** (Attributes List, Max: 1) Pod-network interface for the VM. Defaults to a single `default` network when omitted. ([see below](#nestedblock--vm--network)).
 - **cloud_init** (Attributes) Cloud-init configuration for the guest ([see below](#nestedblock--vm--cloud_init)).
 - **access_credential** (Attributes Set, Max: 8) SSH public keys injected at runtime ([see below](#nestedblock--vm--access_credential)).
 - **run_strategy** (String) KubeVirt RunStrategy. Use `Halted` to keep the pool defined but powered off. Valid values: `Always`, `RerunOnFailure`, `Manual`, `Halted`. Default: `Always`.
-- **clock** (Attributes) Guest clock configuration ([see below](#nestedblock--vm--clock)).
+- **clock** (Attributes) Guest clock configuration. Defaults to `timezone = UTC` when omitted. ([see below](#nestedblock--vm--clock)).
 - **hostname** (String) Hostname reported to the guest.
 - **subdomain** (String) Subdomain used by the guest for replica-to-replica addressing.
 

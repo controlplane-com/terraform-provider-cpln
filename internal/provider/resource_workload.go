@@ -23,6 +23,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -259,8 +261,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"firmware": schema.SingleNestedAttribute{
-						Description: "Firmware configuration for the guest.",
+						Description: "Firmware configuration for the guest. Defaults to `bootloader = efi` and `secure_boot = false` when omitted.",
 						Optional:    true,
+						Computed:    true,
+						Default:     objectdefault.StaticValue(defaultVmFirmwareValue()),
 						Attributes: map[string]schema.Attribute{
 							"bootloader": schema.StringAttribute{
 								Description: "Bootloader used by the guest. Valid values: `bios`, `efi`. Default: `efi`.",
@@ -341,8 +345,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"network": schema.ListNestedAttribute{
-						Description: "Pod-network interfaces for the VM. Only a single network is supported.",
+						Description: "Pod-network interfaces for the VM. Only a single network is supported. Defaults to a single `default` network when omitted.",
 						Optional:    true,
+						Computed:    true,
+						Default:     listdefault.StaticValue(defaultVmNetworkValue()),
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
 								"name": schema.StringAttribute{
@@ -437,8 +443,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 					},
 					"clock": schema.SingleNestedAttribute{
-						Description: "Guest clock configuration.",
+						Description: "Guest clock configuration. Defaults to `timezone = UTC` when omitted.",
 						Optional:    true,
+						Computed:    true,
+						Default:     objectdefault.StaticValue(defaultVmClockValue()),
 						Attributes: map[string]schema.Attribute{
 							"timezone": schema.StringAttribute{
 								Description: "Guest timezone. Default: `UTC`.",
@@ -2021,6 +2029,59 @@ func (wr *WorkloadResource) LocalOptionsSchema() schema.ListNestedBlock {
 
 	// Return the configured local options schema
 	return options
+}
+
+/*** Schemas Defaults ***/
+
+// defaultVmFirmwareValue returns the firmware object the API materializes when the block is omitted.
+func defaultVmFirmwareValue() types.Object {
+	// Get the firmware attribute types
+	firmwareTypes := models.VmFirmwareModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+
+	// Build and return the default firmware object
+	return types.ObjectValueMust(
+		firmwareTypes,
+		map[string]attr.Value{
+			"bootloader":  types.StringValue("efi"),
+			"secure_boot": types.BoolValue(false),
+			"uuid":        types.StringNull(),
+			"serial":      types.StringNull(),
+			"smbios":      types.ObjectNull(models.VmFirmwareSmbiosModel{}.AttributeTypes().(types.ObjectType).AttrTypes),
+		},
+	)
+}
+
+// defaultVmNetworkValue returns the network list the API materializes when the block is omitted.
+func defaultVmNetworkValue() types.List {
+	// Get the network element type
+	networkType := models.VmNetworkModel{}.AttributeTypes()
+
+	// Build and return the default network list with a single entry
+	return types.ListValueMust(
+		networkType,
+		[]attr.Value{
+			types.ObjectValueMust(
+				networkType.(types.ObjectType).AttrTypes,
+				map[string]attr.Value{
+					"name": types.StringValue("default"),
+				},
+			),
+		},
+	)
+}
+
+// defaultVmClockValue returns the clock object the API materializes when the block is omitted.
+func defaultVmClockValue() types.Object {
+	// Get the clock attribute types
+	clockTypes := models.VmClockModel{}.AttributeTypes().(types.ObjectType).AttrTypes
+
+	// Build and return the default clock object
+	return types.ObjectValueMust(
+		clockTypes,
+		map[string]attr.Value{
+			"timezone": types.StringValue("UTC"),
+		},
+	)
 }
 
 /*** Plan Modifiers ***/

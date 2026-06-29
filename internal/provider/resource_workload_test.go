@@ -81,6 +81,7 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps = append(steps, resourceTest.NewCronScenario()...)
 	steps = append(steps, resourceTest.NewStatefulScenario()...)
 	steps = append(steps, resourceTest.NewVmScenario()...)
+	steps = append(steps, resourceTest.NewVmDefaultsScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -296,6 +297,28 @@ func (wrt *WorkloadResourceTest) NewVmScenario() []resource.TestStep {
 		caseUpdate1,
 		// Revert the resource to its initial state (remove the optional blocks entirely)
 		initialStep,
+	}
+}
+
+// NewVmDefaultsScenario verifies the vm firmware, network, and clock object/list defaults materialize without drift when omitted.
+func (wrt *WorkloadResourceTest) NewVmDefaultsScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-vm-defaults-%s", wrt.RandomName)
+
+	// Build test steps
+	initialConfig, omittedStep := wrt.BuildVmDefaultsOmittedTestStep(name)
+	setStep := wrt.BuildVmDefaultsSetTestStep(initialConfig.ProviderTestCase)
+
+	// Return the complete test steps. Walk the optional defaulted blocks through omit -> set -> omit to
+	// prove the defaults apply on create, an explicit value overrides them, and removing the blocks
+	// re-applies the defaults (the Computed+Default revert path).
+	return []resource.TestStep{
+		// Omit firmware/network/clock -> defaults materialize
+		omittedStep,
+		// Set them explicitly -> overrides
+		setStep,
+		// Remove them again -> defaults re-apply
+		omittedStep,
 	}
 }
 
@@ -3218,6 +3241,79 @@ func (wrt *WorkloadResourceTest) BuildVmUpdate2TestStep(initialCase ProviderTest
 	}
 }
 
+// BuildVmDefaultsOmittedTestStep constructs a vm workload test step that omits firmware/network/clock and asserts the materialized defaults.
+func (wrt *WorkloadResourceTest) BuildVmDefaultsOmittedTestStep(name string) (WorkloadResourceTestCase, resource.TestStep) {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Initialize and return the test step
+	return c, resource.TestStep{
+		Config: wrt.VmDefaultsOmittedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"firmware": map[string]interface{}{
+					"bootloader":  "efi",
+					"secure_boot": "false",
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "UTC",
+				},
+			}),
+		),
+	}
+}
+
+// BuildVmDefaultsSetTestStep constructs a vm workload test step that sets firmware/network/clock explicitly to override the defaults.
+func (wrt *WorkloadResourceTest) BuildVmDefaultsSetTestStep(initialCase ProviderTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: initialCase,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.VmDefaultsSetHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			c.TestCheckObjectAttr("vm", map[string]interface{}{
+				"firmware": map[string]interface{}{
+					"bootloader":  "bios",
+					"secure_boot": "false",
+				},
+				"network": []map[string]interface{}{
+					{
+						"name": "default",
+					},
+				},
+				"clock": map[string]interface{}{
+					"timezone": "America/New_York",
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // K8sVolumeUriHcl returns a serverless workload configuration that mounts a k8s://secret volume to exercise the uri scheme validator.
@@ -6074,6 +6170,139 @@ resource "cpln_workload" "%s" {
 }
 `, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), wrt.GvcCase.ResourceAddress,
 		wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmDefaultsOmittedHcl returns a vm workload that omits firmware, network, and clock so their defaults are materialized.
+func (wrt *WorkloadResourceTest) VmDefaultsOmittedHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_volume_set.vm_boot]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "vm"
+
+  container {
+    name   = "vm-container"
+    cpu    = "1000m"
+    memory = "1Gi"
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmDefaultsSetHcl returns a vm workload that sets firmware, network, and clock explicitly to override their defaults.
+func (wrt *WorkloadResourceTest) VmDefaultsSetHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_volume_set.vm_boot]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "vm"
+
+  container {
+    name   = "vm-container"
+    cpu    = "1000m"
+    memory = "1Gi"
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
+    }
+
+    firmware = {
+      bootloader  = "bios"
+      secure_boot = false
+    }
+
+    network = [
+      {
+        name = "default"
+      }
+    ]
+
+    clock = {
+      timezone = "America/New_York"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
 	)
 }
 
