@@ -9,6 +9,7 @@ import (
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/org"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -107,10 +108,13 @@ func (or *OrgResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				},
 			},
 			"session_timeout_seconds": schema.Int32Attribute{
-				Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)",
+				Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Min: 900. Default: 900 (15 minutes)",
 				Optional:    true,
 				Computed:    true,
 				Default:     int32default.StaticInt32(900),
+				Validators: []validator.Int32{
+					int32validator.AtLeast(900),
+				},
 			},
 			"status": schema.ListNestedAttribute{
 				Description: "Status of the org.",
@@ -160,30 +164,33 @@ func (or *OrgResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"logs_retention_days": schema.Int32Attribute{
-							Description: "Log retention days. Default: 30",
+							Description: "Log retention days. Min: 0. Max: 3650. Default: 30",
 							Optional:    true,
 							Computed:    true,
 							Default:     int32default.StaticInt32(30),
 							Validators: []validator.Int32{
 								int32validator.AtLeast(0),
+								int32validator.AtMost(3650),
 							},
 						},
 						"metrics_retention_days": schema.Int32Attribute{
-							Description: "Metrics retention days. Default: 30",
+							Description: "Metrics retention days. Min: 0. Max: 3650. Default: 30",
 							Optional:    true,
 							Computed:    true,
 							Default:     int32default.StaticInt32(30),
 							Validators: []validator.Int32{
 								int32validator.AtLeast(0),
+								int32validator.AtMost(3650),
 							},
 						},
 						"traces_retention_days": schema.Int32Attribute{
-							Description: "Traces retention days. Default: 30",
+							Description: "Traces retention days. Min: 0. Max: 3650. Default: 30",
 							Optional:    true,
 							Computed:    true,
 							Default:     int32default.StaticInt32(30),
 							Validators: []validator.Int32{
 								int32validator.AtLeast(0),
+								int32validator.AtMost(3650),
 							},
 						},
 						"default_alert_emails": schema.SetAttribute{
@@ -214,6 +221,9 @@ func (or *OrgResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 									"minimum_severity": schema.StringAttribute{
 										Description: "Any threats with this severity and more severe will be sent. Others will be ignored. Valid values: `warning`, `error`, or `critical`.",
 										Optional:    true,
+										Validators: []validator.String{
+											stringvalidator.OneOf("warning", "error", "critical"),
+										},
 									},
 								},
 								Blocks: map[string]schema.Block{
@@ -232,8 +242,11 @@ func (or *OrgResource) Schema(ctx context.Context, req resource.SchemaRequest, r
 													Required:    true,
 												},
 												"port": schema.Int32Attribute{
-													Description: "The port to send syslog messages to.",
+													Description: "The port to send syslog messages to. Min: 1. Max: 100000.",
 													Required:    true,
+													Validators: []validator.Int32{
+														int32validator.Between(1, 100000),
+													},
 												},
 											},
 										},
