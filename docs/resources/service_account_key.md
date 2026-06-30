@@ -17,7 +17,7 @@ Used in conjunction with a Service Account.
 ### Required
 
 - **service_account_name** (String) The name of an existing Service Account this key will belong to.
-- **description** (String) Description of the Service Account Key.
+- **description** (String) Description of the Service Account Key. Max: 250.
 
 ## Outputs
 

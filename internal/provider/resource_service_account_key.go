@@ -7,6 +7,7 @@ import (
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	"github.com/controlplane-com/terraform-provider-cpln/internal/provider/validators"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -105,8 +106,11 @@ func (sakr *ServiceAccountKeyResource) Schema(ctx context.Context, req resource.
 				},
 			},
 			"description": schema.StringAttribute{
-				Description: "Description of the Service Account Key.",
+				Description: "Description of the Service Account Key. Max: 250.",
 				Required:    true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(250),
+				},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 					stringplanmodifier.UseStateForUnknown(),
