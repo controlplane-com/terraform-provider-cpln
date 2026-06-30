@@ -20,7 +20,7 @@
       "args": [
         //
         "-test.run",
-        "TestAccControlPlaneVolumeSet_basic",
+        "TestAccControlPlaneIdentity_basic",
         "-test.v"
       ]
     }

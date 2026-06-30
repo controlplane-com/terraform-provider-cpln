@@ -254,7 +254,6 @@ func (srt *SecretResourceTest) NewTlsScenario() SecretResourceTestCase {
 	name := fmt.Sprintf("secret-tls-%s", acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum))
 
 	// Define the initial config
-	privateKey := MustLoadTestData("private_key.pem")
 	certificate := MustLoadTestData("certificate.pem")
 
 	// Define the updated config
@@ -275,14 +274,13 @@ func (srt *SecretResourceTest) NewTlsScenario() SecretResourceTestCase {
 	// Return the complete test case for the opaque secret
 	return SecretResourceTestCase{
 		Scenario:   scenario,
-		InitialHCL: scenario.TlsRequiredOnly(privateKey, certificate),
+		InitialHCL: scenario.TlsRequiredOnly(certificate),
 		UpdateHCL:  scenario.TlsUpdateWithOptionals(privateKeyUpdate, certificateUpdate),
 		InitialChecks: []resource.TestCheckFunc{
 			scenario.Exists(),
 			scenario.GetDefaultChecks(scenario.Description, "0"),
 			scenario.TestCheckNestedBlocks("tls", []map[string]interface{}{
 				{
-					"key":  privateKey,
 					"cert": certificate,
 				},
 			}),
@@ -885,15 +883,8 @@ resource "cpln_secret" "opaque" {
 }
 
 // TlsRequiredOnly returns a minimal HCL block for a TLS secret using only required fields.
-func (srts *SecretResourceTestScenario) TlsRequiredOnly(key string, cert string) string {
+func (srts *SecretResourceTestScenario) TlsRequiredOnly(cert string) string {
 	return fmt.Sprintf(`
-variable "testcertprivate" {
-  type = string
-  default = <<EOT
-%s
-EOT
-}
-
 variable "testcert" {
   type = string
   default = <<EOT
@@ -905,11 +896,10 @@ resource "cpln_secret" "tls" {
   name = "%s"
 
   tls {
-    key   = chomp(var.testcertprivate)
-    cert  = chomp(var.testcert)
+    cert = chomp(var.testcert)
   }
 }
-`, key, cert, srts.Name)
+`, cert, srts.Name)
 }
 
 // TlsUpdateWithOptionals returns an HCL block for a TLS secret including optional fields like description and tags.
