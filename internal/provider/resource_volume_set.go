@@ -160,8 +160,9 @@ func (vsr *VolumeSetResource) Schema(ctx context.Context, req resource.SchemaReq
 				Required:    true,
 			},
 			"performance_class": schema.StringAttribute{
-				Description: "Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`.",
-				Required:    true,
+				Description: "Each volume set has a single, immutable performance class. Valid classes: `general-purpose-ssd`, `high-throughput-ssd`, or `shared`. Required unless `file_system_type` is `shared`, in which case it is automatically set to `shared`.",
+				Optional:    true,
+				Computed:    true,
 				Validators: []validator.String{
 					stringvalidator.OneOf("general-purpose-ssd", "high-throughput-ssd", "shared"),
 				},
@@ -180,7 +181,7 @@ func (vsr *VolumeSetResource) Schema(ctx context.Context, req resource.SchemaReq
 				},
 			},
 			"file_system_type": schema.StringAttribute{
-				Description: "Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`.",
+				Description: "Each volume set has a single, immutable file system. Valid types: `ext4`, `xfs`, or `shared`. Default: `ext4`.",
 				Optional:    true,
 				Computed:    true,
 				Default:     stringdefault.StaticString("ext4"),

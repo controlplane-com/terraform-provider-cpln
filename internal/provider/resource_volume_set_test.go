@@ -50,6 +50,7 @@ func NewVolumeSetResourceTest() VolumeSetResourceTest {
 	steps = append(steps, resourceTest.NewDefaultScenario("ext4", "general-purpose-ssd")...)
 	steps = append(steps, resourceTest.NewDefaultScenario("xfs", "high-throughput-ssd")...)
 	steps = append(steps, resourceTest.NewDefaultScenario("shared", "shared")...)
+	steps = append(steps, resourceTest.NewSharedDerivedPerformanceClassScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -156,6 +157,39 @@ func (vsrt *VolumeSetResourceTest) NewDefaultScenario(fileSystemType string, per
 		caseUpdate4,
 		// Revert the resource to its initial state
 		initialStep,
+	}
+}
+
+// NewSharedDerivedPerformanceClassScenario verifies that performance_class is optional and auto-derived to "shared" when file_system_type is "shared".
+func (vsrt *VolumeSetResourceTest) NewSharedDerivedPerformanceClassScenario() []resource.TestStep {
+	// Generate unique names for the resources (reuse the default gvc so only the volume set is created fresh)
+	name := fmt.Sprintf("volume-set-shared-%s", vsrt.RandomName)
+	gvcName := fmt.Sprintf("gvc-%s", vsrt.RandomName)
+
+	// Create the gvc case
+	gvcCase := GvcResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "gvc",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_gvc.new",
+			Name:              gvcName,
+			Description:       gvcName,
+			DescriptionUpdate: "gvc default description updated",
+		},
+	}
+
+	// Create a gvc resource test instance
+	gvcResourceTest := GvcResourceTest{}
+
+	// Initialize the gvc config
+	gvcConfig := gvcResourceTest.GvcRequiredOnly(gvcCase)
+
+	// Build the create step that omits performance_class
+	step := vsrt.BuildSharedDerivedPerformanceClassTestStep(name, gvcConfig, gvcCase)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		step,
 	}
 }
 
@@ -310,12 +344,12 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate2TestStep(initialCase ProviderTest
 					"scaling_factor":      "2.2",
 					"predictive": []map[string]interface{}{
 						{
-							"enabled":                      "true",
-							"lookback_hours":               "48",
-							"projection_hours":             "12",
-							"min_data_points":              "20",
-							"min_growth_rate_gb_per_hour":  "0.05",
-							"scaling_factor":               "1.2",
+							"enabled":                     "true",
+							"lookback_hours":              "48",
+							"projection_hours":            "12",
+							"min_data_points":             "20",
+							"min_growth_rate_gb_per_hour": "0.05",
+							"scaling_factor":              "1.2",
 						},
 					},
 				},
@@ -492,6 +526,38 @@ func (vsrt *VolumeSetResourceTest) BuildUpdate4TestStep(initialCase ProviderTest
 	}
 }
 
+// BuildSharedDerivedPerformanceClassTestStep returns a test step that creates a shared volume set without performance_class and asserts it is auto-derived to "shared".
+func (vsrt *VolumeSetResourceTest) BuildSharedDerivedPerformanceClassTestStep(name string, gvcConfig string, gvcCase GvcResourceTestCase) resource.TestStep {
+	// Create the test case with metadata and descriptions
+	c := VolumeSetResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "volumeset",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_volume_set.new",
+			Name:            name,
+			GvcName:         gvcCase.Name,
+			Description:     name,
+		},
+		GvcConfig:       gvcConfig,
+		GvcCase:         gvcCase,
+		InitialCapacity: "10",
+		FileSystemType:  "shared",
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: vsrt.HclSharedDerivedPerformanceClass(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "initial_capacity", c.InitialCapacity),
+			// performance_class is omitted from the config and auto-derived by the API
+			resource.TestCheckResourceAttr(c.ResourceAddress, "performance_class", "shared"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "file_system_type", c.FileSystemType),
+		),
+	}
+}
+
 // Configs //
 
 // HclRequiredOnly returns HCL for volume set with only required fields.
@@ -511,6 +577,24 @@ resource "cpln_volume_set" "%s" {
 }
 `, c.GvcConfig, c.ResourceName, c.GvcCase.ResourceAddress, c.Name, c.GvcCase.Name, c.InitialCapacity, c.PerformanceClass,
 		c.FileSystemType,
+	)
+}
+
+// HclSharedDerivedPerformanceClass returns HCL for a shared volume set that omits performance_class so the API derives it.
+func (vsrt *VolumeSetResourceTest) HclSharedDerivedPerformanceClass(c VolumeSetResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "%s" {
+  depends_on = [%s]
+
+  name             = "%s"
+  gvc              = "%s"
+  initial_capacity = %s
+  file_system_type = "shared"
+}
+`, c.GvcConfig, c.ResourceName, c.GvcCase.ResourceAddress, c.Name, c.GvcCase.Name, c.InitialCapacity,
 	)
 }
 
