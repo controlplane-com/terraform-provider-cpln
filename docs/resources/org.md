@@ -22,7 +22,7 @@ Manage an [organization](https://docs.controlplane.com/reference/org) (org).
 
 - **account_id** (String) The associated account ID that will be used when creating the org. Only used on org creation. The account ID can be obtained from the `Org Management & Billing` page.
 - **invitees** (List of String) When an org is created, the list of email addresses which will receive an invitation to join the org and be assigned to the `superusers` group. The user account used when creating the org will be included in this list.
-- **session_timeout_seconds** (Int) The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)
+- **session_timeout_seconds** (Int) The idle time (in seconds) in which the console UI will automatically sign-out the user. Min: 900. Default: 900 (15 minutes)
 - **auth_config** (Block List, Max: 1) ([see below](#nestedblock--auth_config)).
 - **security** (Block List, Max: 1) ([see below](#nestedblock--security)).
 
@@ -42,9 +42,9 @@ Charges apply for storage beyond the 30 day default.
 
 Optional:
 
-- **logs_retention_days** (Int) Log retention days. Default: 30
-- **metrics_retention_days** (Int) Metrics retention days. Default: 30
-- **traces_retention_days** (Int) Traces retention days. Default: 30
+- **logs_retention_days** (Int) Log retention days. Min: 0. Max: 3650. Default: 30
+- **metrics_retention_days** (Int) Metrics retention days. Min: 0. Max: 3650. Default: 30
+- **traces_retention_days** (Int) Traces retention days. Min: 0. Max: 3650. Default: 30
 - **default_alert_emails** (List of String) These emails are configured as alert recipients in Grafana when the 'grafana-default-email' contact delivery type is 'Email'.
 
 ~> **Note** The `observability` block is required, but the sub-properties are optional and will use the default value if not provided.
@@ -82,7 +82,7 @@ Optional:
 
 Required:
 
-- **port** (Int) The port to send syslog messages to.
+- **port** (Int) The port to send syslog messages to. Min: 1. Max: 100000.
 
 Optional:
 

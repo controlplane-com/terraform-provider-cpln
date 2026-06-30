@@ -79,7 +79,7 @@ func (d *OrgDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 				Computed:    true,
 			},
 			"session_timeout_seconds": schema.Int32Attribute{
-				Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Default: 900 (15 minutes)",
+				Description: "The idle time (in seconds) in which the console UI will automatically sign-out the user. Min: 900. Default: 900 (15 minutes)",
 				Computed:    true,
 			},
 			"status": schema.ListNestedAttribute{
@@ -128,18 +128,21 @@ func (d *OrgDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"logs_retention_days": schema.Int32Attribute{
-							Description: "Log retention days. Default: 30",
+							Description: "Log retention days. Min: 0. Max: 3650. Default: 30",
 							Computed:    true,
+							Validators: []validator.Int32{
+								int32validator.AtLeast(0),
+							},
 						},
 						"metrics_retention_days": schema.Int32Attribute{
-							Description: "Metrics retention days. Default: 30",
+							Description: "Metrics retention days. Min: 0. Max: 3650. Default: 30",
 							Computed:    true,
 							Validators: []validator.Int32{
 								int32validator.AtLeast(0),
 							},
 						},
 						"traces_retention_days": schema.Int32Attribute{
-							Description: "Traces retention days. Default: 30",
+							Description: "Traces retention days. Min: 0. Max: 3650. Default: 30",
 							Computed:    true,
 							Validators: []validator.Int32{
 								int32validator.AtLeast(0),
@@ -187,7 +190,7 @@ func (d *OrgDataSource) Schema(ctx context.Context, req datasource.SchemaRequest
 													Computed:    true,
 												},
 												"port": schema.Int32Attribute{
-													Description: "The port to send syslog messages to.",
+													Description: "The port to send syslog messages to. Min: 1. Max: 100000.",
 													Computed:    true,
 												},
 											},
