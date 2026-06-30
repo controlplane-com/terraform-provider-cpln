@@ -167,7 +167,7 @@ func (sr *SecretResource) Schema(ctx context.Context, req resource.SchemaRequest
 					Attributes: map[string]schema.Attribute{
 						"key": schema.StringAttribute{
 							Description: "Private Certificate.",
-							Required:    true,
+							Optional:    true,
 							Sensitive:   true,
 						},
 						"cert": schema.StringAttribute{
@@ -788,8 +788,12 @@ func (sro *SecretResourceOperator) buildTls(state []models.TlsModel) *map[string
 
 	// Construct the output
 	output := map[string]interface{}{
-		"key":  BuildString(block.Key),
 		"cert": BuildString(block.Cert),
+	}
+
+	// Set key if specified
+	if key := BuildString(block.Key); key != nil {
+		output["key"] = key
 	}
 
 	// Set chain if specified
@@ -971,8 +975,12 @@ func (sro *SecretResourceOperator) flattenTls(input map[string]interface{}) []mo
 
 	// Build a single block
 	block := models.TlsModel{
-		Key:  types.StringValue(input["key"].(string)),
 		Cert: types.StringValue(input["cert"].(string)),
+	}
+
+	// Set key if specified
+	if key, ok := input["key"]; ok {
+		block.Key = types.StringValue(key.(string))
 	}
 
 	// Set chain if specified

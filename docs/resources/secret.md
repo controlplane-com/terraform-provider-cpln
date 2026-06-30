@@ -104,9 +104,12 @@ Optional:
 
 ### `tls`
 
-Optional:
+Required:
 
 - **cert** (String) Public Certificate.
+
+Optional:
+
 - **chain** (String) Chain Certificate.
 - **key** (String, Sensitive) Private Certificate.
 
@@ -486,7 +489,7 @@ resource "cpln_secret" "tls" {
 
   tls {
 
-    # Required
+    # Optional
     key = var.testcertprivate
 
     # Required
