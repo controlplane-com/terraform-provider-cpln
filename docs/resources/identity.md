@@ -23,8 +23,8 @@ Manages a GVC's [Identities](https://docs.controlplane.com/reference/identity).
 - **gcp_access_policy** (Block List, Max: 1) ([see below](#nestedblock--gcp_access_policy)).
 - **azure_access_policy** (Block List, Max: 1) ([see below](#nestedblock--azure_access_policy)).
 - **ngs_access_policy** (Block List, Max: 1) ([see below](#nestedblock--ngs_access_policy)).
-- **network_resource** (Block List) ([see below](#nestedblock--network_resource)).
-- **native_network_resource** (Block List) ([see below](#nestedblock--native_network_resource)).
+- **network_resource** (Block List, Max: 50) ([see below](#nestedblock--network_resource)).
+- **native_network_resource** (Block List, Max: 50) ([see below](#nestedblock--native_network_resource)).
 
 <a id="nestedblock--aws_access_policy"></a>
 
@@ -128,7 +128,7 @@ Optional:
 
 Optional:
 
-- **max** (Number) Number of responses allowed on the replyTo subject, -1 means no limit. Default: -1
+- **max** (Number) Number of responses allowed on the replyTo subject, -1 means no limit. Default: 1
 - **ttl** (String) Deadline to send replies on the replyTo subject [#ms(millis) | #s(econds) | m(inutes) | h(ours)]. -1 means no restriction.
 
 <a id="nestedblock--network_resource"></a>
@@ -148,10 +148,10 @@ Required:
 
 Optional:
 
-- **ips** (Set of String) List of IP addresses.
+- **ips** (Set of String) List of IP addresses. Up to 5 entries.
 - **fqdn** (String) Fully qualified domain name.
 - **resolver_ip** (String) Resolver IP.
-- **ports** (Set of Number) Ports to expose.
+- **ports** (Set of Number) Ports to expose. Between 1 and 10 entries.
 
 <a id="nestedblock--native_network_resource"></a>
 
@@ -162,7 +162,7 @@ Optional:
 Required:
 
 - **name** (String) Name of the Native Network Resource.
-- **ports** (Set of Number) Ports to expose. At least one port is required.
+- **ports** (Set of Number) Ports to expose. Between 1 and 10 entries.
 
 Optional:
 
