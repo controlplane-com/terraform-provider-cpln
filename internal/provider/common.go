@@ -386,7 +386,7 @@ func (r *EntityBase) CustomTagsTracingSchema() schema.MapAttribute {
 func (r *EntityBase) GetPortValidators() []validator.Int32 {
 	return []validator.Int32{
 		int32validator.Between(80, 65535),
-		int32validator.NoneOf(8012, 8022, 9090, 9091, 15000, 15006, 15020, 15021, 15090, 41000),
+		int32validator.NoneOf(8012, 8022, 9090, 9091, 15000, 15001, 15006, 15020, 15021, 15090, 41000),
 	}
 }
 
