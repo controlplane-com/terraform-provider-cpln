@@ -152,6 +152,15 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 									"must contain only letters, numbers, and the symbols / += , . @ _ -",
 								),
 								stringvalidator.LengthAtMost(64),
+								// Enforce the upstream xor: exactly one of role_name or policy_refs
+								stringvalidator.ExactlyOneOf(
+									path.MatchRelative().AtParent().AtName("role_name"),
+									path.MatchRelative().AtParent().AtName("policy_refs"),
+								),
+								// Enforce the upstream oxor: role_name and trust_policy are mutually exclusive
+								stringvalidator.ConflictsWith(
+									path.MatchRelative().AtParent().AtName("trust_policy"),
+								),
 							},
 						},
 					},
@@ -206,6 +215,11 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 								stringvalidator.RegexMatches(
 									regexp.MustCompile(`^.*\.gserviceaccount\.com$`),
 									"must be a valid GCP service account email (i.e. ending in .gserviceaccount.com)",
+								),
+								// Enforce the upstream xor: exactly one of service_account or binding
+								stringvalidator.ExactlyOneOf(
+									path.MatchRelative().AtParent().AtName("service_account"),
+									path.MatchRelative().AtParent().AtName("binding"),
 								),
 							},
 						},
@@ -312,7 +326,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
 									"max": schema.Int32Attribute{
-										Description: "Number of responses allowed on the replyTo subject, -1 means no limit. Default: -1",
+										Description: "Number of responses allowed on the replyTo subject, -1 means no limit. Default: 1",
 										Optional:    true,
 										Computed:    true,
 										Default:     int32default.StaticInt32(1),
@@ -349,20 +363,19 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 							},
 						},
 						"ips": schema.SetAttribute{
-							Description: "List of IP addresses.",
+							Description: "List of IP addresses. Up to 5 entries.",
 							ElementType: types.StringType,
 							Optional:    true,
 							Validators: []validator.Set{
-								setvalidator.ConflictsWith(
-									path.MatchRelative().AtParent().AtName("fqdn"),
-								),
+								setvalidator.SizeBetween(1, 5),
 							},
 						},
 						"fqdn": schema.StringAttribute{
 							Description: "Fully qualified domain name.",
 							Optional:    true,
 							Validators: []validator.String{
-								stringvalidator.ConflictsWith(
+								stringvalidator.ExactlyOneOf(
+									path.MatchRelative().AtParent().AtName("fqdn"),
 									path.MatchRelative().AtParent().AtName("ips"),
 								),
 							},
@@ -372,11 +385,17 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 							Optional:    true,
 						},
 						"ports": schema.SetAttribute{
-							Description: "Ports to expose.",
+							Description: "Ports to expose. Between 1 and 10 entries.",
 							ElementType: types.Int32Type,
 							Required:    true,
+							Validators: []validator.Set{
+								setvalidator.SizeBetween(1, 10),
+							},
 						},
 					},
+				},
+				Validators: []validator.Set{
+					setvalidator.SizeAtMost(50),
 				},
 			},
 			"native_network_resource": schema.SetNestedBlock{
@@ -389,14 +408,14 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 						"fqdn": schema.StringAttribute{
 							Description: "Fully qualified domain name.",
-							Required:    true,
+							Optional:    true,
 						},
 						"ports": schema.SetAttribute{
-							Description: "Ports to expose. At least one port is required.",
+							Description: "Ports to expose. Between 1 and 10 entries.",
 							ElementType: types.Int32Type,
 							Required:    true,
 							Validators: []validator.Set{
-								setvalidator.SizeAtLeast(1),
+								setvalidator.SizeBetween(1, 10),
 							},
 						},
 					},
@@ -440,6 +459,9 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 							},
 						},
 					},
+				},
+				Validators: []validator.Set{
+					setvalidator.SizeAtMost(50),
 				},
 			},
 		},
