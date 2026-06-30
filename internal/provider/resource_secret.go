@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
@@ -346,13 +347,25 @@ func (sr *SecretResource) Schema(ctx context.Context, req resource.SchemaRequest
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"account_id": schema.StringAttribute{
-							Description: "Account ID.",
+							Description: "Account ID. Must be a 56-character NATS account public key beginning with `A`.",
 							Required:    true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^A[A-Z0-9]{55}$`),
+									"must be a 56-character NATS account public key beginning with `A`",
+								),
+							},
 						},
 						"private_key": schema.StringAttribute{
-							Description: "Private Key.",
+							Description: "Private Key. Must be a 58-character NATS account seed beginning with `SA`.",
 							Required:    true,
 							Sensitive:   true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^SA[A-Z0-9]{56}$`),
+									"must be a 58-character NATS account seed beginning with `SA`",
+								),
+							},
 						},
 					},
 				},

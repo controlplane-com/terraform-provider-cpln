@@ -179,7 +179,7 @@ func (d *SecretDataSource) Schema(ctx context.Context, req datasource.SchemaRequ
 						},
 						"external_id": schema.StringAttribute{
 							Description: "AWS IAM Role External ID. Used when setting up cross-account access to your ECR repositories.",
-							Optional:    true,
+							Computed:    true,
 						},
 						"repos": schema.SetAttribute{
 							Description: "List of ECR repositories.",
