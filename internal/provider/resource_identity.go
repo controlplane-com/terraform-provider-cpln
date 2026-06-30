@@ -389,7 +389,7 @@ func (ir *IdentityResource) Schema(ctx context.Context, req resource.SchemaReque
 						},
 						"fqdn": schema.StringAttribute{
 							Description: "Fully qualified domain name.",
-							Required:    true,
+							Optional:    true,
 						},
 						"ports": schema.SetAttribute{
 							Description: "Ports to expose. At least one port is required.",

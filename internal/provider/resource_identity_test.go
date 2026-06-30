@@ -363,7 +363,6 @@ func (irt *IdentityResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCa
 			},
 			{
 				Name:  StringPointer("test-native-network-resource-fqdn-02"),
-				FQDN:  StringPointer("test-native-network-resource-fqdn-02.com"),
 				Ports: &[]int{8080},
 				AWSPrivateLink: &client.IdentityAwsPrivateLink{
 					EndpointServiceName: StringPointer("com.amazonaws.vpce.us-east-2.vpce-svc-01af6c4c9260ac550"),
@@ -776,18 +775,23 @@ func (irt *IdentityResourceTest) NativeNetworkResourceWithAws(list []client.Iden
 
 	// Iterate over each native AWS network resource item
 	for _, item := range list {
+		// Build the optional FQDN line, included only when the FQDN is set
+		fqdnLine := ""
+		if item.FQDN != nil {
+			fqdnLine = fmt.Sprintf("    fqdn        = \"%s\"\n", *item.FQDN)
+		}
+
 		// Format HCL block with AWS private link configuration
 		hcl := fmt.Sprintf(`
   native_network_resource {
     name        = "%s"
-    fqdn        = "%s"
-    ports       = %s
+%s    ports       = %s
 
     aws_private_link {
       endpoint_service_name = "%s"
     }
   }
-	`, *item.Name, *item.FQDN, IntSliceToString(*item.Ports), *item.AWSPrivateLink.EndpointServiceName)
+	`, *item.Name, fqdnLine, IntSliceToString(*item.Ports), *item.AWSPrivateLink.EndpointServiceName)
 
 		// Append formatted HCL to output
 		output = append(output, hcl)
@@ -804,18 +808,23 @@ func (irt *IdentityResourceTest) NativeNetworkResourceWithGcp(list []client.Iden
 
 	// Iterate over each native GCP network resource item
 	for _, item := range list {
+		// Build the optional FQDN line, included only when the FQDN is set
+		fqdnLine := ""
+		if item.FQDN != nil {
+			fqdnLine = fmt.Sprintf("    fqdn        = \"%s\"\n", *item.FQDN)
+		}
+
 		// Format HCL block with GCP service connect configuration
 		hcl := fmt.Sprintf(`
   native_network_resource {
     name        = "%s"
-    fqdn        = "%s"
-    ports       = %s
+%s    ports       = %s
 
     gcp_service_connect {
       target_service = "%s"
     }
   }
-	`, *item.Name, *item.FQDN, IntSliceToString(*item.Ports), *item.GCPServiceConnect.TargetService)
+	`, *item.Name, fqdnLine, IntSliceToString(*item.Ports), *item.GCPServiceConnect.TargetService)
 
 		// Append formatted HCL to output
 		output = append(output, hcl)
@@ -919,15 +928,22 @@ func (irtc *IdentityResourceTestCase) NativeNetworkResourcesWithAwsTestCheck() r
 
 	// Iterate over each defined native network resource for AWS
 	for _, item := range irtc.NativeNetworkResources {
-		// Append a map of AWS-specific attributes for this native network resource
-		v = append(v, map[string]interface{}{
+		// Build the AWS-specific attributes for this native network resource
+		block := map[string]interface{}{
 			"name":  *item.Name,
-			"fqdn":  *item.FQDN,
 			"ports": *item.Ports,
 			"aws_private_link": []map[string]interface{}{
 				{"endpoint_service_name": *item.AWSPrivateLink.EndpointServiceName},
 			},
-		})
+		}
+
+		// Assert the optional FQDN only when it is set
+		if item.FQDN != nil {
+			block["fqdn"] = *item.FQDN
+		}
+
+		// Append the assembled attribute map
+		v = append(v, block)
 	}
 
 	// Return a nested block test check using the AWS native network resource maps
@@ -941,15 +957,22 @@ func (irtc *IdentityResourceTestCase) NativeNetworkResourcesWithGcpTestCheck() r
 
 	// Iterate over each defined native network resource for GCP
 	for _, item := range irtc.NativeNetworkResources {
-		// Append a map of GCP-specific attributes for this native network resource
-		v = append(v, map[string]interface{}{
+		// Build the GCP-specific attributes for this native network resource
+		block := map[string]interface{}{
 			"name":  *item.Name,
-			"fqdn":  *item.FQDN,
 			"ports": *item.Ports,
 			"gcp_service_connect": []map[string]interface{}{
 				{"target_service": *item.GCPServiceConnect.TargetService},
 			},
-		})
+		}
+
+		// Assert the optional FQDN only when it is set
+		if item.FQDN != nil {
+			block["fqdn"] = *item.FQDN
+		}
+
+		// Append the assembled attribute map
+		v = append(v, block)
 	}
 
 	// Return a nested block test check using the GCP native network resource maps

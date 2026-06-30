@@ -162,10 +162,11 @@ Optional:
 Required:
 
 - **name** (String) Name of the Native Network Resource.
-- **fqdn** (String) Fully qualified domain name.
 - **ports** (Set of Number) Ports to expose. At least one port is required.
 
 Optional:
+
+- **fqdn** (String) Fully qualified domain name.
 
 Exactly one of:
 
@@ -327,10 +328,9 @@ resource "cpln_identity" "example" {
       endpoint_service_name = "com.amazonaws.vpce.us-west-2.vpce-svc-01af6c4c9260ac550"
     }
   }
-  # Native Network Resource with GCP Service Connect
+  # Native Network Resource with GCP Service Connect (fqdn is optional)
   native_network_resource {
     name  = "test-native-network-resource-gcp"
-    fqdn  = "gcp.test.com"
     ports = [12345, 54321]
     gcp_service_connect {
       target_service = "projects/example-project/regions/example-region/serviceAttachments/example-service-attachments"
