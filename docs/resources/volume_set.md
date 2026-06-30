@@ -17,14 +17,14 @@ Refer to the [Volume Set Reference Page](https://docs.controlplane.com/reference
 - **name** (String) Name of the Volume Set.
 - **gvc** (String) Name of the associated GVC.
 - **initial_capacity** (Integer) The initial volume size in this set, specified in GB. The minimum size for the performance class `general-purpose-ssd` is `10 GB`, while `high-throughput-ssd` requires at least `200 GB`.
-- **performance_class** (String) Each volume set has a single, immutable, performance class. Valid classes: `general-purpose-ssd` or `high-throughput-ssd`
 
 ### Optional
 
 - **description** (String) Description of the Volume Set.
 - **tags** (Map of String) Key-value map of resource tags.
+- **performance_class** (String) Each volume set has a single, immutable performance class. Valid classes: `general-purpose-ssd`, `high-throughput-ssd`, or `shared`. Required unless `file_system_type` is `shared`, in which case it is automatically set to `shared`.
 - **storage_class_suffix** (String) For self-hosted locations only. The storage class used for volumes in this set will be {performanceClass}-{fileSystemType}-{storageClassSuffix} if it exists, otherwise it will be {performanceClass}-{fileSystemType}
-- **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `xfs` or `ext4`. Default: `ext4`.
+- **file_system_type** (String) Each volume set has a single, immutable file system. Valid types: `ext4`, `xfs`, or `shared`. Default: `ext4`.
 - **custom_encryption** (Block List, Max: 1) ([see below](#nestedblock--custom_encryption)).
 - **snapshots** (Block List, Max: 1) ([see below](#nestedblock--snapshots)).
 - **autoscaling** (Block List, Max: 1) ([see below](#nestedblock--autoscaling)).
