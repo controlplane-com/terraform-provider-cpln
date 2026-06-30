@@ -1,3 +1,26 @@
+## 1.2.31
+
+- Add canary block to domain route resource and data source.
+- Add alias_workload_link to GVC resource and data source.
+- Add loki logging provider to org logging.
+- Add static validator bounds to org resource.
+- Add ingress_replicas to mk8s BYOK middlebox configuration.
+- Add cpu_options to mk8s AWS node pool.
+- Add k8s:// scheme to workload volume uri.
+- Add object defaults to workload VM firmware, network, and clock blocks.
+- Add static validators to workload VM checksum, volume set, ssh key, and user fields.
+- Default workload liveness probe initial delay to 60 seconds.
+- Align workload autoscaling and firewall bounds with the API.
+- Make volume set performance_class optional.
+- Fix parent_id JSON tag on volume set status.
+- Make identity native network resource fqdn optional.
+- Add static validators to identity network resources and access policies.
+- Make secret tls key optional.
+- Add format validators to nats-account secret.
+- Fix external_id output on ecr secret data source.
+- Add max length validator to service account key description.
+- Add reserved port 15001 to port validators.
+
 ## 1.2.30
 
 - Add vm type and vm block to workload resource and data source.
