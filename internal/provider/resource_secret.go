@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
@@ -167,7 +168,7 @@ func (sr *SecretResource) Schema(ctx context.Context, req resource.SchemaRequest
 					Attributes: map[string]schema.Attribute{
 						"key": schema.StringAttribute{
 							Description: "Private Certificate.",
-							Required:    true,
+							Optional:    true,
 							Sensitive:   true,
 						},
 						"cert": schema.StringAttribute{
@@ -346,13 +347,25 @@ func (sr *SecretResource) Schema(ctx context.Context, req resource.SchemaRequest
 				NestedObject: schema.NestedBlockObject{
 					Attributes: map[string]schema.Attribute{
 						"account_id": schema.StringAttribute{
-							Description: "Account ID.",
+							Description: "Account ID. Must be a 56-character NATS account public key beginning with `A`.",
 							Required:    true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^A[A-Z0-9]{55}$`),
+									"must be a 56-character NATS account public key beginning with `A`",
+								),
+							},
 						},
 						"private_key": schema.StringAttribute{
-							Description: "Private Key.",
+							Description: "Private Key. Must be a 58-character NATS account seed beginning with `SA`.",
 							Required:    true,
 							Sensitive:   true,
+							Validators: []validator.String{
+								stringvalidator.RegexMatches(
+									regexp.MustCompile(`^SA[A-Z0-9]{56}$`),
+									"must be a 58-character NATS account seed beginning with `SA`",
+								),
+							},
 						},
 					},
 				},
@@ -788,8 +801,12 @@ func (sro *SecretResourceOperator) buildTls(state []models.TlsModel) *map[string
 
 	// Construct the output
 	output := map[string]interface{}{
-		"key":  BuildString(block.Key),
 		"cert": BuildString(block.Cert),
+	}
+
+	// Set key if specified
+	if key := BuildString(block.Key); key != nil {
+		output["key"] = key
 	}
 
 	// Set chain if specified
@@ -971,8 +988,12 @@ func (sro *SecretResourceOperator) flattenTls(input map[string]interface{}) []mo
 
 	// Build a single block
 	block := models.TlsModel{
-		Key:  types.StringValue(input["key"].(string)),
 		Cert: types.StringValue(input["cert"].(string)),
+	}
+
+	// Set key if specified
+	if key, ok := input["key"]; ok {
+		block.Key = types.StringValue(key.(string))
 	}
 
 	// Set chain if specified

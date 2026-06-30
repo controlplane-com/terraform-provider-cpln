@@ -88,8 +88,8 @@ Optional:
 
 Required:
 
-- **account_id** (String) Account ID.
-- **private_key** (String) Private Key.
+- **account_id** (String) Account ID. Must be a 56-character NATS account public key beginning with `A`.
+- **private_key** (String) Private Key. Must be a 58-character NATS account seed beginning with `SA`.
 
 <a id="nestedblock--opaque"></a>
 
@@ -104,9 +104,12 @@ Optional:
 
 ### `tls`
 
-Optional:
+Required:
 
 - **cert** (String) Public Certificate.
+
+Optional:
+
 - **chain** (String) Chain Certificate.
 - **key** (String, Sensitive) Private Certificate.
 
@@ -486,7 +489,7 @@ resource "cpln_secret" "tls" {
 
   tls {
 
-    # Required
+    # Optional
     key = var.testcertprivate
 
     # Required
