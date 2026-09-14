@@ -3,7 +3,9 @@ package cpln
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
@@ -574,15 +576,16 @@ func (dr *DomainResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Create operator and attach prior state for route merge logic
 	operator := dr.Operations.NewOperator(ctx, &resp.Diagnostics, plan)
-	if dro, ok := operator.(*DomainResourceOperator); ok {
-		dro.PriorState = &priorState
+	dro, ok := operator.(*DomainResourceOperator)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Operator", "The domain operator is not of type DomainResourceOperator.")
+		return
 	}
+	dro.PriorState = &priorState
 
 	// Build and send the update request
-	apiReq := operator.NewAPIRequest(true)
-	apiResp, _, err := operator.InvokeUpdate(apiReq)
-	if err != nil {
-		resp.Diagnostics.AddError("API error", err.Error())
+	apiResp := dro.updateWithConflictRetry()
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -1310,6 +1313,51 @@ func (dro *DomainResourceOperator) flattenStatusDnsConfig(input *[]client.Domain
 }
 
 // Helpers //
+
+// updateWithConflictRetry sends the update request, rebuilding it whenever another writer changed the domain first.
+func (dro *DomainResourceOperator) updateWithConflictRetry() *client.Domain {
+	// Match the retry budget the domain route operations use against the same conflict
+	const maxRetries = 5
+	backoff := 2 * time.Second
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Rebuild the payload every attempt because it merges the routes currently on the domain
+		requestPayload := dro.NewAPIRequest(true)
+
+		// Stop when building the payload reported a problem
+		if dro.Diags.HasError() {
+			return nil
+		}
+
+		// Send the update
+		apiResp, code, err := dro.InvokeUpdate(requestPayload)
+
+		// Return the response once the update lands
+		if err == nil {
+			return apiResp
+		}
+
+		// Give up on anything other than a conflict with another writer
+		if code != http.StatusConflict {
+			dro.Diags.AddError("API error", err.Error())
+			return nil
+		}
+
+		// Remember the conflict in case the retries run out
+		lastErr = err
+
+		// Wait out the conflicting write before rebuilding the payload
+		if attempt < maxRetries {
+			time.Sleep(backoff)
+			backoff *= 2
+		}
+	}
+
+	// Report the conflict that outlasted every attempt
+	dro.Diags.AddError("API error", fmt.Sprintf("Unable to update domain after %d attempts due to HTTP 409, details: %v", maxRetries, lastErr))
+	return nil
+}
 
 // mergeRoutes reconciles inline routes from the plan with existing routes on the API.
 func (dro *DomainResourceOperator) mergeRoutes(spec *client.DomainSpec, domain *client.Domain) {

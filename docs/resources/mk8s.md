@@ -1363,7 +1363,7 @@ resource "cpln_mk8s" "generic" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
     
@@ -1643,7 +1643,7 @@ resource "cpln_mk8s" "hetzner" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
     
@@ -1966,7 +1966,7 @@ resource "cpln_mk8s" "aws" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -2309,7 +2309,7 @@ resource "cpln_mk8s" "linode" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -2609,7 +2609,7 @@ resource "cpln_mk8s" "oblivus" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -2909,7 +2909,7 @@ resource "cpln_mk8s" "lambdalabs" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -3205,7 +3205,7 @@ resource "cpln_mk8s" "paperspace" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -3510,7 +3510,7 @@ resource "cpln_mk8s" "ephemeral" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
     
@@ -3785,7 +3785,7 @@ resource "cpln_mk8s" "triton" {
     version = "1.28.4"
 	
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -4095,7 +4095,7 @@ resource "cpln_mk8s" "triton" {
     version = "1.28.4"
 	
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -4405,7 +4405,7 @@ resource "cpln_mk8s" "triton" {
     version = "1.28.4"
 	
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -4738,7 +4738,7 @@ resource "cpln_mk8s" "azure" {
     version = "1.32.1"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -4982,7 +4982,7 @@ resource "cpln_mk8s" "gcp-provider" {
     version = "1.28.4"
 
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
@@ -5301,7 +5301,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
     version = "1.28.4"
 	
     firewall {
-        source_cidr = "192.168.1.255"
+        source_cidr = "192.168.1.255/32"
         description = "hello world"
     }
 
