@@ -69,7 +69,7 @@ Optional:
 ~> **Note** The `tls` block is always optional. When to use it:
 
 - **TCP ports** (`protocol = "tcp"`): omit `tls`. TLS does not apply to TCP listeners and any values supplied are ignored.
-- **Port `443` with `http` or `http2`**: the API automatically applies a default TLS configuration when `tls` is omitted. To mirror those defaults in your Terraform configuration and avoid a recurring plan diff after the first apply, add an empty `tls {}` block.
+- **Port `443` with `http` or `http2`**: the API automatically applies a default TLS configuration when `tls` is omitted. That server-side default is not recorded in Terraform state, so omitting the block leaves no plan diff behind. Add a `tls` block only when you want to pin the values yourself. Importing a domain is the one exception: an import records whatever the API returns, and the next apply reconciles state back to your configuration.
 - **Any other port with `http` or `http2`**: TLS is not auto-applied. Add a `tls` block only if you want to configure it explicitly.
 
 <a id="nestedblock--spec--ports--cors"></a>
@@ -98,9 +98,11 @@ Optional:
 
 ### `spec.ports.route`
 
-Optional inline routes for this port. Inline routes can coexist with separate `cpln_domain_route` resources on the same domain and port — each route must have a unique `prefix` or `regex` across both inline and external definitions.
+Optional inline routes for this port. Inline routes can coexist with separate `cpln_domain_route` resources on the same domain and port. Each route is identified by its `prefix` or `regex` together with its `host_prefix` or `host_regex`, and that combination must be unique across both inline and external definitions.
 
 ~> **Note** Only one of `prefix` OR `regex` may be provided per route. Only one of `host_prefix` OR `host_regex` may be provided per route.
+
+~> **Note** Routes are matched in the order the API stores them, not the order you declare them. On every write the API re-sorts each port's routes by descending `prefix` length, then by descending `host_prefix` length, then placing a `prefix` that ends in `/` first. Terraform keeps your declared order in state, so that re-sort produces no plan diff. The API skips the sort entirely when any route on the port sets `regex`, and in that case the stored order, and therefore the matching order, is the order you declared.
 
 Required:
 
@@ -431,3 +433,5 @@ terraform import cpln_domain.RESOURCE_NAME DOMAIN_NAME
 ```
 
 -> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_NAME with the corresponding domain defined in the resource.
+
+~> **Note** An import records every route the API returns as an inline `route` block, because the response cannot say which routes a separate `cpln_domain_route` resource owns. The first apply after the import then reconciles the domain to exactly the routes its own configuration declares, which removes any route left out of it. Before that first apply, either import the matching `cpln_domain_route` resources or list those routes in the domain's configuration. Skipping this deletes the routes those resources manage, and their next plan fails with `Route Doesn't Exist` until you remove them from state and add them back.

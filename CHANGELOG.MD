@@ -1,3 +1,9 @@
+## 1.2.32
+
+- Fix domain inline route order drifting from the configured order.
+- Fix domain apply failing when an https port omits the tls block.
+- Fix domain routes that share a prefix on different hosts collapsing into one.
+
 ## 1.2.31
 
 - Add canary block to domain route resource and data source.
