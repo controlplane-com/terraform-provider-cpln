@@ -355,6 +355,13 @@ func (drt *DomainResourceTest) NewHostRouteLifecycleScenario() []resource.TestSt
 			ImportStateId: fmt.Sprintf("%s:443:/", subDomainSelfLink),
 			ExpectError:   regexp.MustCompile(`Append\s+the\s+host\s+to\s+the\s+import\s+identifier`),
 		},
+		// Refuse a port that does not fit the port attribute rather than silently truncating it
+		{
+			ResourceName:  "cpln_domain_route.store",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:99999999999:/:store.", subDomainSelfLink),
+			ExpectError:   regexp.MustCompile(`value\s+out\s+of\s+range`),
+		},
 		// Swap the workloads the two host routes point at, which only lands correctly when each update finds its own route
 		swappedStep,
 		// Move a route to another host in place, without destroying and recreating it
