@@ -1,6 +1,7 @@
 package cpln
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -163,6 +164,83 @@ func (c *Client) DeleteDomain(name string) error {
 }
 
 /*** Domain Route ***/
+
+// ErrDomainRouteNotFound - Reported when a domain port carries no route matching the requested identity
+var ErrDomainRouteNotFound = errors.New("domain route not found")
+
+// ErrDomainRouteConflict - Reported when an update would move a route onto an identity another route on the port already holds
+var ErrDomainRouteConflict = errors.New("domain route identity already taken")
+
+// IdentityKey - Build the key the API uses to identify a route within a port, its path paired with its host
+func (r DomainRoute) IdentityKey() string {
+	// Identify the route by its prefix or regex
+	var path string
+
+	switch {
+	case r.Prefix != nil:
+		path = "prefix:" + *r.Prefix
+	case r.Regex != nil:
+		path = "regex:" + *r.Regex
+	default:
+		return ""
+	}
+
+	// The API allows the same path on different hosts, so the host is part of the identity
+	var host string
+
+	switch {
+	case r.HostPrefix != nil:
+		host = "hostPrefix:" + *r.HostPrefix
+	case r.HostRegex != nil:
+		host = "hostRegex:" + *r.HostRegex
+	}
+
+	return path + ";" + host
+}
+
+// Identifier - Describe a route identity for error messages
+func (r DomainRoute) Identifier() string {
+	// Describe the route by its prefix or regex
+	var path string
+
+	switch {
+	case r.Prefix != nil:
+		path = fmt.Sprintf("with prefix '%s'", *r.Prefix)
+	case r.Regex != nil:
+		path = fmt.Sprintf("with regex '%s'", *r.Regex)
+	}
+
+	// Append the host matcher when the route narrows its path to one host
+	switch {
+	case r.HostPrefix != nil:
+		return fmt.Sprintf("%s and host prefix '%s'", path, *r.HostPrefix)
+	case r.HostRegex != nil:
+		return fmt.Sprintf("%s and host regex '%s'", path, *r.HostRegex)
+	}
+
+	return path
+}
+
+// indexOfDomainRoute - Locate the route matching the given identity, returning -1 when the port carries no such route
+func indexOfDomainRoute(routes []DomainRoute, identity DomainRoute) int {
+	// An identity without a prefix or a regex addresses no route
+	key := identity.IdentityKey()
+
+	if key == "" {
+		return -1
+	}
+
+	// Return the position of the first route sharing the identity key
+	for index, route := range routes {
+		if route.IdentityKey() == key {
+			return index
+		}
+	}
+
+	return -1
+}
+
+// AddDomainRoute - Append a route to a domain port
 func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainRoute) (*DomainRoute, int, error) {
 
 	const maxRetries = 5
@@ -177,7 +255,7 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 			return nil, 0, err
 		}
 
-		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		if domain.Spec == nil || domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
 			return nil, 0, fmt.Errorf("domain is not configured correctly, ports are not set")
 		}
 
@@ -217,7 +295,7 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 				}
 
 				// If we got here then route has been added successfully
-				return c.GetDomainRoute(domainName, domainPort, route.Prefix, route.Regex)
+				return c.GetDomainRoute(domainName, domainPort, route)
 			}
 		}
 
@@ -226,36 +304,30 @@ func (c *Client) AddDomainRoute(domainName string, domainPort int, route DomainR
 		}
 
 		// Port not found, return an error
-		routeIdentifier := ""
-
-		if route.Prefix != nil {
-			routeIdentifier = fmt.Sprintf("with prefix '%s'", *route.Prefix)
-		}
-
-		if route.Regex != nil {
-			routeIdentifier = fmt.Sprintf("with regex '%s'", *route.Regex)
-		}
-
-		return nil, 0, fmt.Errorf("unable to add route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
+		return nil, 0, fmt.Errorf("unable to add route %s for a domain named '%s'. Port '%d' is not set", route.Identifier(), domainName, domainPort)
 	}
 
 	return nil, 0, fmt.Errorf("add domain route failed after %d attempts due to HTTP 409: %w", maxRetries, lastErr)
 }
 
-func (c *Client) GetDomainRoute(domainName string, domainPort int, prefix *string, regex *string) (*DomainRoute, int, error) {
+// GetDomainRoute - Get the route matching the given identity at a domain port
+func (c *Client) GetDomainRoute(domainName string, domainPort int, identity DomainRoute) (*DomainRoute, int, error) {
 	domain, code, err := c.GetDomain(domainName)
 
 	if err != nil {
 		return nil, code, err
 	}
 
+	if domain.Spec == nil || domain.Spec.Ports == nil {
+		return nil, code, err
+	}
+
 	for _, value := range *domain.Spec.Ports {
 		if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
-			for _, route := range *value.Routes {
-				if (prefix != nil && route.Prefix != nil && *route.Prefix == *prefix) ||
-					(regex != nil && route.Regex != nil && *route.Regex == *regex) {
-					return &route, code, nil
-				}
+			// Return a copy of the route the identity addresses
+			if index := indexOfDomainRoute(*value.Routes, identity); index != -1 {
+				route := (*value.Routes)[index]
+				return &route, code, nil
 			}
 		}
 	}
@@ -263,7 +335,8 @@ func (c *Client) GetDomainRoute(domainName string, domainPort int, prefix *strin
 	return nil, code, err
 }
 
-func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *DomainRoute) (*DomainRoute, int, error) {
+// UpdateDomainRoute - Rewrite the route matching the given identity, which may itself change the route's host
+func (c *Client) UpdateDomainRoute(domainName string, domainPort int, identity DomainRoute, route *DomainRoute) (*DomainRoute, int, error) {
 
 	const maxRetries = 5
 	backoff := 2 * time.Second
@@ -277,7 +350,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 			return nil, 0, err
 		}
 
-		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		if domain.Spec == nil || domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
 			return nil, 0, fmt.Errorf("Domain is not configured correctly, ports are not set")
 		}
 
@@ -286,55 +359,56 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 		for pIndex, value := range *domain.Spec.Ports {
 
 			if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
+				// Locate the route the identity addresses, which holds the values the route had before this update
+				rIndex := indexOfDomainRoute(*value.Routes, identity)
 
-				for rIndex, _route := range *value.Routes {
-
-					if (_route.Prefix != nil && route.Prefix != nil && *_route.Prefix == *route.Prefix) ||
-						(_route.Regex != nil && route.Regex != nil && *_route.Regex == *route.Regex) {
-
-						// Modify existing route
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].ReplacePrefix = route.ReplacePrefix
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].WorkloadLink = route.WorkloadLink
-
-						if route.Port == nil || *route.Port == 0 {
-							(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = nil
-						} else {
-							(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = route.Port
-						}
-
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostRegex = route.HostRegex
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Replica = route.Replica
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Mirror = route.Mirror
-						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Canaries = route.Canaries
-
-						// Update resource
-						domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)
-						domain.Spec = nil
-						domain.Status = nil
-
-						code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
-
-						if err != nil {
-							if code == http.StatusConflict && attempt < maxRetries {
-								lastErr = err
-								time.Sleep(backoff)
-								backoff *= 2
-								shouldRetry = true
-								break
-							}
-							return nil, 0, err
-						}
-
-						// If we got here, then the route has been updated successfully
-						return c.GetDomainRoute(domainName, domainPort, route.Prefix, route.Regex)
+				if rIndex != -1 {
+					// Refuse to move the route onto a path and host another route on the port already holds
+					if conflict := indexOfDomainRoute(*value.Routes, *route); conflict != -1 && conflict != rIndex {
+						return nil, 0, fmt.Errorf(
+							"domain '%s' already carries a route %s at port %d, so the route %s cannot be moved onto it: %w",
+							domainName, route.Identifier(), domainPort, identity.Identifier(), ErrDomainRouteConflict,
+						)
 					}
-				}
-			}
 
-			if shouldRetry {
-				break
+					// Modify existing route
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].ReplacePrefix = route.ReplacePrefix
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].WorkloadLink = route.WorkloadLink
+
+					if route.Port == nil || *route.Port == 0 {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = nil
+					} else {
+						(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Port = route.Port
+					}
+
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostPrefix = route.HostPrefix
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].HostRegex = route.HostRegex
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Headers = route.Headers
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Replica = route.Replica
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Mirror = route.Mirror
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].Canaries = route.Canaries
+
+					// Update resource
+					domain.SpecReplace = DeepCopy(domain.Spec).(*DomainSpec)
+					domain.Spec = nil
+					domain.Status = nil
+
+					code, err := c.UpdateResource(fmt.Sprintf("domain/%s", *domain.Name), domain)
+
+					if err != nil {
+						if code == http.StatusConflict && attempt < maxRetries {
+							lastErr = err
+							time.Sleep(backoff)
+							backoff *= 2
+							shouldRetry = true
+							break
+						}
+						return nil, 0, err
+					}
+
+					// The update may have moved the route to another host, so read it back at its new identity
+					return c.GetDomainRoute(domainName, domainPort, *route)
+				}
 			}
 		}
 
@@ -343,23 +417,14 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, route *Dom
 		}
 
 		// Route not found, return an error
-		routeIdentifier := ""
-
-		if route.Prefix != nil {
-			routeIdentifier = fmt.Sprintf("with prefix '%s'", *route.Prefix)
-		}
-
-		if route.Regex != nil {
-			routeIdentifier = fmt.Sprintf("with regex '%s'", *route.Regex)
-		}
-
-		return nil, 0, fmt.Errorf("unable to update route %s for a domain named '%s'. Port '%d' is not set", routeIdentifier, domainName, domainPort)
+		return nil, 0, fmt.Errorf("unable to update route %s for a domain named '%s'. Route not found at port %d", identity.Identifier(), domainName, domainPort)
 	}
 
 	return nil, 0, fmt.Errorf("update domain route failed after %d attempts due to HTTP 409: %w", maxRetries, lastErr)
 }
 
-func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix *string, regex *string) error {
+// RemoveDomainRoute - Delete the route matching the given identity from a domain port
+func (c *Client) RemoveDomainRoute(domainName string, domainPort int, identity DomainRoute) error {
 
 	const maxRetries = 5
 	backoff := 2 * time.Second
@@ -373,7 +438,7 @@ func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix *st
 			return err
 		}
 
-		if domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+		if domain.Spec == nil || domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
 			return fmt.Errorf("domain is not configured correctly, ports are not set")
 		}
 
@@ -384,14 +449,8 @@ func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix *st
 
 			if *value.Number == domainPort && (value.Routes != nil && len(*value.Routes) > 0) {
 
-				for _index, _route := range *value.Routes {
-
-					if (prefix != nil && _route.Prefix != nil && *_route.Prefix == *prefix) ||
-						(regex != nil && _route.Regex != nil && *_route.Regex == *regex) {
-						routeIndex = _index
-						break
-					}
-				}
+				// Locate the route the identity addresses
+				routeIndex = indexOfDomainRoute(*value.Routes, identity)
 
 				if routeIndex != -1 {
 
@@ -426,17 +485,7 @@ func (c *Client) RemoveDomainRoute(domainName string, domainPort int, prefix *st
 		}
 
 		// Route not found, return an error
-		routeIdentifier := ""
-
-		if prefix != nil {
-			routeIdentifier = fmt.Sprintf("with prefix '%s'", *prefix)
-		}
-
-		if regex != nil {
-			routeIdentifier = fmt.Sprintf("with regex '%s'", *regex)
-		}
-
-		return fmt.Errorf("unable to delete route %s for a domain named '%s'. Route not found at port %d", routeIdentifier, domainName, domainPort)
+		return fmt.Errorf("unable to delete route %s for a domain named '%s' at port %d: %w", identity.Identifier(), domainName, domainPort, ErrDomainRouteNotFound)
 	}
 
 	return fmt.Errorf("remove domain route failed after %d attempts due to HTTP 409: %w", maxRetries, lastErr)

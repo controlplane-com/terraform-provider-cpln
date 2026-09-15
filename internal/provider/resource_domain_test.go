@@ -3,10 +3,13 @@ package cpln
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -62,6 +65,7 @@ func NewDomainResourceTest() DomainResourceTest {
 	steps = append(steps, resourceTest.NewCoexistenceScenario()...)
 	steps = append(steps, resourceTest.NewOptionalTlsScenario()...)
 	steps = append(steps, resourceTest.NewCanaryLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewHostRouteLifecycleScenario()...)
 	steps = append(steps, resourceTest.NewRouteOrderLifecycleScenario()...)
 	steps = append(steps, resourceTest.NewHttpsPortWithoutTlsScenario()...)
 
@@ -297,6 +301,70 @@ func (drt *DomainResourceTest) NewCanaryLifecycleScenario() []resource.TestStep 
 		allMultiStep,
 		// Remove every canary while the route persists (re-use the absent step)
 		absentStep,
+	}
+}
+
+// NewHostRouteLifecycleScenario walks standalone cpln_domain_route resources that share one path across several hosts.
+func (drt *DomainResourceTest) NewHostRouteLifecycleScenario() []resource.TestStep {
+	// Define the subdomain that hosts the routes across the lifecycle
+	subDomainName := fmt.Sprintf("host-route-%s.%s", drt.RandomName, drt.ApexDomain)
+
+	// Define the self link the import identifiers address
+	subDomainSelfLink := GetSelfLink(OrgName, "domain", subDomainName)
+
+	// Build the per-stage test steps
+	catchAllStep := drt.BuildHostRouteCatchAllTestStep(subDomainName)
+	multiHostStep := drt.BuildHostRouteMultiHostTestStep(subDomainName)
+	swappedStep := drt.BuildHostRouteSwappedTestStep(subDomainName)
+	renamedHostStep := drt.BuildHostRouteRenamedHostTestStep(subDomainName)
+	expandedStep := drt.BuildHostRouteExpandedTestStep(subDomainName)
+
+	// Walk routes that share a path: every host -> three hosts -> retarget -> rename a host -> expand -> shrink -> remove
+	return []resource.TestStep{
+		// One route owns the path and matches every host
+		catchAllStep,
+		// Two more routes take the same path on their own hosts, which the API stores by descending host length
+		multiHostStep,
+		// Import the route on one host, which the path alone cannot address
+		{
+			ResourceName:            "cpln_domain_route.store",
+			ImportState:             true,
+			ImportStateId:           fmt.Sprintf("%s:443:/:store.", subDomainSelfLink),
+			ImportStateVerify:       true,
+			ImportStateVerifyIgnore: []string{"workload_link"},
+		},
+		// Import the route that matches every host, which a trailing empty host segment addresses
+		{
+			ResourceName:            "cpln_domain_route.catch-all",
+			ImportState:             true,
+			ImportStateId:           fmt.Sprintf("%s:443:/:", subDomainSelfLink),
+			ImportStateVerify:       true,
+			ImportStateVerifyIgnore: []string{"workload_link"},
+		},
+		// Import by domain name rather than self link, with the host segment still resolving the route
+		{
+			ResourceName:     "cpln_domain_route.blog",
+			ImportState:      true,
+			ImportStateId:    fmt.Sprintf("%s:443:/:blog.", subDomainName),
+			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
+		},
+		// Refuse to import when the path alone addresses three routes
+		{
+			ResourceName:  "cpln_domain_route.store",
+			ImportState:   true,
+			ImportStateId: fmt.Sprintf("%s:443:/", subDomainSelfLink),
+			ExpectError:   regexp.MustCompile(`Append\s+the\s+host\s+to\s+the\s+import\s+identifier`),
+		},
+		// Swap the workloads the two host routes point at, which only lands correctly when each update finds its own route
+		swappedStep,
+		// Move a route to another host in place, without destroying and recreating it
+		renamedHostStep,
+		// A fourth route takes the same path on a host regex
+		expandedStep,
+		// Shrink back by dropping the host regex route and returning the renamed route to its host (re-use the swapped step)
+		swappedStep,
+		// Remove every host route while the route that matches every host persists (re-use the first step)
+		catchAllStep,
 	}
 }
 
@@ -1713,6 +1781,209 @@ func (drt *DomainResourceTest) BuildCanaryExpandedTestStep(subDomainName string)
 					"weight":        "0",
 				},
 			}),
+		),
+	}
+}
+
+// newHostRouteCases builds the subdomain test case, the route test cases, and the workload links shared across the host route lifecycle stages.
+func (drt *DomainResourceTest) newHostRouteCases(subDomainName string) (DomainResourceTestCase, DomainRouteResourceTestCase, DomainRouteResourceTestCase, DomainRouteResourceTestCase, string, string) {
+	// Build the subdomain case used to resolve each route's domain_link self link
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Build the route case that matches every host
+	catchAll := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "catch-all",
+			ResourceAddress: "cpln_domain_route.catch-all",
+		},
+	}
+
+	// Build the route case that narrows the same path to one host
+	store := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "store",
+			ResourceAddress: "cpln_domain_route.store",
+		},
+	}
+
+	// Build the route case that narrows the same path to another host
+	blog := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "blog",
+			ResourceAddress: "cpln_domain_route.blog",
+		},
+	}
+
+	// Construct both workload self links in the short form the config uses
+	primaryLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
+	alternateLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-alt-%s", drt.RandomName, drt.RandomName)
+
+	// Return the shared cases and links
+	return subDomain, catchAll, store, blog, primaryLink, alternateLink
+}
+
+// BuildHostRouteCatchAllTestStep returns a step where a single route owns the path and matches every host.
+func (drt *DomainResourceTest) BuildHostRouteCatchAllTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload links
+	subDomain, catchAll, _, _, primaryLink, _ := drt.newHostRouteCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HostRouteCatchAllHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			catchAll.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/", subDomain.GetSelfLink())),
+			catchAll.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			catchAll.TestCheckResourceAttr("domain_port", "443"),
+			catchAll.TestCheckResourceAttr("prefix", "/"),
+			catchAll.TestCheckResourceAttr("workload_link", primaryLink),
+			catchAll.TestCheckResourceAttr("port", "8080"),
+			// No host narrows the route, so its identifier stays the one earlier provider versions issued
+			resource.TestCheckNoResourceAttr(catchAll.ResourceAddress, "host_prefix"),
+			// The port carries the one route and nothing else
+			domainRouteHostMappingCheck(subDomainName, 443, map[string]string{
+				"": fmt.Sprintf("workload-%s", drt.RandomName),
+			}),
+		),
+	}
+}
+
+// BuildHostRouteMultiHostTestStep returns a step where three routes share the path, two of them narrowed to a host.
+func (drt *DomainResourceTest) BuildHostRouteMultiHostTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload links
+	subDomain, catchAll, store, blog, primaryLink, alternateLink := drt.newHostRouteCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HostRouteMultiHostHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// The route that matches every host keeps its own values while the host routes exist beside it
+			catchAll.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/", subDomain.GetSelfLink())),
+			catchAll.TestCheckResourceAttr("prefix", "/"),
+			catchAll.TestCheckResourceAttr("workload_link", primaryLink),
+			// The route on the store host carries the host in its identifier
+			store.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/_store.", subDomain.GetSelfLink())),
+			store.TestCheckResourceAttr("prefix", "/"),
+			store.TestCheckResourceAttr("host_prefix", "store."),
+			store.TestCheckResourceAttr("workload_link", alternateLink),
+			store.TestCheckResourceAttr("port", "8080"),
+			// The route on the blog host carries its own host in its identifier
+			blog.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/_blog.", subDomain.GetSelfLink())),
+			blog.TestCheckResourceAttr("prefix", "/"),
+			blog.TestCheckResourceAttr("host_prefix", "blog."),
+			blog.TestCheckResourceAttr("workload_link", primaryLink),
+			// Each host on the port reaches the workload its own route declares
+			domainRouteHostMappingCheck(subDomainName, 443, map[string]string{
+				"":       fmt.Sprintf("workload-%s", drt.RandomName),
+				"store.": fmt.Sprintf("workload-alt-%s", drt.RandomName),
+				"blog.":  fmt.Sprintf("workload-%s", drt.RandomName),
+			}),
+		),
+	}
+}
+
+// BuildHostRouteSwappedTestStep returns a step where the two host routes exchange the workloads they point at.
+func (drt *DomainResourceTest) BuildHostRouteSwappedTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload links
+	subDomain, catchAll, store, blog, primaryLink, alternateLink := drt.newHostRouteCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HostRouteSwappedHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// The route that matches every host is untouched by the updates beside it
+			catchAll.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/", subDomain.GetSelfLink())),
+			catchAll.TestCheckResourceAttr("workload_link", primaryLink),
+			// The store route now reaches the primary workload and rewrites the path it forwards
+			store.TestCheckResourceAttr("host_prefix", "store."),
+			store.TestCheckResourceAttr("workload_link", primaryLink),
+			store.TestCheckResourceAttr("replace_prefix", "/shop"),
+			// The blog route now reaches the alternate workload
+			blog.TestCheckResourceAttr("host_prefix", "blog."),
+			blog.TestCheckResourceAttr("workload_link", alternateLink),
+			// Each update landed on its own route rather than on the first route sharing the path
+			domainRouteHostMappingCheck(subDomainName, 443, map[string]string{
+				"":       fmt.Sprintf("workload-%s", drt.RandomName),
+				"store.": fmt.Sprintf("workload-%s", drt.RandomName),
+				"blog.":  fmt.Sprintf("workload-alt-%s", drt.RandomName),
+			}),
+		),
+	}
+}
+
+// BuildHostRouteRenamedHostTestStep returns a step where a route moves to another host without being destroyed and recreated.
+func (drt *DomainResourceTest) BuildHostRouteRenamedHostTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload links
+	subDomain, _, store, blog, primaryLink, alternateLink := drt.newHostRouteCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HostRouteRenamedHostHcl(subDomainName),
+		ConfigPlanChecks: resource.ConfigPlanChecks{
+			PreApply: []plancheck.PlanCheck{
+				// Moving a route to another host updates it in place, it never destroys and recreates it
+				plancheck.ExpectResourceAction(blog.ResourceAddress, plancheck.ResourceActionUpdate),
+			},
+		},
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// The renamed route carries its new host in its identifier
+			blog.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/_news.", subDomain.GetSelfLink())),
+			blog.TestCheckResourceAttr("host_prefix", "news."),
+			blog.TestCheckResourceAttr("workload_link", alternateLink),
+			// The route on the host that was left alone keeps its own values
+			store.TestCheckResourceAttr("host_prefix", "store."),
+			store.TestCheckResourceAttr("workload_link", primaryLink),
+			// The port now reaches the renamed host and no longer reaches the old one
+			domainRouteHostMappingCheck(subDomainName, 443, map[string]string{
+				"":       fmt.Sprintf("workload-%s", drt.RandomName),
+				"store.": fmt.Sprintf("workload-%s", drt.RandomName),
+				"news.":  fmt.Sprintf("workload-alt-%s", drt.RandomName),
+			}),
+		),
+	}
+}
+
+// BuildHostRouteExpandedTestStep returns a step where a fourth route takes the same path on a host regex.
+func (drt *DomainResourceTest) BuildHostRouteExpandedTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared cases and workload links
+	subDomain, catchAll, _, _, primaryLink, alternateLink := drt.newHostRouteCases(subDomainName)
+
+	// Build the route case that narrows the same path to a host regex
+	api := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "api",
+			ResourceAddress: "cpln_domain_route.api",
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HostRouteExpandedHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// The host regex route carries its regex in its identifier
+			api.TestCheckResourceAttr("id", fmt.Sprintf("%s_443_/_^api.*$", subDomain.GetSelfLink())),
+			api.TestCheckResourceAttr("prefix", "/"),
+			api.TestCheckResourceAttr("host_regex", "^api.*$"),
+			api.TestCheckResourceAttr("workload_link", alternateLink),
+			// Four routes now share the path, each reaching the workload its own route declares
+			domainRouteHostMappingCheck(subDomainName, 443, map[string]string{
+				"":        fmt.Sprintf("workload-%s", drt.RandomName),
+				"store.":  fmt.Sprintf("workload-%s", drt.RandomName),
+				"news.":   fmt.Sprintf("workload-alt-%s", drt.RandomName),
+				"^api.*$": fmt.Sprintf("workload-alt-%s", drt.RandomName),
+			}),
+			// The route that matches every host is still reachable under its own identifier
+			catchAll.TestCheckResourceAttr("workload_link", primaryLink),
 		),
 	}
 }
@@ -3276,6 +3547,193 @@ resource "cpln_domain_route" "canary-route" {
 `
 }
 
+// hclHostRouteWorkload returns HCL for the second workload the host routes point at.
+func (drt *DomainResourceTest) hclHostRouteWorkload() string {
+	return `
+resource "cpln_workload" "alternate" {
+  gvc         = cpln_gvc.new.name
+  name        = "workload-alt-${var.random_name}"
+  description = "Host route test workload"
+  type        = "serverless"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+    port   = 8080
+  }
+
+  options {
+    capacity_ai     = false
+    timeout_seconds = 30
+    suspend         = true
+
+    autoscaling {
+      metric          = "concurrency"
+      target          = 100
+      max_scale       = 0
+      min_scale       = 0
+      max_concurrency = 500
+    }
+  }
+}
+`
+}
+
+// HostRouteCatchAllHcl returns HCL for a single route that owns the path and matches every host.
+func (drt *DomainResourceTest) HostRouteCatchAllHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "host route lifecycle") + drt.hclHostRouteWorkload() + `
+resource "cpln_domain_route" "catch-all" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+`
+}
+
+// HostRouteMultiHostHcl returns HCL for three routes that share the path, two of them narrowed to a host.
+func (drt *DomainResourceTest) HostRouteMultiHostHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "host route lifecycle") + drt.hclHostRouteWorkload() + `
+resource "cpln_domain_route" "catch-all" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "store" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "store."
+  workload_link = "//gvc/${cpln_workload.alternate.gvc}/workload/${cpln_workload.alternate.name}"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "blog" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "blog."
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+`
+}
+
+// HostRouteSwappedHcl returns HCL where the two host routes exchange the workloads they point at.
+func (drt *DomainResourceTest) HostRouteSwappedHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "host route lifecycle") + drt.hclHostRouteWorkload() + `
+resource "cpln_domain_route" "catch-all" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "store" {
+  domain_link    = cpln_domain.subdomain.self_link
+  domain_port    = 443
+  prefix         = "/"
+  replace_prefix = "/shop"
+  host_prefix    = "store."
+  workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port           = 8080
+}
+
+resource "cpln_domain_route" "blog" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "blog."
+  workload_link = "//gvc/${cpln_workload.alternate.gvc}/workload/${cpln_workload.alternate.name}"
+  port          = 8080
+}
+`
+}
+
+// HostRouteRenamedHostHcl returns HCL where one route moves from its host to another one.
+func (drt *DomainResourceTest) HostRouteRenamedHostHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "host route lifecycle") + drt.hclHostRouteWorkload() + `
+resource "cpln_domain_route" "catch-all" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "store" {
+  domain_link    = cpln_domain.subdomain.self_link
+  domain_port    = 443
+  prefix         = "/"
+  replace_prefix = "/shop"
+  host_prefix    = "store."
+  workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port           = 8080
+}
+
+resource "cpln_domain_route" "blog" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "news."
+  workload_link = "//gvc/${cpln_workload.alternate.gvc}/workload/${cpln_workload.alternate.name}"
+  port          = 8080
+}
+`
+}
+
+// HostRouteExpandedHcl returns HCL where a fourth route takes the same path on a host regex.
+func (drt *DomainResourceTest) HostRouteExpandedHcl(subDomainName string) string {
+	return drt.hclBase() + drt.hclSubDomain(subDomainName, "host route lifecycle") + drt.hclHostRouteWorkload() + `
+resource "cpln_domain_route" "catch-all" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "store" {
+  domain_link    = cpln_domain.subdomain.self_link
+  domain_port    = 443
+  prefix         = "/"
+  replace_prefix = "/shop"
+  host_prefix    = "store."
+  workload_link  = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port           = 8080
+}
+
+resource "cpln_domain_route" "blog" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "news."
+  workload_link = "//gvc/${cpln_workload.alternate.gvc}/workload/${cpln_workload.alternate.name}"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "api" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_regex    = "^api.*$"
+  workload_link = "//gvc/${cpln_workload.alternate.gvc}/workload/${cpln_workload.alternate.name}"
+  port          = 8080
+}
+`
+}
+
 // RouteOrderAbsentHcl returns HCL for a subdomain whose https port declares no inline route blocks.
 func (drt *DomainResourceTest) RouteOrderAbsentHcl(subDomainName string) string {
 	return drt.hclBase() + fmt.Sprintf(`
@@ -3710,6 +4168,58 @@ func domainApiRouteOrderDiffersCheck(domainName string, declaredOrder []string) 
 				"expected the API to store domain %s routes in an order other than the declared one, got %v for both",
 				domainName, apiOrder,
 			)
+		}
+
+		return nil
+	}
+}
+
+// domainRouteHostMappingCheck returns a TestCheckFunc that verifies which workload every host on a domain port routes to.
+func domainRouteHostMappingCheck(domainName string, domainPort int, expected map[string]string) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		// Read the domain straight from the API to inspect the routes it stored
+		domain, _, err := TestProvider.client.GetDomain(domainName)
+
+		if err != nil {
+			return fmt.Errorf("error occurred while fetching domain %s: %w", domainName, err)
+		}
+
+		// Reject a domain that carries no ports to inspect
+		if domain.Spec == nil || domain.Spec.Ports == nil {
+			return fmt.Errorf("expected domain %s to expose at least one port", domainName)
+		}
+
+		// Collect the workload every host on the port routes to
+		actual := map[string]string{}
+
+		for _, port := range *domain.Spec.Ports {
+			// Skip ports that carry another number or no routes at all
+			if port.Number == nil || *port.Number != domainPort || port.Routes == nil {
+				continue
+			}
+
+			for _, route := range *port.Routes {
+				// Reject a route the API stored without a workload to reach
+				if route.WorkloadLink == nil {
+					return fmt.Errorf("expected every route on domain %s port %d to carry a workload link", domainName, domainPort)
+				}
+
+				// Key the route by the host it matches on, which is empty when it matches every host
+				host := ""
+
+				if route.HostPrefix != nil {
+					host = *route.HostPrefix
+				} else if route.HostRegex != nil {
+					host = *route.HostRegex
+				}
+
+				actual[host] = GetNameFromSelfLink(*route.WorkloadLink)
+			}
+		}
+
+		// Compare the mapping the API stored against the one the configuration declares
+		if !reflect.DeepEqual(actual, expected) {
+			return fmt.Errorf("expected domain %s port %d to route %v, got %v", domainName, domainPort, expected, actual)
 		}
 
 		return nil

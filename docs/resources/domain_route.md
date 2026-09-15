@@ -10,6 +10,10 @@ Manages a domain's [Routes](https://docs.controlplane.com/reference/domain#path-
 
 Used in conjunction with a Domain.
 
+~> **Note** A route is identified by its domain, its port, its path (`prefix` or `regex`) and the host it matches on (`host_prefix` or `host_regex`), which is the identity the API itself uses. Several routes may therefore share one path as long as each one matches a different host.
+
+~> **Note** A state file written by a provider older than 1.2.32 recorded routes that share a path by that path alone, so every one of those resources points at the same route. The plan refuses to run until that is repaired, naming the import command to use: drop each affected resource with `terraform state rm`, then `terraform import` it with its host appended to the import identifier (see [Import Syntax](#import-syntax)). Routes that set no host, and routes whose path is unique on their port, need no action and upgrade with an empty plan.
+
 ~> **Note** Routes for the same domain are automatically serialized by the provider. You do not need to add `depends_on` between `cpln_domain_route` resources. If you previously used `depends_on` chains, they can be safely removed. However, `depends_on` can still be used if you need routes to be created in a specific order. For easier route ordering, consider using inline `route` blocks within the [`cpln_domain`](domain) resource instead.
 
 ## Declaration
@@ -406,6 +410,38 @@ resource "cpln_domain_route" "new" {
 }
 ```
 
+### One Path Across Several Hosts
+
+A wildcard domain can send the same path to a different workload per host. Each route sets the same `prefix` and its own `host_prefix`, and the route that omits both `host_prefix` and `host_regex` serves every host that no other route claims. The domain must set `accept_all_hosts` or `accept_all_subdomains` to `true` for the host matchers to apply.
+
+```terraform
+resource "cpln_domain_route" "store" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "store."
+  workload_link = "LINK_TO_STORE_WORKLOAD"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "blog" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  host_prefix   = "blog."
+  workload_link = "LINK_TO_BLOG_WORKLOAD"
+  port          = 8080
+}
+
+resource "cpln_domain_route" "catch_all" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/"
+  workload_link = "LINK_TO_DEFAULT_WORKLOAD"
+  port          = 8080
+}
+```
+
 ## Import Syntax
 
 The `terraform import` command is used to bring existing infrastructure resources, created outside of Terraform, into the Terraform state file, enabling their management through Terraform going forward.
@@ -417,3 +453,11 @@ terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:[PREFIX
 ```
 
 -> 1. Substitute RESOURCE_NAME with the same string that is defined in the HCL file.<br/>2. Substitute DOMAIN_LINK with the corresponding domain link (e.g., `/org/myorg/domain/example.com`) or domain name (e.g., `example.com`) defined in the resource.<br/>3. Substitute DOMAIN_PORT with the corresponding domain port defined in the resource.<br/>4. Substitute PREFIX with the corresponding prefix defined in the resource.
+
+When several routes on the port share that path, add the host the route matches on as a fourth segment:
+
+```terraform
+terraform import cpln_domain_route.RESOURCE_NAME DOMAIN_LINK:DOMAIN_PORT:[PREFIX|REGEX]:[HOST_PREFIX|HOST_REGEX]
+```
+
+-> 5. Substitute HOST_PREFIX or HOST_REGEX with the corresponding host the route matches on. Leave the fourth segment empty, ending the identifier with a colon, to import the route that matches every host. An import that omits the host while several routes share the path fails and lists the hosts to choose from.
