@@ -62,6 +62,8 @@ func NewDomainResourceTest() DomainResourceTest {
 	steps = append(steps, resourceTest.NewCoexistenceScenario()...)
 	steps = append(steps, resourceTest.NewOptionalTlsScenario()...)
 	steps = append(steps, resourceTest.NewCanaryLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewRouteOrderLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewHttpsPortWithoutTlsScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -295,6 +297,66 @@ func (drt *DomainResourceTest) NewCanaryLifecycleScenario() []resource.TestStep 
 		allMultiStep,
 		// Remove every canary while the route persists (re-use the absent step)
 		absentStep,
+	}
+}
+
+// NewRouteOrderLifecycleScenario walks a port's inline route blocks through the cardinality and ordering transitions the API's route sort disturbs.
+func (drt *DomainResourceTest) NewRouteOrderLifecycleScenario() []resource.TestStep {
+	// Define the subdomain that hosts the inline routes across the lifecycle
+	subDomainName := fmt.Sprintf("route-order-%s.%s", drt.RandomName, drt.ApexDomain)
+
+	// Build the per-stage test steps
+	absentStep := drt.BuildRouteOrderAbsentTestStep(subDomainName)
+	requiredOnlyStep := drt.BuildRouteOrderRequiredOnlyTestStep(subDomainName)
+	unsortedMultiStep := drt.BuildRouteOrderUnsortedMultiTestStep(subDomainName)
+	withExternalStep := drt.BuildRouteOrderWithExternalTestStep(subDomainName)
+	expandedStep := drt.BuildRouteOrderExpandedTestStep(subDomainName)
+	regexStep := drt.BuildRouteOrderRegexTestStep(subDomainName)
+
+	// Walk the inline route blocks: absent -> required-only -> unsorted multiple -> external alongside -> expand -> shrink -> regex -> remove
+	return []resource.TestStep{
+		// Port carries no inline route blocks
+		absentStep,
+		// One route with only its required attributes (prefix + workload_link)
+		requiredOnlyStep,
+		// Five routes declared shortest prefix first, the exact order the API rewrites, including two routes that share a prefix on different hosts
+		unsortedMultiStep,
+		// Keep the same five routes while an externally owned cpln_domain_route sorts into the middle of them
+		withExternalStep,
+		// Grow to six routes declared in another order the API rewrites
+		expandedStep,
+		// Shrink back to five routes (re-use the unsorted multiple step)
+		unsortedMultiStep,
+		// A regex route on the port switches the API's route sort off, so the declared order must survive untouched
+		regexStep,
+		// Remove every inline route while the port persists (re-use the absent step)
+		absentStep,
+	}
+}
+
+// NewHttpsPortWithoutTlsScenario covers an https port that omits the optional tls block the API fills in server side.
+func (drt *DomainResourceTest) NewHttpsPortWithoutTlsScenario() []resource.TestStep {
+	// Define the subdomain that hosts the https port across the scenario
+	subDomainName := fmt.Sprintf("https-no-tls-%s.%s", drt.RandomName, drt.ApexDomain)
+
+	// Build the per-stage test steps
+	withoutTlsStep := drt.BuildHttpsPortWithoutTlsTestStep(subDomainName)
+	planStableStep := drt.BuildHttpsPortWithoutTlsPlanStableTestStep(subDomainName)
+	mixedTlsStep := drt.BuildHttpsPortMixedTlsTestStep(subDomainName)
+	explicitTlsStep := drt.BuildHttpsPortExplicitTlsTestStep(subDomainName)
+
+	// Walk the tls block: absent -> stable plan -> absent beside a port that sets one -> set -> absent again
+	return []resource.TestStep{
+		// Port 443 omits tls while the API fills in its default tls configuration
+		withoutTlsStep,
+		// Re-plan the same configuration to confirm the API default never reaches state
+		planStableStep,
+		// Port 443 omits tls while port 80 sets one, so the suppression is resolved per port
+		mixedTlsStep,
+		// Port 443 sets tls explicitly and the configured values are stored
+		explicitTlsStep,
+		// Remove the tls block again (re-use the first step)
+		withoutTlsStep,
 	}
 }
 
@@ -1655,6 +1717,308 @@ func (drt *DomainResourceTest) BuildCanaryExpandedTestStep(subDomainName string)
 	}
 }
 
+// newRouteOrderCases builds the subdomain test case and workload link shared across the route order lifecycle stages.
+func (drt *DomainResourceTest) newRouteOrderCases(subDomainName string) (DomainResourceTestCase, string) {
+	// Build the subdomain case that owns the inline route blocks
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Construct the workload self link in the short form the config uses
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
+
+	// Return the shared case and link
+	return subDomain, workloadSelfLink
+}
+
+// BuildRouteOrderAbsentTestStep returns a step where the https port carries no inline route blocks.
+func (drt *DomainResourceTest) BuildRouteOrderAbsentTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, _ := drt.newRouteOrderCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.RouteOrderAbsentHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("name", subDomainName),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.number", "443"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.protocol", "http"),
+			// No inline route blocks are present on the port
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.#", "0"),
+		),
+	}
+}
+
+// BuildRouteOrderRequiredOnlyTestStep returns a step with a single route that sets only its required attributes.
+func (drt *DomainResourceTest) BuildRouteOrderRequiredOnlyTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, workloadSelfLink := drt.newRouteOrderCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.RouteOrderRequiredOnlyHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.#", "1"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.prefix", "/"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.workload_link", workloadSelfLink),
+		),
+	}
+}
+
+// BuildRouteOrderUnsortedMultiTestStep returns a step with five routes declared shortest prefix first so the API's sort rewrites the order.
+func (drt *DomainResourceTest) BuildRouteOrderUnsortedMultiTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, workloadSelfLink := drt.newRouteOrderCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.RouteOrderUnsortedMultiHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.#", "5"),
+
+			// Index assertions are deliberate: the API returns these routes sorted by descending prefix length, state must keep the declared order
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.prefix", "/"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.prefix", "/api"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.prefix", "/api/users"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.port", "8080"),
+
+			// These two routes share a prefix and differ only by host, which is what the API's own route uniqueness rule allows
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.prefix", "/a"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.host_prefix", "www"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.prefix", "/a"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.host_prefix", "api-staging"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.port", "8080"),
+
+			// Prove the API really did rewrite this order, so the assertions above keep testing the reordering
+			domainApiRouteOrderDiffersCheck(subDomainName, []string{"/", "/api", "/api/users", "/a|www", "/a|api-staging"}),
+		),
+	}
+}
+
+// BuildRouteOrderWithExternalTestStep returns a step where an external cpln_domain_route lands in the middle of the API's sorted order.
+func (drt *DomainResourceTest) BuildRouteOrderWithExternalTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, workloadSelfLink := drt.newRouteOrderCases(subDomainName)
+
+	// Build the external route case that owns a route outside the domain's inline blocks
+	externalRoute := DomainRouteResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "external-route",
+			ResourceAddress: "cpln_domain_route.external-route",
+		},
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.RouteOrderWithExternalHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			// The inline blocks keep their declared order and exclude the externally owned route
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.#", "5"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.prefix", "/"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.prefix", "/api"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.prefix", "/api/users"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.prefix", "/a"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.host_prefix", "www"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.prefix", "/a"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.host_prefix", "api-staging"),
+
+			// The externally owned route survives the domain update that reorders everything around it
+			externalRoute.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
+			externalRoute.TestCheckResourceAttr("domain_port", "443"),
+			externalRoute.TestCheckResourceAttr("prefix", "/external"),
+			externalRoute.TestCheckResourceAttr("workload_link", workloadSelfLink),
+
+			// The API holds all six routes and sorted the external one into the middle of the inline ones
+			domainApiRouteOrderDiffersCheck(subDomainName, []string{"/", "/api", "/api/users", "/a|www", "/a|api-staging", "/external"}),
+		),
+	}
+}
+
+// BuildRouteOrderExpandedTestStep returns a step with six routes declared in another order the API's sort rewrites.
+func (drt *DomainResourceTest) BuildRouteOrderExpandedTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, workloadSelfLink := drt.newRouteOrderCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.RouteOrderExpandedHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.#", "6"),
+
+			// The declared order differs from both the previous step and the API's sorted order
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.prefix", "/a"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.host_prefix", "www"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.prefix", "/api"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.prefix", "/"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.prefix", "/api/users"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.prefix", "/a"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.host_prefix", "api-staging"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.4.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.5.prefix", "/api/v1/orders"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.5.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.5.port", "8080"),
+
+			// Prove the API really did rewrite this order, so the assertions above keep testing the reordering
+			domainApiRouteOrderDiffersCheck(subDomainName, []string{"/a|www", "/api", "/", "/api/users", "/a|api-staging", "/api/v1/orders"}),
+		),
+	}
+}
+
+// BuildRouteOrderRegexTestStep returns a step where a regex route switches the API's route sort off and the declared order must survive untouched.
+func (drt *DomainResourceTest) BuildRouteOrderRegexTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, workloadSelfLink := drt.newRouteOrderCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.RouteOrderRegexHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.#", "4"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.prefix", "/"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.prefix", "/api"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.1.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.prefix", "/api/users"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.2.port", "8080"),
+
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.regex", "/health.*"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.workload_link", workloadSelfLink),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.3.port", "8080"),
+		),
+	}
+}
+
+// newHttpsPortWithoutTlsCases builds the subdomain test case and workload link shared across the https port tls stages.
+func (drt *DomainResourceTest) newHttpsPortWithoutTlsCases(subDomainName string) (DomainResourceTestCase, string) {
+	// Build the subdomain case that owns the https port
+	subDomain := DomainResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "domain",
+			ResourceName:    "subdomain",
+			ResourceAddress: "cpln_domain.subdomain",
+			Name:            subDomainName,
+		},
+	}
+
+	// Construct the workload self link in the short form the config uses
+	workloadSelfLink := fmt.Sprintf("//gvc/gvc-%s/workload/workload-%s", drt.RandomName, drt.RandomName)
+
+	// Return the shared case and link
+	return subDomain, workloadSelfLink
+}
+
+// BuildHttpsPortWithoutTlsTestStep returns a step where the https port omits the tls block the API fills in server side.
+func (drt *DomainResourceTest) BuildHttpsPortWithoutTlsTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, workloadSelfLink := drt.newHttpsPortWithoutTlsCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HttpsPortWithoutTlsHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("name", subDomainName),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.number", "443"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.protocol", "http"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.prefix", "/"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.route.0.workload_link", workloadSelfLink),
+			// The API answers an https port with a default tls configuration which must stay out of state
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.tls.#", "0"),
+		),
+	}
+}
+
+// BuildHttpsPortWithoutTlsPlanStableTestStep returns a plan-only step that re-runs the no-tls config to verify no plan drift.
+func (drt *DomainResourceTest) BuildHttpsPortWithoutTlsPlanStableTestStep(subDomainName string) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config:   drt.HttpsPortWithoutTlsHcl(subDomainName),
+		PlanOnly: true,
+	}
+}
+
+// BuildHttpsPortMixedTlsTestStep returns a step where an http2 port 443 omits tls while port 80 sets one.
+func (drt *DomainResourceTest) BuildHttpsPortMixedTlsTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, _ := drt.newHttpsPortWithoutTlsCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HttpsPortMixedTlsHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("spec.0.ports.#", "2"),
+
+			// Port 443 omits tls on http2 as well as http and keeps the API default out of state
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.number", "443"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.protocol", "http2"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.tls.#", "0"),
+
+			// Port 80 sets tls and keeps exactly what it declared
+			subDomain.TestCheckResourceAttr("spec.0.ports.1.number", "80"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.1.tls.0.min_protocol_version", "TLSV1_2"),
+			subDomain.TestCheckSetAttr("spec.0.ports.1.tls.0.cipher_suites", []string{
+				"ECDHE-ECDSA-AES256-GCM-SHA384",
+				"ECDHE-RSA-AES256-GCM-SHA384",
+			}),
+		),
+	}
+}
+
+// BuildHttpsPortExplicitTlsTestStep returns a step where the https port declares a tls block with non-default values.
+func (drt *DomainResourceTest) BuildHttpsPortExplicitTlsTestStep(subDomainName string) resource.TestStep {
+	// Resolve the shared case and workload link
+	subDomain, _ := drt.newHttpsPortWithoutTlsCases(subDomainName)
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: drt.HttpsPortExplicitTlsHcl(subDomainName),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			subDomain.TestCheckResourceAttr("spec.0.ports.#", "1"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.number", "443"),
+			subDomain.TestCheckResourceAttr("spec.0.ports.0.tls.0.min_protocol_version", "TLSV1_1"),
+			subDomain.TestCheckSetAttr("spec.0.ports.0.tls.0.cipher_suites", []string{
+				"AES256-GCM-SHA384",
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // RequiredOnlyHcl returns a minimal HCL block for a resource using only required fields.
@@ -2910,6 +3274,446 @@ resource "cpln_domain_route" "canary-route" {
   }
 }
 `
+}
+
+// RouteOrderAbsentHcl returns HCL for a subdomain whose https port declares no inline route blocks.
+func (drt *DomainResourceTest) RouteOrderAbsentHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// RouteOrderRequiredOnlyHcl returns HCL for a subdomain with a single inline route that sets only its required attributes.
+func (drt *DomainResourceTest) RouteOrderRequiredOnlyHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// RouteOrderUnsortedMultiHcl returns HCL for five inline routes declared shortest prefix first, the order the API's route sort rewrites.
+func (drt *DomainResourceTest) RouteOrderUnsortedMultiHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api/users"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/a"
+        host_prefix   = "www"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/a"
+        host_prefix   = "api-staging"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// RouteOrderWithExternalHcl returns the unsorted multi route config plus an externally owned route on the same port.
+func (drt *DomainResourceTest) RouteOrderWithExternalHcl(subDomainName string) string {
+	return drt.RouteOrderUnsortedMultiHcl(subDomainName) + `
+resource "cpln_domain_route" "external-route" {
+  domain_link   = cpln_domain.subdomain.self_link
+  domain_port   = 443
+  prefix        = "/external"
+  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  port          = 8080
+}
+`
+}
+
+// RouteOrderExpandedHcl returns HCL for six inline routes declared in another order the API's route sort rewrites.
+func (drt *DomainResourceTest) RouteOrderExpandedHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+
+      route {
+        prefix        = "/a"
+        host_prefix   = "www"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api/users"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/a"
+        host_prefix   = "api-staging"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api/v1/orders"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// RouteOrderRegexHcl returns HCL for four inline routes where a regex route switches the API's route sort off.
+func (drt *DomainResourceTest) RouteOrderRegexHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        prefix        = "/api/users"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+
+      route {
+        regex         = "/health.*"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// HttpsPortWithoutTlsHcl returns HCL for a subdomain whose https port omits the optional tls block.
+func (drt *DomainResourceTest) HttpsPortWithoutTlsHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// HttpsPortMixedTlsHcl returns HCL for a subdomain where an http2 port 443 omits tls and a second port declares one.
+func (drt *DomainResourceTest) HttpsPortMixedTlsHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http2"
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+    }
+
+    ports {
+      number   = 80
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_2"
+        cipher_suites = [
+          "ECDHE-ECDSA-AES256-GCM-SHA384",
+          "ECDHE-RSA-AES256-GCM-SHA384",
+        ]
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// HttpsPortExplicitTlsHcl returns HCL for a subdomain whose https port declares a tls block with non-default values.
+func (drt *DomainResourceTest) HttpsPortExplicitTlsHcl(subDomainName string) string {
+	return drt.hclBase() + fmt.Sprintf(`
+resource "cpln_domain" "subdomain" {
+  depends_on = [cpln_domain.new]
+  name       = "%s"
+
+  tags = {
+    terraform_generated = "true"
+  }
+
+  spec {
+    dns_mode         = "ns"
+    accept_all_hosts = true
+
+    ports {
+      number   = 443
+      protocol = "http"
+
+      tls {
+        min_protocol_version = "TLSV1_1"
+        cipher_suites = [
+          "AES256-GCM-SHA384",
+        ]
+      }
+
+      route {
+        prefix        = "/"
+        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port          = 8080
+      }
+    }
+  }
+}
+`, subDomainName)
+}
+
+// domainApiRouteOrderDiffersCheck verifies the API stored the first port's routes in an order other than the declared one.
+func domainApiRouteOrderDiffersCheck(domainName string, declaredOrder []string) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		// Read the domain straight from the API to inspect the order it stored
+		domain, _, err := TestProvider.client.GetDomain(domainName)
+
+		if err != nil {
+			return fmt.Errorf("error occurred while fetching domain %s: %w", domainName, err)
+		}
+
+		// Reject a domain that carries no ports to inspect
+		if domain.Spec == nil || domain.Spec.Ports == nil || len(*domain.Spec.Ports) == 0 {
+			return fmt.Errorf("expected domain %s to expose at least one port", domainName)
+		}
+
+		// Collect the route identities the API stored for the first port
+		apiOrder := []string{}
+		port := (*domain.Spec.Ports)[0]
+
+		if port.Routes != nil {
+			for _, route := range *port.Routes {
+				// Identify the route the same way the declared order spells it
+				identity := ""
+
+				if route.Prefix != nil {
+					identity = *route.Prefix
+				} else if route.Regex != nil {
+					identity = *route.Regex
+				}
+
+				if route.HostPrefix != nil {
+					identity += "|" + *route.HostPrefix
+				}
+
+				apiOrder = append(apiOrder, identity)
+			}
+		}
+
+		// The declared routes must all be present, otherwise the comparison below is meaningless
+		if len(apiOrder) != len(declaredOrder) {
+			return fmt.Errorf(
+				"expected domain %s to store %d routes on its first port, got %d: %v",
+				domainName, len(declaredOrder), len(apiOrder), apiOrder,
+			)
+		}
+
+		// This step only exercises the reordering while the API keeps rewriting the declared order
+		if strings.Join(apiOrder, ",") == strings.Join(declaredOrder, ",") {
+			return fmt.Errorf(
+				"expected the API to store domain %s routes in an order other than the declared one, got %v for both",
+				domainName, apiOrder,
+			)
+		}
+
+		return nil
+	}
 }
 
 // domainImportWithRoutesCheck returns an ImportStateCheckFunc that verifies routes WERE imported into state.

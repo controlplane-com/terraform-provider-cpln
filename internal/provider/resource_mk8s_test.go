@@ -449,7 +449,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate1TestStep(initialCase Pro
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -499,7 +499,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -568,7 +568,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -695,7 +695,7 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -857,7 +857,7 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1029,7 +1029,7 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1173,7 +1173,7 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1319,7 +1319,7 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1464,7 +1464,7 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1614,7 +1614,7 @@ func (mrt *Mk8sResourceTest) BuildEphemeralProviderTestStep(resourceName string,
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1731,7 +1731,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -1882,7 +1882,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -2033,7 +2033,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -2215,7 +2215,7 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 			c.TestCheckResourceAttr("version", "1.32.1"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -2480,7 +2480,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -2636,7 +2636,7 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
-					"source_cidr": "192.168.1.255",
+					"source_cidr": "192.168.1.255/32",
 					"description": "hello world",
 				},
 			}),
@@ -2811,7 +2811,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -2859,7 +2859,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -2927,7 +2927,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -3217,7 +3217,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -3541,7 +3541,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -3874,7 +3874,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.32.1"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -4176,7 +4176,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -4479,7 +4479,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -4781,7 +4781,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -5088,7 +5088,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -5188,7 +5188,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.32.1"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -5500,7 +5500,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.32.1"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -5812,7 +5812,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.32.1"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -6147,7 +6147,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.32.1"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -6556,7 +6556,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 
@@ -6873,7 +6873,7 @@ resource "cpln_mk8s" "%s" {
   version = "1.28.4"
 
   firewall {
-    source_cidr = "192.168.1.255"
+    source_cidr = "192.168.1.255/32"
     description = "hello world"
   }
 

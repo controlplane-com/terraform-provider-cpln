@@ -3,7 +3,9 @@ package cpln
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/domain"
@@ -574,15 +576,16 @@ func (dr *DomainResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Create operator and attach prior state for route merge logic
 	operator := dr.Operations.NewOperator(ctx, &resp.Diagnostics, plan)
-	if dro, ok := operator.(*DomainResourceOperator); ok {
-		dro.PriorState = &priorState
+	dro, ok := operator.(*DomainResourceOperator)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Operator", "The domain operator is not of type DomainResourceOperator.")
+		return
 	}
+	dro.PriorState = &priorState
 
 	// Build and send the update request
-	apiReq := operator.NewAPIRequest(true)
-	apiResp, _, err := operator.InvokeUpdate(apiReq)
-	if err != nil {
-		resp.Diagnostics.AddError("API error", err.Error())
+	apiResp := dro.updateWithConflictRetry()
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -939,10 +942,12 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 	// Detect import case (Plan.Spec is null/unknown since only the id is set in state)
 	isImport := dro.Plan.Spec.IsNull() || dro.Plan.Spec.IsUnknown()
 
-	// Determine which ports had inline routes in prior state/plan
+	// Determine which ports had inline routes and a tls block in prior state/plan
 	var priorPortRoutes map[int]bool
+	var priorPortTls map[int]bool
 	if !isImport {
 		priorPortRoutes = dro.getPlanPortsWithInlineRoutes()
+		priorPortTls = dro.getPlanPortsWithTls()
 	}
 
 	// Define the blocks slice
@@ -961,7 +966,6 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 			Number:   FlattenInt(item.Number),
 			Protocol: types.StringPointerValue(item.Protocol),
 			Cors:     dro.flattenSpecPortCors(item.Cors),
-			TLS:      dro.flattenSpecPortTls(item.TLS, portNum),
 		}
 
 		if isImport {
@@ -970,6 +974,13 @@ func (dro *DomainResourceOperator) flattenSpecPorts(input *[]client.DomainSpecPo
 			block.Route = dro.flattenInlineRoutes(portNum, item.Routes)
 		} else {
 			block.Route = types.ListNull(models.RouteModel{}.AttributeTypes())
+		}
+
+		// The API fills in a default tls block for non-tcp ports numbered 443, keep it out of state unless the plan declares one
+		if isImport || priorPortTls[portNum] {
+			block.TLS = dro.flattenSpecPortTls(item.TLS, portNum)
+		} else {
+			block.TLS = types.ListNull(models.SpecPortsTlsModel{}.AttributeTypes())
 		}
 
 		// Append the constructed block to the blocks slice
@@ -1081,9 +1092,9 @@ func (dro *DomainResourceOperator) flattenSpecPortTlsCertificate(input *client.D
 	return FlattenList(dro.Ctx, dro.Diags, []models.SpecPortsTlsCertificateModel{block})
 }
 
-// flattenInlineRoutes filters API routes to only include routes matching the plan's inline routes.
+// flattenInlineRoutes filters API routes to only include routes matching the plan's inline routes, in the plan's order.
 func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[]client.DomainRoute) types.List {
-	// Build a set of plan inline route keys for this port
+	// Build the ordered list of plan inline route keys for this port
 	planKeys := dro.getPlanInlineRouteKeys(portNum)
 
 	// If no plan inline routes, return empty list
@@ -1096,23 +1107,33 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 		return FlattenList(dro.Ctx, dro.Diags, []models.RouteModel{})
 	}
 
+	// Index the API routes by key because the API reorders routes by descending prefix length
+	apiRoutesByKey := make(map[string]client.DomainRoute, len(*apiRoutes))
+
+	for _, item := range *apiRoutes {
+		apiRoutesByKey[DomainRouteKey(item)] = item
+	}
+
 	// Build lookups of prior workload_link values, mirror blocks, and canary blocks keyed by route key for this port
 	priorWorkloadLinks := dro.priorRouteWorkloadLinks(portNum)
 	priorMirrors := dro.priorRouteMirrors(portNum)
 	priorCanaries := dro.priorRouteCanaries(portNum)
 
-	// Filter API routes to only include those matching plan inline route keys
+	// Emit the API routes that the plan declares inline, following the plan's order
 	blocks := []models.RouteModel{}
 
-	for _, item := range *apiRoutes {
-		if !planKeys[DomainRouteKey(item)] {
+	for _, key := range planKeys {
+		// Skip plan routes the API did not return
+		item, ok := apiRoutesByKey[key]
+
+		if !ok {
 			continue
 		}
 
 		// Resolve the prior workload_link, mirror list, and canary list for this route by key (zero value when absent)
-		priorWorkloadLink := priorWorkloadLinks[DomainRouteKey(item)]
-		priorMirror := priorMirrors[DomainRouteKey(item)]
-		priorCanary := priorCanaries[DomainRouteKey(item)]
+		priorWorkloadLink := priorWorkloadLinks[key]
+		priorMirror := priorMirrors[key]
+		priorCanary := priorCanaries[key]
 
 		block := models.RouteModel{
 			Prefix:        types.StringPointerValue(item.Prefix),
@@ -1293,6 +1314,51 @@ func (dro *DomainResourceOperator) flattenStatusDnsConfig(input *[]client.Domain
 
 // Helpers //
 
+// updateWithConflictRetry sends the update request, rebuilding it whenever another writer changed the domain first.
+func (dro *DomainResourceOperator) updateWithConflictRetry() *client.Domain {
+	// Match the retry budget the domain route operations use against the same conflict
+	const maxRetries = 5
+	backoff := 2 * time.Second
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// Rebuild the payload every attempt because it merges the routes currently on the domain
+		requestPayload := dro.NewAPIRequest(true)
+
+		// Stop when building the payload reported a problem
+		if dro.Diags.HasError() {
+			return nil
+		}
+
+		// Send the update
+		apiResp, code, err := dro.InvokeUpdate(requestPayload)
+
+		// Return the response once the update lands
+		if err == nil {
+			return apiResp
+		}
+
+		// Give up on anything other than a conflict with another writer
+		if code != http.StatusConflict {
+			dro.Diags.AddError("API error", err.Error())
+			return nil
+		}
+
+		// Remember the conflict in case the retries run out
+		lastErr = err
+
+		// Wait out the conflicting write before rebuilding the payload
+		if attempt < maxRetries {
+			time.Sleep(backoff)
+			backoff *= 2
+		}
+	}
+
+	// Report the conflict that outlasted every attempt
+	dro.Diags.AddError("API error", fmt.Sprintf("Unable to update domain after %d attempts due to HTTP 409, details: %v", maxRetries, lastErr))
+	return nil
+}
+
 // mergeRoutes reconciles inline routes from the plan with existing routes on the API.
 func (dro *DomainResourceOperator) mergeRoutes(spec *client.DomainSpec, domain *client.Domain) {
 	// Nothing to merge if either side has no ports
@@ -1442,9 +1508,39 @@ func (dro *DomainResourceOperator) getPlanPortsWithInlineRoutes() map[int]bool {
 	return result
 }
 
-// getPlanInlineRouteKeys returns the set of route keys from the plan's inline routes for a given port.
-func (dro *DomainResourceOperator) getPlanInlineRouteKeys(portNum int) map[string]bool {
-	result := make(map[string]bool)
+// getPlanPortsWithTls determines which ports declare a tls block in the current plan.
+func (dro *DomainResourceOperator) getPlanPortsWithTls() map[int]bool {
+	result := make(map[int]bool)
+
+	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
+	if !ok {
+		return result
+	}
+
+	for _, spec := range specs {
+		ports, ok := BuildList[models.SpecPortsModel](dro.Ctx, dro.Diags, spec.Ports)
+		if !ok {
+			continue
+		}
+
+		for _, port := range ports {
+			if !port.TLS.IsNull() && len(port.TLS.Elements()) > 0 {
+				portNum := 0
+				if !port.Number.IsNull() && !port.Number.IsUnknown() {
+					portNum = int(port.Number.ValueInt32())
+				}
+				result[portNum] = true
+			}
+		}
+	}
+
+	return result
+}
+
+// getPlanInlineRouteKeys returns the route keys from the plan's inline routes for a given port, in declaration order.
+func (dro *DomainResourceOperator) getPlanInlineRouteKeys(portNum int) []string {
+	result := []string{}
+	seen := make(map[string]bool)
 
 	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
 	if !ok {
@@ -1473,8 +1569,9 @@ func (dro *DomainResourceOperator) getPlanInlineRouteKeys(portNum int) map[strin
 
 			for _, route := range routes {
 				key := dro.routeModelKey(route)
-				if key != "" {
-					result[key] = true
+				if key != "" && !seen[key] {
+					seen[key] = true
+					result = append(result, key)
 				}
 			}
 		}
@@ -1483,17 +1580,31 @@ func (dro *DomainResourceOperator) getPlanInlineRouteKeys(portNum int) map[strin
 	return result
 }
 
-// routeModelKey returns a unique key for a RouteModel based on its prefix or regex.
+// routeModelKey returns a unique key for a RouteModel based on its prefix or regex and its host prefix or host regex.
 func (dro *DomainResourceOperator) routeModelKey(route models.RouteModel) string {
-	if !route.Prefix.IsNull() && !route.Prefix.IsUnknown() {
-		return "prefix:" + route.Prefix.ValueString()
+	// Identify the route by its prefix or regex
+	var path string
+
+	switch {
+	case !route.Prefix.IsNull() && !route.Prefix.IsUnknown():
+		path = "prefix:" + route.Prefix.ValueString()
+	case !route.Regex.IsNull() && !route.Regex.IsUnknown():
+		path = "regex:" + route.Regex.ValueString()
+	default:
+		return ""
 	}
 
-	if !route.Regex.IsNull() && !route.Regex.IsUnknown() {
-		return "regex:" + route.Regex.ValueString()
+	// The API allows the same path on different hosts, so the host is part of the identity
+	var host string
+
+	switch {
+	case !route.HostPrefix.IsNull() && !route.HostPrefix.IsUnknown():
+		host = "hostPrefix:" + route.HostPrefix.ValueString()
+	case !route.HostRegex.IsNull() && !route.HostRegex.IsUnknown():
+		host = "hostRegex:" + route.HostRegex.ValueString()
 	}
 
-	return ""
+	return path + ";" + host
 }
 
 // priorSpecLinks extracts the prior spec-level gvc_link and workload_link from the planned state.

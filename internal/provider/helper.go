@@ -65,17 +65,31 @@ func GetDomainLock(domainName string) *sync.Mutex {
 	return mu.(*sync.Mutex)
 }
 
-// DomainRouteKey returns a unique key for a DomainRoute based on its prefix or regex.
+// DomainRouteKey returns a unique key for a DomainRoute based on its prefix or regex and its host prefix or host regex.
 func DomainRouteKey(route client.DomainRoute) string {
-	if route.Prefix != nil {
-		return "prefix:" + *route.Prefix
+	// Identify the route by its prefix or regex
+	var path string
+
+	switch {
+	case route.Prefix != nil:
+		path = "prefix:" + *route.Prefix
+	case route.Regex != nil:
+		path = "regex:" + *route.Regex
+	default:
+		return ""
 	}
 
-	if route.Regex != nil {
-		return "regex:" + *route.Regex
+	// The API allows the same path on different hosts, so the host is part of the identity
+	var host string
+
+	switch {
+	case route.HostPrefix != nil:
+		host = "hostPrefix:" + *route.HostPrefix
+	case route.HostRegex != nil:
+		host = "hostRegex:" + *route.HostRegex
 	}
 
-	return ""
+	return path + ";" + host
 }
 
 // StringPointerFromInterface converts an interface{} to a *string.
