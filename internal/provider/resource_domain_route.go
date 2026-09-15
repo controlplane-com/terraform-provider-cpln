@@ -99,8 +99,8 @@ func (drr *DomainRouteResource) ImportState(ctx context.Context, req resource.Im
 		host = &parts[3]
 	}
 
-	// Convert domainPortStr to integer
-	portInt, err := strconv.Atoi(domainPortStr)
+	// Convert domainPortStr to an integer bounded to the width the port attribute uses
+	portInt, err := strconv.ParseInt(domainPortStr, 10, 32)
 
 	// Handle error when port conversion fails
 	if err != nil {
@@ -117,8 +117,8 @@ func (drr *DomainRouteResource) ImportState(ctx context.Context, req resource.Im
 		return
 	}
 
-	// Cast portInt to int for state attribute
-	domainPort := int(portInt)
+	// Cast portInt to the state attribute's width, which ParseInt has already bounded
+	domainPort := int32(portInt)
 
 	// Normalize domainLink to a full self-link if the user provided a domain name instead of a link
 	if !strings.HasPrefix(domainLink, "/org/") && !strings.HasPrefix(domainLink, "//") {
@@ -129,11 +129,11 @@ func (drr *DomainRouteResource) ImportState(ctx context.Context, req resource.Im
 	}
 
 	// Resolve which of the port's routes the identifier addresses
-	route, err := drr.findImportRoute(domainLink, domainPort, pathOrRegex, host)
+	route, err := drr.findImportRoute(domainLink, int(domainPort), pathOrRegex, host)
 
 	// A regex may itself contain a colon, so read the last two segments as a single path when nothing matched
 	if err == nil && route == nil && host != nil {
-		route, err = drr.findImportRoute(domainLink, domainPort, pathOrRegex+":"+*host, nil)
+		route, err = drr.findImportRoute(domainLink, int(domainPort), pathOrRegex+":"+*host, nil)
 	}
 
 	// Report the failure that resolving the route ran into
@@ -160,7 +160,7 @@ func (drr *DomainRouteResource) ImportState(ctx context.Context, req resource.Im
 
 	// Set the generated ID attribute in the Terraform state
 	resp.Diagnostics.Append(
-		resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(buildDomainRouteID(domainLink, int32(domainPort), *route)))...,
+		resp.State.SetAttribute(ctx, path.Root("id"), types.StringValue(buildDomainRouteID(domainLink, domainPort, *route)))...,
 	)
 
 	// Set the domain_link attribute in the Terraform state
@@ -170,7 +170,7 @@ func (drr *DomainRouteResource) ImportState(ctx context.Context, req resource.Im
 
 	// Set the domain_port attribute in the Terraform state
 	resp.Diagnostics.Append(
-		resp.State.SetAttribute(ctx, path.Root("domain_port"), types.Int32Value(int32(domainPort)))...,
+		resp.State.SetAttribute(ctx, path.Root("domain_port"), types.Int32Value(domainPort))...,
 	)
 
 	// Set the path the route matches on
