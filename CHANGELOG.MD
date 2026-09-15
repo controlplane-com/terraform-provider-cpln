@@ -3,6 +3,10 @@
 - Fix domain inline route order drifting from the configured order.
 - Fix domain apply failing when an https port omits the tls block.
 - Fix domain routes that share a prefix on different hosts collapsing into one.
+- Fix cpln_domain_route reading, updating, and deleting the wrong route when several routes share a path on different hosts.
+- Add the host to the cpln_domain_route identifier and to its import syntax.
+- Treat a cpln_domain_route the domain no longer carries as already deleted, and warn that the domain may still carry a route nothing manages.
+- Refuse a cpln_domain_route plan that would put the resource on a route the port already carries.
 
 ## 1.2.31
 
