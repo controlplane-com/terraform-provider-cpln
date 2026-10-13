@@ -3,8 +3,10 @@ package cpln
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os/exec"
 	"reflect"
@@ -22,6 +24,12 @@ const TestClientEndpoint = "https://api.test.cpln.io"
 
 // bearerPrefix is the standard authorization header prefix for bearer tokens.
 const bearerPrefix = "Bearer "
+
+// maxTransientAttempts caps how many times a request is sent while the API is briefly unreachable.
+const maxTransientAttempts = 5
+
+// TransientRetryBaseDelay is the wait before the second attempt, doubling before each later one.
+var TransientRetryBaseDelay = 2 * time.Second
 
 // Client - Simple API Client
 type Client struct {
@@ -117,6 +125,38 @@ func (c *Client) doRequest(req *http.Request, contentType string, optionalTokens
 		req.Header.Set("Content-Type", contentType)
 	}
 
+	// Start with the base delay between attempts
+	delay := TransientRetryBaseDelay
+
+	for attempt := 1; ; attempt++ {
+		// Perform a single HTTP round trip
+		body, code, err := c.send(req)
+
+		// Send the request again while the API is briefly unreachable and the body can be replayed
+		if attempt < maxTransientAttempts && isTransientFailure(req.Method, code, body, err) && rewindRequestBody(req) {
+			time.Sleep(delay)
+			delay *= 2
+			continue
+		}
+
+		// Handle errors that occur during the HTTP round trip or while reading the body
+		if err != nil {
+			return nil, code, err
+		}
+
+		// Reject any status codes outside 200, 201, or 202 as errors
+		if code != http.StatusOK && code != http.StatusCreated && code != http.StatusAccepted {
+			// Include both status code and raw body in the error
+			return nil, code, fmt.Errorf("status: %d, body: %s", code, body)
+		}
+
+		// Return the successful body bytes and status code
+		return body, code, nil
+	}
+}
+
+// send performs a single HTTP round trip and returns the raw response body with its status code.
+func (c *Client) send(req *http.Request) ([]byte, int, error) {
 	// Perform the HTTP request using the client’s HTTPClient
 	res, err := c.HTTPClient.Do(req)
 
@@ -137,19 +177,60 @@ func (c *Client) doRequest(req *http.Request, contentType string, optionalTokens
 	// Read the full response body into memory
 	body, err := io.ReadAll(res.Body)
 
-	// Handle errors encountered while reading the body
-	if err != nil {
-		return nil, res.StatusCode, err
-	}
-
-	// Reject any status codes outside 200, 201, or 202 as errors
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusAccepted {
-		// Include both status code and raw body in the error
-		return nil, res.StatusCode, fmt.Errorf("status: %d, body: %s", res.StatusCode, body)
-	}
-
-	// Return the successful body bytes and status code
+	// Return the body, status code, and any read error
 	return body, res.StatusCode, err
+}
+
+// isTransientFailure reports whether a failed attempt can be sent again without the risk of applying it twice.
+func isTransientFailure(method string, code int, body []byte, err error) bool {
+	// Inspect transport errors before any response was received
+	if err != nil {
+		// A refused or unreachable connection means the request was never sent, unless the host itself does not resolve
+		var opErr *net.OpError
+		if errors.As(err, &opErr) && opErr.Op == "dial" {
+			var dnsErr *net.DNSError
+			return !errors.As(err, &dnsErr)
+		}
+
+		// A dropped connection may follow a write the API already applied, so only reads are sent again, and never after a timeout
+		var netErr net.Error
+		return method == http.MethodGet && !(errors.As(err, &netErr) && netErr.Timeout())
+	}
+
+	// The gateway reports a connection failure when it could not reach the API at all
+	if code == http.StatusServiceUnavailable && bytes.Contains(body, []byte("connection failure")) {
+		return true
+	}
+
+	// A read may be sent again after any gateway error
+	return method == http.MethodGet && (code == http.StatusBadGateway || code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout)
+}
+
+// rewindRequestBody resets the request body for another attempt and reports whether the request can be sent again.
+func rewindRequestBody(req *http.Request) bool {
+	// A request without a body can always be sent again
+	if req.Body == nil || req.Body == http.NoBody {
+		return true
+	}
+
+	// A body that cannot be recreated cannot be sent again
+	if req.GetBody == nil {
+		return false
+	}
+
+	// Recreate the body from its original source
+	body, err := req.GetBody()
+
+	// Give up on the retry when the body cannot be recreated
+	if err != nil {
+		return false
+	}
+
+	// Attach the fresh body to the request
+	req.Body = body
+
+	// Report that the request is ready to be sent again
+	return true
 }
 
 // Define a method on Client to perform GET requests and decode JSON into a given resource type
