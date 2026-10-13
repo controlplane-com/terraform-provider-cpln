@@ -497,6 +497,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
 			c.TestCheckResourceAttr("version", "1.28.4"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.byok.config.maintainer.env.%"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255/32",
@@ -566,6 +567,8 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
 			c.TestCheckResourceAttr("version", "1.28.4"),
+			c.TestCheckResourceAttr("add_ons.0.byok.config.maintainer.env.%", "1"),
+			c.TestCheckResourceAttr("add_ons.0.byok.config.maintainer.env.RESIZE_SKIP_NAMESPACES", "longhorn-system"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255/32",
@@ -3031,6 +3034,12 @@ resource "cpln_mk8s" "%s" {
           env = {
             CACHE_PERIOD_DATA_SERVICE = "600"
             LABEL_NODES               = "false"
+          }
+        }
+
+        maintainer = {
+          env = {
+            RESIZE_SKIP_NAMESPACES = "longhorn-system"
           }
         }
 

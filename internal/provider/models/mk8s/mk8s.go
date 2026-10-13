@@ -1280,6 +1280,7 @@ func (a AddOnsByokModel) AttributeTypes() attr.Type {
 
 type AddOnsByokConfigModel struct {
 	Actuator      types.Object `tfsdk:"actuator"`
+	Maintainer    types.Object `tfsdk:"maintainer"`
 	Juicefs       types.Object `tfsdk:"juicefs"`
 	Middlebox     types.Object `tfsdk:"middlebox"`
 	Common        types.Object `tfsdk:"common"`
@@ -1300,6 +1301,7 @@ func (a AddOnsByokConfigModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"actuator":       AddOnsByokActuatorModel{}.AttributeTypes(),
+			"maintainer":     AddOnsByokMaintainerModel{}.AttributeTypes(),
 			"juicefs":        AddOnsByokJuicefsModel{}.AttributeTypes(),
 			"middlebox":      AddOnsByokMiddleboxModel{}.AttributeTypes(),
 			"common":         AddOnsByokCommonModel{}.AttributeTypes(),
@@ -1338,6 +1340,20 @@ func (a AddOnsByokActuatorModel) AttributeTypes() attr.Type {
 			"max_memory": types.StringType,
 			"log_level":  types.StringType,
 			"env":        types.MapType{ElemType: types.StringType},
+		},
+	}
+}
+
+// Add Ons -> Byok -> Config -> Maintainer //
+
+type AddOnsByokMaintainerModel struct {
+	Env types.Map `tfsdk:"env"`
+}
+
+func (a AddOnsByokMaintainerModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"env": types.MapType{ElemType: types.StringType},
 		},
 	}
 }
