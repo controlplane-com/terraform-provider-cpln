@@ -113,6 +113,7 @@ Optional:
 - **prefix** (String) The path will match any unmatched path prefixes for the subdomain.
 - **replace_prefix** (String) A path prefix can be configured to be replaced when forwarding the request to the Workload.
 - **regex** (String) Used to match URI paths. Uses the google re2 regex syntax.
+- **case_insensitive** (Boolean) When true, the prefix is matched against the URI path without regard to case. Applies to `prefix` only and cannot be combined with `regex`; for a case-insensitive regex, start the regex with `(?i)`.
 - **port** (Number) For the linked workload, the port to route traffic to.
 - **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads.
 - **host_regex** (String) A regex to match the host header.
@@ -346,9 +347,10 @@ resource "cpln_domain" "example_with_routes" {
       }
 
       route {
-        prefix        = "/api"
-        workload_link = "LINK_TO_API_WORKLOAD"
-        port          = 8080
+        prefix           = "/api"
+        case_insensitive = true
+        workload_link    = "LINK_TO_API_WORKLOAD"
+        port             = 8080
 
         canary {
           workload_link = "LINK_TO_API_CANARY_WORKLOAD"

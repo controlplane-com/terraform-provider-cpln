@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -35,20 +36,21 @@ var (
 
 // DomainRouteResourceModel holds the Terraform state for the resource.
 type DomainRouteResourceModel struct {
-	ID            types.String `tfsdk:"id"`
-	DomainLink    types.String `tfsdk:"domain_link"`
-	DomainPort    types.Int32  `tfsdk:"domain_port"`
-	Prefix        types.String `tfsdk:"prefix"`
-	ReplacePrefix types.String `tfsdk:"replace_prefix"`
-	Regex         types.String `tfsdk:"regex"`
-	WorkloadLink  types.String `tfsdk:"workload_link"`
-	Port          types.Int32  `tfsdk:"port"`
-	HostPrefix    types.String `tfsdk:"host_prefix"`
-	HostRegex     types.String `tfsdk:"host_regex"`
-	Headers       types.List   `tfsdk:"headers"`
-	Replica       types.Int32  `tfsdk:"replica"`
-	Mirror        types.List   `tfsdk:"mirror"`
-	Canary        types.List   `tfsdk:"canary"`
+	ID              types.String `tfsdk:"id"`
+	DomainLink      types.String `tfsdk:"domain_link"`
+	DomainPort      types.Int32  `tfsdk:"domain_port"`
+	Prefix          types.String `tfsdk:"prefix"`
+	ReplacePrefix   types.String `tfsdk:"replace_prefix"`
+	Regex           types.String `tfsdk:"regex"`
+	CaseInsensitive types.Bool   `tfsdk:"case_insensitive"`
+	WorkloadLink    types.String `tfsdk:"workload_link"`
+	Port            types.Int32  `tfsdk:"port"`
+	HostPrefix      types.String `tfsdk:"host_prefix"`
+	HostRegex       types.String `tfsdk:"host_regex"`
+	Headers         types.List   `tfsdk:"headers"`
+	Replica         types.Int32  `tfsdk:"replica"`
+	Mirror          types.List   `tfsdk:"mirror"`
+	Canary          types.List   `tfsdk:"canary"`
 }
 
 /*** Resource Configuration ***/
@@ -245,6 +247,15 @@ func (drr *DomainRouteResource) Schema(ctx context.Context, req resource.SchemaR
 					stringplanmodifier.RequiresReplace(),
 					stringplanmodifier.UseStateForUnknown(),
 				},
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRelative().AtParent().AtName("case_insensitive"),
+					),
+				},
+			},
+			"case_insensitive": schema.BoolAttribute{
+				Description: "When true, the prefix is matched against the URI path without regard to case. Applies to prefix only; for a case-insensitive regex, start the regex with `(?i)`.",
+				Optional:    true,
 			},
 			"workload_link": schema.StringAttribute{
 				Description: "The link of the workload to map the prefix to.",
@@ -682,6 +693,7 @@ func (drr *DomainRouteResource) buildRequest(ctx context.Context, diags *diag.Di
 	route.Prefix = BuildString(plan.Prefix)
 	route.ReplacePrefix = BuildString(plan.ReplacePrefix)
 	route.Regex = BuildString(plan.Regex)
+	route.CaseInsensitive = BuildBool(plan.CaseInsensitive)
 	route.WorkloadLink = BuildString(plan.WorkloadLink)
 	route.Port = BuildInt(plan.Port)
 	route.HostPrefix = BuildString(plan.HostPrefix)
@@ -724,6 +736,7 @@ func (drr *DomainRouteResource) buildState(ctx context.Context, diags *diag.Diag
 	state.Prefix = types.StringPointerValue(route.Prefix)
 	state.ReplacePrefix = types.StringPointerValue(route.ReplacePrefix)
 	state.Regex = types.StringPointerValue(route.Regex)
+	state.CaseInsensitive = types.BoolPointerValue(route.CaseInsensitive)
 	state.WorkloadLink = FlattenLinkString(plan.WorkloadLink, route.WorkloadLink, drr.client.Org)
 	state.Port = FlattenInt(route.Port)
 	state.HostPrefix = types.StringPointerValue(route.HostPrefix)

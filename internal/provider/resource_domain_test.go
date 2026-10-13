@@ -750,6 +750,7 @@ func (drt *DomainResourceTest) BuildUpdate2TestStep(initialCase ProviderTestCase
 			domainRoute1.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
 			domainRoute1.TestCheckResourceAttr("domain_port", "443"),
 			domainRoute1.TestCheckResourceAttr("prefix", "/first"),
+			domainRoute1.TestCheckResourceAttr("case_insensitive", "true"),
 			domainRoute1.TestCheckResourceAttr("replica", "1"),
 			domainRoute1.TestCheckResourceAttr("workload_link", workloadSelfLink),
 
@@ -1095,9 +1096,10 @@ func (drt *DomainResourceTest) BuildUpdate4TestStep(initialCase ProviderTestCase
 							"protocol": "http",
 							"route": []map[string]interface{}{
 								{
-									"prefix":        "/api",
-									"workload_link": workloadSelfLink,
-									"port":          "8080",
+									"prefix":           "/api",
+									"case_insensitive": "true",
+									"workload_link":    workloadSelfLink,
+									"port":             "8080",
 								},
 								{
 									"prefix":         "/app",
@@ -1707,6 +1709,7 @@ func (drt *DomainResourceTest) BuildCanaryAbsentTestStep(subDomainName string) r
 			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
 			route.TestCheckResourceAttr("domain_port", "443"),
 			route.TestCheckResourceAttr("prefix", "/canary"),
+			resource.TestCheckNoResourceAttr(route.ResourceAddress, "case_insensitive"),
 			route.TestCheckResourceAttr("workload_link", workloadSelfLink),
 			// No canary blocks are present on the route
 			route.TestCheckResourceAttr("canary.#", "0"),
@@ -1725,6 +1728,7 @@ func (drt *DomainResourceTest) BuildCanaryRequiredOnlyTestStep(subDomainName str
 		Check: resource.ComposeAggregateTestCheckFunc(
 			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
 			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckResourceAttr("case_insensitive", "true"),
 			route.TestCheckNestedBlocks("canary", []map[string]interface{}{
 				{
 					"workload_link": workloadSelfLink,
@@ -1746,6 +1750,7 @@ func (drt *DomainResourceTest) BuildCanaryAllMultiTestStep(subDomainName string)
 		Check: resource.ComposeAggregateTestCheckFunc(
 			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
 			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckResourceAttr("case_insensitive", "false"),
 			route.TestCheckNestedBlocks("canary", []map[string]interface{}{
 				{
 					"workload_link": workloadSelfLink,
@@ -1772,6 +1777,7 @@ func (drt *DomainResourceTest) BuildCanaryExpandedTestStep(subDomainName string)
 		Check: resource.ComposeAggregateTestCheckFunc(
 			route.TestCheckResourceAttr("domain_link", subDomain.GetSelfLink()),
 			route.TestCheckResourceAttr("prefix", "/canary"),
+			route.TestCheckResourceAttr("case_insensitive", "true"),
 			route.TestCheckNestedBlocks("canary", []map[string]interface{}{
 				{
 					"workload_link": workloadSelfLink,
@@ -2571,10 +2577,11 @@ resource "cpln_domain" "%s" {
 }
 
 resource "cpln_domain_route" "first-route" {
-  domain_link   = %s
-  prefix        = "/first"
-  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
-  replica       = 1
+  domain_link      = %s
+  prefix           = "/first"
+  case_insensitive = true
+  workload_link    = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  replica          = 1
 }
 
 resource "cpln_domain_route" "second-route" {
@@ -3039,9 +3046,10 @@ resource "cpln_domain" "%s" {
       }
 
       route {
-        prefix        = "/api"
-        workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
-        port          = 8080
+        prefix           = "/api"
+        case_insensitive = true
+        workload_link    = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+        port             = 8080
       }
 
       route {
@@ -3489,10 +3497,11 @@ resource "cpln_domain_route" "canary-route" {
 func (drt *DomainResourceTest) CanaryRequiredOnlyHcl(subDomainName string) string {
 	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
 resource "cpln_domain_route" "canary-route" {
-  domain_link   = cpln_domain.subdomain.self_link
-  domain_port   = 443
-  prefix        = "/canary"
-  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  domain_link      = cpln_domain.subdomain.self_link
+  domain_port      = 443
+  prefix           = "/canary"
+  case_insensitive = true
+  workload_link    = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
 
   canary {
     workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
@@ -3506,10 +3515,11 @@ resource "cpln_domain_route" "canary-route" {
 func (drt *DomainResourceTest) CanaryAllMultiHcl(subDomainName string) string {
 	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
 resource "cpln_domain_route" "canary-route" {
-  domain_link   = cpln_domain.subdomain.self_link
-  domain_port   = 443
-  prefix        = "/canary"
-  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  domain_link      = cpln_domain.subdomain.self_link
+  domain_port      = 443
+  prefix           = "/canary"
+  case_insensitive = false
+  workload_link    = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
 
   canary {
     workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
@@ -3529,10 +3539,11 @@ resource "cpln_domain_route" "canary-route" {
 func (drt *DomainResourceTest) CanaryExpandedHcl(subDomainName string) string {
 	return drt.hclBase() + drt.hclSubDomain(subDomainName, "canary lifecycle") + `
 resource "cpln_domain_route" "canary-route" {
-  domain_link   = cpln_domain.subdomain.self_link
-  domain_port   = 443
-  prefix        = "/canary"
-  workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
+  domain_link      = cpln_domain.subdomain.self_link
+  domain_port      = 443
+  prefix           = "/canary"
+  case_insensitive = true
+  workload_link    = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"
 
   canary {
     workload_link = "//gvc/${cpln_workload.new.gvc}/workload/${cpln_workload.new.name}"

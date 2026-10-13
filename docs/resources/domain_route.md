@@ -33,6 +33,7 @@ Used in conjunction with a Domain.
 ~> **Note** Only one of `host_prefix` OR `host_regex` may be provided in a single resource.
 
 - **replace_prefix** (String) A path prefix can be configured to be replaced when forwarding the request to the Workload.
+- **case_insensitive** (Boolean) When true, the prefix is matched against the URI path without regard to case. Applies to `prefix` only and cannot be combined with `regex`; for a case-insensitive regex, start the regex with `(?i)`.
 - **port** (Number) For the linked workload, the port to route traffic to.
 - **host_prefix** (String) This option allows forwarding traffic for different host headers to different workloads. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configured for wildcard support. Please contact us on Slack or at support@controlplane.com for additional details.
 - **host_regex** (String) A regex to match the host header. This will only be used when the target GVC has dedicated load balancing enabled and the Domain is configure for wildcard support. Contact your account manager for details.
@@ -165,11 +166,12 @@ resource "cpln_domain_route" "first-route" {
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
-  prefix         = "/example-1"
-  replace_prefix = "/replace_example"
-  host_prefix    = "www.example.com"
-  workload_link  = "LINK_TO_WORKLOAD"
-  port           = 80
+  prefix           = "/example-1"
+  replace_prefix   = "/replace_example"
+  case_insensitive = true
+  host_prefix      = "www.example.com"
+  workload_link    = "LINK_TO_WORKLOAD"
+  port             = 80
 
   headers {
     request {
@@ -273,11 +275,12 @@ resource "cpln_domain_route" "first-route" {
   domain_link = cpln_domain.subdomain.self_link
   domain_port = 443
 
-  prefix         = "/example-1"
-  replace_prefix = "/replace_example"
-  host_prefix    = "www.example.com"
-  workload_link  = "LINK_TO_WORKLOAD"
-  port           = 80
+  prefix           = "/example-1"
+  replace_prefix   = "/replace_example"
+  case_insensitive = true
+  host_prefix      = "www.example.com"
+  workload_link    = "LINK_TO_WORKLOAD"
+  port             = 80
 
   headers {
     request {
