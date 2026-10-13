@@ -513,7 +513,11 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate1TestStep(initialCase Prov
 					},
 					"readiness_probe": []map[string]interface{}{
 						{
-							"tcp_socket":            []map[string]interface{}{{}},
+							"tcp_socket": []map[string]interface{}{
+								{
+									"port": "8080",
+								},
+							},
 							"initial_delay_seconds": "10",
 							"period_seconds":        "10",
 							"timeout_seconds":       "1",
@@ -867,9 +871,9 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 					},
 					"readiness_probe": []map[string]interface{}{
 						{
-							"tcp_socket": []map[string]interface{}{
+							"grpc": []map[string]interface{}{
 								{
-									"port": "3200",
+									"port": "8080",
 								},
 							},
 							"initial_delay_seconds": "1",
@@ -1668,9 +1672,9 @@ func (wrt *WorkloadResourceTest) BuildStandardUpdate1TestStep(initialCase Provid
 					},
 					"readiness_probe": []map[string]interface{}{
 						{
-							"tcp_socket": []map[string]interface{}{
+							"grpc": []map[string]interface{}{
 								{
-									"port": "3200",
+									"port": "3000",
 								},
 							},
 							"initial_delay_seconds": "1",
@@ -2686,7 +2690,7 @@ func (wrt *WorkloadResourceTest) BuildStatefulUpdate1TestStep(initialCase Provid
 						{
 							"tcp_socket": []map[string]interface{}{
 								{
-									"port": "3200",
+									"port": "8080",
 								},
 							},
 							"initial_delay_seconds": "1",
@@ -4163,9 +4167,7 @@ resource "cpln_workload" "%s" {
 
     readiness_probe {
 
-      tcp_socket {
-        port = 3200
-      }
+      grpc {}
 
       initial_delay_seconds = 1
       period_seconds        = 11
@@ -4906,9 +4908,7 @@ resource "cpln_workload" "%s" {
 
     readiness_probe {
 
-      tcp_socket {
-        port = 3200
-      }
+      grpc {}
 
       initial_delay_seconds = 1
       period_seconds        = 11
@@ -5833,9 +5833,7 @@ resource "cpln_workload" "%s" {
 
     readiness_probe {
 
-      tcp_socket {
-        port = 3200
-      }
+      tcp_socket {}
 
       initial_delay_seconds = 1
       period_seconds        = 11

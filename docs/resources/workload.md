@@ -126,7 +126,7 @@ Required:
 
 Optional:
 
-- **port** (Number) gRPC Port.
+- **port** (Number) gRPC Port. Defaults to the container's first `grpc` port, otherwise its first port.
 
 <a id="nestedblock--container--readiness_probe--tcp_socket"></a>
 
@@ -134,7 +134,7 @@ Optional:
 
 Optional:
 
-- **port** (Number) TCP Socket Port.
+- **port** (Number) TCP Socket Port. Defaults to the container's first port.
 
 <a id="nestedblock--container--readiness_probe--http_get"></a>
 
@@ -178,7 +178,7 @@ Required:
 
 Optional:
 
-- **port** (Number) gRPC Port.
+- **port** (Number) gRPC Port. Defaults to the container's first `grpc` port, otherwise its first port.
 
 <a id="nestedblock--container--liveness_probe--tcp_socket"></a>
 
@@ -186,7 +186,7 @@ Optional:
 
 Optional:
 
-- **port** (Number) TCP Socket Port.
+- **port** (Number) TCP Socket Port. Defaults to the container's first port.
 
 <a id="nestedblock--container--liveness_probe--http_get"></a>
 
