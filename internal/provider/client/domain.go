@@ -48,17 +48,18 @@ type DomainSpecPort struct {
 }
 
 type DomainRoute struct {
-	Prefix        *string              `json:"prefix,omitempty"`
-	ReplacePrefix *string              `json:"replacePrefix,omitempty"`
-	Regex         *string              `json:"regex,omitempty"`
-	WorkloadLink  *string              `json:"workloadLink,omitempty"`
-	Port          *int                 `json:"port,omitempty"`
-	HostPrefix    *string              `json:"hostPrefix,omitempty"`
-	HostRegex     *string              `json:"hostRegex,omitempty"`
-	Headers       *DomainRouteHeaders  `json:"headers,omitempty"`
-	Replica       *int                 `json:"replica,omitempty"`
-	Mirror        *[]DomainRouteMirror `json:"mirror,omitempty"`
-	Canaries      *[]DomainRouteCanary `json:"canaries,omitempty"`
+	Prefix          *string              `json:"prefix,omitempty"`
+	ReplacePrefix   *string              `json:"replacePrefix,omitempty"`
+	Regex           *string              `json:"regex,omitempty"`
+	CaseInsensitive *bool                `json:"caseInsensitive,omitempty"`
+	WorkloadLink    *string              `json:"workloadLink,omitempty"`
+	Port            *int                 `json:"port,omitempty"`
+	HostPrefix      *string              `json:"hostPrefix,omitempty"`
+	HostRegex       *string              `json:"hostRegex,omitempty"`
+	Headers         *DomainRouteHeaders  `json:"headers,omitempty"`
+	Replica         *int                 `json:"replica,omitempty"`
+	Mirror          *[]DomainRouteMirror `json:"mirror,omitempty"`
+	Canaries        *[]DomainRouteCanary `json:"canaries,omitempty"`
 }
 
 type DomainRouteMirror struct {
@@ -373,6 +374,7 @@ func (c *Client) UpdateDomainRoute(domainName string, domainPort int, identity D
 
 					// Modify existing route
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].ReplacePrefix = route.ReplacePrefix
+					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].CaseInsensitive = route.CaseInsensitive
 					(*(*domain.Spec.Ports)[pIndex].Routes)[rIndex].WorkloadLink = route.WorkloadLink
 
 					if route.Port == nil || *route.Port == 0 {

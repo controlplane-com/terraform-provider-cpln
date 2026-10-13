@@ -429,6 +429,15 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 												"regex": schema.StringAttribute{
 													Description: "Used to match URI paths. Uses the google re2 regex syntax.",
 													Optional:    true,
+													Validators: []validator.String{
+														stringvalidator.ConflictsWith(
+															path.MatchRelative().AtParent().AtName("case_insensitive"),
+														),
+													},
+												},
+												"case_insensitive": schema.BoolAttribute{
+													Description: "When true, the prefix is matched against the URI path without regard to case. Applies to prefix only; for a case-insensitive regex, start the regex with `(?i)`.",
+													Optional:    true,
 												},
 												"workload_link": schema.StringAttribute{
 													Description: "The link of the workload to map the prefix to.",
@@ -876,17 +885,18 @@ func (dro *DomainResourceOperator) buildSpecPortRoutes(state types.List) *[]clie
 	for _, block := range blocks {
 		// Construct the route
 		route := client.DomainRoute{
-			Prefix:        BuildString(block.Prefix),
-			ReplacePrefix: BuildString(block.ReplacePrefix),
-			Regex:         BuildString(block.Regex),
-			WorkloadLink:  BuildString(block.WorkloadLink),
-			Port:          BuildInt(block.Port),
-			HostPrefix:    BuildString(block.HostPrefix),
-			HostRegex:     BuildString(block.HostRegex),
-			Headers:       BuildRouteHeaders(dro.Ctx, dro.Diags, block.Headers),
-			Replica:       BuildInt(block.Replica),
-			Mirror:        BuildRouteMirror(dro.Ctx, dro.Diags, block.Mirror),
-			Canaries:      BuildRouteCanary(dro.Ctx, dro.Diags, block.Canary),
+			Prefix:          BuildString(block.Prefix),
+			ReplacePrefix:   BuildString(block.ReplacePrefix),
+			Regex:           BuildString(block.Regex),
+			CaseInsensitive: BuildBool(block.CaseInsensitive),
+			WorkloadLink:    BuildString(block.WorkloadLink),
+			Port:            BuildInt(block.Port),
+			HostPrefix:      BuildString(block.HostPrefix),
+			HostRegex:       BuildString(block.HostRegex),
+			Headers:         BuildRouteHeaders(dro.Ctx, dro.Diags, block.Headers),
+			Replica:         BuildInt(block.Replica),
+			Mirror:          BuildRouteMirror(dro.Ctx, dro.Diags, block.Mirror),
+			Canaries:        BuildRouteCanary(dro.Ctx, dro.Diags, block.Canary),
 		}
 
 		// Add the route to the result slice
@@ -1136,17 +1146,18 @@ func (dro *DomainResourceOperator) flattenInlineRoutes(portNum int, apiRoutes *[
 		priorCanary := priorCanaries[key]
 
 		block := models.RouteModel{
-			Prefix:        types.StringPointerValue(item.Prefix),
-			ReplacePrefix: types.StringPointerValue(item.ReplacePrefix),
-			Regex:         types.StringPointerValue(item.Regex),
-			WorkloadLink:  dro.FlattenLinkString(priorWorkloadLink, item.WorkloadLink, dro.Client.Org),
-			Port:          FlattenInt(item.Port),
-			HostPrefix:    types.StringPointerValue(item.HostPrefix),
-			HostRegex:     types.StringPointerValue(item.HostRegex),
-			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
-			Replica:       FlattenInt(item.Replica),
-			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
-			Canary:        FlattenRouteCanary(dro.Ctx, dro.Diags, priorCanary, item.Canaries, dro.Client.Org),
+			Prefix:          types.StringPointerValue(item.Prefix),
+			ReplacePrefix:   types.StringPointerValue(item.ReplacePrefix),
+			Regex:           types.StringPointerValue(item.Regex),
+			CaseInsensitive: types.BoolPointerValue(item.CaseInsensitive),
+			WorkloadLink:    dro.FlattenLinkString(priorWorkloadLink, item.WorkloadLink, dro.Client.Org),
+			Port:            FlattenInt(item.Port),
+			HostPrefix:      types.StringPointerValue(item.HostPrefix),
+			HostRegex:       types.StringPointerValue(item.HostRegex),
+			Headers:         FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
+			Replica:         FlattenInt(item.Replica),
+			Mirror:          FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
+			Canary:          FlattenRouteCanary(dro.Ctx, dro.Diags, priorCanary, item.Canaries, dro.Client.Org),
 		}
 
 		blocks = append(blocks, block)
@@ -1174,17 +1185,18 @@ func (dro *DomainResourceOperator) flattenRoutes(input *[]client.DomainRoute) ty
 
 		// Construct a block
 		block := models.RouteModel{
-			Prefix:        types.StringPointerValue(item.Prefix),
-			ReplacePrefix: types.StringPointerValue(item.ReplacePrefix),
-			Regex:         types.StringPointerValue(item.Regex),
-			WorkloadLink:  dro.FlattenLinkString(priorWorkloadLink, item.WorkloadLink, dro.Client.Org),
-			Port:          FlattenInt(item.Port),
-			HostPrefix:    types.StringPointerValue(item.HostPrefix),
-			HostRegex:     types.StringPointerValue(item.HostRegex),
-			Headers:       FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
-			Replica:       FlattenInt(item.Replica),
-			Mirror:        FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
-			Canary:        FlattenRouteCanary(dro.Ctx, dro.Diags, priorCanary, item.Canaries, dro.Client.Org),
+			Prefix:          types.StringPointerValue(item.Prefix),
+			ReplacePrefix:   types.StringPointerValue(item.ReplacePrefix),
+			Regex:           types.StringPointerValue(item.Regex),
+			CaseInsensitive: types.BoolPointerValue(item.CaseInsensitive),
+			WorkloadLink:    dro.FlattenLinkString(priorWorkloadLink, item.WorkloadLink, dro.Client.Org),
+			Port:            FlattenInt(item.Port),
+			HostPrefix:      types.StringPointerValue(item.HostPrefix),
+			HostRegex:       types.StringPointerValue(item.HostRegex),
+			Headers:         FlattenRouteHeaders(dro.Ctx, dro.Diags, item.Headers),
+			Replica:         FlattenInt(item.Replica),
+			Mirror:          FlattenRouteMirror(dro.Ctx, dro.Diags, priorMirror, item.Mirror, dro.Client.Org),
+			Canary:          FlattenRouteCanary(dro.Ctx, dro.Diags, priorCanary, item.Canaries, dro.Client.Org),
 		}
 
 		// Append the constructed block to the blocks slice

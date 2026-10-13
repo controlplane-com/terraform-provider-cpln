@@ -210,33 +210,35 @@ func (s StatusDnsConfigModel) AttributeTypes() attr.Type {
 // Route //
 
 type RouteModel struct {
-	Prefix        types.String `tfsdk:"prefix"`
-	ReplacePrefix types.String `tfsdk:"replace_prefix"`
-	Regex         types.String `tfsdk:"regex"`
-	WorkloadLink  types.String `tfsdk:"workload_link"`
-	Port          types.Int32  `tfsdk:"port"`
-	HostPrefix    types.String `tfsdk:"host_prefix"`
-	HostRegex     types.String `tfsdk:"host_regex"`
-	Headers       types.List   `tfsdk:"headers"`
-	Replica       types.Int32  `tfsdk:"replica"`
-	Mirror        types.List   `tfsdk:"mirror"`
-	Canary        types.List   `tfsdk:"canary"`
+	Prefix          types.String `tfsdk:"prefix"`
+	ReplacePrefix   types.String `tfsdk:"replace_prefix"`
+	Regex           types.String `tfsdk:"regex"`
+	CaseInsensitive types.Bool   `tfsdk:"case_insensitive"`
+	WorkloadLink    types.String `tfsdk:"workload_link"`
+	Port            types.Int32  `tfsdk:"port"`
+	HostPrefix      types.String `tfsdk:"host_prefix"`
+	HostRegex       types.String `tfsdk:"host_regex"`
+	Headers         types.List   `tfsdk:"headers"`
+	Replica         types.Int32  `tfsdk:"replica"`
+	Mirror          types.List   `tfsdk:"mirror"`
+	Canary          types.List   `tfsdk:"canary"`
 }
 
 func (r RouteModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"prefix":         types.StringType,
-			"replace_prefix": types.StringType,
-			"regex":          types.StringType,
-			"workload_link":  types.StringType,
-			"port":           types.Int32Type,
-			"host_prefix":    types.StringType,
-			"host_regex":     types.StringType,
-			"headers":        types.ListType{ElemType: RouteHeadersModel{}.AttributeTypes()},
-			"replica":        types.Int32Type,
-			"mirror":         types.ListType{ElemType: RouteMirrorModel{}.AttributeTypes()},
-			"canary":         types.ListType{ElemType: RouteCanaryModel{}.AttributeTypes()},
+			"prefix":           types.StringType,
+			"replace_prefix":   types.StringType,
+			"regex":            types.StringType,
+			"case_insensitive": types.BoolType,
+			"workload_link":    types.StringType,
+			"port":             types.Int32Type,
+			"host_prefix":      types.StringType,
+			"host_regex":       types.StringType,
+			"headers":          types.ListType{ElemType: RouteHeadersModel{}.AttributeTypes()},
+			"replica":          types.Int32Type,
+			"mirror":           types.ListType{ElemType: RouteMirrorModel{}.AttributeTypes()},
+			"canary":           types.ListType{ElemType: RouteCanaryModel{}.AttributeTypes()},
 		},
 	}
 }
