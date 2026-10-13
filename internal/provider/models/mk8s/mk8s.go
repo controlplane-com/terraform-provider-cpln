@@ -1060,6 +1060,7 @@ type AddOnsModel struct {
 	Byok                  types.Object `tfsdk:"byok"`
 	Kubevirt              types.Object `tfsdk:"kubevirt"`
 	NodeLocalDns          types.Bool   `tfsdk:"node_local_dns"`
+	Kata                  types.Bool   `tfsdk:"kata"`
 }
 
 func (a AddOnsModel) AttributeTypes() attr.Type {
@@ -1082,6 +1083,7 @@ func (a AddOnsModel) AttributeTypes() attr.Type {
 			"byok":                    AddOnsByokModel{}.AttributeTypes(),
 			"kubevirt":                AddOnsKubevirtModel{}.AttributeTypes(),
 			"node_local_dns":          types.BoolType,
+			"kata":                    types.BoolType,
 		},
 	}
 }
