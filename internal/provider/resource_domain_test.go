@@ -160,7 +160,6 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 		// Update & Read
 		caseUpdate1,
 		caseUpdate2,
-		caseUpdate3,
 		// Domain Route Import
 		{
 			ResourceName:  "cpln_domain_route.first-route",
@@ -209,6 +208,8 @@ func (drt *DomainResourceTest) NewDefaultScenario() []resource.TestStep {
 			ImportStateId:    fmt.Sprintf("domain-acctest-%s.%s:443:/user/.*/profile", drt.RandomName, name),
 			ImportStateCheck: domainRouteLinkCheck(subDomainSelfLink),
 		},
+		// Update & Read (remove third-route and fourth-route, and drop the route replicas)
+		caseUpdate3,
 		// Inline Routes: Create & Read
 		caseUpdate4,
 		// Inline Routes: Update & Read
@@ -871,7 +872,7 @@ func (drt *DomainResourceTest) BuildUpdate3TestStep(initialCase ProviderTestCase
 
 	// Initialize and return the inital test step
 	return resource.TestStep{
-		Config: drt.Update2Hcl(c, subDomain),
+		Config: drt.Update3Hcl(c, subDomain),
 		Check: resource.ComposeAggregateTestCheckFunc(
 			// Apex Domain
 			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
