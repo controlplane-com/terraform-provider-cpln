@@ -524,6 +524,7 @@ type Mk8sByokAddOn struct {
 
 type Mk8sByokAddOnConfig struct {
 	Actuator      *Mk8sByokAddOnConfigActuator    `json:"actuator,omitempty"`
+	Maintainer    *Mk8sByokAddOnConfigMaintainer  `json:"maintainer,omitempty"`
 	Juicefs       *Mk8sByokAddOnConfigJuicefs     `json:"juicefs,omitempty"`
 	Middlebox     *Mk8sByokAddOnConfigMiddlebox   `json:"middlebox,omitempty"`
 	Common        *Mk8sByokAddOnConfigCommon      `json:"common,omitempty"`
@@ -547,6 +548,10 @@ type Mk8sByokAddOnConfigActuator struct {
 	MaxMemory *string                 `json:"maxMemory,omitempty"`
 	LogLevel  *string                 `json:"logLevel,omitempty"`
 	Env       *map[string]interface{} `json:"env,omitempty"`
+}
+
+type Mk8sByokAddOnConfigMaintainer struct {
+	Env *map[string]interface{} `json:"env,omitempty"`
 }
 
 type Mk8sByokAddOnConfigJuicefs struct {

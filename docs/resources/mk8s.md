@@ -911,6 +911,7 @@ Fine-grained configuration for the BYOK workloads.
 Optional:
 
 - **actuator** (Object) ([see below](#nestedblock--add_ons--byok--config--actuator))
+- **maintainer** (Object) ([see below](#nestedblock--add_ons--byok--config--maintainer))
 - **juicefs** (Object) ([see below](#nestedblock--add_ons--byok--config--juicefs))
 - **middlebox** (Object) ([see below](#nestedblock--add_ons--byok--config--middlebox))
 - **common** (Object) ([see below](#nestedblock--add_ons--byok--config--common))
@@ -940,6 +941,16 @@ Optional:
 - **max_memory** (String) Memory limit applied to actuator pods.
 - **log_level** (String) Log level override for actuator containers. Valid values are: `trace`, `info`, `error`.
 - **env** (Map of String) Additional environment variables injected into actuator pods.
+
+<a id="nestedblock--add_ons--byok--config--maintainer"></a>
+
+### `add_ons.byok.config.maintainer`
+
+Settings for the maintainer component.
+
+Optional:
+
+- **env** (Map of String) Additional environment variables injected into maintainer pods.
 
 <a id="nestedblock--add_ons--byok--config--juicefs"></a>
 
@@ -1463,6 +1474,12 @@ resource "cpln_mk8s" "generic" {
                     }
                 }
 
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
+                    }
+                }
+
                 juicefs = {
                     enabled = false
                 }
@@ -1785,6 +1802,12 @@ resource "cpln_mk8s" "hetzner" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -2133,6 +2156,12 @@ resource "cpln_mk8s" "aws" {
                     }
                 }
 
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
+                    }
+                }
+
                 juicefs = {
                     enabled = false
                 }
@@ -2432,6 +2461,12 @@ resource "cpln_mk8s" "linode" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -2738,6 +2773,12 @@ resource "cpln_mk8s" "oblivus" {
                     }
                 }
 
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
+                    }
+                }
+
                 juicefs = {
                     enabled = false
                 }
@@ -3037,6 +3078,12 @@ resource "cpln_mk8s" "lambdalabs" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -3340,6 +3387,12 @@ resource "cpln_mk8s" "paperspace" {
                     }
                 }
 
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
+                    }
+                }
+
                 juicefs = {
                     enabled = false
                 }
@@ -3620,6 +3673,12 @@ resource "cpln_mk8s" "ephemeral" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -3924,6 +3983,12 @@ resource "cpln_mk8s" "triton" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -4236,6 +4301,12 @@ resource "cpln_mk8s" "triton" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -4571,6 +4642,12 @@ resource "cpln_mk8s" "triton" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
@@ -5143,6 +5220,12 @@ resource "cpln_mk8s" "gcp-provider" {
                     }
                 }
 
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
+                    }
+                }
+
                 juicefs = {
                     enabled = false
                 }
@@ -5439,6 +5522,12 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                     env = {
                         CACHE_PERIOD_DATA_SERVICE = "600"
                         LABEL_NODES               = "false"
+                    }
+                }
+
+                maintainer = {
+                    env = {
+                        RESIZE_SKIP_NAMESPACES = "longhorn-system"
                     }
                 }
 
