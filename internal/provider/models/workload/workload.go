@@ -516,13 +516,15 @@ func (o OptionsAutoscalingKedaTriggerAuthenticationRefModel) AttributeTypes() at
 // Options -> Autoscaling -> Keda -> Advanced //
 
 type OptionsAutoscalingKedaAdvancedModel struct {
-	ScalingModifiers types.List `tfsdk:"scaling_modifiers"`
+	ScalingModifiers              types.List `tfsdk:"scaling_modifiers"`
+	HorizontalPodAutoscalerConfig types.List `tfsdk:"horizontal_pod_autoscaler_config"`
 }
 
 func (o OptionsAutoscalingKedaAdvancedModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"scaling_modifiers": types.ListType{ElemType: OptionsAutoscalingKedaAdvancedScalingModifiersModel{}.AttributeTypes()},
+			"scaling_modifiers":                types.ListType{ElemType: OptionsAutoscalingKedaAdvancedScalingModifiersModel{}.AttributeTypes()},
+			"horizontal_pod_autoscaler_config": types.ListType{ElemType: KedaHpaConfigModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -543,6 +545,72 @@ func (o OptionsAutoscalingKedaAdvancedScalingModifiersModel) AttributeTypes() at
 			"activation_target": types.StringType,
 			"metric_type":       types.StringType,
 			"formula":           types.StringType,
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Advanced -> Horizontal Pod Autoscaler Config //
+
+type KedaHpaConfigModel struct {
+	Behavior types.List `tfsdk:"behavior"`
+}
+
+func (o KedaHpaConfigModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"behavior": types.ListType{ElemType: KedaHpaBehaviorModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Advanced -> Horizontal Pod Autoscaler Config -> Behavior //
+
+type KedaHpaBehaviorModel struct {
+	ScaleUp   types.List `tfsdk:"scale_up"`
+	ScaleDown types.List `tfsdk:"scale_down"`
+}
+
+func (o KedaHpaBehaviorModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"scale_up":   types.ListType{ElemType: KedaHpaScalingRulesModel{}.AttributeTypes()},
+			"scale_down": types.ListType{ElemType: KedaHpaScalingRulesModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Advanced -> Horizontal Pod Autoscaler Config -> Behavior -> Scale Up / Scale Down //
+
+type KedaHpaScalingRulesModel struct {
+	StabilizationWindowSeconds types.Int32  `tfsdk:"stabilization_window_seconds"`
+	SelectPolicy               types.String `tfsdk:"select_policy"`
+	Policy                     types.Set    `tfsdk:"policy"`
+}
+
+func (o KedaHpaScalingRulesModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"stabilization_window_seconds": types.Int32Type,
+			"select_policy":                types.StringType,
+			"policy":                       types.SetType{ElemType: KedaHpaScalingPolicyModel{}.AttributeTypes()},
+		},
+	}
+}
+
+// Options -> Autoscaling -> Keda -> Advanced -> Horizontal Pod Autoscaler Config -> Behavior -> Scale Up / Scale Down -> Policy //
+
+type KedaHpaScalingPolicyModel struct {
+	Type          types.String `tfsdk:"type"`
+	Value         types.Int32  `tfsdk:"value"`
+	PeriodSeconds types.Int32  `tfsdk:"period_seconds"`
+}
+
+func (o KedaHpaScalingPolicyModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"type":           types.StringType,
+			"value":          types.Int32Type,
+			"period_seconds": types.Int32Type,
 		},
 	}
 }
