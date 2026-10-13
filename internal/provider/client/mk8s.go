@@ -223,7 +223,7 @@ type Mk8sDigitalOceanProvider struct {
 	SshKeys          *[]string               `json:"sshKeys,omitempty"`
 	ExtraSshKeys     *[]string               `json:"extraSshKeys,omitempty"`
 	Autoscaler       *Mk8sAutoscalerConfig   `json:"autoscaler,omitempty"`
-	ReservedIps      *[]string               `json:"reservedIps,omitempty"`
+	ReservedIps      *[]string               `json:"reservedIPs,omitempty"`
 }
 
 type Mk8sGcpProvider struct {

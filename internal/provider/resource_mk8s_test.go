@@ -3,6 +3,7 @@ package cpln
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -353,9 +354,12 @@ func (mrt *Mk8sResourceTest) NewMk8sDigitalOceanProviderScenario() []resource.Te
 
 	// Build test steps
 	initialConfig, initialStep := mrt.BuildDigitalOceanProviderTestStep(resourceName, name)
+	reservedIpsStep := mrt.BuildDigitalOceanReservedIpsTestStep(initialConfig)
 
 	// Return the complete test steps
 	return []resource.TestStep{
+		// Reject reserved IPs the DigitalOcean account does not own
+		reservedIpsStep,
 		// Create & Read
 		initialStep,
 		// Import State
@@ -2455,6 +2459,15 @@ func (mrt *Mk8sResourceTest) BuildDigitalOceanProviderTestStep(resourceName stri
 				},
 			}),
 		),
+	}
+}
+
+// BuildDigitalOceanReservedIpsTestStep returns a test step whose reserved IPs only reach the DigitalOcean ownership check when the API accepts the field.
+func (mrt *Mk8sResourceTest) BuildDigitalOceanReservedIpsTestStep(c Mk8sResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config:      mrt.DigitalOceanReservedIpsHcl(c),
+		ExpectError: regexp.MustCompile(`IP\s+192\.0\.2\.10\s+not\s+found\s+in\s+the\s+selected\s+region`),
 	}
 }
 
@@ -6538,6 +6551,38 @@ resource "cpln_mk8s" "%s" {
   }
 }
 `, c.ResourceName, c.Name, c.Description)
+}
+
+// DigitalOceanReservedIpsHcl returns a minimal DigitalOcean cluster with reserved IPs the account does not own.
+func (mrt *Mk8sResourceTest) DigitalOceanReservedIpsHcl(c Mk8sResourceTestCase) string {
+	return fmt.Sprintf(`
+resource "cpln_mk8s" "%s" {
+  name = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+    "cpln/ignore"       = "true"
+  }
+
+  version = "1.34.2"
+
+  firewall {
+    source_cidr = "0.0.0.0/0"
+  }
+
+  digital_ocean_provider {
+    region            = "ams3"
+    token_secret_link = "//secret/digitalocean"
+    vpc_id            = "dc4f7d2c-9edb-445d-8253-a7e7a18f6061"
+    image             = "almalinux-8-x64"
+    ssh_keys          = ["36908990"]
+    reserved_ips      = ["192.0.2.20", "192.0.2.10"]
+
+    networking {}
+  }
+}
+`, c.ResourceName, c.Name)
 }
 
 // GcpProviderHcl returns a test step.
