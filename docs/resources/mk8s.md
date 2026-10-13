@@ -776,6 +776,7 @@ Optional:
 - **byok** (Object) ([see below](#nestedblock--add_ons--byok))
 - **kubevirt** (Attributes) ([see below](#nestedblock--add_ons--kubevirt))
 - **node_local_dns** (Boolean) Per-node CoreDNS cache. Required by the kubevirt add-on.
+- **kata** (Boolean) Installs Kata Containers for VM-isolated workloads on node pools labeled `cpln.io/nodeType=vm`.
 
 <a id="nestedblock--add_ons--azure_workload_identity"></a>
 
@@ -1623,6 +1624,8 @@ resource "cpln_mk8s" "generic" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -1946,6 +1949,8 @@ resource "cpln_mk8s" "hetzner" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -2289,6 +2294,8 @@ resource "cpln_mk8s" "aws" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -2589,6 +2596,8 @@ resource "cpln_mk8s" "linode" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -2890,6 +2899,8 @@ resource "cpln_mk8s" "oblivus" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -3490,6 +3501,8 @@ resource "cpln_mk8s" "paperspace" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -4075,6 +4088,8 @@ resource "cpln_mk8s" "triton" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -4385,6 +4400,8 @@ resource "cpln_mk8s" "triton" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -4718,6 +4735,8 @@ resource "cpln_mk8s" "triton" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -4858,6 +4877,8 @@ resource "cpln_mk8s" "azure" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -4962,6 +4983,8 @@ resource "cpln_mk8s" "digital-ocean-provider" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -5281,6 +5304,8 @@ resource "cpln_mk8s" "gcp-provider" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```
@@ -5578,6 +5603,8 @@ resource "cpln_mk8s" "digital-ocean-provider" {
         }
 
         node_local_dns = true
+
+        kata = true
     }
 }
 ```

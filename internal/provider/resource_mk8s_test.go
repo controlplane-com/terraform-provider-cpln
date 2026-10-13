@@ -536,6 +536,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 					"aws_workload_identity":   "false",
 					"local_path_storage":      "false",
 					"sysbox":                  "false",
+					"kata":                    "false",
 					"azure_workload_identity": []map[string]interface{}{{}},
 					"metrics":                 []map[string]interface{}{{}},
 					"logs":                    []map[string]interface{}{{}},
@@ -667,6 +668,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 						"scratch_space_storage_class": "longhorn",
 					},
 					"node_local_dns": "true",
+					"kata":           "true",
 				},
 			}),
 		),
@@ -2892,6 +2894,7 @@ resource "cpln_mk8s" "%s" {
     aws_workload_identity = false
     local_path_storage    = false
     sysbox                = false
+    kata                  = false
 
     azure_workload_identity {}
     metrics {}
@@ -3195,6 +3198,8 @@ resource "cpln_mk8s" "%s" {
     }
 
     node_local_dns = true
+
+    kata = true
 
   }
 }

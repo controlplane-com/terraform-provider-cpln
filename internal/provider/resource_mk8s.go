@@ -1808,6 +1808,10 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "Per-node CoreDNS cache. Required by the kubevirt add-on.",
 							Optional:    true,
 						},
+						"kata": schema.BoolAttribute{
+							Description: "Installs Kata Containers for VM-isolated workloads on node pools labeled `cpln.io/nodeType=vm`.",
+							Optional:    true,
+						},
 					},
 					Blocks: map[string]schema.Block{
 						"azure_workload_identity": schema.ListNestedBlock{
@@ -3935,6 +3939,7 @@ func (mro *Mk8sResourceOperator) buildAddOns(state types.List) *client.Mk8sSpecA
 		Byok:                  mro.buildAddOnByok(block.Byok),
 		Kubevirt:              mro.buildAddOnKubevirt(block.Kubevirt),
 		NodeLocalDns:          mro.buildAddOnConfig(block.NodeLocalDns),
+		Kata:                  mro.buildAddOnConfig(block.Kata),
 	}
 }
 
@@ -5961,6 +5966,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 	var plannedLocalPathStorage *bool
 	var plannedSysbox *bool
 	var plannedNodeLocalDns *bool
+	var plannedKata *bool
 
 	// Build planned addons
 	plannedAddons, ok := BuildList[models.AddOnsModel](mro.Ctx, mro.Diags, mro.Plan.AddOns)
@@ -5973,6 +5979,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		plannedLocalPathStorage = BuildBool(plannedAddons[0].LocalPathStorage)
 		plannedSysbox = BuildBool(plannedAddons[0].Sysbox)
 		plannedNodeLocalDns = BuildBool(plannedAddons[0].NodeLocalDns)
+		plannedKata = BuildBool(plannedAddons[0].Kata)
 	}
 
 	// Build a single block
@@ -5994,6 +6001,7 @@ func (mro *Mk8sResourceOperator) flattenAddOns(input *client.Mk8sSpecAddOns) typ
 		Byok:                  mro.flattenAddOnByok(input.Byok),
 		Kubevirt:              mro.flattenAddOnKubevirt(input.Kubevirt),
 		NodeLocalDns:          mro.flattenAddOnConfig(plannedNodeLocalDns, input.NodeLocalDns),
+		Kata:                  mro.flattenAddOnConfig(plannedKata, input.Kata),
 	}
 
 	// Return the successfully created types.List

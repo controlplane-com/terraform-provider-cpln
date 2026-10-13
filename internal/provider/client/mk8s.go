@@ -86,6 +86,7 @@ type Mk8sSpecAddOns struct {
 	Byok                  *Mk8sByokAddOn                  `json:"byok,omitempty"`
 	Kubevirt              *Mk8sKubevirtAddOn              `json:"kubevirt,omitempty"`
 	NodeLocalDns          *Mk8sNonCustomizableAddonConfig `json:"nodeLocalDns,omitempty"`
+	Kata                  *Mk8sNonCustomizableAddonConfig `json:"kata,omitempty"`
 }
 
 // Providers //
