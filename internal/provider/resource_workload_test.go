@@ -899,7 +899,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 					},
 					"gpu_custom": []map[string]interface{}{
 						{
-							"resource": "amd.com/gpu",
+							"resource": "nvidia.com/mig-1g.5gb",
 							"quantity": "1",
 						},
 					},
@@ -1158,7 +1158,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 					},
 					"gpu_custom": []map[string]interface{}{
 						{
-							"resource":      "amd.com/gpu",
+							"resource":      "gpu.intel.com/i915_monitoring",
 							"runtime_class": "amd",
 							"quantity":      "1",
 						},
@@ -4190,7 +4190,7 @@ resource "cpln_workload" "%s" {
     }
 
     gpu_custom {
-      resource = "amd.com/gpu"
+      resource = "nvidia.com/mig-1g.5gb"
       quantity = 1
     }
 
@@ -4435,7 +4435,7 @@ resource "cpln_workload" "%s" {
     }
 
     gpu_custom {
-      resource      = "amd.com/gpu"
+      resource      = "gpu.intel.com/i915_monitoring"
       runtime_class = "amd"
       quantity      = 1
     }

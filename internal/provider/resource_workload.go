@@ -855,7 +855,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 										Validators: []validator.String{
 											stringvalidator.LengthAtMost(64),
 											stringvalidator.RegexMatches(
-												regexp.MustCompile(`^[a-zA-Z0-9./]*$`),
+												regexp.MustCompile(`^[a-zA-Z0-9./_-]*$`),
 												"must be a valid resource name",
 											),
 										},
