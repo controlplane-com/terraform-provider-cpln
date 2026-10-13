@@ -1277,6 +1277,22 @@ func (d *WorkloadDataSource) OptionsSchema(description string) schema.ListNested
 															},
 														},
 													},
+													"horizontal_pod_autoscaler_config": schema.ListNestedBlock{
+														Description: "Configuration of the HorizontalPodAutoscaler that KEDA creates for this workload.",
+														NestedObject: schema.NestedBlockObject{
+															Blocks: map[string]schema.Block{
+																"behavior": schema.ListNestedBlock{
+																	Description: "Configures the scaling behavior of the HPA that KEDA creates for this workload.",
+																	NestedObject: schema.NestedBlockObject{
+																		Blocks: map[string]schema.Block{
+																			"scale_up":   d.KedaHpaScalingRulesSchema("Scaling policies for scaling up."),
+																			"scale_down": d.KedaHpaScalingRulesSchema("Scaling policies for scaling down."),
+																		},
+																	},
+																},
+															},
+														},
+													},
 												},
 											},
 										},
@@ -1355,6 +1371,46 @@ func (d *WorkloadDataSource) LocalOptionsSchema() schema.ListNestedBlock {
 
 	// Return the fully configured local options schema
 	return options
+}
+
+// KedaHpaScalingRulesSchema returns a nested block list schema for one scaling direction of the KEDA-managed HPA.
+func (d *WorkloadDataSource) KedaHpaScalingRulesSchema(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"stabilization_window_seconds": schema.Int32Attribute{
+					Description: "Number of seconds for which past recommendations are considered while scaling.",
+					Computed:    true,
+				},
+				"select_policy": schema.StringAttribute{
+					Description: "Policy used when multiple policies apply. `Disabled` turns off scaling in this direction.",
+					Computed:    true,
+				},
+			},
+			Blocks: map[string]schema.Block{
+				"policy": schema.SetNestedBlock{
+					Description: "A scaling policy that can be used during scaling.",
+					NestedObject: schema.NestedBlockObject{
+						Attributes: map[string]schema.Attribute{
+							"type": schema.StringAttribute{
+								Description: "The type of the scaling policy.",
+								Computed:    true,
+							},
+							"value": schema.Int32Attribute{
+								Description: "The amount of change permitted by the policy.",
+								Computed:    true,
+							},
+							"period_seconds": schema.Int32Attribute{
+								Description: "The window of time for which the policy holds true.",
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 /*** Flatteners ***/

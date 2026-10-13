@@ -439,6 +439,7 @@ Advanced configuration options for KEDA.
 Optional:
 
 - **scaling_modifiers** (Block List) ([see below](#nestedblock--options--autoscaling--keda--advanced--scaling_modifiers))
+- **horizontal_pod_autoscaler_config** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config))
 
 <a id="nestedblock--options--autoscaling--keda--advanced--scaling_modifiers"></a>
 
@@ -450,6 +451,49 @@ Optional:
 - **activation_target** (String) Defines the new activation target value to scale on for the composed metric.
 - **metric_type** (String) Defines metric type used for this new composite-metric.
 - **formula** (String) Composes metrics together and allows them to be modified/manipulated. It accepts mathematical/conditional statements.
+
+<a id="nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config"></a>
+
+### `options.autoscaling.keda.advanced.horizontal_pod_autoscaler_config`
+
+Configuration of the HorizontalPodAutoscaler that KEDA creates for this workload.
+
+Optional:
+
+- **behavior** (Block List, Max: 1) ([see below](#nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior))
+
+<a id="nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior"></a>
+
+### `options.autoscaling.keda.advanced.horizontal_pod_autoscaler_config.behavior`
+
+Configures the scaling behavior of the HPA that KEDA creates for this workload.
+
+Optional:
+
+- **scale_up** (Block List, Max: 1) Scaling policies for scaling up. ([see below](#nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior--scaling_rules))
+- **scale_down** (Block List, Max: 1) Scaling policies for scaling down. ([see below](#nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior--scaling_rules))
+
+<a id="nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior--scaling_rules"></a>
+
+### `options.autoscaling.keda.advanced.horizontal_pod_autoscaler_config.behavior.scale_up` / `scale_down`
+
+Optional:
+
+- **stabilization_window_seconds** (Number) Number of seconds for which past recommendations are considered while scaling. Min: `0`. Max: `3600`.
+- **select_policy** (String) Policy used when multiple policies apply. `Disabled` turns off scaling in this direction. Valid values: `Max`, `Min`, `Disabled`.
+- **policy** (Block Set) ([see below](#nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior--scaling_rules--policy))
+
+<a id="nestedblock--options--autoscaling--keda--advanced--horizontal_pod_autoscaler_config--behavior--scaling_rules--policy"></a>
+
+### `options.autoscaling.keda.advanced.horizontal_pod_autoscaler_config.behavior.scale_up.policy` / `scale_down.policy`
+
+A scaling policy that can be used during scaling.
+
+Required:
+
+- **type** (String) The type of the scaling policy. Valid values: `Pods`, `Percent`.
+- **value** (Number) The amount of change permitted by the policy. Min: `1`.
+- **period_seconds** (Number) The window of time for which the policy holds true. Min: `1`. Max: `1800`.
 
 <a id="nestedblock--options--autoscaling--keda--fallback"></a>
 
@@ -1178,6 +1222,37 @@ resource "cpln_workload" "new" {
             activation_target = "1"
             metric_type       = "Value"
             formula           = "m * 2"
+          }
+
+          horizontal_pod_autoscaler_config {
+            behavior {
+              scale_up {
+                stabilization_window_seconds = 0
+                select_policy                = "Max"
+
+                policy {
+                  type           = "Pods"
+                  value          = 4
+                  period_seconds = 15
+                }
+
+                policy {
+                  type           = "Percent"
+                  value          = 100
+                  period_seconds = 15
+                }
+              }
+
+              scale_down {
+                stabilization_window_seconds = 300
+
+                policy {
+                  type           = "Percent"
+                  value          = 10
+                  period_seconds = 60
+                }
+              }
+            }
           }
         }
 
@@ -2142,6 +2217,37 @@ resource "cpln_workload" "new" {
             activation_target = "1"
             metric_type       = "Value"
             formula           = "m * 2"
+          }
+
+          horizontal_pod_autoscaler_config {
+            behavior {
+              scale_up {
+                stabilization_window_seconds = 0
+                select_policy                = "Max"
+
+                policy {
+                  type           = "Pods"
+                  value          = 4
+                  period_seconds = 15
+                }
+
+                policy {
+                  type           = "Percent"
+                  value          = 100
+                  period_seconds = 15
+                }
+              }
+
+              scale_down {
+                stabilization_window_seconds = 300
+
+                policy {
+                  type           = "Percent"
+                  value          = 10
+                  period_seconds = 60
+                }
+              }
+            }
           }
         }
 

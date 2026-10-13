@@ -82,6 +82,7 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps = append(steps, resourceTest.NewStatefulScenario()...)
 	steps = append(steps, resourceTest.NewVmScenario()...)
 	steps = append(steps, resourceTest.NewVmDefaultsScenario()...)
+	steps = append(steps, resourceTest.NewKedaHpaLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -319,6 +320,53 @@ func (wrt *WorkloadResourceTest) NewVmDefaultsScenario() []resource.TestStep {
 		setStep,
 		// Remove them again -> defaults re-apply
 		omittedStep,
+	}
+}
+
+// NewKedaHpaLifecycleScenario walks keda.advanced.horizontal_pod_autoscaler_config through its full state lifecycle to catch drift at null and cardinality transitions.
+func (wrt *WorkloadResourceTest) NewKedaHpaLifecycleScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-keda-hpa-%s", wrt.RandomName)
+
+	// Create a shared test case for all lifecycle steps
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Build the lifecycle test steps
+	absentStep := wrt.BuildKedaHpaAbsentStep(c)
+	requiredOnlyStep := wrt.BuildKedaHpaRequiredOnlyStep(c)
+	multiAllStep := wrt.BuildKedaHpaMultiAllStep(c)
+	expandedStep := wrt.BuildKedaHpaExpandedStep(c)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read (keda without an advanced block)
+		absentStep,
+		// Update & Read (a single scale_up policy with only its required attributes)
+		requiredOnlyStep,
+		// Update & Read (both directions with two policies each, scaling_modifiers alongside, local_options override, data source read)
+		multiAllStep,
+		// Import State
+		{
+			ResourceName:      c.ResourceAddress,
+			ImportState:       true,
+			ImportStateId:     fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
+			ImportStateVerify: true,
+		},
+		// Update & Read (grow scale_up to three policies, disable scale_down, and drop the local_options override)
+		expandedStep,
+		// Update & Read (shrink back to two policies per direction and restore the local_options override)
+		multiAllStep,
+		// Revert the resource to its initial state (remove the advanced block entirely)
+		absentStep,
 	}
 }
 
@@ -3314,6 +3362,363 @@ func (wrt *WorkloadResourceTest) BuildVmDefaultsSetTestStep(initialCase Provider
 	}
 }
 
+// BuildKedaHpaAbsentStep returns a test step where the keda block carries no advanced block and no local_options override exists.
+func (wrt *WorkloadResourceTest) BuildKedaHpaAbsentStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.KedaHpaAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "standard"),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"capacity_ai": "false",
+					"autoscaling": []map[string]interface{}{
+						{
+							"metric":    "keda",
+							"min_scale": "1",
+							"max_scale": "3",
+							"keda": []map[string]interface{}{
+								{
+									"trigger": []map[string]interface{}{
+										{
+											"type":        "cpu",
+											"metric_type": "Utilization",
+											"metadata": map[string]interface{}{
+												"value": "50",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.#", "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "local_options.#", "0"),
+		),
+	}
+}
+
+// BuildKedaHpaRequiredOnlyStep returns a test step with a single scale_up policy carrying only its required attributes.
+func (wrt *WorkloadResourceTest) BuildKedaHpaRequiredOnlyStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.KedaHpaRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"autoscaling": []map[string]interface{}{
+						{
+							"keda": []map[string]interface{}{
+								{
+									"advanced": []map[string]interface{}{
+										{
+											"horizontal_pod_autoscaler_config": []map[string]interface{}{
+												{
+													"behavior": []map[string]interface{}{
+														{
+															"scale_up": []map[string]interface{}{
+																{
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "1",
+																			"period_seconds": "60",
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_up.0.policy.#", "1"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_up.0.stabilization_window_seconds"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_up.0.select_policy"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_down.#", "0"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.scaling_modifiers.#", "0"),
+		),
+	}
+}
+
+// BuildKedaHpaMultiAllStep returns a test step with both directions fully populated, scaling_modifiers alongside, a local_options override, and a data source read.
+func (wrt *WorkloadResourceTest) BuildKedaHpaMultiAllStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Create a test case for the data source that reads the same workload
+	dataSource := ProviderTestCase{
+		Kind:            "workload",
+		ResourceName:    c.ResourceName,
+		ResourceAddress: fmt.Sprintf("data.cpln_workload.%s", c.ResourceName),
+		Name:            c.Name,
+		GvcName:         c.GvcName,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.KedaHpaMultiAllHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"autoscaling": []map[string]interface{}{
+						{
+							"keda": []map[string]interface{}{
+								{
+									"advanced": []map[string]interface{}{
+										{
+											"scaling_modifiers": []map[string]interface{}{
+												{
+													"target":  "5",
+													"formula": "m * 2",
+												},
+											},
+											"horizontal_pod_autoscaler_config": []map[string]interface{}{
+												{
+													"behavior": []map[string]interface{}{
+														{
+															"scale_up": []map[string]interface{}{
+																{
+																	"stabilization_window_seconds": "0",
+																	"select_policy":                "Max",
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "4",
+																			"period_seconds": "15",
+																		},
+																		{
+																			"type":           "Percent",
+																			"value":          "100",
+																			"period_seconds": "15",
+																		},
+																	},
+																},
+															},
+															"scale_down": []map[string]interface{}{
+																{
+																	"stabilization_window_seconds": "300",
+																	"select_policy":                "Min",
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "1",
+																			"period_seconds": "60",
+																		},
+																		{
+																			"type":           "Percent",
+																			"value":          "10",
+																			"period_seconds": "60",
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_up.0.policy.#", "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_down.0.policy.#", "2"),
+			c.TestCheckNestedBlocks("local_options", []map[string]interface{}{
+				{
+					"location": "aws-eu-central-1",
+					"autoscaling": []map[string]interface{}{
+						{
+							"keda": []map[string]interface{}{
+								{
+									"advanced": []map[string]interface{}{
+										{
+											"horizontal_pod_autoscaler_config": []map[string]interface{}{
+												{
+													"behavior": []map[string]interface{}{
+														{
+															"scale_down": []map[string]interface{}{
+																{
+																	"stabilization_window_seconds": "3600",
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "2",
+																			"period_seconds": "1800",
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "local_options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_up.#", "0"),
+			dataSource.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"autoscaling": []map[string]interface{}{
+						{
+							"keda": []map[string]interface{}{
+								{
+									"advanced": []map[string]interface{}{
+										{
+											"scaling_modifiers": []map[string]interface{}{
+												{
+													"target":  "5",
+													"formula": "m * 2",
+												},
+											},
+											"horizontal_pod_autoscaler_config": []map[string]interface{}{
+												{
+													"behavior": []map[string]interface{}{
+														{
+															"scale_up": []map[string]interface{}{
+																{
+																	"stabilization_window_seconds": "0",
+																	"select_policy":                "Max",
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "4",
+																			"period_seconds": "15",
+																		},
+																		{
+																			"type":           "Percent",
+																			"value":          "100",
+																			"period_seconds": "15",
+																		},
+																	},
+																},
+															},
+															"scale_down": []map[string]interface{}{
+																{
+																	"stabilization_window_seconds": "300",
+																	"select_policy":                "Min",
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "1",
+																			"period_seconds": "60",
+																		},
+																		{
+																			"type":           "Percent",
+																			"value":          "10",
+																			"period_seconds": "60",
+																		},
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+		),
+	}
+}
+
+// BuildKedaHpaExpandedStep returns a test step that grows scale_up to three policies, disables scale_down without policies, and drops the local_options override.
+func (wrt *WorkloadResourceTest) BuildKedaHpaExpandedStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.KedaHpaExpandedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckNestedBlocks("options", []map[string]interface{}{
+				{
+					"autoscaling": []map[string]interface{}{
+						{
+							"keda": []map[string]interface{}{
+								{
+									"advanced": []map[string]interface{}{
+										{
+											"scaling_modifiers": []map[string]interface{}{
+												{
+													"target":  "5",
+													"formula": "m * 2",
+												},
+											},
+											"horizontal_pod_autoscaler_config": []map[string]interface{}{
+												{
+													"behavior": []map[string]interface{}{
+														{
+															"scale_up": []map[string]interface{}{
+																{
+																	"stabilization_window_seconds": "0",
+																	"select_policy":                "Max",
+																	"policy": []map[string]interface{}{
+																		{
+																			"type":           "Pods",
+																			"value":          "4",
+																			"period_seconds": "15",
+																		},
+																		{
+																			"type":           "Percent",
+																			"value":          "100",
+																			"period_seconds": "15",
+																		},
+																		{
+																			"type":           "Pods",
+																			"value":          "10",
+																			"period_seconds": "1800",
+																		},
+																	},
+																},
+															},
+															"scale_down": []map[string]interface{}{
+																{
+																	"select_policy": "Disabled",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_up.0.policy.#", "3"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_down.0.policy.#", "0"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "options.0.autoscaling.0.keda.0.advanced.0.horizontal_pod_autoscaler_config.0.behavior.0.scale_down.0.stabilization_window_seconds"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "local_options.#", "0"),
+		),
+	}
+}
+
 // Configs //
 
 // K8sVolumeUriHcl returns a serverless workload configuration that mounts a k8s://secret volume to exercise the uri scheme validator.
@@ -6303,6 +6708,374 @@ resource "cpln_workload" "%s" {
   }
 }
 `, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// KedaHpaAbsentHcl returns a standard keda workload whose keda block carries no advanced block.
+func (wrt *WorkloadResourceTest) KedaHpaAbsentHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "standard"
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "keda"
+      min_scale = 1
+      max_scale = 3
+
+      keda {
+        trigger {
+          type        = "cpu"
+          metric_type = "Utilization"
+
+          metadata = {
+            value = "50"
+          }
+        }
+      }
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// KedaHpaRequiredOnlyHcl returns a standard keda workload with a single scale_up policy carrying only its required attributes.
+func (wrt *WorkloadResourceTest) KedaHpaRequiredOnlyHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "standard"
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "keda"
+      min_scale = 1
+      max_scale = 3
+
+      keda {
+        trigger {
+          type        = "cpu"
+          metric_type = "Utilization"
+
+          metadata = {
+            value = "50"
+          }
+        }
+
+        advanced {
+          horizontal_pod_autoscaler_config {
+            behavior {
+              scale_up {
+                policy {
+                  type           = "Pods"
+                  value          = 1
+                  period_seconds = 60
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// KedaHpaMultiAllHcl returns a standard keda workload with both directions fully populated, scaling_modifiers alongside, a local_options override, and a data source read.
+func (wrt *WorkloadResourceTest) KedaHpaMultiAllHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "standard"
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "keda"
+      min_scale = 1
+      max_scale = 3
+
+      keda {
+        trigger {
+          type        = "cpu"
+          metric_type = "Utilization"
+
+          metadata = {
+            value = "50"
+          }
+        }
+
+        advanced {
+          scaling_modifiers {
+            target  = "5"
+            formula = "m * 2"
+          }
+
+          horizontal_pod_autoscaler_config {
+            behavior {
+              scale_up {
+                stabilization_window_seconds = 0
+                select_policy                = "Max"
+
+                policy {
+                  type           = "Pods"
+                  value          = 4
+                  period_seconds = 15
+                }
+
+                policy {
+                  type           = "Percent"
+                  value          = 100
+                  period_seconds = 15
+                }
+              }
+
+              scale_down {
+                stabilization_window_seconds = 300
+                select_policy                = "Min"
+
+                policy {
+                  type           = "Pods"
+                  value          = 1
+                  period_seconds = 60
+                }
+
+                policy {
+                  type           = "Percent"
+                  value          = 10
+                  period_seconds = 60
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  local_options {
+    location    = "aws-eu-central-1"
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "keda"
+      min_scale = 1
+      max_scale = 3
+
+      keda {
+        trigger {
+          type        = "cpu"
+          metric_type = "Utilization"
+
+          metadata = {
+            value = "70"
+          }
+        }
+
+        advanced {
+          horizontal_pod_autoscaler_config {
+            behavior {
+              scale_down {
+                stabilization_window_seconds = 3600
+
+                policy {
+                  type           = "Pods"
+                  value          = 2
+                  period_seconds = 1800
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+data "cpln_workload" "%s" {
+  name = cpln_workload.%s.name
+  gvc  = cpln_workload.%s.gvc
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.ResourceName, c.ResourceName,
+	)
+}
+
+// KedaHpaExpandedHcl returns a standard keda workload with three scale_up policies, scale_down disabled without policies, and no local_options override.
+func (wrt *WorkloadResourceTest) KedaHpaExpandedHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "standard"
+
+  container {
+    name   = "container-01"
+    image  = "gcr.io/knative-samples/helloworld-go"
+    cpu    = "50m"
+    memory = "128Mi"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "keda"
+      min_scale = 1
+      max_scale = 3
+
+      keda {
+        trigger {
+          type        = "cpu"
+          metric_type = "Utilization"
+
+          metadata = {
+            value = "50"
+          }
+        }
+
+        advanced {
+          scaling_modifiers {
+            target  = "5"
+            formula = "m * 2"
+          }
+
+          horizontal_pod_autoscaler_config {
+            behavior {
+              scale_up {
+                stabilization_window_seconds = 0
+                select_policy                = "Max"
+
+                policy {
+                  type           = "Pods"
+                  value          = 4
+                  period_seconds = 15
+                }
+
+                policy {
+                  type           = "Percent"
+                  value          = 100
+                  period_seconds = 15
+                }
+
+                policy {
+                  type           = "Pods"
+                  value          = 10
+                  period_seconds = 1800
+                }
+              }
+
+              scale_down {
+                select_policy = "Disabled"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
 	)
 }
 

@@ -256,7 +256,8 @@ type WorkloadOptionsAutoscalingKedaTriggerAuthenticationRef struct {
 }
 
 type WorkloadOptionsAutoscalingKedaAdvanced struct {
-	ScalingModifiers *WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers `json:"scalingModifiers,omitempty"`
+	ScalingModifiers              *WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers `json:"scalingModifiers,omitempty"`
+	HorizontalPodAutoscalerConfig *WorkloadKedaHpaConfig                                  `json:"horizontalPodAutoscalerConfig,omitempty"`
 }
 
 type WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers struct {
@@ -264,6 +265,27 @@ type WorkloadOptionsAutoscalingKedaAdvancedScalingModifiers struct {
 	ActivationTarget *string `json:"activationTarget,omitempty"`
 	MetricType       *string `json:"metricType,omitempty"`
 	Formula          *string `json:"formula,omitempty"`
+}
+
+type WorkloadKedaHpaConfig struct {
+	Behavior *WorkloadKedaHpaBehavior `json:"behavior,omitempty"`
+}
+
+type WorkloadKedaHpaBehavior struct {
+	ScaleUp   *WorkloadKedaHpaScalingRules `json:"scaleUp,omitempty"`
+	ScaleDown *WorkloadKedaHpaScalingRules `json:"scaleDown,omitempty"`
+}
+
+type WorkloadKedaHpaScalingRules struct {
+	StabilizationWindowSeconds *int                            `json:"stabilizationWindowSeconds,omitempty"`
+	SelectPolicy               *string                         `json:"selectPolicy,omitempty"` // Enum: "Max", "Min", "Disabled"
+	Policies                   *[]WorkloadKedaHpaScalingPolicy `json:"policies,omitempty"`
+}
+
+type WorkloadKedaHpaScalingPolicy struct {
+	Type          *string `json:"type,omitempty"` // Enum: "Pods", "Percent"
+	Value         *int    `json:"value,omitempty"`
+	PeriodSeconds *int    `json:"periodSeconds,omitempty"`
 }
 
 type WorkloadOptionsAutoscalingKedaFallback struct {

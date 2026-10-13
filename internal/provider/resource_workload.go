@@ -1970,6 +1970,28 @@ func (wr *WorkloadResource) OptionsSchema(description string) schema.ListNestedB
 															listvalidator.SizeAtMost(1),
 														},
 													},
+													"horizontal_pod_autoscaler_config": schema.ListNestedBlock{
+														Description: "Configuration of the HorizontalPodAutoscaler that KEDA creates for this workload.",
+														NestedObject: schema.NestedBlockObject{
+															Blocks: map[string]schema.Block{
+																"behavior": schema.ListNestedBlock{
+																	Description: "Configures the scaling behavior of the HPA that KEDA creates for this workload.",
+																	NestedObject: schema.NestedBlockObject{
+																		Blocks: map[string]schema.Block{
+																			"scale_up":   wr.KedaHpaScalingRulesSchema("Scaling policies for scaling up."),
+																			"scale_down": wr.KedaHpaScalingRulesSchema("Scaling policies for scaling down."),
+																		},
+																	},
+																	Validators: []validator.List{
+																		listvalidator.SizeAtMost(1),
+																	},
+																},
+															},
+														},
+														Validators: []validator.List{
+															listvalidator.SizeAtMost(1),
+														},
+													},
 												},
 											},
 											Validators: []validator.List{
@@ -2056,6 +2078,64 @@ func (wr *WorkloadResource) LocalOptionsSchema() schema.ListNestedBlock {
 
 	// Return the configured local options schema
 	return options
+}
+
+// KedaHpaScalingRulesSchema returns a nested block list schema for one scaling direction of the KEDA-managed HPA.
+func (wr *WorkloadResource) KedaHpaScalingRulesSchema(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
+				"stabilization_window_seconds": schema.Int32Attribute{
+					Description: "Number of seconds for which past recommendations are considered while scaling. Min: `0`. Max: `3600`.",
+					Optional:    true,
+					Validators: []validator.Int32{
+						int32validator.Between(0, 3600),
+					},
+				},
+				"select_policy": schema.StringAttribute{
+					Description: "Policy used when multiple policies apply. `Disabled` turns off scaling in this direction. Valid values: `Max`, `Min`, `Disabled`.",
+					Optional:    true,
+					Validators: []validator.String{
+						stringvalidator.OneOf("Max", "Min", "Disabled"),
+					},
+				},
+			},
+			Blocks: map[string]schema.Block{
+				"policy": schema.SetNestedBlock{
+					Description: "A scaling policy that can be used during scaling.",
+					NestedObject: schema.NestedBlockObject{
+						Attributes: map[string]schema.Attribute{
+							"type": schema.StringAttribute{
+								Description: "The type of the scaling policy. Valid values: `Pods`, `Percent`.",
+								Required:    true,
+								Validators: []validator.String{
+									stringvalidator.OneOf("Pods", "Percent"),
+								},
+							},
+							"value": schema.Int32Attribute{
+								Description: "The amount of change permitted by the policy. Min: `1`.",
+								Required:    true,
+								Validators: []validator.Int32{
+									int32validator.AtLeast(1),
+								},
+							},
+							"period_seconds": schema.Int32Attribute{
+								Description: "The window of time for which the policy holds true. Min: `1`. Max: `1800`.",
+								Required:    true,
+								Validators: []validator.Int32{
+									int32validator.Between(1, 1800),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Validators: []validator.List{
+			listvalidator.SizeAtMost(1),
+		},
+	}
 }
 
 /*** Schemas Defaults ***/
@@ -3376,7 +3456,8 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvanced(state t
 
 	// Construct and return the output
 	return &client.WorkloadOptionsAutoscalingKedaAdvanced{
-		ScalingModifiers: wro.buildOptionsAutoscalingKedaAdvancedScalingModifiers(block.ScalingModifiers),
+		ScalingModifiers:              wro.buildOptionsAutoscalingKedaAdvancedScalingModifiers(block.ScalingModifiers),
+		HorizontalPodAutoscalerConfig: wro.buildKedaHpaConfig(block.HorizontalPodAutoscalerConfig),
 	}
 }
 
@@ -3400,6 +3481,96 @@ func (wro *WorkloadResourceOperator) buildOptionsAutoscalingKedaAdvancedScalingM
 		MetricType:       BuildString(block.MetricType),
 		Formula:          BuildString(block.Formula),
 	}
+}
+
+// buildKedaHpaConfig constructs a WorkloadKedaHpaConfig from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildKedaHpaConfig(state types.List) *client.WorkloadKedaHpaConfig {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.KedaHpaConfigModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.WorkloadKedaHpaConfig{
+		Behavior: wro.buildKedaHpaBehavior(block.Behavior),
+	}
+}
+
+// buildKedaHpaBehavior constructs a WorkloadKedaHpaBehavior from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildKedaHpaBehavior(state types.List) *client.WorkloadKedaHpaBehavior {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.KedaHpaBehaviorModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.WorkloadKedaHpaBehavior{
+		ScaleUp:   wro.buildKedaHpaScalingRules(block.ScaleUp),
+		ScaleDown: wro.buildKedaHpaScalingRules(block.ScaleDown),
+	}
+}
+
+// buildKedaHpaScalingRules constructs a WorkloadKedaHpaScalingRules from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildKedaHpaScalingRules(state types.List) *client.WorkloadKedaHpaScalingRules {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.KedaHpaScalingRulesModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Take the first (and only) block
+	block := blocks[0]
+
+	// Construct and return the output
+	return &client.WorkloadKedaHpaScalingRules{
+		StabilizationWindowSeconds: BuildInt(block.StabilizationWindowSeconds),
+		SelectPolicy:               BuildString(block.SelectPolicy),
+		Policies:                   wro.buildKedaHpaScalingPolicies(block.Policy),
+	}
+}
+
+// buildKedaHpaScalingPolicies constructs a []client.WorkloadKedaHpaScalingPolicy from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildKedaHpaScalingPolicies(state types.Set) *[]client.WorkloadKedaHpaScalingPolicy {
+	// Convert Terraform set into model blocks using generic helper
+	blocks, ok := BuildSet[models.KedaHpaScalingPolicyModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or set was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.WorkloadKedaHpaScalingPolicy{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.WorkloadKedaHpaScalingPolicy{
+			Type:          BuildString(block.Type),
+			Value:         BuildInt(block.Value),
+			PeriodSeconds: BuildInt(block.PeriodSeconds),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
 }
 
 // buildOptionsAutoscalingKedaFallback constructs a WorkloadOptionsAutoscalingKedaFallback from the given Terraform state.
@@ -4793,7 +4964,8 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvanced(input
 
 	// Build a single block
 	block := models.OptionsAutoscalingKedaAdvancedModel{
-		ScalingModifiers: wro.flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input.ScalingModifiers),
+		ScalingModifiers:              wro.flattenOptionsAutoscalingKedaAdvancedScalingModifiers(input.ScalingModifiers),
+		HorizontalPodAutoscalerConfig: wro.flattenKedaHpaConfig(input.HorizontalPodAutoscalerConfig),
 	}
 
 	// Return the successfully created types.List
@@ -4821,6 +4993,100 @@ func (wro *WorkloadResourceOperator) flattenOptionsAutoscalingKedaAdvancedScalin
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.OptionsAutoscalingKedaAdvancedScalingModifiersModel{block})
+}
+
+// flattenKedaHpaConfig transforms *client.WorkloadKedaHpaConfig into a types.List.
+func (wro *WorkloadResourceOperator) flattenKedaHpaConfig(input *client.WorkloadKedaHpaConfig) types.List {
+	// Get attribute types
+	elementType := models.KedaHpaConfigModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.KedaHpaConfigModel{
+		Behavior: wro.flattenKedaHpaBehavior(input.Behavior),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.KedaHpaConfigModel{block})
+}
+
+// flattenKedaHpaBehavior transforms *client.WorkloadKedaHpaBehavior into a types.List.
+func (wro *WorkloadResourceOperator) flattenKedaHpaBehavior(input *client.WorkloadKedaHpaBehavior) types.List {
+	// Get attribute types
+	elementType := models.KedaHpaBehaviorModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.KedaHpaBehaviorModel{
+		ScaleUp:   wro.flattenKedaHpaScalingRules(input.ScaleUp),
+		ScaleDown: wro.flattenKedaHpaScalingRules(input.ScaleDown),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.KedaHpaBehaviorModel{block})
+}
+
+// flattenKedaHpaScalingRules transforms *client.WorkloadKedaHpaScalingRules into a types.List.
+func (wro *WorkloadResourceOperator) flattenKedaHpaScalingRules(input *client.WorkloadKedaHpaScalingRules) types.List {
+	// Get attribute types
+	elementType := models.KedaHpaScalingRulesModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Build a single block
+	block := models.KedaHpaScalingRulesModel{
+		StabilizationWindowSeconds: FlattenInt(input.StabilizationWindowSeconds),
+		SelectPolicy:               types.StringPointerValue(input.SelectPolicy),
+		Policy:                     wro.flattenKedaHpaScalingPolicies(input.Policies),
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, []models.KedaHpaScalingRulesModel{block})
+}
+
+// flattenKedaHpaScalingPolicies transforms *[]client.WorkloadKedaHpaScalingPolicy into a types.Set.
+func (wro *WorkloadResourceOperator) flattenKedaHpaScalingPolicies(input *[]client.WorkloadKedaHpaScalingPolicy) types.Set {
+	// Get attribute types
+	elementType := models.KedaHpaScalingPolicyModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null set
+		return types.SetNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.KedaHpaScalingPolicyModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.KedaHpaScalingPolicyModel{
+			Type:          types.StringPointerValue(item.Type),
+			Value:         FlattenInt(item.Value),
+			PeriodSeconds: FlattenInt(item.PeriodSeconds),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.Set
+	return FlattenSet(wro.Ctx, wro.Diags, blocks)
 }
 
 // flattenOptionsAutoscalingKedaFallback transforms *client.WorkloadOptionsAutoscalingKedaFallback into a types.List.
