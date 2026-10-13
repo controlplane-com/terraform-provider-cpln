@@ -1620,6 +1620,7 @@ func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description 
 							"port": schema.Int32Attribute{
 								Description: "",
 								Optional:    true,
+								Computed:    true,
 								Validators:  wr.GetPortValidators(),
 							},
 						},
@@ -1635,6 +1636,7 @@ func (wr *WorkloadResource) HealthCheckSchema(attributeName string, description 
 							"port": schema.Int32Attribute{
 								Description: "",
 								Optional:    true,
+								Computed:    true,
 								Validators:  wr.GetPortValidators(),
 							},
 						},
@@ -2193,12 +2195,28 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 		firstPortNumber = BuildInt(ports[0].Number)
 	}
 
+	// Declare a variable to hold the port number a grpc probe defaults to
+	var grpcPortNumber *int
+
+	// Prefer the first port that uses the grpc protocol
+	for _, port := range ports {
+		if port.Protocol.ValueString() == "grpc" {
+			grpcPortNumber = BuildInt(port.Number)
+			break
+		}
+	}
+
+	// Fall back to the first port when no grpc port exists
+	if grpcPortNumber == nil {
+		grpcPortNumber = firstPortNumber
+	}
+
 	// Build liveness probe from container
 	livenessProbe, ok := BuildList[models.ContainerHealthCheckModel](ctx, diags, container.LivenessProbe)
 
 	// Modify liveness probe if specified
 	if ok && len(livenessProbe) != 0 {
-		wr.ModifyHealthCheck(ctx, diags, &livenessProbe[0], firstPortNumber)
+		wr.ModifyHealthCheck(ctx, diags, &livenessProbe[0], firstPortNumber, grpcPortNumber)
 	}
 
 	// Build readiness probe from container
@@ -2206,7 +2224,7 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 
 	// Modify readiness probe if specified
 	if ok && len(readinessProbe) != 0 {
-		wr.ModifyHealthCheck(ctx, diags, &readinessProbe[0], firstPortNumber)
+		wr.ModifyHealthCheck(ctx, diags, &readinessProbe[0], firstPortNumber, grpcPortNumber)
 	}
 
 	// Set ports back to container
@@ -2217,8 +2235,8 @@ func (wr *WorkloadResource) ModifyContainers(ctx context.Context, diags *diag.Di
 	container.ReadinessProbe = FlattenList(ctx, diags, readinessProbe)
 }
 
-// ModifyHealthCheck sets a default port for the HTTP health check if not explicitly defined.
-func (wr *WorkloadResource) ModifyHealthCheck(ctx context.Context, diags *diag.Diagnostics, healthCheck *models.ContainerHealthCheckModel, port *int) {
+// ModifyHealthCheck sets the default port the API assigns to httpGet, tcpSocket, and grpc health checks when not explicitly defined.
+func (wr *WorkloadResource) ModifyHealthCheck(ctx context.Context, diags *diag.Diagnostics, healthCheck *models.ContainerHealthCheckModel, port *int, grpcPort *int) {
 	// Build httpGet from health check
 	httpGet, ok := BuildList[models.ContainerHealthCheckHttpGetModel](ctx, diags, healthCheck.HttpGet)
 
@@ -2229,6 +2247,28 @@ func (wr *WorkloadResource) ModifyHealthCheck(ctx context.Context, diags *diag.D
 
 	// Set httpGet back to the health check probe
 	healthCheck.HttpGet = FlattenList(ctx, diags, httpGet)
+
+	// Build tcpSocket from health check
+	tcpSocket, ok := BuildList[models.ContainerHealthCheckTcpSocketModel](ctx, diags, healthCheck.TcpSocket)
+
+	// Modify the port of the tcpSocket health check if it hasn't been specified
+	if port != nil && ok && len(tcpSocket) != 0 && tcpSocket[0].Port.IsUnknown() {
+		tcpSocket[0].Port = types.Int32Value(int32(*port))
+	}
+
+	// Set tcpSocket back to the health check probe
+	healthCheck.TcpSocket = FlattenList(ctx, diags, tcpSocket)
+
+	// Build grpc from health check
+	grpc, ok := BuildList[models.ContainerHealthCheckGrpcModel](ctx, diags, healthCheck.Grpc)
+
+	// Modify the port of the grpc health check if it hasn't been specified
+	if grpcPort != nil && ok && len(grpc) != 0 && grpc[0].Port.IsUnknown() {
+		grpc[0].Port = types.Int32Value(int32(*grpcPort))
+	}
+
+	// Set grpc back to the health check probe
+	healthCheck.Grpc = FlattenList(ctx, diags, grpc)
 }
 
 /*** Shared Validators ***/
