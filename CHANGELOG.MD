@@ -1,3 +1,14 @@
+## 1.2.33
+
+- Add horizontal_pod_autoscaler_config to workload KEDA advanced autoscaling.
+- Add case_insensitive to domain inline routes and cpln_domain_route.
+- Add kata addon to mk8s addon configuration.
+- Add maintainer env to mk8s BYOK configuration.
+- Fix workload apply failing when a tcp_socket or grpc probe omits its port. Run terraform untaint on any workload a failed create left tainted.
+- Fix mk8s DigitalOcean reserved_ips being rejected by the API.
+- Allow hyphens and underscores in workload gpu_custom resource.
+- Retry API requests that fail before reaching the API, and reads that lose their connection.
+
 ## 1.2.32
 
 - Fix domain inline route order drifting from the configured order.
