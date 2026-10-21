@@ -279,8 +279,8 @@ func (olr *OrgLoggingResource) Schema(ctx context.Context, req resource.SchemaRe
 										Required:    true,
 									},
 									"path": schema.StringAttribute{
-										Description: "Logging path.",
-										Required:    true,
+										Description: "Logging path. Must start with `/`.",
+										Optional:    true,
 									},
 									"index": schema.StringAttribute{
 										Description: "Logging Index.",

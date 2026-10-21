@@ -3,7 +3,7 @@ package cpln
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"slices"
 
 	client "github.com/controlplane-com/terraform-provider-cpln/internal/provider/client"
 	models "github.com/controlplane-com/terraform-provider-cpln/internal/provider/models/mk8s"
@@ -1626,7 +1626,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 																},
 															},
 															"oauth2": schema.MapAttribute{
-																Description: "OAuth 2.0 client configuration as flat key-value pairs.",
+																Description: "OAuth 2.0 client configuration. Numbers, booleans, lists and objects are given as JSON text, for example `scopes = jsonencode([\"read\"])`.",
 																ElementType: types.StringType,
 																Optional:    true,
 																Sensitive:   true,
@@ -1640,7 +1640,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 																Optional:    true,
 															},
 															"tls_config": schema.MapAttribute{
-																Description: "TLS configuration as flat key-value pairs.",
+																Description: "TLS configuration. Numbers, booleans, lists and objects are given as JSON text, for example `insecure_skip_verify = \"true\"`.",
 																ElementType: types.StringType,
 																Optional:    true,
 															},
@@ -1657,12 +1657,12 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 																Optional:    true,
 															},
 															"proxy_connect_header": schema.MapAttribute{
-																Description: "Headers sent to the proxy on CONNECT, as flat key-value pairs.",
+																Description: "Headers sent to the proxy on CONNECT. Each value is a JSON list of strings, for example `jsonencode([\"value\"])`.",
 																ElementType: types.StringType,
 																Optional:    true,
 															},
 															"http_headers": schema.MapAttribute{
-																Description: "Custom HTTP headers, as flat key-value pairs.",
+																Description: "Custom HTTP headers. Each value is a JSON object holding `values`, `secrets` or `files` lists, for example `jsonencode({ values = [\"value\"] })`.",
 																ElementType: types.StringType,
 																Optional:    true,
 															},
@@ -1680,7 +1680,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 																Optional:    true,
 															},
 															"write_relabel_configs": schema.ListAttribute{
-																Description: "Relabel rules applied to samples before they are sent.",
+																Description: "Relabel rules applied to samples before they are sent. `source_labels` and `modulus` are given as JSON text, for example `source_labels = jsonencode([\"__name__\"])`. Every other value, such as `regex`, is sent as written.",
 																ElementType: types.MapType{ElemType: types.StringType},
 																Optional:    true,
 															},
@@ -1697,25 +1697,25 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 																Optional:    true,
 															},
 															"sigv4": schema.MapAttribute{
-																Description: "AWS SigV4 authentication parameters as flat key-value pairs.",
+																Description: "AWS SigV4 authentication parameters. Numbers, booleans, lists and objects are given as JSON text.",
 																ElementType: types.StringType,
 																Optional:    true,
 																Sensitive:   true,
 															},
 															"azuread": schema.MapAttribute{
-																Description: "Azure AD authentication parameters as flat key-value pairs.",
+																Description: "Azure AD authentication parameters. Numbers, booleans, lists and objects are given as JSON text, for example `managed_identity = jsonencode({ client_id = \"id\" })`.",
 																ElementType: types.StringType,
 																Optional:    true,
 																Sensitive:   true,
 															},
 															"google_iam": schema.MapAttribute{
-																Description: "Google Cloud IAM authentication parameters as flat key-value pairs.",
+																Description: "Google Cloud IAM authentication parameters. Numbers, booleans, lists and objects are given as JSON text.",
 																ElementType: types.StringType,
 																Optional:    true,
 																Sensitive:   true,
 															},
 															"queue_config": schema.MapAttribute{
-																Description: "Tuning parameters for the in-memory remote_write queue, as flat key-value pairs.",
+																Description: "Tuning parameters for the in-memory remote_write queue. Numbers, booleans, lists and objects are given as JSON text, for example `capacity = \"2500\"`.",
 																ElementType: types.StringType,
 																Optional:    true,
 															},
@@ -4575,15 +4575,15 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWrite(state types
 		output = append(output, client.Mk8sByokAddOnConfigMonitoringRemoteWrite{
 			BasicAuth:            mro.buildAddOnByokMonitoringRemoteWriteBasicAuth(block.BasicAuth),
 			Authorization:        mro.buildAddOnByokMonitoringRemoteWriteAuthorization(block.Authorization),
-			Oauth2:               mro.BuildMapString(block.Oauth2),
+			Oauth2:               mro.BuildMapJSON(block.Oauth2),
 			FollowRedirects:      BuildBool(block.FollowRedirects),
 			EnableHttp2:          BuildBool(block.EnableHttp2),
-			TlsConfig:            mro.BuildMapString(block.TlsConfig),
+			TlsConfig:            mro.BuildMapJSON(block.TlsConfig),
 			ProxyUrl:             BuildString(block.ProxyUrl),
 			NoProxy:              BuildString(block.NoProxy),
 			ProxyFromEnvironment: BuildBool(block.ProxyFromEnvironment),
-			ProxyConnectHeader:   mro.BuildMapString(block.ProxyConnectHeader),
-			HttpHeaders:          mro.BuildMapString(block.HttpHeaders),
+			ProxyConnectHeader:   mro.BuildMapJSON(block.ProxyConnectHeader),
+			HttpHeaders:          mro.BuildMapJSON(block.HttpHeaders),
 			Url:                  BuildString(block.Url),
 			RemoteTimeout:        BuildString(block.RemoteTimeout),
 			Headers:              mro.BuildMapString(block.Headers),
@@ -4591,10 +4591,10 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWrite(state types
 			Name:                 BuildString(block.Name),
 			SendExemplars:        BuildBool(block.SendExemplars),
 			SendNativeHistograms: BuildBool(block.SendNativeHistograms),
-			Sigv4:                mro.BuildMapString(block.Sigv4),
-			Azuread:              mro.BuildMapString(block.Azuread),
-			GoogleIam:            mro.BuildMapString(block.GoogleIam),
-			QueueConfig:          mro.BuildMapString(block.QueueConfig),
+			Sigv4:                mro.BuildMapJSON(block.Sigv4),
+			Azuread:              mro.BuildMapJSON(block.Azuread),
+			GoogleIam:            mro.BuildMapJSON(block.GoogleIam),
+			QueueConfig:          mro.BuildMapJSON(block.QueueConfig),
 		})
 	}
 
@@ -4674,7 +4674,14 @@ func (mro *Mk8sResourceOperator) buildAddOnByokMonitoringRemoteWriteWriteRelabel
 
 		// Copy each key-value pair into the generic entry
 		for key, value := range mapValues {
-			entry[key] = value
+			// Keep the value as written for keys Prometheus reads as a string, such as regex
+			if !slices.Contains(RemoteWriteRelabelJSONKeys, key) {
+				entry[key] = value
+				continue
+			}
+
+			// Decode the value when it holds canonical JSON
+			entry[key] = decodeCanonicalJSON(value)
 		}
 
 		// Append the converted entry to the output slice
@@ -6754,15 +6761,15 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWrite(input *[]
 		blocks = append(blocks, models.AddOnsByokMonitoringRemoteWriteModel{
 			BasicAuth:            mro.flattenAddOnByokMonitoringRemoteWriteBasicAuth(item.BasicAuth),
 			Authorization:        mro.flattenAddOnByokMonitoringRemoteWriteAuthorization(item.Authorization),
-			Oauth2:               FlattenMapString(item.Oauth2),
+			Oauth2:               FlattenMapJSON(item.Oauth2),
 			FollowRedirects:      types.BoolPointerValue(item.FollowRedirects),
 			EnableHttp2:          types.BoolPointerValue(item.EnableHttp2),
-			TlsConfig:            FlattenMapString(item.TlsConfig),
+			TlsConfig:            FlattenMapJSON(item.TlsConfig),
 			ProxyUrl:             types.StringPointerValue(item.ProxyUrl),
 			NoProxy:              types.StringPointerValue(item.NoProxy),
 			ProxyFromEnvironment: types.BoolPointerValue(item.ProxyFromEnvironment),
-			ProxyConnectHeader:   FlattenMapString(item.ProxyConnectHeader),
-			HttpHeaders:          FlattenMapString(item.HttpHeaders),
+			ProxyConnectHeader:   FlattenMapJSON(item.ProxyConnectHeader),
+			HttpHeaders:          FlattenMapJSON(item.HttpHeaders),
 			Url:                  types.StringPointerValue(item.Url),
 			RemoteTimeout:        types.StringPointerValue(item.RemoteTimeout),
 			Headers:              FlattenMapString(item.Headers),
@@ -6770,10 +6777,10 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWrite(input *[]
 			Name:                 types.StringPointerValue(item.Name),
 			SendExemplars:        types.BoolPointerValue(item.SendExemplars),
 			SendNativeHistograms: types.BoolPointerValue(item.SendNativeHistograms),
-			Sigv4:                FlattenMapString(item.Sigv4),
-			Azuread:              FlattenMapString(item.Azuread),
-			GoogleIam:            FlattenMapString(item.GoogleIam),
-			QueueConfig:          FlattenMapString(item.QueueConfig),
+			Sigv4:                FlattenMapJSON(item.Sigv4),
+			Azuread:              FlattenMapJSON(item.Azuread),
+			GoogleIam:            FlattenMapJSON(item.GoogleIam),
+			QueueConfig:          FlattenMapJSON(item.QueueConfig),
 		})
 	}
 
@@ -6845,14 +6852,9 @@ func (mro *Mk8sResourceOperator) flattenAddOnByokMonitoringRemoteWriteWriteRelab
 		// Define the typed values for this map entry
 		typedValues := make(map[string]attr.Value, len(item))
 
-		// Convert each value to a Terraform string
+		// Convert each value to a Terraform string, encoding values other than strings as JSON
 		for key, value := range item {
-			// Coerce the raw value into a string representation
-			if str, ok := value.(string); ok {
-				typedValues[key] = types.StringValue(str)
-			} else {
-				typedValues[key] = types.StringValue(fmt.Sprintf("%v", value))
-			}
+			typedValues[key] = encodeJSONValue(value)
 		}
 
 		// Construct a Terraform map for this entry

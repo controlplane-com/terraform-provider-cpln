@@ -448,6 +448,11 @@ func (eo *EntityOperator[Plan]) BuildMapString(state types.Map) *map[string]inte
 	return BuildMapString(eo.Ctx, eo.Diags, state)
 }
 
+// BuildMapJSON constructs a map from the given Terraform state, decoding values that hold canonical JSON.
+func (eo *EntityOperator[Plan]) BuildMapJSON(state types.Map) *map[string]interface{} {
+	return BuildMapJSON(eo.Ctx, eo.Diags, state)
+}
+
 // BuildQuery constructs a Query struct from the given Terraform state.
 func (eo *EntityOperator[Plan]) BuildQuery(state types.List) *client.Query {
 	return BuildQuery(eo.Ctx, eo.Diags, state)

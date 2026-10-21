@@ -109,10 +109,13 @@ Required:
 
 - **host** (String) A valid Elastic Search provider hostname.
 - **port** (Number) Port. Default: 443
-- **path** (String) Logging path.
 - **index** (String) Logging Index.
 - **type** (String) Logging Type.
 - **credentials** (String) Full Link to a secret of type `userpass`.
+
+Optional:
+
+- **path** (String) Logging path. Must start with `/`.
 
 <a id="nestedblock--logzio_logging"></a>
 
