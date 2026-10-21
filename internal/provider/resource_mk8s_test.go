@@ -7439,7 +7439,7 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 			},
 			"write_relabel_configs": []map[string]interface{}{
 				{
-					"source_labels": "__name__",
+					"source_labels": `["__name__"]`,
 					"regex":         "go_.*",
 					"action":        "drop",
 				},

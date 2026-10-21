@@ -1,3 +1,10 @@
+## 1.2.34
+
+- Add certificate_generator_link to domain spec.
+- Fix mk8s BYOK remote_write maps sending numbers, booleans, lists and objects as strings. Write them as JSON text, for example capacity = "2500" or scopes = jsonencode(["read"]).
+- Fix mk8s BYOK write_relabel_configs sending source_labels and modulus as strings. Write source_labels as jsonencode(["__name__"]).
+- Make org logging elastic generic path optional.
+
 ## 1.2.33
 
 - Add horizontal_pod_autoscaler_config to workload KEDA advanced autoscaling.
