@@ -264,6 +264,15 @@ func (dr *DomainResource) Schema(ctx context.Context, req resource.SchemaRequest
 								stringvalidator.OneOf("http01", "dns01"),
 							},
 						},
+						"certificate_generator_link": schema.StringAttribute{
+							Description: "Link to a certificate generator that issues the certificate instead of the built-in one. The generator defines the challenge type, so `cert_challenge_type` must not be set. Cannot be combined with a TLS server certificate.",
+							Optional:    true,
+							Validators: []validator.String{
+								stringvalidator.ConflictsWith(
+									path.MatchRelative().AtParent().AtName("cert_challenge_type"),
+								),
+							},
+						},
 						"workload_link": schema.StringAttribute{
 							Description: "Creates a unique subdomain for each replica of a stateful workload, enabling direct access to individual instances.",
 							Optional:    true,
@@ -724,13 +733,14 @@ func (dro *DomainResourceOperator) buildSpec(state types.List) *client.DomainSpe
 
 	// Construct and return the result
 	return &client.DomainSpec{
-		DnsMode:             BuildString(block.DnsMode),
-		GvcLink:             BuildString(block.GvcLink),
-		CertChallengeType:   BuildString(block.CertChallengeType),
-		WorkloadLink:        BuildString(block.WorkloadLink),
-		AcceptAllHosts:      BuildBool(block.AcceptAllHosts),
-		AcceptAllSubdomains: BuildBool(block.AcceptAllSubdomains),
-		Ports:               dro.buildSpecPorts(block.Ports),
+		DnsMode:                  BuildString(block.DnsMode),
+		GvcLink:                  BuildString(block.GvcLink),
+		CertChallengeType:        BuildString(block.CertChallengeType),
+		CertificateGeneratorLink: BuildString(block.CertificateGeneratorLink),
+		WorkloadLink:             BuildString(block.WorkloadLink),
+		AcceptAllHosts:           BuildBool(block.AcceptAllHosts),
+		AcceptAllSubdomains:      BuildBool(block.AcceptAllSubdomains),
+		Ports:                    dro.buildSpecPorts(block.Ports),
 	}
 }
 
@@ -921,17 +931,18 @@ func (dro *DomainResourceOperator) flattenSpec(input *client.DomainSpec) types.L
 	}
 
 	// Extract the prior spec-level link values so their user-chosen forms are preserved
-	priorGvcLink, priorWorkloadLink := dro.priorSpecLinks()
+	priorGvcLink, priorCertificateGeneratorLink, priorWorkloadLink := dro.priorSpecLinks()
 
 	// Build a single block
 	block := models.SpecModel{
-		DnsMode:             types.StringPointerValue(input.DnsMode),
-		GvcLink:             dro.FlattenLinkString(priorGvcLink, input.GvcLink, dro.Client.Org),
-		CertChallengeType:   types.StringPointerValue(input.CertChallengeType),
-		WorkloadLink:        dro.FlattenLinkString(priorWorkloadLink, input.WorkloadLink, dro.Client.Org),
-		AcceptAllHosts:      types.BoolPointerValue(input.AcceptAllHosts),
-		AcceptAllSubdomains: types.BoolPointerValue(input.AcceptAllSubdomains),
-		Ports:               dro.flattenSpecPorts(input.Ports),
+		DnsMode:                  types.StringPointerValue(input.DnsMode),
+		GvcLink:                  dro.FlattenLinkString(priorGvcLink, input.GvcLink, dro.Client.Org),
+		CertChallengeType:        types.StringPointerValue(input.CertChallengeType),
+		CertificateGeneratorLink: dro.FlattenLinkString(priorCertificateGeneratorLink, input.CertificateGeneratorLink, dro.Client.Org),
+		WorkloadLink:             dro.FlattenLinkString(priorWorkloadLink, input.WorkloadLink, dro.Client.Org),
+		AcceptAllHosts:           types.BoolPointerValue(input.AcceptAllHosts),
+		AcceptAllSubdomains:      types.BoolPointerValue(input.AcceptAllSubdomains),
+		Ports:                    dro.flattenSpecPorts(input.Ports),
 	}
 
 	// Return the successfully created types.List
@@ -1619,18 +1630,18 @@ func (dro *DomainResourceOperator) routeModelKey(route models.RouteModel) string
 	return path + ";" + host
 }
 
-// priorSpecLinks extracts the prior spec-level gvc_link and workload_link from the planned state.
-func (dro *DomainResourceOperator) priorSpecLinks() (types.String, types.String) {
+// priorSpecLinks extracts the prior spec-level gvc_link, certificate_generator_link and workload_link from the planned state.
+func (dro *DomainResourceOperator) priorSpecLinks() (types.String, types.String, types.String) {
 	// Walk the prior plan/state's spec list
 	specs, ok := BuildList[models.SpecModel](dro.Ctx, dro.Diags, dro.Plan.Spec)
 
 	// Return null strings when no prior spec exists
 	if !ok || len(specs) == 0 {
-		return types.StringNull(), types.StringNull()
+		return types.StringNull(), types.StringNull(), types.StringNull()
 	}
 
-	// Return the prior gvc_link and workload_link
-	return specs[0].GvcLink, specs[0].WorkloadLink
+	// Return the prior gvc_link, certificate_generator_link and workload_link
+	return specs[0].GvcLink, specs[0].CertificateGeneratorLink, specs[0].WorkloadLink
 }
 
 // priorRouteWorkloadLinks builds a lookup of prior route workload_link values keyed by route key for a given port.

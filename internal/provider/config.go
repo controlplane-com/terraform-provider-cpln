@@ -37,5 +37,8 @@ var CustomLocationCloudProviders = []string{"byok"}
 // AllowedCustomLocationProviders is a list of custom location cloud provider names that are allowed to be used.
 var AllowedCustomLocationProviders = []string{"byok"}
 
+// RemoteWriteRelabelJSONKeys lists the relabel config keys that Prometheus reads as a type other than a string.
+var RemoteWriteRelabelJSONKeys = []string{"source_labels", "modulus"}
+
 // CloudAccountIdentifiers holds the default AWS identifiers
 var CloudAccountIdentifiers = []string{"arn:aws:iam::957753459089:user/controlplane-driver", "arn:aws:iam::957753459089:role/controlplane-driver"}

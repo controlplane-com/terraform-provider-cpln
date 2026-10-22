@@ -1,11 +1,17 @@
 package cpln
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
@@ -3164,7 +3170,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -3490,7 +3496,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -3823,7 +3829,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -4125,7 +4131,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -4428,7 +4434,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -4730,7 +4736,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -5037,7 +5043,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -5449,7 +5455,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -5761,7 +5767,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -6096,7 +6102,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -6404,7 +6410,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -6854,7 +6860,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -7175,7 +7181,7 @@ resource "cpln_mk8s" "%s" {
               }
               write_relabel_configs = [
                 {
-                  source_labels = "__name__"
+                  source_labels = jsonencode(["__name__"])
                   regex         = "go_.*"
                   action        = "drop"
                 },
@@ -7433,7 +7439,7 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 			},
 			"write_relabel_configs": []map[string]interface{}{
 				{
-					"source_labels": "__name__",
+					"source_labels": `["__name__"]`,
 					"regex":         "go_.*",
 					"action":        "drop",
 				},
@@ -7442,4 +7448,65 @@ func (mrtc *Mk8sResourceTestCase) ExpectedByokFull(isDefault bool) map[string]in
 	}
 
 	return output
+}
+
+/*** Unit Tests ***/
+
+// TestBuildRemoteWriteRelabelConfigs verifies that only source_labels and modulus are decoded and that every value round-trips through the API.
+func TestBuildRemoteWriteRelabelConfigs(t *testing.T) {
+	// Define the relabel entry as written in a configuration
+	input := map[string]attr.Value{
+		"source_labels": types.StringValue(`["__name__"]`),
+		"modulus":       types.StringValue("8"),
+		"regex":         types.StringValue("[12]"),
+		"replacement":   types.StringValue("1"),
+		"action":        types.StringValue("keep"),
+	}
+
+	// Define the values the API is expected to receive
+	want := map[string]interface{}{
+		"source_labels": []interface{}{"__name__"},
+		"modulus":       float64(8),
+		"regex":         "[12]",
+		"replacement":   "1",
+		"action":        "keep",
+	}
+
+	// Build the operator with a fresh diagnostics container
+	diags := diag.Diagnostics{}
+	mro := Mk8sResourceOperator{EntityOperator: EntityOperator[Mk8sResourceModel]{Ctx: context.Background(), Diags: &diags}}
+
+	// Build the API relabel configs from a single entry
+	state := types.ListValueMust(types.MapType{ElemType: types.StringType}, []attr.Value{types.MapValueMust(types.StringType, input)})
+	built := mro.buildAddOnByokMonitoringRemoteWriteWriteRelabelConfigs(state)
+
+	// Fail on diagnostics or an unexpected result size
+	if diags.HasError() || built == nil || len(*built) != 1 {
+		t.Fatalf("unexpected diagnostics or output: %v %v", diags, built)
+	}
+
+	// Compare the values sent to the API
+	if !reflect.DeepEqual((*built)[0], want) {
+		t.Errorf("got %#v, want %#v", (*built)[0], want)
+	}
+
+	// Send the configs through JSON the way the API client does
+	encoded, err := json.Marshal(built)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	// Decode the API response into a fresh slice
+	var received []map[string]interface{}
+	if err := json.Unmarshal(encoded, &received); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	// Flatten the received configs back into state
+	flattened := mro.flattenAddOnByokMonitoringRemoteWriteWriteRelabelConfigs(&received)
+
+	// Compare against the original configuration
+	if !flattened.Equal(state) {
+		t.Errorf("round trip produced %s", flattened)
+	}
 }

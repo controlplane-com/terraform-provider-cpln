@@ -514,6 +514,28 @@ func BuildMapString(ctx context.Context, diags *diag.Diagnostics, input types.Ma
 	return &output
 }
 
+// BuildMapJSON converts a Terraform string map into a Go map, decoding each value that is the canonical JSON of a number, boolean, list or object.
+func BuildMapJSON(ctx context.Context, diags *diag.Diagnostics, input types.Map) *map[string]interface{} {
+	// Build the plain string map first
+	output := BuildMapString(ctx, diags, input)
+
+	// Exit early when there is nothing to decode
+	if output == nil {
+		return nil
+	}
+
+	// Replace each string value with its decoded JSON value when it carries one
+	for key, value := range *output {
+		// Decode string values only, leaving nulls untouched
+		if text, ok := value.(string); ok {
+			(*output)[key] = decodeCanonicalJSON(text)
+		}
+	}
+
+	// Return the decoded map
+	return output
+}
+
 // BuildSetString converts a Terraform types.Set with tfsdk.StringType into a Go *[]string.
 func BuildSetString(ctx context.Context, diags *diag.Diagnostics, input types.Set) *[]string {
 	// Exit early if set itself is null or unknown
@@ -785,6 +807,26 @@ func FlattenMapString(input *map[string]interface{}) types.Map {
 	return types.MapValueMust(types.StringType, elements)
 }
 
+// FlattenMapJSON converts a Go map into a Terraform string map, encoding every value other than a string as JSON.
+func FlattenMapJSON(input *map[string]interface{}) types.Map {
+	// Check if the input pointer is nil
+	if input == nil {
+		// Represent nil input as a null map
+		return types.MapNull(types.StringType)
+	}
+
+	// Prepare elements for the types.Map
+	elements := make(map[string]attr.Value, len(*input))
+
+	// Encode each value into its string form
+	for key, value := range *input {
+		elements[key] = encodeJSONValue(value)
+	}
+
+	// Return the constructed types.Map
+	return types.MapValueMust(types.StringType, elements)
+}
+
 // FlattenSetString converts a Go *[]string into a Terraform types.Set with tfsdk.StringType.
 func FlattenSetString(input *[]string) types.Set {
 	// No input slice means no data → return a null set
@@ -934,6 +976,54 @@ func shouldIgnoreTag(key string) bool {
 
 	// If no prefixes match, return false to indicate the tag should not be ignored
 	return false
+}
+
+// decodeCanonicalJSON returns the decoded number, boolean, list or object when text is exactly its canonical JSON, and text itself otherwise.
+func decodeCanonicalJSON(text string) interface{} {
+	// Attempt to decode the text as JSON
+	var decoded interface{}
+	if err := json.Unmarshal([]byte(text), &decoded); err != nil {
+		return text
+	}
+
+	// Keep strings and nulls as the original text
+	switch decoded.(type) {
+	case nil, string:
+		return text
+	}
+
+	// Re-encode the decoded value to its canonical form
+	canonical, err := json.Marshal(decoded)
+
+	// Keep the original text unless it round-trips byte for byte
+	if err != nil || string(canonical) != text {
+		return text
+	}
+
+	// Return the decoded value
+	return decoded
+}
+
+// encodeJSONValue converts a decoded JSON value into a Terraform string, encoding any value other than a string as JSON.
+func encodeJSONValue(value interface{}) types.String {
+	// Handle nulls and strings directly
+	switch v := value.(type) {
+	case nil:
+		return types.StringNull()
+	case string:
+		return types.StringValue(v)
+	}
+
+	// Encode the value as JSON
+	encoded, err := json.Marshal(value)
+
+	// Fall back to the default formatting if encoding fails
+	if err != nil {
+		return types.StringValue(fmt.Sprintf("%v", value))
+	}
+
+	// Return the encoded value
+	return types.StringValue(string(encoded))
 }
 
 // FormatTypeToString converts an interface{} value to its string representation.

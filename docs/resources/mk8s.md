@@ -1151,26 +1151,26 @@ Optional:
 
 - **basic_auth** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--remote_write--basic_auth))
 - **authorization** (Object) ([see below](#nestedblock--add_ons--byok--config--monitoring--remote_write--authorization))
-- **oauth2** (Map of String) OAuth 2.0 client configuration as flat key-value pairs.
+- **oauth2** (Map of String) OAuth 2.0 client configuration. Numbers, booleans, lists and objects are given as JSON text, for example `scopes = jsonencode(["read"])`.
 - **follow_redirects** (Boolean) Whether the HTTP client follows redirects.
 - **enable_http2** (Boolean) Whether to enable HTTP/2.
-- **tls_config** (Map of String) TLS configuration as flat key-value pairs.
+- **tls_config** (Map of String) TLS configuration. Numbers, booleans, lists and objects are given as JSON text, for example `insecure_skip_verify = "true"`.
 - **proxy_url** (String) HTTP proxy URL used for outbound requests.
 - **no_proxy** (String) Comma-separated list of hosts that bypass the proxy.
 - **proxy_from_environment** (Boolean) Whether to read proxy settings from environment variables.
-- **proxy_connect_header** (Map of String) Headers sent to the proxy on CONNECT, as flat key-value pairs.
-- **http_headers** (Map of String) Custom HTTP headers, as flat key-value pairs.
+- **proxy_connect_header** (Map of String) Headers sent to the proxy on CONNECT. Each value is a JSON list of strings, for example `jsonencode(["value"])`.
+- **http_headers** (Map of String) Custom HTTP headers. Each value is a JSON object holding `values`, `secrets` or `files` lists, for example `jsonencode({ values = ["value"] })`.
 - **url** (String) Endpoint that receives the remote_write payload.
 - **remote_timeout** (String) Per-request timeout (for example, "30s").
 - **headers** (Map of String) Custom request headers attached to every remote_write call.
-- **write_relabel_configs** (List of Map of String) Relabel rules applied to samples before they are sent.
+- **write_relabel_configs** (List of Map of String) Relabel rules applied to samples before they are sent. `source_labels` and `modulus` are given as JSON text, for example `source_labels = jsonencode(["__name__"])`. Every other value, such as `regex`, is sent as written.
 - **name** (String) Friendly name used in metrics for this client.
 - **send_exemplars** (Boolean) Whether to forward Prometheus exemplars.
 - **send_native_histograms** (Boolean) Whether to forward Prometheus native histograms.
-- **sigv4** (Map of String) AWS SigV4 authentication parameters as flat key-value pairs.
-- **azuread** (Map of String) Azure AD authentication parameters as flat key-value pairs.
-- **google_iam** (Map of String) Google Cloud IAM authentication parameters as flat key-value pairs.
-- **queue_config** (Map of String) Tuning parameters for the in-memory remote_write queue, as flat key-value pairs.
+- **sigv4** (Map of String) AWS SigV4 authentication parameters. Numbers, booleans, lists and objects are given as JSON text.
+- **azuread** (Map of String) Azure AD authentication parameters. Numbers, booleans, lists and objects are given as JSON text, for example `managed_identity = jsonencode({ client_id = "id" })`.
+- **google_iam** (Map of String) Google Cloud IAM authentication parameters. Numbers, booleans, lists and objects are given as JSON text.
+- **queue_config** (Map of String) Tuning parameters for the in-memory remote_write queue. Numbers, booleans, lists and objects are given as JSON text, for example `capacity = "2500"`.
 
 <a id="nestedblock--add_ons--byok--config--monitoring--remote_write--basic_auth"></a>
 
@@ -1585,7 +1585,7 @@ resource "cpln_mk8s" "generic" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -1916,7 +1916,7 @@ resource "cpln_mk8s" "hetzner" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -2267,7 +2267,7 @@ resource "cpln_mk8s" "aws" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -2575,7 +2575,7 @@ resource "cpln_mk8s" "linode" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -2884,7 +2884,7 @@ resource "cpln_mk8s" "oblivus" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -3192,7 +3192,7 @@ resource "cpln_mk8s" "lambdalabs" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -3498,7 +3498,7 @@ resource "cpln_mk8s" "paperspace" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -3787,7 +3787,7 @@ resource "cpln_mk8s" "ephemeral" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -4097,7 +4097,7 @@ resource "cpln_mk8s" "triton" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -4415,7 +4415,7 @@ resource "cpln_mk8s" "triton" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -4756,7 +4756,7 @@ resource "cpln_mk8s" "triton" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -5331,7 +5331,7 @@ resource "cpln_mk8s" "gcp-provider" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },
@@ -5636,7 +5636,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
                             }
                             write_relabel_configs = [
                                 {
-                                    source_labels = "__name__"
+                                    source_labels = jsonencode(["__name__"])
                                     regex         = "go_.*"
                                     action        = "drop"
                                 },

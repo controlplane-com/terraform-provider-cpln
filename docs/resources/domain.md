@@ -50,6 +50,7 @@ Optional:
 - **dns_mode** (String) In `cname` dnsMode, Control Plane will configure workloads to accept traffic for the domain but will not manage DNS records for the domain. End users must configure CNAME records in their own DNS pointed to the canonical workload endpoint. Currently `cname` dnsMode requires that a TLS server certificate be configured when subdomain based routing is used. In `ns` dnsMode, Control Plane will manage the subdomains and create all necessary DNS records. End users configure NS records to forward DNS requests to the Control Plane managed DNS servers. Valid values: `cname`, `ns`. Default: `cname`.
 - **gvc_link** (String) This value is set to a target GVC (using a full link) for use by subdomain based routing. Each workload in the GVC will receive a subdomain in the form ${workload.name}.${domain.name}. **Do not include if path based routing is used.**
 - **cert_challenge_type** (String) Defines the method used to prove domain ownership for certificate issuance. Valid values: `http01` or `dns01`.
+- **certificate_generator_link** (String) Link to a certificate generator that issues the certificate instead of the built-in one. The generator defines the challenge type, so `cert_challenge_type` must not be set. Cannot be combined with a TLS server certificate.
 - **workload_link** (String) Creates a unique subdomain for each replica of a stateful workload, enabling direct access to individual instances.
 - **accept_all_hosts** (Boolean) Allows domain to accept wildcards. The associated GVC must have dedicated load balancing enabled.
 - **accept_all_subdomains** (Boolean) Accept all subdomains will accept any host that is a sub domain of the domain so *.$DOMAIN.
@@ -420,6 +421,30 @@ resource "cpln_domain" "example_ns_subdomain" {
     workload_link         = "/org/terraform-test-org/workload/my-workload-01"
     accept_all_hosts      = true
     accept_all_subdomains = true
+  }
+}
+```
+
+## Example Usage - Certificate Generator
+
+```terraform
+resource "cpln_domain" "example_certificate_generator" {
+  name        = "app.example.com"
+  description = "Domain whose certificate is issued by a custom certificate generator"
+
+  tags = {
+    terraform_generated = "true"
+    example             = "true"
+  }
+
+  spec {
+    dns_mode                   = "cname"
+    gvc_link                   = "/org/myorg/gvc/mygvc"
+    certificate_generator_link = "/org/myorg/certificategenerator/my-generator"
+
+    ports {
+      tls {}
+    }
   }
 }
 ```
