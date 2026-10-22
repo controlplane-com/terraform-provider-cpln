@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: acc-test
 
+    # Acceptance tests share terraform-test-org, so only one suite may run at a time across this workflow and release
+    concurrency:
+      group: acceptance-terraform-test-org
+      cancel-in-progress: false
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,6 +29,7 @@ jobs:
           cache: true
 
       - name: Install cpln CLI
+        if: github.actor != 'dependabot[bot]'
         run: |
           curl -sL https://storage.googleapis.com/artifacts.cpln-build.appspot.com/binaries/cpln/2322247710-3d6447e7/cpln-linux.tgz -o cpln-linux.tgz
           tar -xzf cpln-linux.tgz
@@ -32,6 +38,7 @@ jobs:
           cpln --version
 
       - name: Configure cpln profile
+        if: github.actor != 'dependabot[bot]'
         run: cpln profile create default --default --endpoint $CPLN_ENDPOINT --token $CPLN_TOKEN --org $CPLN_ORG
         env:
           CPLN_ORG: terraform-test-org
@@ -39,18 +46,25 @@ jobs:
           CPLN_TOKEN: "${{secrets.CPLN_TOKEN}}"
 
       - name: Get dependencies
-        run: go get -v -t -d ./...
+        run: go mod download
 
       - name: Build
         run: go build -v ./...
 
       - name: Set up Terraform
+        if: github.actor != 'dependabot[bot]'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.9.8"
           terraform_wrapper: false
 
+      # Dependabot runs receive no repository secrets, so they run the unit tests only
+      - name: Run Unit Tests
+        if: github.actor == 'dependabot[bot]'
+        run: go test -v -count=1 ./...
+
       - name: Run Tests
+        if: github.actor != 'dependabot[bot]'
         run: go test -v -count=1 ./internal/provider/ -timeout 60m
         env:
           TF_ACC: true
