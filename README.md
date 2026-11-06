@@ -83,7 +83,7 @@ Considering the provider is installed at path below after running the `make inst
 
 ### Debugging
 
-When debugging, create the file at `.vscode/launch.json` by copying and editing it from the `launch.json.example` file.
+When debugging, create the file at `.vscode/launch.json` by copying and editing it from the `.vscode/launch.json.example` file.
 
 ## Examples
 
@@ -95,8 +95,8 @@ See the [HCL](https://www.terraform.io/docs/configuration/syntax.html) examples 
 # 1. Log in via CLI
 cpln login
 
-# (For test environment)
-cpln profile update default --login --endpoint https://api.test.cpln.io
+# Update profile (if necessary)
+cpln profile update default --login --endpoint https://api.cpln.io
 
 # 2. Initialize Terraform
 terraform init

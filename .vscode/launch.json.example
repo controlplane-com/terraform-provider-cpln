@@ -10,19 +10,21 @@
       "request": "launch",
       "mode": "auto",
       "program": "${fileDirname}",
+      // "program": "${file}",
       "env": {
+        // "TF_LOG": "TRACE",
+        // "TF_LOG_PATH": "./terraform-provider-cpln-log.txt",
         "TF_ACC": "1",
-        "CPLN_ENDPOINT": "https://api.test.cpln.io",
+        // "VALIDATE_DOMAINS": false,
+        "CPLN_ENDPOINT": "https://api.cpln.io",
         "CPLN_PROFILE": "terraform",
-        "CPLN_ORG": "terraform-test-org",
+        // "CPLN_PROFILE": "default",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/google-application-creds.json",
+        "GOOGLE_PROJECT": "my-project",
+        "CPLN_ORG": "my-org",
         "CPLN_REFRESH_TOKEN": ""
       },
-      "args": [
-        //
-        "-test.run",
-        "TestAccControlPlaneMk8s_basic",
-        "-test.v"
-      ]
+      "args": ["-test.run", "TestAccControlPlaneMk8s_basic", "-test.v"]
     }
   ]
 }
