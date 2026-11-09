@@ -134,7 +134,8 @@ func (mrt *Mk8sResourceTest) NewMk8sGenericProviderScenario() []resource.TestSte
 	initialConfig, initialStep := mrt.BuildGenericProviderTestStep(resourceName, name)
 	caseUpdate1 := mrt.BuildGenericProviderUpdate1TestStep(initialConfig.ProviderTestCase)
 	caseUpdate2 := mrt.BuildGenericProviderUpdate2TestStep(initialConfig.ProviderTestCase)
-	caseUpdate3 := mrt.BuildGenericProviderUpdate3TestStep(initialConfig.ProviderTestCase)
+	// Disabled while the test API's mk8s actuator is missing KATA_NFS_IMAGE and JUICEFS_IMAGE
+	// caseUpdate3 := mrt.BuildGenericProviderUpdate3TestStep(initialConfig.ProviderTestCase)
 
 	// Return the complete test steps
 	return []resource.TestStep{
@@ -148,7 +149,7 @@ func (mrt *Mk8sResourceTest) NewMk8sGenericProviderScenario() []resource.TestSte
 		// Update & Read
 		caseUpdate1,
 		caseUpdate2,
-		caseUpdate3,
+		// caseUpdate3,
 		caseUpdate2,
 		caseUpdate1,
 		// Revert the resource to its initial state
