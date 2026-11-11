@@ -83,6 +83,7 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps = append(steps, resourceTest.NewVmScenario()...)
 	steps = append(steps, resourceTest.NewVmDefaultsScenario()...)
 	steps = append(steps, resourceTest.NewKedaHpaLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewNetworkingLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -366,6 +367,55 @@ func (wrt *WorkloadResourceTest) NewKedaHpaLifecycleScenario() []resource.TestSt
 		// Update & Read (shrink back to two policies per direction and restore the local_options override)
 		multiAllStep,
 		// Revert the resource to its initial state (remove the advanced block entirely)
+		absentStep,
+	}
+}
+
+// NewNetworkingLifecycleScenario walks networking.internal.routing from the server default through explicit values and back to prove updates keep the stored value.
+func (wrt *WorkloadResourceTest) NewNetworkingLifecycleScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-networking-%s", wrt.RandomName)
+
+	// Create a shared test case for all lifecycle steps
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:              "workload",
+			ResourceName:      "new",
+			ResourceAddress:   "cpln_workload.new",
+			Name:              name,
+			GvcName:           wrt.GvcCase.Name,
+			Description:       name,
+			DescriptionUpdate: "workload networking description updated",
+		},
+	}
+
+	// Build the lifecycle test steps
+	absentStep := wrt.BuildNetworkingAbsentStep(c)
+	absentUpdatedStep := wrt.BuildNetworkingAbsentUpdatedStep(c)
+	locationEndpointStep := wrt.BuildNetworkingLocationEndpointStep(c)
+	emptyStep := wrt.BuildNetworkingEmptyStep(c)
+	gvcEndpointStep := wrt.BuildNetworkingGvcEndpointStep(c)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read (networking omitted, the server stores gvcEndpoint)
+		absentStep,
+		// Update & Read (description changed with networking still omitted, gvcEndpoint survives the spec replace)
+		absentUpdatedStep,
+		// Import State
+		{
+			ResourceName:      c.ResourceAddress,
+			ImportState:       true,
+			ImportStateId:     fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
+			ImportStateVerify: true,
+		},
+		// Update & Read (routing set to locationEndpoint, data source read)
+		locationEndpointStep,
+		// Update & Read (networking set without internal, the stored routing is kept)
+		emptyStep,
+		// Update & Read (routing set to gvcEndpoint)
+		gvcEndpointStep,
+		// Revert the resource to its initial state (networking removed, the stored routing is kept)
 		absentStep,
 	}
 }
@@ -3723,6 +3773,107 @@ func (wrt *WorkloadResourceTest) BuildKedaHpaExpandedStep(c WorkloadResourceTest
 	}
 }
 
+// BuildNetworkingAbsentStep returns a test step where networking is omitted and the server default gvcEndpoint is stored.
+func (wrt *WorkloadResourceTest) BuildNetworkingAbsentStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.NetworkingAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			c.TestCheckObjectAttr("networking", map[string]interface{}{
+				"internal": map[string]interface{}{
+					"routing": "gvcEndpoint",
+				},
+			}),
+		),
+	}
+}
+
+// BuildNetworkingAbsentUpdatedStep returns a test step that updates the description with networking still omitted and asserts gvcEndpoint is kept.
+func (wrt *WorkloadResourceTest) BuildNetworkingAbsentUpdatedStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.NetworkingAbsentUpdatedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckObjectAttr("networking", map[string]interface{}{
+				"internal": map[string]interface{}{
+					"routing": "gvcEndpoint",
+				},
+			}),
+		),
+	}
+}
+
+// BuildNetworkingLocationEndpointStep returns a test step that sets routing to locationEndpoint and reads it back through the data source.
+func (wrt *WorkloadResourceTest) BuildNetworkingLocationEndpointStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Create a test case for the data source that reads the same workload
+	dataSource := ProviderTestCase{
+		Kind:            "workload",
+		ResourceName:    c.ResourceName,
+		ResourceAddress: fmt.Sprintf("data.cpln_workload.%s", c.ResourceName),
+		Name:            c.Name,
+		GvcName:         c.GvcName,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.NetworkingLocationEndpointHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckObjectAttr("networking", map[string]interface{}{
+				"internal": map[string]interface{}{
+					"routing": "locationEndpoint",
+				},
+			}),
+			dataSource.TestCheckObjectAttr("networking", map[string]interface{}{
+				"internal": map[string]interface{}{
+					"routing": "locationEndpoint",
+				},
+			}),
+		),
+	}
+}
+
+// BuildNetworkingEmptyStep returns a test step that sets networking without internal and asserts the stored locationEndpoint is kept.
+func (wrt *WorkloadResourceTest) BuildNetworkingEmptyStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.NetworkingEmptyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckObjectAttr("networking", map[string]interface{}{
+				"internal": map[string]interface{}{
+					"routing": "locationEndpoint",
+				},
+			}),
+		),
+	}
+}
+
+// BuildNetworkingGvcEndpointStep returns a test step that sets routing to gvcEndpoint explicitly.
+func (wrt *WorkloadResourceTest) BuildNetworkingGvcEndpointStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.NetworkingGvcEndpointHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.DescriptionUpdate, "2"),
+			c.TestCheckObjectAttr("networking", map[string]interface{}{
+				"internal": map[string]interface{}{
+					"routing": "gvcEndpoint",
+				},
+			}),
+		),
+	}
+}
+
 // Configs //
 
 // K8sVolumeUriHcl returns a serverless workload configuration that mounts a k8s://secret volume to exercise the uri scheme validator.
@@ -7074,6 +7225,195 @@ resource "cpln_workload" "%s" {
   }
 }
 `, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// NetworkingAbsentHcl returns a serverless workload without a networking attribute.
+func (wrt *WorkloadResourceTest) NetworkingAbsentHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// NetworkingAbsentUpdatedHcl returns a serverless workload with an updated description and no networking attribute.
+func (wrt *WorkloadResourceTest) NetworkingAbsentUpdatedHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// NetworkingLocationEndpointHcl returns a serverless workload routing internal requests to its location endpoint, and a data source read.
+func (wrt *WorkloadResourceTest) NetworkingLocationEndpointHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  networking = {
+    internal = {
+      routing = "locationEndpoint"
+    }
+  }
+}
+
+data "cpln_workload" "%s" {
+  name = cpln_workload.%s.name
+  gvc  = cpln_workload.%s.gvc
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.ResourceName, c.ResourceName,
+	)
+}
+
+// NetworkingEmptyHcl returns a serverless workload whose networking attribute carries no internal object.
+func (wrt *WorkloadResourceTest) NetworkingEmptyHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  networking = {}
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// NetworkingGvcEndpointHcl returns a serverless workload routing internal requests to its gvc endpoint.
+func (wrt *WorkloadResourceTest) NetworkingGvcEndpointHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
 	)
 }
 

@@ -837,6 +837,34 @@ func (l LoadBalancerGeoLocationHeadersModel) AttributeTypes() attr.Type {
 	}
 }
 
+// Networking //
+
+type NetworkingModel struct {
+	Internal types.Object `tfsdk:"internal"`
+}
+
+func (n NetworkingModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"internal": NetworkingInternalModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Networking -> Internal //
+
+type NetworkingInternalModel struct {
+	Routing types.String `tfsdk:"routing"`
+}
+
+func (n NetworkingInternalModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"routing": types.StringType,
+		},
+	}
+}
+
 // Request Retry On //
 
 type RequestRetryPolicyModel struct {

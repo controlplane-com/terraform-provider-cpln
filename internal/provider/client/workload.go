@@ -47,6 +47,7 @@ type WorkloadSpec struct {
 	RolloutOptions     *WorkloadRolloutOptions     `json:"rolloutOptions,omitempty"`
 	SecurityOptions    *WorkloadSecurityOptions    `json:"securityOptions,omitempty"`
 	LoadBalancer       *WorkloadLoadBalancer       `json:"loadBalancer,omitempty"`
+	Networking         *WorkloadNetworking         `json:"networking,omitempty"`
 	Extras             *any                        `json:"extras,omitempty"`
 	RequestRetryPolicy *WorkloadRequestRetryPolicy `json:"requestRetryPolicy,omitempty"`
 	Vm                 *WorkloadVm                 `json:"vm,omitempty"`
@@ -358,6 +359,16 @@ type WorkloadLoadBalancerGeoLocationHeaders struct {
 	City    *string `json:"city,omitempty"`
 	Country *string `json:"country,omitempty"`
 	Region  *string `json:"region,omitempty"`
+}
+
+// WorkloadNetworking - Workload Internal Service-to-Service Networking
+type WorkloadNetworking struct {
+	Internal *WorkloadNetworkingInternal `json:"internal,omitempty"`
+}
+
+// WorkloadNetworkingInternal - Workload Internal (cpln.local) Request Routing
+type WorkloadNetworkingInternal struct {
+	Routing *string `json:"routing,omitempty"` // Enum: "locationEndpoint", "gvcEndpoint"
 }
 
 type WorkloadRequestRetryPolicy struct {

@@ -31,6 +31,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
+- **networking** (Attributes) Internal service-to-service networking configuration. ([see below](#nestedblock--networking))
 - **request_retry_policy** (Block List, Max: 1) ([see below](#nestedblock--request_retry_policy))
 - **vm** (Attributes) VM-only configuration. Required when `type` is `vm`; rejected otherwise. ([see below](#nestedblock--vm))
 
@@ -615,6 +616,24 @@ Optional:
 - **country** (String) The geo country header.
 - **region** (String) The geo region header.
 
+<a id="nestedblock--networking"></a>
+
+### `networking`
+
+Optional:
+
+- **internal** (Attributes) Routing of internal (`cpln.local`) requests. ([see below](#nestedblock--networking--internal))
+
+<a id="nestedblock--networking--internal"></a>
+
+### `networking.internal`
+
+Optional:
+
+- **routing** (String) How requests to `<workload>.<gvc>.cpln.local` from the same GVC are routed. `locationEndpoint`: served only by replicas in the caller's location. `gvcEndpoint`: fail over to the workload's canonical endpoint (the nearest healthy location) when no local replica can serve them; cross-location traffic is billed as egress. Valid values: `locationEndpoint`, `gvcEndpoint`.
+
+~> **Note** When a workload is created without `routing`, the server sets it to `gvcEndpoint`. Removing `routing` from the configuration keeps the current value; set it explicitly to change it.
+
 <a id="nestedblock--request_retry_policy"></a>
 
 ### `request_retry_policy`
@@ -1069,6 +1088,12 @@ resource "cpln_workload" "new" {
       }
     }
   }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
+    }
+  }
 }
 ```
 
@@ -1336,6 +1361,12 @@ resource "cpln_workload" "new" {
     }
   }
 
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
+    }
+  }
+
   request_retry_policy {
     attempts = 3
     retry_on = ["connect-failure", "refused-stream", "unavailable"]
@@ -1523,6 +1554,12 @@ resource "cpln_workload" "new" {
         country = "USA"
         region = "North America"
       }
+    }
+  }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
     }
   }
 }
@@ -1842,6 +1879,12 @@ resource "cpln_workload" "new" {
       }
     }
   }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
+    }
+  }
 }
 
 ```
@@ -2042,6 +2085,12 @@ resource "cpln_workload" "new" {
         country = "USA"
         region = "North America"
       }
+    }
+  }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
     }
   }
 }
@@ -2320,6 +2369,12 @@ resource "cpln_workload" "new" {
       }
     }
   }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
+    }
+  }
 }
 
 ```
@@ -2533,6 +2588,12 @@ resource "cpln_workload" "new" {
         country = "USA"
         region = "North America"
       }
+    }
+  }
+
+  networking = {
+    internal = {
+      routing = "gvcEndpoint"
     }
   }
 

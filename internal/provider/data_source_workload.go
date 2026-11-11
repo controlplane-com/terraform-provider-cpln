@@ -100,6 +100,22 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				Description: "Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.",
 				Computed:    true,
 			},
+			"networking": schema.SingleNestedAttribute{
+				Description: "Internal service-to-service networking configuration.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"internal": schema.SingleNestedAttribute{
+						Description: "Routing of internal (`cpln.local`) requests.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"routing": schema.StringAttribute{
+								Description: "How requests to `<workload>.<gvc>.cpln.local` from the same GVC are routed. `locationEndpoint`: served only by replicas in the caller's location. `gvcEndpoint`: fail over to the workload's canonical endpoint (the nearest healthy location) when no local replica can serve them.",
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
 			"extras": schema.StringAttribute{
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
 				Computed:    true,

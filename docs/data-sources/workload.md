@@ -37,6 +37,7 @@ The following attributes are exported:
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options)).
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options)).
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer)).
+- **networking** (Attributes) Internal service-to-service networking configuration ([see below](#nestedblock--networking)).
 - **request_retry_policy** (Block List, Max: 1) ([see below](#nestedblock--request_retry_policy)).
 - **vm** (Attributes) VM-only configuration. Present when `type` is `vm` ([see below](#nestedblock--vm)).
 - **health** (Attributes) Health summary of the workload ([see below](#nestedblock--health)).
@@ -560,6 +561,22 @@ Read-Only:
 - **city** (String) City header value.
 - **country** (String) Country header value.
 - **region** (String) Region header value.
+
+<a id="nestedblock--networking"></a>
+
+### `networking`
+
+Read-Only:
+
+- **internal** (Attributes) Routing of internal (`cpln.local`) requests ([see below](#nestedblock--networking--internal)).
+
+<a id="nestedblock--networking--internal"></a>
+
+### `networking.internal`
+
+Read-Only:
+
+- **routing** (String) How requests to `<workload>.<gvc>.cpln.local` from the same GVC are routed. `locationEndpoint`: served only by replicas in the caller's location. `gvcEndpoint`: fail over to the workload's canonical endpoint (the nearest healthy location) when no local replica can serve them.
 
 <a id="nestedblock--request_retry_policy"></a>
 

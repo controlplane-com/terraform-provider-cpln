@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -58,6 +59,7 @@ type WorkloadResourceModel struct {
 	RolloutOptions     types.List   `tfsdk:"rollout_options"`
 	SecurityOptions    types.List   `tfsdk:"security_options"`
 	LoadBalancer       types.List   `tfsdk:"load_balancer"`
+	Networking         types.Object `tfsdk:"networking"`
 	Extras             types.String `tfsdk:"extras"`
 	RequestRetryPolicy types.List   `tfsdk:"request_retry_policy"`
 	Vm                 types.Object `tfsdk:"vm"`
@@ -161,6 +163,37 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
+			},
+			"networking": schema.SingleNestedAttribute{
+				Description: "Internal service-to-service networking configuration.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
+				Attributes: map[string]schema.Attribute{
+					"internal": schema.SingleNestedAttribute{
+						Description: "Routing of internal (`cpln.local`) requests.",
+						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.Object{
+							objectplanmodifier.UseStateForUnknown(),
+						},
+						Attributes: map[string]schema.Attribute{
+							"routing": schema.StringAttribute{
+								Description: "How requests to `<workload>.<gvc>.cpln.local` from the same GVC are routed. `locationEndpoint`: served only by replicas in the caller's location. `gvcEndpoint`: fail over to the workload's canonical endpoint (the nearest healthy location) when no local replica can serve them; cross-location traffic is billed as egress. Valid values: `locationEndpoint`, `gvcEndpoint`. Set to `gvcEndpoint` by the server when a workload is created without it; removing it from the configuration keeps the current value.",
+								Optional:    true,
+								Computed:    true,
+								PlanModifiers: []planmodifier.String{
+									stringplanmodifier.UseStateForUnknown(),
+								},
+								Validators: []validator.String{
+									stringvalidator.OneOf("locationEndpoint", "gvcEndpoint"),
+								},
+							},
+						},
+					},
+				},
 			},
 			"extras": schema.StringAttribute{
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
@@ -2686,6 +2719,7 @@ func (wro *WorkloadResourceOperator) NewAPIRequest(isUpdate bool) client.Workloa
 	spec.RolloutOptions = wro.buildRolloutOptions(wro.Plan.RolloutOptions)
 	spec.SecurityOptions = wro.buildSecurityOptions(wro.Plan.SecurityOptions)
 	spec.LoadBalancer = wro.buildLoadBalancer(wro.Plan.LoadBalancer)
+	spec.Networking = wro.buildNetworking(wro.Plan.Networking)
 	spec.Extras = wro.buildExtras(wro.Plan.Extras)
 	spec.RequestRetryPolicy = wro.buildRequestRetryPolicy(wro.Plan.RequestRetryPolicy)
 	spec.Vm = wro.buildVm(wro.Plan.Vm)
@@ -2720,6 +2754,7 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.RolloutOptions = types.ListNull(models.RolloutOptionsModel{}.AttributeTypes())
 		state.SecurityOptions = types.ListNull(models.SecurityOptionsModel{}.AttributeTypes())
 		state.LoadBalancer = types.ListNull(models.LoadBalancerModel{}.AttributeTypes())
+		state.Networking = types.ObjectNull(models.NetworkingModel{}.AttributeTypes().(types.ObjectType).AttrTypes)
 		state.Extras = types.StringNull()
 		state.RequestRetryPolicy = types.ListNull(models.RequestRetryPolicyModel{}.AttributeTypes())
 		state.Vm = types.ObjectNull(models.VmModel{}.AttributeTypes().(types.ObjectType).AttrTypes)
@@ -2736,6 +2771,7 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.RolloutOptions = wro.flattenRolloutOptions(apiResp.Spec.RolloutOptions)
 		state.SecurityOptions = wro.flattenSecurityOptions(apiResp.Spec.SecurityOptions)
 		state.LoadBalancer = wro.flattenLoadBalancer(wro.Plan.LoadBalancer, apiResp.Spec.LoadBalancer)
+		state.Networking = wro.flattenNetworking(apiResp.Spec.Networking)
 		state.Extras = wro.flattenExtras(apiResp.Spec.Extras)
 		state.RequestRetryPolicy = wro.flattenRequestRetryPolicy(apiResp.Spec.RequestRetryPolicy)
 		state.Vm = wro.flattenVm(apiResp.Spec.Vm)
@@ -3908,6 +3944,38 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocationHeaders(state t
 		City:    BuildString(block.City),
 		Country: BuildString(block.Country),
 		Region:  BuildString(block.Region),
+	}
+}
+
+// buildNetworking constructs a WorkloadNetworking from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildNetworking(state types.Object) *client.WorkloadNetworking {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.NetworkingModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadNetworking{
+		Internal: wro.buildNetworkingInternal(block.Internal),
+	}
+}
+
+// buildNetworkingInternal constructs a WorkloadNetworkingInternal from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildNetworkingInternal(state types.Object) *client.WorkloadNetworkingInternal {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.NetworkingInternalModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadNetworkingInternal{
+		Routing: BuildString(block.Routing),
 	}
 }
 
@@ -5475,6 +5543,46 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocationHeaders(input
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerGeoLocationHeadersModel{block})
+}
+
+// flattenNetworking transforms *client.WorkloadNetworking into a types.Object.
+func (wro *WorkloadResourceOperator) flattenNetworking(input *client.WorkloadNetworking) types.Object {
+	// Get attribute types
+	elementType := models.NetworkingModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.NetworkingModel{
+		Internal: wro.flattenNetworkingInternal(input.Internal),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenNetworkingInternal transforms *client.WorkloadNetworkingInternal into a types.Object.
+func (wro *WorkloadResourceOperator) flattenNetworkingInternal(input *client.WorkloadNetworkingInternal) types.Object {
+	// Get attribute types
+	elementType := models.NetworkingInternalModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.NetworkingInternalModel{
+		Routing: types.StringPointerValue(input.Routing),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
 }
 
 // FlattenExtras marshals extras into a JSON string or returns null when input is nil.
