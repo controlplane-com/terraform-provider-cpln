@@ -245,9 +245,10 @@ type Mk8sGcpProvider struct {
 // Node Pools //
 
 type Mk8sGenericPool struct {
-	Name   *string                 `json:"name,omitempty"`
-	Labels *map[string]interface{} `json:"labels,omitempty"`
-	Taints *[]Mk8sTaint            `json:"taints,omitempty"`
+	Name    *string                 `json:"name,omitempty"`
+	Labels  *map[string]interface{} `json:"labels,omitempty"`
+	Taints  *[]Mk8sTaint            `json:"taints,omitempty"`
+	MaxPods *int                    `json:"maxPods,omitempty"`
 }
 
 type Mk8sHetznerPool struct {
@@ -306,14 +307,15 @@ type Mk8sPaperspacePool struct {
 }
 
 type Mk8sEphemeralPool struct {
-	Name   *string                 `json:"name,omitempty"`
-	Labels *map[string]interface{} `json:"labels,omitempty"`
-	Taints *[]Mk8sTaint            `json:"taints,omitempty"`
-	Count  *int                    `json:"count,omitempty"`
-	Arch   *string                 `json:"arch,omitempty"`
-	Flavor *string                 `json:"flavor,omitempty"`
-	Cpu    *string                 `json:"cpu,omitempty"`
-	Memory *string                 `json:"memory,omitempty"`
+	Name    *string                 `json:"name,omitempty"`
+	Labels  *map[string]interface{} `json:"labels,omitempty"`
+	Taints  *[]Mk8sTaint            `json:"taints,omitempty"`
+	MaxPods *int                    `json:"maxPods,omitempty"`
+	Count   *int                    `json:"count,omitempty"`
+	Arch    *string                 `json:"arch,omitempty"`
+	Flavor  *string                 `json:"flavor,omitempty"`
+	Cpu     *string                 `json:"cpu,omitempty"`
+	Memory  *string                 `json:"memory,omitempty"`
 }
 
 type Mk8sTritonPool struct {

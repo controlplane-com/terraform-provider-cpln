@@ -46,17 +46,19 @@ func (g GenericProviderModel) AttributeTypes() attr.Type {
 // Generic Provider -> Node Pool //
 
 type GenericProviderNodePoolModel struct {
-	Name   types.String `tfsdk:"name"`
-	Labels types.Map    `tfsdk:"labels"`
-	Taints types.List   `tfsdk:"taint"`
+	Name    types.String `tfsdk:"name"`
+	Labels  types.Map    `tfsdk:"labels"`
+	Taints  types.List   `tfsdk:"taint"`
+	MaxPods types.Int32  `tfsdk:"max_pods"`
 }
 
 func (g GenericProviderNodePoolModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"name":   types.StringType,
-			"labels": types.MapType{ElemType: types.StringType},
-			"taint":  types.ListType{ElemType: GenericProviderNodePoolTaintModel{}.AttributeTypes()},
+			"name":     types.StringType,
+			"labels":   types.MapType{ElemType: types.StringType},
+			"taint":    types.ListType{ElemType: GenericProviderNodePoolTaintModel{}.AttributeTypes()},
+			"max_pods": types.Int32Type,
 		},
 	}
 }
@@ -75,6 +77,24 @@ func (g GenericProviderNodePoolTaintModel) AttributeTypes() attr.Type {
 			"key":    types.StringType,
 			"value":  types.StringType,
 			"effect": types.StringType,
+		},
+	}
+}
+
+// Unmanaged Node Pool //
+
+type UnmanagedNodePoolModel struct {
+	Name   types.String `tfsdk:"name"`
+	Labels types.Map    `tfsdk:"labels"`
+	Taints types.List   `tfsdk:"taint"`
+}
+
+func (u UnmanagedNodePoolModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name":   types.StringType,
+			"labels": types.MapType{ElemType: types.StringType},
+			"taint":  types.ListType{ElemType: GenericProviderNodePoolTaintModel{}.AttributeTypes()},
 		},
 	}
 }
@@ -369,7 +389,7 @@ func (o OblivusProviderModel) AttributeTypes() attr.Type {
 			"token_secret_link":   types.StringType,
 			"node_pool":           types.ListType{ElemType: OblivusProviderNodePoolModel{}.AttributeTypes()},
 			"ssh_keys":            types.SetType{ElemType: types.StringType},
-			"unmanaged_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"unmanaged_node_pool": types.ListType{ElemType: UnmanagedNodePoolModel{}.AttributeTypes()},
 			"autoscaler":          types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
 			"pre_install_script":  types.StringType,
 		},
@@ -425,7 +445,7 @@ func (l LambdalabsProviderModel) AttributeTypes() attr.Type {
 			"token_secret_link":   types.StringType,
 			"node_pool":           types.ListType{ElemType: LambdalabsProviderNodePoolModel{}.AttributeTypes()},
 			"ssh_key":             types.StringType,
-			"unmanaged_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"unmanaged_node_pool": types.ListType{ElemType: UnmanagedNodePoolModel{}.AttributeTypes()},
 			"autoscaler":          types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
 			"file_systems":        types.SetType{ElemType: types.StringType},
 			"pre_install_script":  types.StringType,
@@ -484,7 +504,7 @@ func (p PaperspaceProviderModel) AttributeTypes() attr.Type {
 			"shared_drives":       types.SetType{ElemType: types.StringType},
 			"node_pool":           types.ListType{ElemType: PaperspaceProviderNodePoolModel{}.AttributeTypes()},
 			"autoscaler":          types.ListType{ElemType: AutoscalerModel{}.AttributeTypes()},
-			"unmanaged_node_pool": types.ListType{ElemType: GenericProviderNodePoolModel{}.AttributeTypes()},
+			"unmanaged_node_pool": types.ListType{ElemType: UnmanagedNodePoolModel{}.AttributeTypes()},
 			"pre_install_script":  types.StringType,
 			"user_ids":            types.SetType{ElemType: types.StringType},
 			"network_id":          types.StringType,

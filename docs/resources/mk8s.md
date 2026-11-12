@@ -76,6 +76,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 
 <a id="nestedblock--generic_provider--node_pool--taint"></a>
 
@@ -127,6 +128,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **override_image** (String)
 - **min_size** (Number)
 - **max_size** (Number)
@@ -145,6 +147,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 
 <a id="nestedblock--aws_provider"></a>
 
@@ -188,6 +191,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **boot_disk_size** (Number) Size in GB.
 - **min_size** (Number)
 - **max_size** (Number)
@@ -270,6 +274,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **override_image** (String)
 - **min_size** (Number)
 - **max_size** (Number)
@@ -305,6 +310,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **min_size** (Number)
 - **max_size** (Number)
 - **flavor** (String)
@@ -355,6 +361,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **min_size** (Number)
 - **max_size** (Number)
 
@@ -406,6 +413,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **min_size** (Number)
 - **max_size** (Number)
 - **boot_disk_size** (Number)
@@ -454,6 +462,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 
 <a id="nestedblock--triton_provider"></a>
 
@@ -544,6 +553,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **override_image_id** (String)
 - **public_network_id** (String) If set, machine will also get a public IP.
 - **private_network_ids** (List of String) More private networks to join.
@@ -615,6 +625,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **override_image** (Block List, Max: 1) ([see below](#nestedblock--azure_provider--image))
 - **min_size** (Number) Default: 0
 - **max_size** (Number) Default: 0
@@ -680,6 +691,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **assign_public_ip** (Boolean)
 - **override_image** (Block List, Max: 1) ([see below](#nestedblock--gcp_provider--image))
 - **min_size** (Number)
@@ -724,6 +736,7 @@ Optional:
 
 - **labels** (Map of String) Labels to attach to nodes of a node pool.
 - **taint** (Block List) ([see below](#nestedblock--generic_provider--node_pool--taint))
+- **max_pods** (Number) Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.
 - **override_image** (String)
 - **min_size** (Number)
 - **max_size** (Number)
@@ -1388,7 +1401,8 @@ resource "cpln_mk8s" "generic" {
         }
         
         node_pool {
-            name = "my-node-pool"
+            name     = "my-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -1685,7 +1699,8 @@ resource "cpln_mk8s" "hetzner" {
         network_id 		   = "2808575"
 
         node_pool {
-            name = "my-hetzner-node-pool"
+            name     = "my-hetzner-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -1704,7 +1719,8 @@ resource "cpln_mk8s" "hetzner" {
         }
 
         dedicated_server_node_pool {
-            name = "my-node-pool"
+            name     = "my-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -2031,7 +2047,8 @@ resource "cpln_mk8s" "aws" {
         }
 
         node_pool {
-            name = "my-aws-node-pool"
+            name     = "my-aws-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -2360,7 +2377,8 @@ resource "cpln_mk8s" "linode" {
         authorized_users = ["cpln"]
 
         node_pool {
-            name = "my-linode-node-pool"
+            name     = "my-linode-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -2664,6 +2682,7 @@ resource "cpln_mk8s" "oblivus" {
 
         node_pool {
             name     = "my-oblivus-node-pool"
+            max_pods = 110
             min_size = 0
             max_size = 0
             flavor   = "INTEL_XEON_V3_x4"
@@ -2972,7 +2991,8 @@ resource "cpln_mk8s" "lambdalabs" {
         pre_install_script = "#! echo hello world"
         
         node_pool {
-            name = "my-node-pool"
+            name     = "my-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -3276,6 +3296,7 @@ resource "cpln_mk8s" "paperspace" {
         
         node_pool {
             name           = "my-paperspace-node-pool"
+            max_pods       = 110
             min_size       = 0
             max_size       = 0
             public_ip_type = "dynamic"
@@ -3584,7 +3605,8 @@ resource "cpln_mk8s" "ephemeral" {
         location = "aws-eu-central-1"
         
         node_pool {
-            name = "my-node-pool"
+            name     = "my-node-pool"
+            max_pods = 110
 
             labels = {
                 hello = "world"
@@ -3882,12 +3904,13 @@ resource "cpln_mk8s" "triton" {
         }
 
         node_pool {
-            name                = "my-triton-node-pool"
-            package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
-            override_image_id   = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
-            public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
-            min_size            = 0
-            max_size            = 0
+            name              = "my-triton-node-pool"
+            max_pods          = 110
+            package_id        = "da311341-b42b-45a8-9386-78ede625d0a4"
+            override_image_id = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
+            public_network_id = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+            min_size          = 0
+            max_size          = 0
 
             private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
 
@@ -4200,12 +4223,13 @@ resource "cpln_mk8s" "triton" {
         }
 
         node_pool {
-            name                = "my-triton-node-pool"
-            package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
-            override_image_id   = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
-            public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
-            min_size            = 0
-            max_size            = 0
+            name              = "my-triton-node-pool"
+            max_pods          = 110
+            package_id        = "da311341-b42b-45a8-9386-78ede625d0a4"
+            override_image_id = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
+            public_network_id = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+            min_size          = 0
+            max_size          = 0
 
             private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
 
@@ -4541,12 +4565,13 @@ resource "cpln_mk8s" "triton" {
         }
 
         node_pool {
-            name                = "my-triton-node-pool"
-            package_id          = "da311341-b42b-45a8-9386-78ede625d0a4"
-            override_image_id   = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
-            public_network_id   = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
-            min_size            = 0
-            max_size            = 0
+            name              = "my-triton-node-pool"
+            max_pods          = 110
+            package_id        = "da311341-b42b-45a8-9386-78ede625d0a4"
+            override_image_id = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
+            public_network_id = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
+            min_size          = 0
+            max_size          = 0
 
             private_network_ids = ["6704dae9-00f4-48b5-8bbf-1be538f20587"]
 
@@ -4860,6 +4885,7 @@ resource "cpln_mk8s" "azure" {
 
         node_pool {
             name      = "my-azure-node-pool"
+            max_pods  = 110
             size      = "Standard_B2s"
             subnet_id = "/subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/my-resource-group/providers/Microsoft.Network/virtualNetworks/mk8s-vnet/subnets/default"
 
@@ -4998,6 +5024,7 @@ resource "cpln_mk8s" "digital-ocean-provider" {
 
         node_pool {
             name           = "my-do-node-pool"
+            max_pods       = 110
             droplet_size   = "s-1vcpu-1gb-intel"
             override_image = "ubuntu-22-04-x64"
             min_size       = 1
@@ -5112,6 +5139,7 @@ resource "cpln_mk8s" "gcp-provider" {
 
         node_pool {
             name                   = "my-gcp-node-pool"
+            max_pods               = 110
             machine_type           = "n1-standard-2"
             assign_public_ip       = true
             zone                   = "us-west1-a"
@@ -5428,11 +5456,12 @@ resource "cpln_mk8s" "digital-ocean-provider" {
         networking {}
 
         node_pool {
-            name                = "my-triton-node-pool"
-            droplet_size        = "s-1vcpu-512mb-10gb"
-            override_image      = "ubuntu-22"
-            min_size            = 0
-            max_size            = 0
+            name           = "my-triton-node-pool"
+            max_pods       = 110
+            droplet_size   = "s-1vcpu-512mb-10gb"
+            override_image = "ubuntu-22"
+            min_size       = 0
+            max_size       = 0
 
             labels = {
                 hello = "world"
