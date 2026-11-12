@@ -2502,6 +2502,15 @@ func (wrv *WorkloadResourceValidator) Validate() {
 		)
 	}
 
+	// The API drops rollout_on_reference_change from vm workloads, so any value would come back missing
+	if workloadType == "vm" && ok && len(rolloutOptions) > 0 && !rolloutOptions[0].RolloutOnReferenceChange.IsNull() && !rolloutOptions[0].RolloutOnReferenceChange.IsUnknown() {
+		wrv.Diags.AddAttributeError(
+			path.Root("rollout_options").AtListIndex(0).AtName("rollout_on_reference_change"),
+			"Invalid Rollout Option for VM Workload",
+			"The 'rollout_on_reference_change' field is not supported for 'vm' workload types. Remove this field or use a different workload type instead.",
+		)
+	}
+
 	// Initialize flags for GPU, Min CPU, and Min Memory usage
 	isUsingGpu := false
 	isUsingMinCpu := false

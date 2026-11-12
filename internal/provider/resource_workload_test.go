@@ -3,6 +3,7 @@ package cpln
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -312,11 +313,14 @@ func (wrt *WorkloadResourceTest) NewVmDefaultsScenario() []resource.TestStep {
 	// Build test steps
 	initialConfig, omittedStep := wrt.BuildVmDefaultsOmittedTestStep(name)
 	setStep := wrt.BuildVmDefaultsSetTestStep(initialConfig.ProviderTestCase)
+	rolloutOnReferenceChangeStep := wrt.BuildVmRolloutOnReferenceChangeTestStep(initialConfig)
 
 	// Return the complete test steps. Walk the optional defaulted blocks through omit -> set -> omit to
 	// prove the defaults apply on create, an explicit value overrides them, and removing the blocks
 	// re-applies the defaults (the Computed+Default revert path).
 	return []resource.TestStep{
+		// Refuse rollout_on_reference_change at plan time, since the API drops it from vm workloads
+		rolloutOnReferenceChangeStep,
 		// Omit firmware/network/clock -> defaults materialize
 		omittedStep,
 		// Set them explicitly -> overrides
@@ -3512,6 +3516,15 @@ func (wrt *WorkloadResourceTest) BuildVmDefaultsSetTestStep(initialCase Provider
 				},
 			}),
 		),
+	}
+}
+
+// BuildVmRolloutOnReferenceChangeTestStep returns a test step that expects rollout_on_reference_change to be refused on a vm workload.
+func (wrt *WorkloadResourceTest) BuildVmRolloutOnReferenceChangeTestStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config:      wrt.VmRolloutOnReferenceChangeHcl(c),
+		ExpectError: regexp.MustCompile(`Invalid\s+Rollout\s+Option\s+for\s+VM\s+Workload`),
 	}
 }
 
@@ -7094,6 +7107,69 @@ resource "cpln_workload" "%s" {
 
     clock = {
       timezone = "America/New_York"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, wrt.GvcCase.ResourceAddress, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// VmRolloutOnReferenceChangeHcl returns a vm workload that sets rollout_on_reference_change, which the provider refuses for vm.
+func (wrt *WorkloadResourceTest) VmRolloutOnReferenceChangeHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_volume_set" "vm_boot" {
+  depends_on = [%s]
+
+  name              = "vmboot-${var.random_name}"
+  gvc               = %s
+  initial_capacity  = 10
+  performance_class = "general-purpose-ssd"
+  file_system_type  = "ext4"
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [cpln_volume_set.vm_boot]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "vm"
+
+  container {
+    name   = "vm-container"
+    cpu    = "1000m"
+    memory = "1Gi"
+  }
+
+  rollout_options {
+    rollout_on_reference_change = true
+  }
+
+  vm = {
+    boot_disk = {
+      source = {
+        oci = {
+          image = "quay.io/containerdisks/ubuntu:22.04"
+        }
+      }
+
+      persist = {
+        volume_set = "cpln://volumeset/vmboot-${var.random_name}"
+      }
     }
   }
 }
