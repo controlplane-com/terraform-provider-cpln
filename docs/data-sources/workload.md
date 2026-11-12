@@ -512,8 +512,8 @@ Read-Only:
 
 - **min_ready_seconds** (Number) Minimum seconds a container must run without crashing to be considered available.
 - **max_unavailable_replicas** (String) Maximum replicas that can be unavailable during an update.
-- **max_surge_replicas** (String) Maximum replicas above the desired count during an update.
-- **scaling_policy** (String) Update strategy. Either `OrderedReady` or `Parallel`. Default: `OrderedReady`.
+- **max_surge_replicas** (String) Maximum replicas above the desired count during an update. Not supported for `vm` workloads.
+- **scaling_policy** (String) Update strategy. Either `OrderedReady` or `Parallel`. Default: `OrderedReady`. Cannot be set for `vm` workloads.
 - **termination_grace_period_seconds** (Number) Seconds allowed for graceful termination, including `preStop` hooks.
 - **rollout_on_reference_change** (Boolean) When true, replicas are rolled out whenever a secret or the identity referenced by the workload is modified.
 

@@ -863,11 +863,11 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Computed:    true,
 						},
 						"max_surge_replicas": schema.StringAttribute{
-							Description: "The number of replicas that can be created above the desired amount of replicas during an update.",
+							Description: "The number of replicas that can be created above the desired amount of replicas during an update. Not supported for `vm` workloads.",
 							Computed:    true,
 						},
 						"scaling_policy": schema.StringAttribute{
-							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.",
+							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`. Cannot be set for `vm` workloads.",
 							Computed:    true,
 						},
 						"termination_grace_period_seconds": schema.Int32Attribute{

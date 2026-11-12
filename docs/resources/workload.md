@@ -558,8 +558,8 @@ Optional:
 
 - **min_ready_seconds** (Number) The minimum number of seconds a container must run without crashing to be considered available. Default: 0.
 - **max_unavailable_replicas** (String) The number of replicas that can be unavailable during the update process. Cannot be used in a `stateful` workload.
-- **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
-- **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.
+- **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update. Not supported for `vm` workloads.
+- **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`. Cannot be set for `vm` workloads.
 - **termination_grace_period_seconds** (Number) The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run. Default: 90.
 - **rollout_on_reference_change** (Boolean) When true, replicas are rolled out whenever a secret or the identity referenced by the workload is modified. Not supported for `vm` workloads.
 

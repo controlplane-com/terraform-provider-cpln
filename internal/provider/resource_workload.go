@@ -1299,11 +1299,11 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Optional:    true,
 						},
 						"max_surge_replicas": schema.StringAttribute{
-							Description: "The number of replicas that can be created above the desired amount of replicas during an update.",
+							Description: "The number of replicas that can be created above the desired amount of replicas during an update. Not supported for `vm` workloads.",
 							Optional:    true,
 						},
 						"scaling_policy": schema.StringAttribute{
-							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.",
+							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`. Cannot be set for `vm` workloads.",
 							Optional:    true,
 							Computed:    true,
 							Default:     stringdefault.StaticString("OrderedReady"),
@@ -2502,13 +2502,32 @@ func (wrv *WorkloadResourceValidator) Validate() {
 		)
 	}
 
-	// The API drops rollout_on_reference_change from vm workloads, so any value would come back missing
-	if workloadType == "vm" && ok && len(rolloutOptions) > 0 && !rolloutOptions[0].RolloutOnReferenceChange.IsNull() && !rolloutOptions[0].RolloutOnReferenceChange.IsUnknown() {
-		wrv.Diags.AddAttributeError(
-			path.Root("rollout_options").AtListIndex(0).AtName("rollout_on_reference_change"),
-			"Invalid Rollout Option for VM Workload",
-			"The 'rollout_on_reference_change' field is not supported for 'vm' workload types. Remove this field or use a different workload type instead.",
-		)
+	// The API drops these rollout options from vm workloads, so any value would come back missing
+	if workloadType == "vm" && ok && len(rolloutOptions) > 0 {
+		// Pair each unsupported attribute with its configured value
+		vmUnsupportedFields := []struct {
+			name  string
+			value attr.Value
+		}{
+			{"max_surge_replicas", rolloutOptions[0].MaxSurgeReplicas},
+			{"scaling_policy", rolloutOptions[0].ScalingPolicy},
+			{"rollout_on_reference_change", rolloutOptions[0].RolloutOnReferenceChange},
+		}
+
+		// Report every unsupported attribute that is set
+		for _, field := range vmUnsupportedFields {
+			// Skip attributes that are not configured
+			if field.value.IsNull() || field.value.IsUnknown() {
+				continue
+			}
+
+			// Report the attribute as unsupported for vm workloads
+			wrv.Diags.AddAttributeError(
+				path.Root("rollout_options").AtListIndex(0).AtName(field.name),
+				"Invalid Rollout Option for VM Workload",
+				fmt.Sprintf("The '%s' field is not supported for 'vm' workload types. Remove this field or use a different workload type instead.", field.name),
+			)
+		}
 	}
 
 	// Initialize flags for GPU, Min CPU, and Min Memory usage
@@ -2845,7 +2864,7 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.Job = wro.flattenJob(apiResp.Spec.Job)
 		state.Sidecar = wro.flattenSidecar(apiResp.Spec.Sidecar)
 		state.SupportDynamicTags = types.BoolPointerValue(apiResp.Spec.SupportDynamicTags)
-		state.RolloutOptions = wro.flattenRolloutOptions(apiResp.Spec.RolloutOptions)
+		state.RolloutOptions = wro.flattenRolloutOptions(apiResp.Spec.RolloutOptions, apiResp.Spec.Type)
 		state.DisruptionBudget = wro.flattenDisruptionBudget(apiResp.Spec.DisruptionBudget)
 		state.SecurityOptions = wro.flattenSecurityOptions(apiResp.Spec.SecurityOptions)
 		state.LoadBalancer = wro.flattenLoadBalancer(wro.Plan.LoadBalancer, apiResp.Spec.LoadBalancer)
@@ -5540,7 +5559,7 @@ func (wro *WorkloadResourceOperator) flattenSidecar(input *client.WorkloadSideca
 }
 
 // flattenRolloutOptions transforms *client.WorkloadRolloutOptions into a types.List.
-func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.WorkloadRolloutOptions) types.List {
+func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.WorkloadRolloutOptions, workloadType *string) types.List {
 	// Get attribute types
 	elementType := models.RolloutOptionsModel{}.AttributeTypes()
 
@@ -5558,6 +5577,11 @@ func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.Workloa
 		ScalingPolicy:                 types.StringPointerValue(input.ScalingPolicy),
 		TerminationGracePeriodSeconds: FlattenInt(input.TerminationGracePeriodSeconds),
 		RolloutOnReferenceChange:      types.BoolPointerValue(input.RolloutOnReferenceChange),
+	}
+
+	// The API drops scaling_policy from vm workloads, so keep the schema default the plan carries
+	if workloadType != nil && *workloadType == "vm" && input.ScalingPolicy == nil {
+		block.ScalingPolicy = types.StringValue("OrderedReady")
 	}
 
 	// Return the successfully created types.List

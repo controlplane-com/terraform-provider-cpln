@@ -313,14 +313,14 @@ func (wrt *WorkloadResourceTest) NewVmDefaultsScenario() []resource.TestStep {
 	// Build test steps
 	initialConfig, omittedStep := wrt.BuildVmDefaultsOmittedTestStep(name)
 	setStep := wrt.BuildVmDefaultsSetTestStep(initialConfig.ProviderTestCase)
-	rolloutOnReferenceChangeStep := wrt.BuildVmRolloutOnReferenceChangeTestStep(initialConfig)
+	unsupportedRolloutOptionsStep := wrt.BuildVmUnsupportedRolloutOptionsTestStep(initialConfig)
 
 	// Return the complete test steps. Walk the optional defaulted blocks through omit -> set -> omit to
 	// prove the defaults apply on create, an explicit value overrides them, and removing the blocks
 	// re-applies the defaults (the Computed+Default revert path).
 	return []resource.TestStep{
-		// Refuse rollout_on_reference_change at plan time, since the API drops it from vm workloads
-		rolloutOnReferenceChangeStep,
+		// Refuse the rollout options the API drops from vm workloads at plan time
+		unsupportedRolloutOptionsStep,
 		// Omit firmware/network/clock -> defaults materialize
 		omittedStep,
 		// Set them explicitly -> overrides
@@ -3071,6 +3071,7 @@ func (wrt *WorkloadResourceTest) BuildVmTestStep(name string) (WorkloadResourceT
 			c.GetDefaultChecks(c.Description, "2"),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "gvc", wrt.GvcCase.Name),
 			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "vm"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "rollout_options.#", "0"),
 			c.TestCheckNestedBlocks("container", []map[string]interface{}{
 				{
 					"name":   "vm-container",
@@ -3159,6 +3160,16 @@ func (wrt *WorkloadResourceTest) BuildVmUpdate1TestStep(initialCase ProviderTest
 					},
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "10",
+					"max_unavailable_replicas":         "1",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "60",
+				},
+			}),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "rollout_options.0.max_surge_replicas"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "rollout_options.0.rollout_on_reference_change"),
 			c.TestCheckObjectAttr("vm", map[string]interface{}{
 				"guest_os":     "linux",
 				"run_strategy": "Manual",
@@ -3342,6 +3353,16 @@ func (wrt *WorkloadResourceTest) BuildVmUpdate2TestStep(initialCase ProviderTest
 					},
 				},
 			}),
+			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
+				{
+					"min_ready_seconds":                "0",
+					"scaling_policy":                   "OrderedReady",
+					"termination_grace_period_seconds": "90",
+				},
+			}),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "rollout_options.0.max_unavailable_replicas"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "rollout_options.0.max_surge_replicas"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "rollout_options.0.rollout_on_reference_change"),
 			c.TestCheckNestedBlocks("load_balancer", []map[string]interface{}{
 				{
 					"direct": []map[string]interface{}{
@@ -3519,12 +3540,12 @@ func (wrt *WorkloadResourceTest) BuildVmDefaultsSetTestStep(initialCase Provider
 	}
 }
 
-// BuildVmRolloutOnReferenceChangeTestStep returns a test step that expects rollout_on_reference_change to be refused on a vm workload.
-func (wrt *WorkloadResourceTest) BuildVmRolloutOnReferenceChangeTestStep(c WorkloadResourceTestCase) resource.TestStep {
+// BuildVmUnsupportedRolloutOptionsTestStep returns a test step that expects max_surge_replicas, scaling_policy and rollout_on_reference_change to be refused on a vm workload.
+func (wrt *WorkloadResourceTest) BuildVmUnsupportedRolloutOptionsTestStep(c WorkloadResourceTestCase) resource.TestStep {
 	// Initialize and return the test step
 	return resource.TestStep{
-		Config:      wrt.VmRolloutOnReferenceChangeHcl(c),
-		ExpectError: regexp.MustCompile(`Invalid\s+Rollout\s+Option\s+for\s+VM\s+Workload`),
+		Config:      wrt.VmUnsupportedRolloutOptionsHcl(c),
+		ExpectError: regexp.MustCompile(`(?s)'max_surge_replicas'\s+field\s+is\s+not\s+supported.*'scaling_policy'\s+field\s+is\s+not\s+supported.*'rollout_on_reference_change'\s+field\s+is\s+not\s+supported`),
 	}
 }
 
@@ -6610,6 +6631,12 @@ resource "cpln_workload" "%s" {
     }
   }
 
+  rollout_options {
+    min_ready_seconds                = 10
+    max_unavailable_replicas         = "1"
+    termination_grace_period_seconds = 60
+  }
+
   vm = {
     boot_disk = {
       source = {
@@ -6685,19 +6712,14 @@ resource "cpln_workload" "%s" {
 // VmUpdate2Hcl returns a fully-featured vm workload. On top of the vm block (http boot source, base64
 // cloud-init, two access-credentials/ssh-keys, and the remaining enum values), it layers on every
 // workload-level attribute that round-trips cleanly with type=vm: identity_link, support_dynamic_tags, an
-// enriched container (ports, env, inherit_env, metrics, tcp_socket/http_get probes), firewall_spec,
-// load_balancer (direct + geo_location), and request_retry_policy. This surfaces any conflict between vm
-// and other workload features.
+// enriched container (ports, env, inherit_env, metrics, tcp_socket/http_get probes), firewall_spec, an
+// empty rollout_options (defaults only), load_balancer (direct + geo_location),
+// and request_retry_policy. This surfaces any conflict between vm and other workload features.
 //
 // Intentionally omitted because the API REJECTS them for type=vm: security_options, job, container
 // image/port/command/args/lifecycle/working_directory, exec & grpc probes, load_balancer.replica_direct.
 //
-// Intentionally omitted because the API STRIPS Computed/defaulted fields for type=vm, which collides with
-// the provider's client-side defaults and produces an "inconsistent result after apply": the whole
-// `options` block (capacity_ai defaults true but is stripped; autoscaling only allows metric=disabled) and
-// `rollout_options` (scaling_policy defaults OrderedReady but is stripped, as is max_surge_replicas). The
-// existing cron scenario avoids `options` for the same reason. Surfacing those cleanly needs the provider
-// to skip those defaults for type=vm; until then they can't be asserted without perpetual drift.
+// Intentionally omitted: the `options` block, whose autoscaling only allows metric=disabled for type=vm.
 //
 // Also omitted: sidecar/extras (envoy filters and BYOK k8s modifications are not meaningful on a cloud GVC).
 func (wrt *WorkloadResourceTest) VmUpdate2Hcl(c WorkloadResourceTestCase) string {
@@ -6872,6 +6894,8 @@ resource "cpln_workload" "%s" {
       inbound_allow_workload = []
     }
   }
+
+  rollout_options {}
 
   load_balancer {
     direct {
@@ -7114,8 +7138,8 @@ resource "cpln_workload" "%s" {
 	)
 }
 
-// VmRolloutOnReferenceChangeHcl returns a vm workload that sets rollout_on_reference_change, which the provider refuses for vm.
-func (wrt *WorkloadResourceTest) VmRolloutOnReferenceChangeHcl(c WorkloadResourceTestCase) string {
+// VmUnsupportedRolloutOptionsHcl returns a vm workload that sets the rollout options the provider refuses for vm.
+func (wrt *WorkloadResourceTest) VmUnsupportedRolloutOptionsHcl(c WorkloadResourceTestCase) string {
 	return fmt.Sprintf(`
 variable "random_name" {
   type    = string
@@ -7156,6 +7180,8 @@ resource "cpln_workload" "%s" {
   }
 
   rollout_options {
+    max_surge_replicas          = "1"
+    scaling_policy              = "Parallel"
     rollout_on_reference_change = true
   }
 
