@@ -471,7 +471,7 @@ func (c *Client) CreateResourceAgent(resource Agent) (*Agent, int, error) {
 	return nil, 0, fmt.Errorf("create Agent failed after %d attempts due to HTTP 429", maxRetries)
 }
 
-// UpdateResource sends a PATCH to update a resource with retry logic on 429 errors.
+// UpdateResource sends a PATCH to update a resource with retry logic on 409 and 429 errors.
 func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 	// Tag the resource as updated by Terraform
 	c.ForceCreatedByTerraformTag(resource, true)
@@ -510,10 +510,27 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 		// Execute the HTTP request
 		_, code, err := c.doRequest(req, "application/json")
 
-		// On HTTP 429 Too Many Requests...
 		if err != nil {
 			lastErr = err
 
+			// On HTTP 409 Conflict, raised when a controller changed the resource mid-update...
+			if code == http.StatusConflict {
+				// If we've exhausted all retries, break to report failure
+				if attempt == maxRetries {
+					break
+				}
+
+				// Wait for the current backoff duration
+				time.Sleep(backoff)
+
+				// Double the backoff for the next attempt
+				backoff *= 2
+
+				// Retry the request
+				continue
+			}
+
+			// On HTTP 429 Too Many Requests...
 			if code == http.StatusTooManyRequests {
 				// If the error message mentions quota, return the original error
 				if strings.Contains(err.Error(), "quota") {
@@ -545,10 +562,10 @@ func (c *Client) UpdateResource(id string, resource interface{}) (int, error) {
 
 	// Report final failure after all retry attempts
 	if lastErr != nil {
-		return 0, fmt.Errorf("update resource %q failed after %d attempts due to HTTP 429: %w", id, maxRetries, lastErr)
+		return 0, fmt.Errorf("update resource %q failed after %d attempts: %w", id, maxRetries, lastErr)
 	}
 
-	return 0, fmt.Errorf("update resource %q failed after %d attempts due to HTTP 429", id, maxRetries)
+	return 0, fmt.Errorf("update resource %q failed after %d attempts", id, maxRetries)
 }
 
 // DeleteResource attempts to delete the specified resource by ID with retry logic on 409 and 429 errors.
