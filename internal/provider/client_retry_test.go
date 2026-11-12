@@ -58,6 +58,12 @@ func TestClientRetriesTransientFailures(t *testing.T) {
 			wantAttempts: 2,
 		},
 		{
+			name:         "update is sent again after the resource changed mid-update",
+			call:         updateResource,
+			outcomes:     []fakeOutcome{{status: http.StatusConflict, body: `{"message":"Conflict: resource was changed","status":409}`}, ok},
+			wantAttempts: 2,
+		},
+		{
 			name:         "update is not sent again after the gateway reached the API",
 			call:         updateResource,
 			outcomes:     []fakeOutcome{gatewayConnectionTermination},

@@ -45,8 +45,10 @@ type WorkloadSpec struct {
 	Sidecar            *WorkloadSidecar            `json:"sidecar,omitempty"`
 	SupportDynamicTags *bool                       `json:"supportDynamicTags,omitempty"`
 	RolloutOptions     *WorkloadRolloutOptions     `json:"rolloutOptions,omitempty"`
+	DisruptionBudget   *WorkloadDisruptionBudget   `json:"disruptionBudget,omitempty"`
 	SecurityOptions    *WorkloadSecurityOptions    `json:"securityOptions,omitempty"`
 	LoadBalancer       *WorkloadLoadBalancer       `json:"loadBalancer,omitempty"`
+	Networking         *WorkloadNetworking         `json:"networking,omitempty"`
 	Extras             *any                        `json:"extras,omitempty"`
 	RequestRetryPolicy *WorkloadRequestRetryPolicy `json:"requestRetryPolicy,omitempty"`
 	Vm                 *WorkloadVm                 `json:"vm,omitempty"`
@@ -67,6 +69,7 @@ type WorkloadContainer struct {
 	MinCPU           *string                       `json:"minCpu,omitempty"`
 	MinMemory        *string                       `json:"minMemory,omitempty"`
 	Env              *[]WorkloadContainerNameValue `json:"env,omitempty"`
+	EnvFrom          *[]WorkloadContainerEnvFrom   `json:"envFrom,omitempty"`
 	GPU              *WorkloadContainerGpu         `json:"gpu,omitempty"`
 	InheritEnv       *bool                         `json:"inheritEnv,omitempty"`
 	Command          *string                       `json:"command,omitempty"`
@@ -125,6 +128,16 @@ type WorkloadHealthCheckHttpGet struct {
 type WorkloadContainerNameValue struct {
 	Name  *string `json:"name,omitempty"`
 	Value *string `json:"value,omitempty"`
+}
+
+// WorkloadContainerEnvFrom - Dictionary Secret Injected as Environment Variables
+type WorkloadContainerEnvFrom struct {
+	SecretRef *WorkloadContainerEnvFromSecretRef `json:"secretRef,omitempty"`
+}
+
+// WorkloadContainerEnvFromSecretRef - Reference to a Dictionary Secret
+type WorkloadContainerEnvFromSecretRef struct {
+	Name *string `json:"name,omitempty"`
 }
 
 type WorkloadContainerGpu struct {
@@ -319,6 +332,13 @@ type WorkloadRolloutOptions struct {
 	MaxSurgeReplicas              *string `json:"maxSurgeReplicas,omitempty"`
 	ScalingPolicy                 *string `json:"scalingPolicy,omitempty"`
 	TerminationGracePeriodSeconds *int    `json:"terminationGracePeriodSeconds,omitempty"`
+	RolloutOnReferenceChange      *bool   `json:"rolloutOnReferenceChange,omitempty"`
+}
+
+// WorkloadDisruptionBudget - Workload Voluntary Disruption Budget
+type WorkloadDisruptionBudget struct {
+	MinAvailable   *string `json:"minAvailable,omitempty"`
+	MaxUnavailable *string `json:"maxUnavailable,omitempty"`
 }
 
 // Security Options
@@ -358,6 +378,16 @@ type WorkloadLoadBalancerGeoLocationHeaders struct {
 	City    *string `json:"city,omitempty"`
 	Country *string `json:"country,omitempty"`
 	Region  *string `json:"region,omitempty"`
+}
+
+// WorkloadNetworking - Workload Internal Service-to-Service Networking
+type WorkloadNetworking struct {
+	Internal *WorkloadNetworkingInternal `json:"internal,omitempty"`
+}
+
+// WorkloadNetworkingInternal - Workload Internal (cpln.local) Request Routing
+type WorkloadNetworkingInternal struct {
+	Routing *string `json:"routing,omitempty"` // Enum: "locationEndpoint", "gvcEndpoint"
 }
 
 type WorkloadRequestRetryPolicy struct {

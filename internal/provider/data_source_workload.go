@@ -100,6 +100,36 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 				Description: "Workload will automatically redeploy when one of the container images is updated in the container registry. Default: false.",
 				Computed:    true,
 			},
+			"disruption_budget": schema.SingleNestedAttribute{
+				Description: "Limits how many replicas voluntary disruptions (node drains, cluster autoscaler scale-down, node upgrades) can evict at once.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"min_available": schema.StringAttribute{
+						Description: "Minimum number or percentage of replicas that must stay available during voluntary disruptions such as node drains.",
+						Computed:    true,
+					},
+					"max_unavailable": schema.StringAttribute{
+						Description: "Maximum number or percentage of replicas that can be unavailable during voluntary disruptions such as node drains.",
+						Computed:    true,
+					},
+				},
+			},
+			"networking": schema.SingleNestedAttribute{
+				Description: "Internal service-to-service networking configuration.",
+				Computed:    true,
+				Attributes: map[string]schema.Attribute{
+					"internal": schema.SingleNestedAttribute{
+						Description: "Routing of internal (`cpln.local`) requests.",
+						Computed:    true,
+						Attributes: map[string]schema.Attribute{
+							"routing": schema.StringAttribute{
+								Description: "How requests to `<workload>.<gvc>.cpln.local` from the same GVC are routed. `locationEndpoint`: served only by replicas in the caller's location. `gvcEndpoint`: fail over to the workload's canonical endpoint (the nearest healthy location) when no local replica can serve them.",
+								Computed:    true,
+							},
+						},
+					},
+				},
+			},
 			"extras": schema.StringAttribute{
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
 				Computed:    true,
@@ -533,6 +563,24 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							ElementType: types.StringType,
 							Computed:    true,
 						},
+						"env_from": schema.ListNestedAttribute{
+							Description: "Dictionary secrets whose key/value pairs are injected as environment variables. An explicit `env` variable overrides an `env_from` key of the same name; later entries override earlier ones.",
+							Computed:    true,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"secret_ref": schema.SingleNestedAttribute{
+										Description: "References a dictionary secret whose key/value pairs are injected as environment variables.",
+										Computed:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Name of a dictionary secret whose keys are injected as environment variables.",
+												Computed:    true,
+											},
+										},
+									},
+								},
+							},
+						},
 						"inherit_env": schema.BoolAttribute{
 							Description: "Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.",
 							Computed:    true,
@@ -717,20 +765,20 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 										NestedObject: schema.NestedBlockObject{
 											Blocks: map[string]schema.Block{
 												"inbound_header_filter": schema.SetNestedBlock{
-													Description: "A list of header filters for HTTP workloads.",
+													Description: "A list of header filters for HTTP workloads. Each header key may appear only once, compared case-insensitively.",
 													NestedObject: schema.NestedBlockObject{
 														Attributes: map[string]schema.Attribute{
 															"key": schema.StringAttribute{
-																Description: "The header to match for.",
+																Description: "The header to match for: an HTTP header name (RFC 9110 token) or one of the pseudo-headers `:authority`, `:method`, `:path` and `:scheme`. Header names are case-insensitive.",
 																Computed:    true,
 															},
 															"allowed_values": schema.SetAttribute{
-																Description: "A list of regular expressions to match for allowed header values. Headers that do not match ANY of these values will be filtered and will not reach the workload.",
+																Description: "A list of regular expressions to match for allowed header values. When included, http requests must have AT LEAST ONE of these headers to be sent to the workload.",
 																ElementType: types.StringType,
 																Computed:    true,
 															},
 															"blocked_values": schema.SetAttribute{
-																Description: "A list of regular expressions to match for blocked header values. Headers that match ANY of these values will be filtered and will not reach the workload.",
+																Description: "A list of regular expressions to match for blocked header values. When included, http requests with ANY of these headers will be filtered and will not reach the workload.",
 																ElementType: types.StringType,
 																Computed:    true,
 															},
@@ -815,15 +863,19 @@ func (d *WorkloadDataSource) Schema(ctx context.Context, req datasource.SchemaRe
 							Computed:    true,
 						},
 						"max_surge_replicas": schema.StringAttribute{
-							Description: "The number of replicas that can be created above the desired amount of replicas during an update.",
+							Description: "The number of replicas that can be created above the desired amount of replicas during an update. Not supported for `vm` workloads.",
 							Computed:    true,
 						},
 						"scaling_policy": schema.StringAttribute{
-							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.",
+							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`. Cannot be set for `vm` workloads.",
 							Computed:    true,
 						},
 						"termination_grace_period_seconds": schema.Int32Attribute{
 							Description: "The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run.",
+							Computed:    true,
+						},
+						"rollout_on_reference_change": schema.BoolAttribute{
+							Description: "When true, replicas are rolled out whenever a secret or the identity referenced by the workload is modified.",
 							Computed:    true,
 						},
 					},

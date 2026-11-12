@@ -475,7 +475,8 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate1TestStep(initialCase Pro
 					},
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-node-pool",
+							"name":     "my-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -509,6 +510,7 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate2TestStep(initialCase Pro
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
 			c.TestCheckResourceAttr("version", "1.28.4"),
 			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.byok.config.maintainer.env.%"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "generic_provider.0.node_pool.0.max_pods"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255/32",
@@ -598,7 +600,8 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 					},
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-node-pool-01",
+							"name":     "my-node-pool-01",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -629,12 +632,18 @@ func (mrt *Mk8sResourceTest) BuildGenericProviderUpdate3TestStep(initialCase Pro
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -732,7 +741,8 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 					"network_id":         "2808575",
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-hetzner-node-pool",
+							"name":     "my-hetzner-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -751,7 +761,8 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 					},
 					"dedicated_server_node_pool": []map[string]interface{}{
 						{
-							"name": "my-node-pool",
+							"name":     "my-node-pool",
+							"max_pods": "64",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -792,12 +803,18 @@ func (mrt *Mk8sResourceTest) BuildHetznerProviderTestStep(resourceName string, n
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -911,7 +928,8 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 					},
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-hetzner-node-pool",
+							"name":     "my-hetzner-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -964,12 +982,18 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1006,6 +1030,7 @@ func (mrt *Mk8sResourceTest) BuildAwsProviderTestStep(resourceName string, name 
 							"taint_gpu_nodes": "true",
 						},
 					},
+					"aws_elb": []map[string]interface{}{{}},
 					"azure_acr": []map[string]interface{}{
 						{
 							"client_id": "4e25b134-160b-4a9d-b392-13b381ced5ef",
@@ -1061,7 +1086,8 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 					"pre_install_script": "#! echo hello world",
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-linode-node-pool",
+							"name":     "my-linode-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -1108,12 +1134,18 @@ func (mrt *Mk8sResourceTest) BuildLinodeProviderTestStep(resourceName string, na
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1200,7 +1232,8 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 					"pre_install_script": "#! echo hello world",
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-oblivus-node-pool",
+							"name":     "my-oblivus-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -1254,12 +1287,18 @@ func (mrt *Mk8sResourceTest) BuildOblivusProviderTestStep(resourceName string, n
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1348,6 +1387,7 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 					"node_pool": []map[string]interface{}{
 						{
 							"name":          "my-lambdalabs-node-pool",
+							"max_pods":      "110",
 							"instance_type": "cpu_4x_general",
 							"labels": map[string]interface{}{
 								"hello": "world",
@@ -1399,12 +1439,18 @@ func (mrt *Mk8sResourceTest) BuildLambdalabsProviderTestStep(resourceName string
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1494,6 +1540,7 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 					"node_pool": []map[string]interface{}{
 						{
 							"name":           "my-paperspace-node-pool",
+							"max_pods":       "110",
 							"min_size":       "0",
 							"max_size":       "0",
 							"public_ip_type": "dynamic",
@@ -1549,12 +1596,18 @@ func (mrt *Mk8sResourceTest) BuildPaperspaceProviderTestStep(resourceName string
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1639,12 +1692,13 @@ func (mrt *Mk8sResourceTest) BuildEphemeralProviderTestStep(resourceName string,
 					"location": "aws-eu-central-1",
 					"node_pool": []map[string]interface{}{
 						{
-							"name":   "my-ephemeral-node-pool",
-							"count":  "1",
-							"arch":   "arm64",
-							"flavor": "debian",
-							"cpu":    "50m",
-							"memory": "128Mi",
+							"name":     "my-ephemeral-node-pool",
+							"max_pods": "110",
+							"count":    "1",
+							"arch":     "arm64",
+							"flavor":   "debian",
+							"cpu":      "50m",
+							"memory":   "128Mi",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -1672,12 +1726,18 @@ func (mrt *Mk8sResourceTest) BuildEphemeralProviderTestStep(resourceName string,
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1780,6 +1840,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 					"node_pool": []map[string]interface{}{
 						{
 							"name":                "my-triton-node-pool",
+							"max_pods":            "110",
 							"package_id":          "da311341-b42b-45a8-9386-78ede625d0a4",
 							"override_image_id":   "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e",
 							"public_network_id":   "5ff1fe03-075b-4e4c-b85b-73de0c452f77",
@@ -1824,12 +1885,18 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderTestStep(resourceName string, na
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -1931,6 +1998,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 					"node_pool": []map[string]interface{}{
 						{
 							"name":                "my-triton-node-pool",
+							"max_pods":            "110",
 							"package_id":          "da311341-b42b-45a8-9386-78ede625d0a4",
 							"override_image_id":   "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e",
 							"public_network_id":   "5ff1fe03-075b-4e4c-b85b-73de0c452f77",
@@ -1975,12 +2043,18 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate1TestStep(initialCase Prov
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_replicaset_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_dns_request_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_volume_stats_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_watch_events_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_network_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_fs_.*",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -2047,6 +2121,12 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 		Check: resource.ComposeAggregateTestCheckFunc(
 			c.GetDefaultChecks(c.DescriptionUpdate, "3"),
 			c.TestCheckResourceAttr("version", "1.32.1"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.metrics.0.kube_state_drop"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.metrics.0.core_dns_drop"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.metrics.0.kubelet_drop"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.metrics.0.api_server_drop"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.metrics.0.node_exporter_drop"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "add_ons.0.metrics.0.cadvisor_drop"),
 			c.TestCheckNestedBlocks("firewall", []map[string]interface{}{
 				{
 					"source_cidr": "192.168.1.255/32",
@@ -2106,6 +2186,7 @@ func (mrt *Mk8sResourceTest) BuildTritonProviderUpdate2TestStep(initialCase Prov
 					"node_pool": []map[string]interface{}{
 						{
 							"name":                "my-triton-node-pool",
+							"max_pods":            "110",
 							"package_id":          "da311341-b42b-45a8-9386-78ede625d0a4",
 							"override_image_id":   "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e",
 							"public_network_id":   "5ff1fe03-075b-4e4c-b85b-73de0c452f77",
@@ -2261,6 +2342,7 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 					"node_pool": []map[string]interface{}{
 						{
 							"name":      "my-azure-node-pool",
+							"max_pods":  "110",
 							"size":      "Standard_B1ls",
 							"subnet_id": "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1/subnets/default",
 							"labels": map[string]interface{}{
@@ -2302,12 +2384,18 @@ func (mrt *Mk8sResourceTest) BuildAzureProviderTestStep(resourceName string, nam
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -2405,6 +2493,7 @@ func (mrt *Mk8sResourceTest) BuildDigitalOceanProviderTestStep(resourceName stri
 					"node_pool": []map[string]interface{}{
 						{
 							"name":           "my-do-node-pool",
+							"max_pods":       "110",
 							"droplet_size":   "s-1vcpu-1gb-intel",
 							"override_image": "ubuntu-22-04-x64",
 							"labels": map[string]interface{}{
@@ -2439,12 +2528,18 @@ func (mrt *Mk8sResourceTest) BuildDigitalOceanProviderTestStep(resourceName stri
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -2537,7 +2632,8 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 					},
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-gcp-node-pool",
+							"name":     "my-gcp-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -2587,12 +2683,18 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderTestStep(resourceName string, name 
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -2694,7 +2796,8 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 					},
 					"node_pool": []map[string]interface{}{
 						{
-							"name": "my-gcp-node-pool",
+							"name":     "my-gcp-node-pool",
+							"max_pods": "110",
 							"labels": map[string]interface{}{
 								"hello": "world",
 							},
@@ -2740,12 +2843,18 @@ func (mrt *Mk8sResourceTest) BuildGcpProviderUpdate1TestStep(initialCase Provide
 					"local_path_storage":    "true",
 					"metrics": []map[string]interface{}{
 						{
-							"kube_state":    "true",
-							"core_dns":      "true",
-							"kubelet":       "true",
-							"api_server":    "true",
-							"node_exporter": "true",
-							"cadvisor":      "true",
+							"kube_state":         "true",
+							"kube_state_drop":    "kube_pod_status_.*",
+							"core_dns":           "true",
+							"core_dns_drop":      "coredns_cache_.*",
+							"kubelet":            "true",
+							"kubelet_drop":       "kubelet_runtime_operations_.*",
+							"api_server":         "true",
+							"api_server_drop":    "apiserver_request_.*",
+							"node_exporter":      "true",
+							"node_exporter_drop": "node_scrape_collector_.*",
+							"cadvisor":           "true",
+							"cadvisor_drop":      "container_tasks_state",
 							"scrape_annotated": []map[string]interface{}{
 								{
 									"interval_seconds":   "30",
@@ -2849,7 +2958,8 @@ resource "cpln_mk8s" "%s" {
     }
 
     node_pool {
-      name = "my-node-pool"
+      name     = "my-node-pool"
+      max_pods = 110
 
       labels = {
         hello = "world"
@@ -2966,7 +3076,8 @@ resource "cpln_mk8s" "%s" {
     }
 
     node_pool {
-      name = "my-node-pool-01"
+      name     = "my-node-pool-01"
+      max_pods = 110
 
       labels = {
         hello = "world"
@@ -2996,12 +3107,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -3273,7 +3390,8 @@ resource "cpln_mk8s" "%s" {
     network_id         = "2808575"
 
     node_pool {
-      name = "my-hetzner-node-pool"
+      name     = "my-hetzner-node-pool"
+      max_pods = 110
 
       labels = {
         hello = "world"
@@ -3292,7 +3410,8 @@ resource "cpln_mk8s" "%s" {
     }
 
     dedicated_server_node_pool {
-      name = "my-node-pool"
+      name     = "my-node-pool"
+      max_pods = 64
 
       labels = {
         hello = "world"
@@ -3332,12 +3451,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -3612,7 +3737,8 @@ resource "cpln_mk8s" "%s" {
     }
 
     node_pool {
-      name = "my-hetzner-node-pool"
+      name     = "my-hetzner-node-pool"
+      max_pods = 110
 
       labels = {
         hello = "world"
@@ -3665,12 +3791,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -3701,6 +3833,8 @@ resource "cpln_mk8s" "%s" {
     nvidia {
       taint_gpu_nodes = true
     }
+
+    aws_elb {}
 
     azure_acr {
       client_id = "4e25b134-160b-4a9d-b392-13b381ced5ef"
@@ -3923,7 +4057,8 @@ resource "cpln_mk8s" "%s" {
     pre_install_script = "#! echo hello world"
 
     node_pool {
-      name = "my-linode-node-pool"
+      name     = "my-linode-node-pool"
+      max_pods = 110
 
       labels = {
         hello = "world"
@@ -3967,12 +4102,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -4220,10 +4361,11 @@ resource "cpln_mk8s" "%s" {
     pre_install_script = "#! echo hello world"
 
     node_pool {
-      name           = "my-oblivus-node-pool"
-      min_size       = 0
-      max_size       = 0
-      flavor         = "INTEL_XEON_V3_x4"
+      name     = "my-oblivus-node-pool"
+      max_pods = 110
+      min_size = 0
+      max_size = 0
+      flavor   = "INTEL_XEON_V3_x4"
 
       labels = {
         hello = "world"
@@ -4270,12 +4412,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -4524,8 +4672,9 @@ resource "cpln_mk8s" "%s" {
     pre_install_script = "#! echo hello world"
 
     node_pool {
-      name           = "my-lambdalabs-node-pool"
-      instance_type  = "cpu_4x_general"
+      name          = "my-lambdalabs-node-pool"
+      max_pods      = 110
+      instance_type = "cpu_4x_general"
 
       labels = {
         hello = "world"
@@ -4572,12 +4721,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -4828,6 +4983,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name           = "my-paperspace-node-pool"
+      max_pods       = 110
       min_size       = 0
       max_size       = 0
       public_ip_type = "dynamic"
@@ -4879,12 +5035,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -5130,12 +5292,13 @@ resource "cpln_mk8s" "%s" {
     location = "aws-eu-central-1"
 
     node_pool {
-      name   = "my-ephemeral-node-pool"
-      count  = 1
-      arch   = "arm64"
-      flavor = "debian"
-      cpu    = "50m"
-      memory = "128Mi"
+      name     = "my-ephemeral-node-pool"
+      max_pods = 110
+      count    = 1
+      arch     = "arm64"
+      flavor   = "debian"
+      cpu      = "50m"
+      memory   = "128Mi"
 
       labels = {
         hello = "world"
@@ -5161,12 +5324,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -5248,6 +5417,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name              = "my-triton-node-pool"
+      max_pods          = 110
       package_id        = "da311341-b42b-45a8-9386-78ede625d0a4"
       override_image_id = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
       public_network_id = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
@@ -5291,12 +5461,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -5560,6 +5736,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name              = "my-triton-node-pool"
+      max_pods          = 110
       package_id        = "da311341-b42b-45a8-9386-78ede625d0a4"
       override_image_id = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
       public_network_id = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
@@ -5603,12 +5780,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_replicaset_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_dns_request_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_volume_stats_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_watch_events_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_network_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_fs_.*"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -5895,6 +6078,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name              = "my-triton-node-pool"
+      max_pods          = 110
       package_id        = "da311341-b42b-45a8-9386-78ede625d0a4"
       override_image_id = "e2f3f2aa-a833-49e0-94af-7a7e092cdd9e"
       public_network_id = "5ff1fe03-075b-4e4c-b85b-73de0c452f77"
@@ -6207,6 +6391,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name      = "my-azure-node-pool"
+      max_pods  = 110
       size      = "Standard_B1ls"
       subnet_id = "/subscriptions/02d033d5-6d7a-4d45-88e3-43d778647918/resourceGroups/cloudaccount-azure/providers/Microsoft.Network/virtualNetworks/mk8s-test-1/subnets/default"
 
@@ -6246,12 +6431,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -6511,6 +6702,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name           = "my-do-node-pool"
+      max_pods       = 110
       droplet_size   = "s-1vcpu-1gb-intel"
       override_image = "ubuntu-22-04-x64"
       min_size       = 1
@@ -6543,12 +6735,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -6651,6 +6849,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name                   = "my-gcp-node-pool"
+      max_pods               = 110
       machine_type           = "n1-standard-2"
       assign_public_ip       = true
       zone                   = "us-west1-a"
@@ -6696,12 +6895,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30
@@ -6969,6 +7174,7 @@ resource "cpln_mk8s" "%s" {
 
     node_pool {
       name                   = "my-gcp-node-pool"
+      max_pods               = 110
       machine_type           = "n1-standard-2"
       assign_public_ip       = false
       zone                   = "us-west1-a"
@@ -7017,12 +7223,18 @@ resource "cpln_mk8s" "%s" {
     local_path_storage    = true
 
     metrics {
-      kube_state    = true
-      core_dns      = true
-      kubelet       = true
-      api_server    = true
-      node_exporter = true
-      cadvisor      = true
+      kube_state         = true
+      kube_state_drop    = "kube_pod_status_.*"
+      core_dns           = true
+      core_dns_drop      = "coredns_cache_.*"
+      kubelet            = true
+      kubelet_drop       = "kubelet_runtime_operations_.*"
+      api_server         = true
+      api_server_drop    = "apiserver_request_.*"
+      node_exporter      = true
+      node_exporter_drop = "node_scrape_collector_.*"
+      cadvisor           = true
+      cadvisor_drop      = "container_tasks_state"
 
       scrape_annotated {
         interval_seconds   = 30

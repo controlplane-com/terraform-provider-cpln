@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -56,8 +57,10 @@ type WorkloadResourceModel struct {
 	Sidecar            types.List   `tfsdk:"sidecar"`
 	SupportDynamicTags types.Bool   `tfsdk:"support_dynamic_tags"`
 	RolloutOptions     types.List   `tfsdk:"rollout_options"`
+	DisruptionBudget   types.Object `tfsdk:"disruption_budget"`
 	SecurityOptions    types.List   `tfsdk:"security_options"`
 	LoadBalancer       types.List   `tfsdk:"load_balancer"`
+	Networking         types.Object `tfsdk:"networking"`
 	Extras             types.String `tfsdk:"extras"`
 	RequestRetryPolicy types.List   `tfsdk:"request_retry_policy"`
 	Vm                 types.Object `tfsdk:"vm"`
@@ -161,6 +164,66 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 				Optional:    true,
 				Computed:    true,
 				Default:     booldefault.StaticBool(false),
+			},
+			"disruption_budget": schema.SingleNestedAttribute{
+				Description: "Limits how many replicas voluntary disruptions (node drains, cluster autoscaler scale-down, node upgrades) can evict at once. Set either `min_available` or `max_unavailable`. A `min_available` that would allow no evictions at the `min_scale` of `options` or any `local_options` is rejected. Not supported for `cron` or `vm` workloads. When omitted, workloads with `min_scale` 4 or more allow 20% of replicas to be unavailable.",
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"min_available": schema.StringAttribute{
+						Description: "Minimum number or percentage of replicas that must stay available during voluntary disruptions such as node drains. A whole number or whole percentage (e.g., `2`, `20%`), below `100%`.",
+						Optional:    true,
+						Validators: []validator.String{
+							stringvalidator.RegexMatches(
+								regexp.MustCompile(`^(0|[1-9][0-9]*)%?$`),
+								"must be a whole number or a whole percentage, e.g. 2 or 20%",
+							),
+							stringvalidator.LengthAtMost(5),
+							stringvalidator.ConflictsWith(path.MatchRelative().AtParent().AtName("max_unavailable")),
+						},
+					},
+					"max_unavailable": schema.StringAttribute{
+						Description: "Maximum number or percentage of replicas that can be unavailable during voluntary disruptions such as node drains. A whole number or whole percentage (e.g., `2`, `20%`), at least `1` or above `0%`, and at most `100%`.",
+						Optional:    true,
+						Validators: []validator.String{
+							stringvalidator.RegexMatches(
+								regexp.MustCompile(`^(0|[1-9][0-9]*)%?$`),
+								"must be a whole number or a whole percentage, e.g. 2 or 20%",
+							),
+							stringvalidator.LengthAtMost(5),
+						},
+					},
+				},
+			},
+			"networking": schema.SingleNestedAttribute{
+				Description: "Internal service-to-service networking configuration.",
+				Optional:    true,
+				Computed:    true,
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
+				Attributes: map[string]schema.Attribute{
+					"internal": schema.SingleNestedAttribute{
+						Description: "Routing of internal (`cpln.local`) requests.",
+						Optional:    true,
+						Computed:    true,
+						PlanModifiers: []planmodifier.Object{
+							objectplanmodifier.UseStateForUnknown(),
+						},
+						Attributes: map[string]schema.Attribute{
+							"routing": schema.StringAttribute{
+								Description: "How requests to `<workload>.<gvc>.cpln.local` from the same GVC are routed. `locationEndpoint`: served only by replicas in the caller's location. `gvcEndpoint`: fail over to the workload's canonical endpoint (the nearest healthy location) when no local replica can serve them; cross-location traffic is billed as egress. Valid values: `locationEndpoint`, `gvcEndpoint`. Set to `gvcEndpoint` by the server when a workload is created without it; removing it from the configuration keeps the current value.",
+								Optional:    true,
+								Computed:    true,
+								PlanModifiers: []planmodifier.String{
+									stringplanmodifier.UseStateForUnknown(),
+								},
+								Validators: []validator.String{
+									stringvalidator.OneOf("locationEndpoint", "gvcEndpoint"),
+								},
+							},
+						},
+					},
+				},
 			},
 			"extras": schema.StringAttribute{
 				Description: "Extra Kubernetes modifications. Only used for BYOK.",
@@ -746,6 +809,34 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 								),
 							},
 						},
+						"env_from": schema.ListNestedAttribute{
+							Description: "Inject all key/value pairs of the referenced dictionary secrets as environment variables. An explicit `env` variable overrides an `env_from` key of the same name; later entries override earlier ones. Keys that are not valid environment variable names are skipped.",
+							Optional:    true,
+							NestedObject: schema.NestedAttributeObject{
+								Attributes: map[string]schema.Attribute{
+									"secret_ref": schema.SingleNestedAttribute{
+										Description: "References a dictionary secret whose key/value pairs are injected as environment variables.",
+										Required:    true,
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Description: "Name of a dictionary secret whose keys are injected as environment variables.",
+												Required:    true,
+												Validators: []validator.String{
+													stringvalidator.RegexMatches(
+														regexp.MustCompile(`^[a-z]([-a-z0-9])*[a-z0-9]$`),
+														"must start with a lowercase letter, end with a lowercase letter or digit, and contain only lowercase letters, digits, and dashes",
+													),
+													stringvalidator.LengthAtMost(64),
+												},
+											},
+										},
+									},
+								},
+							},
+							Validators: []validator.List{
+								listvalidator.SizeAtLeast(1),
+							},
+						},
 						"inherit_env": schema.BoolAttribute{
 							Description: "Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.",
 							Optional:    true,
@@ -1052,18 +1143,22 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 										NestedObject: schema.NestedBlockObject{
 											Blocks: map[string]schema.Block{
 												"inbound_header_filter": schema.SetNestedBlock{
-													Description: "A list of header filters for HTTP workloads.",
+													Description: "A list of header filters for HTTP workloads. Each header key may appear only once, compared case-insensitively.",
 													NestedObject: schema.NestedBlockObject{
 														Attributes: map[string]schema.Attribute{
 															"key": schema.StringAttribute{
-																Description: "The header to match for.",
+																Description: "The header to match for: an HTTP header name (RFC 9110 token) or one of the pseudo-headers `:authority`, `:method`, `:path` and `:scheme`. Header names are case-insensitive.",
 																Required:    true,
 																Validators: []validator.String{
 																	stringvalidator.LengthAtMost(128),
+																	stringvalidator.RegexMatches(
+																		regexp.MustCompile("(?i)^(?::(?:authority|method|path|scheme)|[!#$%&'*+.^_`|~0-9a-z-]+)$"),
+																		"must be an HTTP header name or one of the pseudo-headers :authority, :method, :path and :scheme",
+																	),
 																},
 															},
 															"allowed_values": schema.SetAttribute{
-																Description: "A list of regular expressions to match for allowed header values. Headers that do not match ANY of these values will be filtered and will not reach the workload.",
+																Description: "A list of regular expressions to match for allowed header values. When included, http requests must have AT LEAST ONE of these headers to be sent to the workload.",
 																ElementType: types.StringType,
 																Optional:    true,
 																Validators: []validator.Set{
@@ -1071,7 +1166,7 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 																},
 															},
 															"blocked_values": schema.SetAttribute{
-																Description: "A list of regular expressions to match for blocked header values. Headers that match ANY of these values will be filtered and will not reach the workload.",
+																Description: "A list of regular expressions to match for blocked header values. When included, http requests with ANY of these headers will be filtered and will not reach the workload.",
 																ElementType: types.StringType,
 																Optional:    true,
 																Validators: []validator.Set{
@@ -1204,11 +1299,11 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Optional:    true,
 						},
 						"max_surge_replicas": schema.StringAttribute{
-							Description: "The number of replicas that can be created above the desired amount of replicas during an update.",
+							Description: "The number of replicas that can be created above the desired amount of replicas during an update. Not supported for `vm` workloads.",
 							Optional:    true,
 						},
 						"scaling_policy": schema.StringAttribute{
-							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.",
+							Description: "The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`. Cannot be set for `vm` workloads.",
 							Optional:    true,
 							Computed:    true,
 							Default:     stringdefault.StaticString("OrderedReady"),
@@ -1224,6 +1319,10 @@ func (wr *WorkloadResource) Schema(ctx context.Context, req resource.SchemaReque
 							Validators: []validator.Int32{
 								int32validator.Between(0, 3600),
 							},
+						},
+						"rollout_on_reference_change": schema.BoolAttribute{
+							Description: "When true, replicas are rolled out whenever a secret or the identity referenced by the workload is modified. Not supported for `vm` workloads.",
+							Optional:    true,
 						},
 					},
 				},
@@ -2403,6 +2502,34 @@ func (wrv *WorkloadResourceValidator) Validate() {
 		)
 	}
 
+	// The API drops these rollout options from vm workloads, so any value would come back missing
+	if workloadType == "vm" && ok && len(rolloutOptions) > 0 {
+		// Pair each unsupported attribute with its configured value
+		vmUnsupportedFields := []struct {
+			name  string
+			value attr.Value
+		}{
+			{"max_surge_replicas", rolloutOptions[0].MaxSurgeReplicas},
+			{"scaling_policy", rolloutOptions[0].ScalingPolicy},
+			{"rollout_on_reference_change", rolloutOptions[0].RolloutOnReferenceChange},
+		}
+
+		// Report every unsupported attribute that is set
+		for _, field := range vmUnsupportedFields {
+			// Skip attributes that are not configured
+			if field.value.IsNull() || field.value.IsUnknown() {
+				continue
+			}
+
+			// Report the attribute as unsupported for vm workloads
+			wrv.Diags.AddAttributeError(
+				path.Root("rollout_options").AtListIndex(0).AtName(field.name),
+				"Invalid Rollout Option for VM Workload",
+				fmt.Sprintf("The '%s' field is not supported for 'vm' workload types. Remove this field or use a different workload type instead.", field.name),
+			)
+		}
+	}
+
 	// Initialize flags for GPU, Min CPU, and Min Memory usage
 	isUsingGpu := false
 	isUsingMinCpu := false
@@ -2684,8 +2811,10 @@ func (wro *WorkloadResourceOperator) NewAPIRequest(isUpdate bool) client.Workloa
 	spec.Sidecar = wro.buildSidecar(wro.Plan.Sidecar)
 	spec.SupportDynamicTags = BuildBool(wro.Plan.SupportDynamicTags)
 	spec.RolloutOptions = wro.buildRolloutOptions(wro.Plan.RolloutOptions)
+	spec.DisruptionBudget = wro.buildDisruptionBudget(wro.Plan.DisruptionBudget)
 	spec.SecurityOptions = wro.buildSecurityOptions(wro.Plan.SecurityOptions)
 	spec.LoadBalancer = wro.buildLoadBalancer(wro.Plan.LoadBalancer)
+	spec.Networking = wro.buildNetworking(wro.Plan.Networking)
 	spec.Extras = wro.buildExtras(wro.Plan.Extras)
 	spec.RequestRetryPolicy = wro.buildRequestRetryPolicy(wro.Plan.RequestRetryPolicy)
 	spec.Vm = wro.buildVm(wro.Plan.Vm)
@@ -2718,8 +2847,10 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.Sidecar = types.ListNull(models.SidecarModel{}.AttributeTypes())
 		state.SupportDynamicTags = types.BoolNull()
 		state.RolloutOptions = types.ListNull(models.RolloutOptionsModel{}.AttributeTypes())
+		state.DisruptionBudget = types.ObjectNull(models.DisruptionBudgetModel{}.AttributeTypes().(types.ObjectType).AttrTypes)
 		state.SecurityOptions = types.ListNull(models.SecurityOptionsModel{}.AttributeTypes())
 		state.LoadBalancer = types.ListNull(models.LoadBalancerModel{}.AttributeTypes())
+		state.Networking = types.ObjectNull(models.NetworkingModel{}.AttributeTypes().(types.ObjectType).AttrTypes)
 		state.Extras = types.StringNull()
 		state.RequestRetryPolicy = types.ListNull(models.RequestRetryPolicyModel{}.AttributeTypes())
 		state.Vm = types.ObjectNull(models.VmModel{}.AttributeTypes().(types.ObjectType).AttrTypes)
@@ -2733,9 +2864,11 @@ func (wro *WorkloadResourceOperator) MapResponseToState(apiResp *client.Workload
 		state.Job = wro.flattenJob(apiResp.Spec.Job)
 		state.Sidecar = wro.flattenSidecar(apiResp.Spec.Sidecar)
 		state.SupportDynamicTags = types.BoolPointerValue(apiResp.Spec.SupportDynamicTags)
-		state.RolloutOptions = wro.flattenRolloutOptions(apiResp.Spec.RolloutOptions)
+		state.RolloutOptions = wro.flattenRolloutOptions(apiResp.Spec.RolloutOptions, apiResp.Spec.Type)
+		state.DisruptionBudget = wro.flattenDisruptionBudget(apiResp.Spec.DisruptionBudget)
 		state.SecurityOptions = wro.flattenSecurityOptions(apiResp.Spec.SecurityOptions)
 		state.LoadBalancer = wro.flattenLoadBalancer(wro.Plan.LoadBalancer, apiResp.Spec.LoadBalancer)
+		state.Networking = wro.flattenNetworking(apiResp.Spec.Networking)
 		state.Extras = wro.flattenExtras(apiResp.Spec.Extras)
 		state.RequestRetryPolicy = wro.flattenRequestRetryPolicy(apiResp.Spec.RequestRetryPolicy)
 		state.Vm = wro.flattenVm(apiResp.Spec.Vm)
@@ -2818,6 +2951,7 @@ func (wro *WorkloadResourceOperator) buildContainers(state types.List) *[]client
 			MinCPU:           BuildString(block.MinCpu),
 			MinMemory:        BuildString(block.MinMemory),
 			Env:              wro.buildNameValue(block.Env),
+			EnvFrom:          wro.buildContainerEnvFrom(block.EnvFrom),
 			GPU:              wro.buildContainerGpu(block.GpuNvidia, block.GpuCustom),
 			InheritEnv:       BuildBool(block.InheritEnv),
 			Command:          BuildString(block.Command),
@@ -3014,6 +3148,50 @@ func (wro *WorkloadResourceOperator) buildNameValue(state types.Map) *[]client.W
 
 	// Return a pointer to the output
 	return &output
+}
+
+// buildContainerEnvFrom constructs a []client.WorkloadContainerEnvFrom from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildContainerEnvFrom(state types.List) *[]client.WorkloadContainerEnvFrom {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.ContainerEnvFromModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.WorkloadContainerEnvFrom{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.WorkloadContainerEnvFrom{
+			SecretRef: wro.buildContainerEnvFromSecretRef(block.SecretRef),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildContainerEnvFromSecretRef constructs a WorkloadContainerEnvFromSecretRef from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildContainerEnvFromSecretRef(state types.Object) *client.WorkloadContainerEnvFromSecretRef {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.ContainerEnvFromSecretRefModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadContainerEnvFromSecretRef{
+		Name: BuildString(block.Name),
+	}
 }
 
 // buildContainerGpu constructs a WorkloadContainerGpu from the given Terraform state.
@@ -3773,6 +3951,24 @@ func (wro *WorkloadResourceOperator) buildRolloutOptions(state types.List) *clie
 		MaxSurgeReplicas:              BuildString(block.MaxSurgeReplicas),
 		ScalingPolicy:                 BuildString(block.ScalingPolicy),
 		TerminationGracePeriodSeconds: BuildInt(block.TerminationGracePeriodSeconds),
+		RolloutOnReferenceChange:      BuildBool(block.RolloutOnReferenceChange),
+	}
+}
+
+// buildDisruptionBudget constructs a WorkloadDisruptionBudget from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildDisruptionBudget(state types.Object) *client.WorkloadDisruptionBudget {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.DisruptionBudgetModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadDisruptionBudget{
+		MinAvailable:   BuildString(block.MinAvailable),
+		MaxUnavailable: BuildString(block.MaxUnavailable),
 	}
 }
 
@@ -3908,6 +4104,38 @@ func (wro *WorkloadResourceOperator) buildLoadBalancerGeoLocationHeaders(state t
 		City:    BuildString(block.City),
 		Country: BuildString(block.Country),
 		Region:  BuildString(block.Region),
+	}
+}
+
+// buildNetworking constructs a WorkloadNetworking from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildNetworking(state types.Object) *client.WorkloadNetworking {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.NetworkingModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadNetworking{
+		Internal: wro.buildNetworkingInternal(block.Internal),
+	}
+}
+
+// buildNetworkingInternal constructs a WorkloadNetworkingInternal from the given Terraform state.
+func (wro *WorkloadResourceOperator) buildNetworkingInternal(state types.Object) *client.WorkloadNetworkingInternal {
+	// Convert Terraform object into a model block using generic helper
+	block, ok := BuildObject[models.NetworkingInternalModel](wro.Ctx, wro.Diags, state)
+
+	// Return nil if conversion failed or object was nil
+	if !ok || block == nil {
+		return nil
+	}
+
+	// Construct and return the output
+	return &client.WorkloadNetworkingInternal{
+		Routing: BuildString(block.Routing),
 	}
 }
 
@@ -4305,6 +4533,7 @@ func (wro *WorkloadResourceOperator) flattenContainers(input *[]client.WorkloadC
 			MinCpu:           types.StringPointerValue(item.MinCPU),
 			MinMemory:        types.StringPointerValue(item.MinMemory),
 			Env:              FlattenMapString(wro.flattenNameValue(item.Env)),
+			EnvFrom:          wro.flattenContainerEnvFrom(item.EnvFrom),
 			GpuNvidia:        wro.flattenContainerGpuNvidia(item.GPU),
 			GpuCustom:        wro.flattenContainerGpuCustom(item.GPU),
 			InheritEnv:       types.BoolPointerValue(item.InheritEnv),
@@ -4516,6 +4745,55 @@ func (wro *WorkloadResourceOperator) flattenNameValue(input *[]client.WorkloadCo
 
 	// Return the constructed output slice
 	return &output
+}
+
+// flattenContainerEnvFrom transforms *[]client.WorkloadContainerEnvFrom into a types.List.
+func (wro *WorkloadResourceOperator) flattenContainerEnvFrom(input *[]client.WorkloadContainerEnvFrom) types.List {
+	// Get attribute types
+	elementType := models.ContainerEnvFromModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.ContainerEnvFromModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.ContainerEnvFromModel{
+			SecretRef: wro.flattenContainerEnvFromSecretRef(item.SecretRef),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(wro.Ctx, wro.Diags, blocks)
+}
+
+// flattenContainerEnvFromSecretRef transforms *client.WorkloadContainerEnvFromSecretRef into a types.Object.
+func (wro *WorkloadResourceOperator) flattenContainerEnvFromSecretRef(input *client.WorkloadContainerEnvFromSecretRef) types.Object {
+	// Get attribute types
+	elementType := models.ContainerEnvFromSecretRefModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.ContainerEnvFromSecretRefModel{
+		Name: types.StringPointerValue(input.Name),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
 }
 
 // flattenContainerGpuNvidia transforms *client.WorkloadContainerGpu into a types.List.
@@ -5281,7 +5559,7 @@ func (wro *WorkloadResourceOperator) flattenSidecar(input *client.WorkloadSideca
 }
 
 // flattenRolloutOptions transforms *client.WorkloadRolloutOptions into a types.List.
-func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.WorkloadRolloutOptions) types.List {
+func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.WorkloadRolloutOptions, workloadType *string) types.List {
 	// Get attribute types
 	elementType := models.RolloutOptionsModel{}.AttributeTypes()
 
@@ -5298,10 +5576,37 @@ func (wro *WorkloadResourceOperator) flattenRolloutOptions(input *client.Workloa
 		MaxSurgeReplicas:              types.StringPointerValue(input.MaxSurgeReplicas),
 		ScalingPolicy:                 types.StringPointerValue(input.ScalingPolicy),
 		TerminationGracePeriodSeconds: FlattenInt(input.TerminationGracePeriodSeconds),
+		RolloutOnReferenceChange:      types.BoolPointerValue(input.RolloutOnReferenceChange),
+	}
+
+	// The API drops scaling_policy from vm workloads, so keep the schema default the plan carries
+	if workloadType != nil && *workloadType == "vm" && input.ScalingPolicy == nil {
+		block.ScalingPolicy = types.StringValue("OrderedReady")
 	}
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.RolloutOptionsModel{block})
+}
+
+// flattenDisruptionBudget transforms *client.WorkloadDisruptionBudget into a types.Object.
+func (wro *WorkloadResourceOperator) flattenDisruptionBudget(input *client.WorkloadDisruptionBudget) types.Object {
+	// Get attribute types
+	elementType := models.DisruptionBudgetModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.DisruptionBudgetModel{
+		MinAvailable:   types.StringPointerValue(input.MinAvailable),
+		MaxUnavailable: types.StringPointerValue(input.MaxUnavailable),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
 }
 
 // flattenSecurityOptions transforms *client.WorkloadSecurityOptions into a types.List.
@@ -5475,6 +5780,46 @@ func (wro *WorkloadResourceOperator) flattenLoadBalancerGeoLocationHeaders(input
 
 	// Return the successfully created types.List
 	return FlattenList(wro.Ctx, wro.Diags, []models.LoadBalancerGeoLocationHeadersModel{block})
+}
+
+// flattenNetworking transforms *client.WorkloadNetworking into a types.Object.
+func (wro *WorkloadResourceOperator) flattenNetworking(input *client.WorkloadNetworking) types.Object {
+	// Get attribute types
+	elementType := models.NetworkingModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.NetworkingModel{
+		Internal: wro.flattenNetworkingInternal(input.Internal),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
+}
+
+// flattenNetworkingInternal transforms *client.WorkloadNetworkingInternal into a types.Object.
+func (wro *WorkloadResourceOperator) flattenNetworkingInternal(input *client.WorkloadNetworkingInternal) types.Object {
+	// Get attribute types
+	elementType := models.NetworkingInternalModel{}.AttributeTypes().(types.ObjectType)
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null object
+		return types.ObjectNull(elementType.AttrTypes)
+	}
+
+	// Build a single block
+	block := models.NetworkingInternalModel{
+		Routing: types.StringPointerValue(input.Routing),
+	}
+
+	// Return the successfully created types.Object
+	return FlattenObject(wro.Ctx, wro.Diags, &block)
 }
 
 // FlattenExtras marshals extras into a JSON string or returns null when input is nil.

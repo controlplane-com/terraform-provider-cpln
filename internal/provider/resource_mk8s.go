@@ -297,8 +297,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"server_type": schema.StringAttribute{
 										Description: "",
 										Required:    true,
@@ -396,8 +397,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"instance_types": schema.SetAttribute{
 										Description: "",
 										ElementType: types.StringType,
@@ -504,8 +506,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"server_type": schema.StringAttribute{
 										Description: "",
 										Required:    true,
@@ -560,6 +563,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								Attributes: map[string]schema.Attribute{
 									"name":     mr.GenericNodePoolNameSchema(),
 									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"min_size": mr.GenericNodePoolMinSizeSchema(),
 									"max_size": mr.GenericNodePoolMaxSizeSchema(),
 									"flavor": schema.StringAttribute{
@@ -572,7 +576,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								},
 							},
 						},
-						"unmanaged_node_pool": mr.GenericNodePoolSchema(""),
+						"unmanaged_node_pool": mr.UnmanagedNodePoolSchema(""),
 						"autoscaler":          mr.AutoscalerSchema(),
 					},
 				},
@@ -610,6 +614,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								Attributes: map[string]schema.Attribute{
 									"name":     mr.GenericNodePoolNameSchema(),
 									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"min_size": mr.GenericNodePoolMinSizeSchema(),
 									"max_size": mr.GenericNodePoolMaxSizeSchema(),
 									"instance_type": schema.StringAttribute{
@@ -622,7 +627,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								},
 							},
 						},
-						"unmanaged_node_pool": mr.GenericNodePoolSchema(""),
+						"unmanaged_node_pool": mr.UnmanagedNodePoolSchema(""),
 						"autoscaler":          mr.AutoscalerSchema(),
 					},
 				},
@@ -665,6 +670,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 								Attributes: map[string]schema.Attribute{
 									"name":     mr.GenericNodePoolNameSchema(),
 									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"min_size": mr.GenericNodePoolMinSizeSchema(),
 									"max_size": mr.GenericNodePoolMaxSizeSchema(),
 									"public_ip_type": schema.StringAttribute{
@@ -686,7 +692,7 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							},
 						},
 						"autoscaler":          mr.AutoscalerSchema(),
-						"unmanaged_node_pool": mr.GenericNodePoolSchema(""),
+						"unmanaged_node_pool": mr.UnmanagedNodePoolSchema(""),
 					},
 				},
 				Validators: []validator.List{
@@ -707,8 +713,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"count": schema.Int32Attribute{
 										Description: "Number of nodes to deploy.",
 										Required:    true,
@@ -923,8 +930,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "List of node pools.",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"package_id": schema.StringAttribute{
 										Description: "",
 										Required:    true,
@@ -1005,8 +1013,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"size": schema.StringAttribute{
 										Description: "",
 										Required:    true,
@@ -1088,8 +1097,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"droplet_size": schema.StringAttribute{
 										Description: "",
 										Required:    true,
@@ -1163,8 +1173,9 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 							Description: "",
 							NestedObject: schema.NestedBlockObject{
 								Attributes: map[string]schema.Attribute{
-									"name":   mr.GenericNodePoolNameSchema(),
-									"labels": mr.GenericNodePoolLabelsSchema(),
+									"name":     mr.GenericNodePoolNameSchema(),
+									"labels":   mr.GenericNodePoolLabelsSchema(),
+									"max_pods": mr.GenericNodePoolMaxPodsSchema(),
 									"machine_type": schema.StringAttribute{
 										Description: "GCE machine type for nodes in this pool.",
 										Required:    true,
@@ -1847,24 +1858,48 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 										Description: "Enable kube-state metrics.",
 										Optional:    true,
 									},
+									"kube_state_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
+										Optional:    true,
+									},
 									"core_dns": schema.BoolAttribute{
 										Description: "Enable scraping of core-dns service.",
+										Optional:    true,
+									},
+									"core_dns_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
 										Optional:    true,
 									},
 									"kubelet": schema.BoolAttribute{
 										Description: "Enable scraping kubelet stats.",
 										Optional:    true,
 									},
+									"kubelet_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
+										Optional:    true,
+									},
 									"api_server": schema.BoolAttribute{
 										Description: "Enable scraping apiserver stats.",
+										Optional:    true,
+									},
+									"api_server_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
 										Optional:    true,
 									},
 									"node_exporter": schema.BoolAttribute{
 										Description: "Enable collecting node-level stats (disk, network, filesystem, etc).",
 										Optional:    true,
 									},
+									"node_exporter_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
+										Optional:    true,
+									},
 									"cadvisor": schema.BoolAttribute{
 										Description: "Enable CNI-level container stats.",
+										Optional:    true,
+									},
+									"cadvisor_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
 										Optional:    true,
 									},
 								},
@@ -2090,6 +2125,23 @@ func (mr *Mk8sResource) GenericNodePoolSchema(description string) schema.ListNes
 		Description: description,
 		NestedObject: schema.NestedBlockObject{
 			Attributes: map[string]schema.Attribute{
+				"name":     mr.GenericNodePoolNameSchema(),
+				"labels":   mr.GenericNodePoolLabelsSchema(),
+				"max_pods": mr.GenericNodePoolMaxPodsSchema(),
+			},
+			Blocks: map[string]schema.Block{
+				"taint": mr.GenericNodePoolTaintsSchema(),
+			},
+		},
+	}
+}
+
+// UnmanagedNodePoolSchema returns the schema for an unmanaged node pool nested block.
+func (mr *Mk8sResource) UnmanagedNodePoolSchema(description string) schema.ListNestedBlock {
+	return schema.ListNestedBlock{
+		Description: description,
+		NestedObject: schema.NestedBlockObject{
+			Attributes: map[string]schema.Attribute{
 				"name":   mr.GenericNodePoolNameSchema(),
 				"labels": mr.GenericNodePoolLabelsSchema(),
 			},
@@ -2136,6 +2188,17 @@ func (mr *Mk8sResource) GenericNodePoolTaintsSchema() schema.ListNestedBlock {
 					Optional:    true,
 				},
 			},
+		},
+	}
+}
+
+// GenericNodePoolMaxPodsSchema returns the schema for the generic node pool maximum pods per node attribute.
+func (mr *Mk8sResource) GenericNodePoolMaxPodsSchema() schema.Int32Attribute {
+	return schema.Int32Attribute{
+		Description: "Maximum number of pods per node. Defaults to a value derived from the node memory. Min: `16`. Max: `250`.",
+		Optional:    true,
+		Validators: []validator.Int32{
+			int32validator.Between(16, 250),
 		},
 	}
 }
@@ -2889,6 +2952,37 @@ func (mro *Mk8sResourceOperator) buildGenericProviderNodePools(state types.List)
 	for _, block := range blocks {
 		// Construct the item
 		item := client.Mk8sGenericPool{
+			Name:    BuildString(block.Name),
+			Labels:  mro.BuildMapString(block.Labels),
+			Taints:  mro.buildGenericProviderNodePoolTaints(block.Taints),
+			MaxPods: BuildInt(block.MaxPods),
+		}
+
+		// Add the item to the output slice
+		output = append(output, item)
+	}
+
+	// Return a pointer to the output
+	return &output
+}
+
+// buildUnmanagedNodePools constructs a []client.Mk8sGenericPool from the given unmanaged node pool Terraform state.
+func (mro *Mk8sResourceOperator) buildUnmanagedNodePools(state types.List) *[]client.Mk8sGenericPool {
+	// Convert Terraform list into model blocks using generic helper
+	blocks, ok := BuildList[models.UnmanagedNodePoolModel](mro.Ctx, mro.Diags, state)
+
+	// Return nil if conversion failed or list was empty
+	if !ok {
+		return nil
+	}
+
+	// Prepare the output slice
+	output := []client.Mk8sGenericPool{}
+
+	// Iterate over each block and construct an output item
+	for _, block := range blocks {
+		// Construct the item
+		item := client.Mk8sGenericPool{
 			Name:   BuildString(block.Name),
 			Labels: mro.BuildMapString(block.Labels),
 			Taints: mro.buildGenericProviderNodePoolTaints(block.Taints),
@@ -2990,6 +3084,7 @@ func (mro *Mk8sResourceOperator) buildHetznerProviderNodePools(state types.List)
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3116,6 +3211,7 @@ func (mro *Mk8sResourceOperator) buildAwsProviderNodePools(state types.List) *[]
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3198,6 +3294,7 @@ func (mro *Mk8sResourceOperator) buildLinodeProviderNodePools(state types.List) 
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3226,7 +3323,7 @@ func (mro *Mk8sResourceOperator) buildOblivusProvider(state types.List) *client.
 		TokenSecretLink:    BuildString(block.TokenSecretLink),
 		NodePools:          mro.buildOblivusProviderNodePools(block.NodePools),
 		SshKeys:            mro.BuildSetString(block.SshKeys),
-		UnmanagedNodePools: mro.buildGenericProviderNodePools(block.UnmanagedNodePool),
+		UnmanagedNodePools: mro.buildUnmanagedNodePools(block.UnmanagedNodePool),
 		Autoscaler:         mro.buildAutoscaler(block.Autoscaler),
 		PreInstallScript:   BuildString(block.PreInstallScript),
 	}
@@ -3258,6 +3355,7 @@ func (mro *Mk8sResourceOperator) buildOblivusProviderNodePools(state types.List)
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3286,7 +3384,7 @@ func (mro *Mk8sResourceOperator) buildLambdalabsProvider(state types.List) *clie
 		TokenSecretLink:    BuildString(block.TokenSecretLink),
 		NodePools:          mro.buildLambdalabsProviderNodePools(block.NodePools),
 		SshKey:             BuildString(block.SshKey),
-		UnmanagedNodePools: mro.buildGenericProviderNodePools(block.UnmanagedNodePools),
+		UnmanagedNodePools: mro.buildUnmanagedNodePools(block.UnmanagedNodePools),
 		Autoscaler:         mro.buildAutoscaler(block.Autoscaler),
 		FileSystems:        mro.BuildSetString(block.FileSystems),
 		PreInstallScript:   BuildString(block.PreInstallScript),
@@ -3319,6 +3417,7 @@ func (mro *Mk8sResourceOperator) buildLambdalabsProviderNodePools(state types.Li
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3348,7 +3447,7 @@ func (mro *Mk8sResourceOperator) buildPaperspaceProvider(state types.List) *clie
 		SharedDrives:       mro.BuildSetString(block.SharedDrives),
 		NodePools:          mro.buildPaperspaceProviderNodePools(block.NodePools),
 		Autoscaler:         mro.buildAutoscaler(block.Autoscaler),
-		UnmanagedNodePools: mro.buildGenericProviderNodePools(block.UnmanagedNodePools),
+		UnmanagedNodePools: mro.buildUnmanagedNodePools(block.UnmanagedNodePools),
 		PreInstallScript:   BuildString(block.PreInstallScript),
 		UserIds:            mro.BuildSetString(block.UserIds),
 		NetworkId:          BuildString(block.NetworkId),
@@ -3383,6 +3482,7 @@ func (mro *Mk8sResourceOperator) buildPaperspaceProviderNodePools(state types.Li
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3440,6 +3540,7 @@ func (mro *Mk8sResourceOperator) buildEphemeralProviderNodePools(state types.Lis
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3627,6 +3728,7 @@ func (mro *Mk8sResourceOperator) buildTritonProviderNodePools(state types.List) 
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3738,6 +3840,7 @@ func (mro *Mk8sResourceOperator) buildAzureProviderNodePools(state types.List) *
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3804,6 +3907,7 @@ func (mro *Mk8sResourceOperator) buildDigitalOceanProviderNodePools(state types.
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -3914,6 +4018,7 @@ func (mro *Mk8sResourceOperator) buildGcpProviderNodePools(state types.List) *[]
 		item.Name = BuildString(block.Name)
 		item.Labels = mro.BuildMapString(block.Labels)
 		item.Taints = mro.buildGenericProviderNodePoolTaints(block.Taints)
+		item.MaxPods = BuildInt(block.MaxPods)
 
 		// Add the item to the output slice
 		output = append(output, item)
@@ -4007,13 +4112,19 @@ func (mro *Mk8sResourceOperator) buildAddOnMetrics(state types.List) *client.Mk8
 
 	// Construct and return the output
 	return &client.Mk8sMetricsAddOn{
-		KubeState:       BuildBool(block.KubeState),
-		CoreDns:         BuildBool(block.CoreDns),
-		Kubelet:         BuildBool(block.Kubelet),
-		Apiserver:       BuildBool(block.Apiserver),
-		NodeExporter:    BuildBool(block.NodeExporter),
-		Cadvisor:        BuildBool(block.Cadvisor),
-		ScrapeAnnotated: mro.buildAddOnMetricsScrapeAnnotated(block.ScrapeAnnotated),
+		KubeState:        BuildBool(block.KubeState),
+		KubeStateDrop:    BuildString(block.KubeStateDrop),
+		CoreDns:          BuildBool(block.CoreDns),
+		CoreDnsDrop:      BuildString(block.CoreDnsDrop),
+		Kubelet:          BuildBool(block.Kubelet),
+		KubeletDrop:      BuildString(block.KubeletDrop),
+		Apiserver:        BuildBool(block.Apiserver),
+		ApiserverDrop:    BuildString(block.ApiserverDrop),
+		NodeExporter:     BuildBool(block.NodeExporter),
+		NodeExporterDrop: BuildString(block.NodeExporterDrop),
+		Cadvisor:         BuildBool(block.Cadvisor),
+		CadvisorDrop:     BuildString(block.CadvisorDrop),
+		ScrapeAnnotated:  mro.buildAddOnMetricsScrapeAnnotated(block.ScrapeAnnotated),
 	}
 }
 
@@ -4885,6 +4996,38 @@ func (mro *Mk8sResourceOperator) flattenGenericProviderNodePools(input *[]client
 	for _, item := range *input {
 		// Construct a block
 		block := models.GenericProviderNodePoolModel{
+			Name:    types.StringPointerValue(item.Name),
+			Labels:  FlattenMapString(item.Labels),
+			Taints:  mro.flattenGenericProviderNodePoolTaints(item.Taints),
+			MaxPods: FlattenInt(item.MaxPods),
+		}
+
+		// Append the constructed block to the blocks slice
+		blocks = append(blocks, block)
+	}
+
+	// Return the successfully created types.List
+	return FlattenList(mro.Ctx, mro.Diags, blocks)
+}
+
+// flattenUnmanagedNodePools transforms *[]client.Mk8sGenericPool into an unmanaged node pool types.List.
+func (mro *Mk8sResourceOperator) flattenUnmanagedNodePools(input *[]client.Mk8sGenericPool) types.List {
+	// Get attribute types
+	elementType := models.UnmanagedNodePoolModel{}.AttributeTypes()
+
+	// Check if the input is nil
+	if input == nil {
+		// Return a null list
+		return types.ListNull(elementType)
+	}
+
+	// Define the blocks slice
+	var blocks []models.UnmanagedNodePoolModel
+
+	// Iterate over the slice and construct the blocks
+	for _, item := range *input {
+		// Construct a block
+		block := models.UnmanagedNodePoolModel{
 			Name:   types.StringPointerValue(item.Name),
 			Labels: FlattenMapString(item.Labels),
 			Taints: mro.flattenGenericProviderNodePoolTaints(item.Taints),
@@ -4992,6 +5135,7 @@ func (mro *Mk8sResourceOperator) flattenHetznerProviderNodePools(input *[]client
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5122,6 +5266,7 @@ func (mro *Mk8sResourceOperator) flattenAwsProviderNodePools(input *[]client.Mk8
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5213,6 +5358,7 @@ func (mro *Mk8sResourceOperator) flattenLinodeProviderNodePools(input *[]client.
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5242,7 +5388,7 @@ func (mro *Mk8sResourceOperator) flattenOblivusProvider(input *client.Mk8sOblivu
 		TokenSecretLink:   mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		NodePools:         mro.flattenOblivusProviderNodePools(input.NodePools),
 		SshKeys:           FlattenSetString(input.SshKeys),
-		UnmanagedNodePool: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
+		UnmanagedNodePool: mro.flattenUnmanagedNodePools(input.UnmanagedNodePools),
 		Autoscaler:        mro.flattenAutoscaler(input.Autoscaler),
 		PreInstallScript:  types.StringPointerValue(input.PreInstallScript),
 	}
@@ -5278,6 +5424,7 @@ func (mro *Mk8sResourceOperator) flattenOblivusProviderNodePools(input *[]client
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5307,7 +5454,7 @@ func (mro *Mk8sResourceOperator) flattenLambdalabsProvider(input *client.Mk8sLam
 		TokenSecretLink:    mro.FlattenLinkString(priorTokenSecretLink, input.TokenSecretLink, mro.Client.Org),
 		NodePools:          mro.flattenLambdalabsProviderNodePools(input.NodePools),
 		SshKey:             types.StringPointerValue(input.SshKey),
-		UnmanagedNodePools: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
+		UnmanagedNodePools: mro.flattenUnmanagedNodePools(input.UnmanagedNodePools),
 		Autoscaler:         mro.flattenAutoscaler(input.Autoscaler),
 		FileSystems:        FlattenSetString(input.FileSystems),
 		PreInstallScript:   types.StringPointerValue(input.PreInstallScript),
@@ -5344,6 +5491,7 @@ func (mro *Mk8sResourceOperator) flattenLambdalabsProviderNodePools(input *[]cli
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5374,7 +5522,7 @@ func (mro *Mk8sResourceOperator) flattenPaperspaceProvider(input *client.Mk8sPap
 		SharedDrives:       FlattenSetString(input.SharedDrives),
 		NodePools:          mro.flattenPaperspaceProviderNodePools(input.NodePools),
 		Autoscaler:         mro.flattenAutoscaler(input.Autoscaler),
-		UnmanagedNodePools: mro.flattenGenericProviderNodePools(input.UnmanagedNodePools),
+		UnmanagedNodePools: mro.flattenUnmanagedNodePools(input.UnmanagedNodePools),
 		PreInstallScript:   types.StringPointerValue(input.PreInstallScript),
 		UserIds:            FlattenSetString(input.UserIds),
 		NetworkId:          types.StringPointerValue(input.NetworkId),
@@ -5413,6 +5561,7 @@ func (mro *Mk8sResourceOperator) flattenPaperspaceProviderNodePools(input *[]cli
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5472,6 +5621,7 @@ func (mro *Mk8sResourceOperator) flattenEphemeralProviderNodePools(input *[]clie
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5670,6 +5820,7 @@ func (mro *Mk8sResourceOperator) flattenTritonProviderNodePools(input *[]client.
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5788,6 +5939,7 @@ func (mro *Mk8sResourceOperator) flattenAzureProviderNodePools(input *[]client.M
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5859,6 +6011,7 @@ func (mro *Mk8sResourceOperator) flattenDigitalOceanProviderNodePools(input *[]c
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -5979,6 +6132,7 @@ func (mro *Mk8sResourceOperator) flattenGcpProviderNodePools(input *[]client.Mk8
 		block.Name = types.StringPointerValue(item.Name)
 		block.Labels = FlattenMapString(item.Labels)
 		block.Taints = mro.flattenGenericProviderNodePoolTaints(item.Taints)
+		block.MaxPods = FlattenInt(item.MaxPods)
 
 		// Append the constructed block to the blocks slice
 		blocks = append(blocks, block)
@@ -6098,13 +6252,19 @@ func (mro *Mk8sResourceOperator) flattenAddOnMetrics(input *client.Mk8sMetricsAd
 
 	// Build a single block
 	block := models.AddOnsMetricsModel{
-		KubeState:       types.BoolPointerValue(input.KubeState),
-		CoreDns:         types.BoolPointerValue(input.CoreDns),
-		Kubelet:         types.BoolPointerValue(input.Kubelet),
-		Apiserver:       types.BoolPointerValue(input.Apiserver),
-		NodeExporter:    types.BoolPointerValue(input.NodeExporter),
-		Cadvisor:        types.BoolPointerValue(input.Cadvisor),
-		ScrapeAnnotated: mro.flattenAddOnMetricsScrapeAnnotated(input.ScrapeAnnotated),
+		KubeState:        types.BoolPointerValue(input.KubeState),
+		KubeStateDrop:    types.StringPointerValue(input.KubeStateDrop),
+		CoreDns:          types.BoolPointerValue(input.CoreDns),
+		CoreDnsDrop:      types.StringPointerValue(input.CoreDnsDrop),
+		Kubelet:          types.BoolPointerValue(input.Kubelet),
+		KubeletDrop:      types.StringPointerValue(input.KubeletDrop),
+		Apiserver:        types.BoolPointerValue(input.Apiserver),
+		ApiserverDrop:    types.StringPointerValue(input.ApiserverDrop),
+		NodeExporter:     types.BoolPointerValue(input.NodeExporter),
+		NodeExporterDrop: types.StringPointerValue(input.NodeExporterDrop),
+		Cadvisor:         types.BoolPointerValue(input.Cadvisor),
+		CadvisorDrop:     types.StringPointerValue(input.CadvisorDrop),
+		ScrapeAnnotated:  mro.flattenAddOnMetricsScrapeAnnotated(input.ScrapeAnnotated),
 	}
 
 	// Return the successfully created types.List

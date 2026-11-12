@@ -169,6 +169,7 @@ func (p *CplnProvider) Resources(_ context.Context) []func() resource.Resource {
 		NewAgentResource,
 		NewAuditContextResource,
 		NewCatalogTemplateResource,
+		NewCertificateGeneratorResource,
 		NewCloudAccountResource,
 		NewCustomLocationResource,
 		NewDomainRouteResource,
