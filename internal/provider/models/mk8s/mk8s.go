@@ -1125,25 +1125,37 @@ func (a AddOnAzureWorkloadIdentityModel) AttributeTypes() attr.Type {
 // Add Ons -> Metrics //
 
 type AddOnsMetricsModel struct {
-	KubeState       types.Bool `tfsdk:"kube_state"`
-	CoreDns         types.Bool `tfsdk:"core_dns"`
-	Kubelet         types.Bool `tfsdk:"kubelet"`
-	Apiserver       types.Bool `tfsdk:"api_server"`
-	NodeExporter    types.Bool `tfsdk:"node_exporter"`
-	Cadvisor        types.Bool `tfsdk:"cadvisor"`
-	ScrapeAnnotated types.List `tfsdk:"scrape_annotated"`
+	KubeState        types.Bool   `tfsdk:"kube_state"`
+	KubeStateDrop    types.String `tfsdk:"kube_state_drop"`
+	CoreDns          types.Bool   `tfsdk:"core_dns"`
+	CoreDnsDrop      types.String `tfsdk:"core_dns_drop"`
+	Kubelet          types.Bool   `tfsdk:"kubelet"`
+	KubeletDrop      types.String `tfsdk:"kubelet_drop"`
+	Apiserver        types.Bool   `tfsdk:"api_server"`
+	ApiserverDrop    types.String `tfsdk:"api_server_drop"`
+	NodeExporter     types.Bool   `tfsdk:"node_exporter"`
+	NodeExporterDrop types.String `tfsdk:"node_exporter_drop"`
+	Cadvisor         types.Bool   `tfsdk:"cadvisor"`
+	CadvisorDrop     types.String `tfsdk:"cadvisor_drop"`
+	ScrapeAnnotated  types.List   `tfsdk:"scrape_annotated"`
 }
 
 func (a AddOnsMetricsModel) AttributeTypes() attr.Type {
 	return types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"kube_state":       types.BoolType,
-			"core_dns":         types.BoolType,
-			"kubelet":          types.BoolType,
-			"api_server":       types.BoolType,
-			"node_exporter":    types.BoolType,
-			"cadvisor":         types.BoolType,
-			"scrape_annotated": types.ListType{ElemType: AddOnsMetricsScrapeAnnotatedModel{}.AttributeTypes()},
+			"kube_state":         types.BoolType,
+			"kube_state_drop":    types.StringType,
+			"core_dns":           types.BoolType,
+			"core_dns_drop":      types.StringType,
+			"kubelet":            types.BoolType,
+			"kubelet_drop":       types.StringType,
+			"api_server":         types.BoolType,
+			"api_server_drop":    types.StringType,
+			"node_exporter":      types.BoolType,
+			"node_exporter_drop": types.StringType,
+			"cadvisor":           types.BoolType,
+			"cadvisor_drop":      types.StringType,
+			"scrape_annotated":   types.ListType{ElemType: AddOnsMetricsScrapeAnnotatedModel{}.AttributeTypes()},
 		},
 	}
 }

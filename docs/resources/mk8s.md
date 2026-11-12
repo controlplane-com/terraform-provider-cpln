@@ -806,11 +806,17 @@ Required:
 Optional:
 
 - **kube_state** (Boolean) Enable kube-state metrics.
+- **kube_state_drop** (String) Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.
 - **core_dns** (Boolean) Enable scraping of core-dns service.
+- **core_dns_drop** (String) Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.
 - **kubelet** (Boolean) Enable scraping kubelet stats.
+- **kubelet_drop** (String) Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.
 - **api_server** (Boolean) Enable scraping apiserver stats.
+- **api_server_drop** (String) Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.
 - **node_exporter** (Boolean) Enable collecting node-level stats (disk, network, filesystem, etc).
+- **node_exporter_drop** (String) Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.
 - **cadvisor** (Boolean) Enable CNI-level container stats.
+- **cadvisor_drop** (String) Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.
 - **scrape_annotated** (Block List, Max: 1) ([see below](#nestedblock--add_ons--metrics--scrape_annotated))
 
 <a id="nestedblock--add_ons--metrics--scrape_annotated"></a>
@@ -1428,12 +1434,18 @@ resource "cpln_mk8s" "generic" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -1761,12 +1773,18 @@ resource "cpln_mk8s" "hetzner" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -2101,12 +2119,18 @@ resource "cpln_mk8s" "aws" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -2422,12 +2446,18 @@ resource "cpln_mk8s" "linode" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -2732,12 +2762,18 @@ resource "cpln_mk8s" "oblivus" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -3041,12 +3077,18 @@ resource "cpln_mk8s" "lambdalabs" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -3348,12 +3390,18 @@ resource "cpln_mk8s" "paperspace" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -3638,12 +3686,18 @@ resource "cpln_mk8s" "ephemeral" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -3949,12 +4003,18 @@ resource "cpln_mk8s" "triton" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -4268,12 +4328,18 @@ resource "cpln_mk8s" "triton" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -4610,12 +4676,18 @@ resource "cpln_mk8s" "triton" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -4934,12 +5006,18 @@ resource "cpln_mk8s" "azure" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -5057,12 +5135,18 @@ resource "cpln_mk8s" "digital-ocean-provider" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -5188,12 +5272,18 @@ resource "cpln_mk8s" "gcp-provider" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30
@@ -5494,12 +5584,18 @@ resource "cpln_mk8s" "digital-ocean-provider" {
         local_path_storage    = true
 
         metrics {
-            kube_state    = true
-            core_dns      = true
-            kubelet       = true
-            api_server    = true
-            node_exporter = true
-            cadvisor      = true
+            kube_state         = true
+            kube_state_drop    = "kube_pod_status_.*"
+            core_dns           = true
+            core_dns_drop      = "coredns_cache_.*"
+            kubelet            = true
+            kubelet_drop       = "kubelet_runtime_operations_.*"
+            api_server         = true
+            api_server_drop    = "apiserver_request_.*"
+            node_exporter      = true
+            node_exporter_drop = "node_scrape_collector_.*"
+            cadvisor           = true
+            cadvisor_drop      = "container_tasks_state"
 
             scrape_annotated {
                 interval_seconds   = 30

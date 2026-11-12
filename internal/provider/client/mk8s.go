@@ -471,13 +471,19 @@ type Mk8sAzureWorkloadIdentityAddOn struct {
 }
 
 type Mk8sMetricsAddOn struct {
-	KubeState       *bool                       `json:"kubeState,omitempty"`
-	CoreDns         *bool                       `json:"coreDns,omitempty"`
-	Kubelet         *bool                       `json:"kubelet,omitempty"`
-	Apiserver       *bool                       `json:"apiserver,omitempty"`
-	NodeExporter    *bool                       `json:"nodeExporter,omitempty"`
-	Cadvisor        *bool                       `json:"cadvisor,omitempty"`
-	ScrapeAnnotated *Mk8sMetricsScrapeAnnotated `json:"scrapeAnnotated,omitempty"`
+	KubeState        *bool                       `json:"kubeState,omitempty"`
+	KubeStateDrop    *string                     `json:"kubeStateDrop,omitempty"`
+	CoreDns          *bool                       `json:"coreDns,omitempty"`
+	CoreDnsDrop      *string                     `json:"coreDnsDrop,omitempty"`
+	Kubelet          *bool                       `json:"kubelet,omitempty"`
+	KubeletDrop      *string                     `json:"kubeletDrop,omitempty"`
+	Apiserver        *bool                       `json:"apiserver,omitempty"`
+	ApiserverDrop    *string                     `json:"apiserverDrop,omitempty"`
+	NodeExporter     *bool                       `json:"nodeExporter,omitempty"`
+	NodeExporterDrop *string                     `json:"nodeExporterDrop,omitempty"`
+	Cadvisor         *bool                       `json:"cadvisor,omitempty"`
+	CadvisorDrop     *string                     `json:"cadvisorDrop,omitempty"`
+	ScrapeAnnotated  *Mk8sMetricsScrapeAnnotated `json:"scrapeAnnotated,omitempty"`
 }
 
 type Mk8sMetricsScrapeAnnotated struct {

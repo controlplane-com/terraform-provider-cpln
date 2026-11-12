@@ -1858,24 +1858,48 @@ func (mr *Mk8sResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 										Description: "Enable kube-state metrics.",
 										Optional:    true,
 									},
+									"kube_state_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
+										Optional:    true,
+									},
 									"core_dns": schema.BoolAttribute{
 										Description: "Enable scraping of core-dns service.",
+										Optional:    true,
+									},
+									"core_dns_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
 										Optional:    true,
 									},
 									"kubelet": schema.BoolAttribute{
 										Description: "Enable scraping kubelet stats.",
 										Optional:    true,
 									},
+									"kubelet_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
+										Optional:    true,
+									},
 									"api_server": schema.BoolAttribute{
 										Description: "Enable scraping apiserver stats.",
+										Optional:    true,
+									},
+									"api_server_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
 										Optional:    true,
 									},
 									"node_exporter": schema.BoolAttribute{
 										Description: "Enable collecting node-level stats (disk, network, filesystem, etc).",
 										Optional:    true,
 									},
+									"node_exporter_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
+										Optional:    true,
+									},
 									"cadvisor": schema.BoolAttribute{
 										Description: "Enable CNI-level container stats.",
+										Optional:    true,
+									},
+									"cadvisor_drop": schema.StringAttribute{
+										Description: "Drop scraped series whose metric name matches this RE2 regex. It must match the whole name, e.g. `foo_.*`.",
 										Optional:    true,
 									},
 								},
@@ -4088,13 +4112,19 @@ func (mro *Mk8sResourceOperator) buildAddOnMetrics(state types.List) *client.Mk8
 
 	// Construct and return the output
 	return &client.Mk8sMetricsAddOn{
-		KubeState:       BuildBool(block.KubeState),
-		CoreDns:         BuildBool(block.CoreDns),
-		Kubelet:         BuildBool(block.Kubelet),
-		Apiserver:       BuildBool(block.Apiserver),
-		NodeExporter:    BuildBool(block.NodeExporter),
-		Cadvisor:        BuildBool(block.Cadvisor),
-		ScrapeAnnotated: mro.buildAddOnMetricsScrapeAnnotated(block.ScrapeAnnotated),
+		KubeState:        BuildBool(block.KubeState),
+		KubeStateDrop:    BuildString(block.KubeStateDrop),
+		CoreDns:          BuildBool(block.CoreDns),
+		CoreDnsDrop:      BuildString(block.CoreDnsDrop),
+		Kubelet:          BuildBool(block.Kubelet),
+		KubeletDrop:      BuildString(block.KubeletDrop),
+		Apiserver:        BuildBool(block.Apiserver),
+		ApiserverDrop:    BuildString(block.ApiserverDrop),
+		NodeExporter:     BuildBool(block.NodeExporter),
+		NodeExporterDrop: BuildString(block.NodeExporterDrop),
+		Cadvisor:         BuildBool(block.Cadvisor),
+		CadvisorDrop:     BuildString(block.CadvisorDrop),
+		ScrapeAnnotated:  mro.buildAddOnMetricsScrapeAnnotated(block.ScrapeAnnotated),
 	}
 }
 
@@ -6222,13 +6252,19 @@ func (mro *Mk8sResourceOperator) flattenAddOnMetrics(input *client.Mk8sMetricsAd
 
 	// Build a single block
 	block := models.AddOnsMetricsModel{
-		KubeState:       types.BoolPointerValue(input.KubeState),
-		CoreDns:         types.BoolPointerValue(input.CoreDns),
-		Kubelet:         types.BoolPointerValue(input.Kubelet),
-		Apiserver:       types.BoolPointerValue(input.Apiserver),
-		NodeExporter:    types.BoolPointerValue(input.NodeExporter),
-		Cadvisor:        types.BoolPointerValue(input.Cadvisor),
-		ScrapeAnnotated: mro.flattenAddOnMetricsScrapeAnnotated(input.ScrapeAnnotated),
+		KubeState:        types.BoolPointerValue(input.KubeState),
+		KubeStateDrop:    types.StringPointerValue(input.KubeStateDrop),
+		CoreDns:          types.BoolPointerValue(input.CoreDns),
+		CoreDnsDrop:      types.StringPointerValue(input.CoreDnsDrop),
+		Kubelet:          types.BoolPointerValue(input.Kubelet),
+		KubeletDrop:      types.StringPointerValue(input.KubeletDrop),
+		Apiserver:        types.BoolPointerValue(input.Apiserver),
+		ApiserverDrop:    types.StringPointerValue(input.ApiserverDrop),
+		NodeExporter:     types.BoolPointerValue(input.NodeExporter),
+		NodeExporterDrop: types.StringPointerValue(input.NodeExporterDrop),
+		Cadvisor:         types.BoolPointerValue(input.Cadvisor),
+		CadvisorDrop:     types.StringPointerValue(input.CadvisorDrop),
+		ScrapeAnnotated:  mro.flattenAddOnMetricsScrapeAnnotated(input.ScrapeAnnotated),
 	}
 
 	// Return the successfully created types.List
