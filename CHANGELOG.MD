@@ -1,3 +1,16 @@
+## 1.2.35
+
+- Add cpln_certificate_generator resource.
+- Add networking.internal.routing to workload resource and data source.
+- Add max_pods to mk8s node pools.
+- Add env_from to workload containers in the resource and data source.
+- Add disruption_budget to workload resource and data source.
+- Add rollout_on_reference_change to workload rollout_options in the resource and data source.
+- Add kube_state_drop, core_dns_drop, kubelet_drop, api_server_drop, node_exporter_drop and cadvisor_drop to the mk8s metrics addon.
+- Validate workload inbound_header_filter keys at plan time with the same pattern the API enforces. A config with an invalid key now fails terraform plan instead of failing at apply.
+- Fix vm workloads with a rollout_options block failing at apply with an inconsistent result. Setting max_surge_replicas, scaling_policy or rollout_on_reference_change on a vm workload now fails at plan time.
+- Retry resource updates that fail with HTTP 409 because the resource changed during the update.
+
 ## 1.2.34
 
 - Add certificate_generator_link to domain spec.
