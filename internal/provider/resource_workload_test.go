@@ -84,6 +84,8 @@ func NewWorkloadResourceTest() WorkloadResourceTest {
 	steps = append(steps, resourceTest.NewVmDefaultsScenario()...)
 	steps = append(steps, resourceTest.NewKedaHpaLifecycleScenario()...)
 	steps = append(steps, resourceTest.NewNetworkingLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewEnvFromLifecycleScenario()...)
+	steps = append(steps, resourceTest.NewDisruptionBudgetLifecycleScenario()...)
 
 	// Set the cases for the resource test
 	resourceTest.Steps = steps
@@ -416,6 +418,100 @@ func (wrt *WorkloadResourceTest) NewNetworkingLifecycleScenario() []resource.Tes
 		// Update & Read (routing set to gvcEndpoint)
 		gvcEndpointStep,
 		// Revert the resource to its initial state (networking removed, the stored routing is kept)
+		absentStep,
+	}
+}
+
+// NewEnvFromLifecycleScenario walks container env_from through its full state lifecycle to catch drift at null and cardinality transitions.
+func (wrt *WorkloadResourceTest) NewEnvFromLifecycleScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-env-from-%s", wrt.RandomName)
+
+	// Create a shared test case for all lifecycle steps
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Build the lifecycle test steps
+	absentStep := wrt.BuildEnvFromAbsentStep(c)
+	requiredOnlyStep := wrt.BuildEnvFromRequiredOnlyStep(c)
+	multiStep := wrt.BuildEnvFromMultiStep(c)
+	expandedStep := wrt.BuildEnvFromExpandedStep(c)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read (dictionary secrets declared, env_from omitted)
+		absentStep,
+		// Update & Read (a single env_from entry)
+		requiredOnlyStep,
+		// Update & Read (two env_from entries in order, data source read)
+		multiStep,
+		// Import State
+		{
+			ResourceName:      c.ResourceAddress,
+			ImportState:       true,
+			ImportStateId:     fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
+			ImportStateVerify: true,
+		},
+		// Update & Read (grow to three env_from entries)
+		expandedStep,
+		// Update & Read (shrink back to two env_from entries)
+		multiStep,
+		// Revert the resource to its initial state (remove env_from entirely)
+		absentStep,
+	}
+}
+
+// NewDisruptionBudgetLifecycleScenario walks disruption_budget through both of its exclusive attributes and back to absent.
+func (wrt *WorkloadResourceTest) NewDisruptionBudgetLifecycleScenario() []resource.TestStep {
+	// Generate a unique name for the resources
+	name := fmt.Sprintf("workload-disruption-%s", wrt.RandomName)
+
+	// Create a shared test case for all lifecycle steps
+	c := WorkloadResourceTestCase{
+		ProviderTestCase: ProviderTestCase{
+			Kind:            "workload",
+			ResourceName:    "new",
+			ResourceAddress: "cpln_workload.new",
+			Name:            name,
+			GvcName:         wrt.GvcCase.Name,
+			Description:     name,
+		},
+	}
+
+	// Build the lifecycle test steps
+	absentStep := wrt.BuildDisruptionBudgetAbsentStep(c)
+	maxUnavailableStep := wrt.BuildDisruptionBudgetMaxUnavailableStep(c)
+	maxUnavailablePercentStep := wrt.BuildDisruptionBudgetMaxUnavailablePercentStep(c)
+	minAvailableStep := wrt.BuildDisruptionBudgetMinAvailableStep(c)
+
+	// Return the complete test steps
+	return []resource.TestStep{
+		// Create & Read (disruption_budget omitted)
+		absentStep,
+		// Update & Read (max_unavailable as a whole number)
+		maxUnavailableStep,
+		// Update & Read (max_unavailable as a percentage, data source read)
+		maxUnavailablePercentStep,
+		// Update & Read (switch to min_available)
+		minAvailableStep,
+		// Import State
+		{
+			ResourceName:      c.ResourceAddress,
+			ImportState:       true,
+			ImportStateId:     fmt.Sprintf("%s:%s", wrt.GvcCase.Name, name),
+			ImportStateVerify: true,
+		},
+		// Update & Read (switch back to max_unavailable)
+		maxUnavailableStep,
+		// Revert the resource to its initial state (remove disruption_budget entirely)
 		absentStep,
 	}
 }
@@ -837,6 +933,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate2TestStep(initialCase Prov
 					"envoy": CanonicalizeEnvoyJSON(c.Envoy),
 				},
 			}),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "rollout_options.0.rollout_on_reference_change"),
 			c.TestCheckNestedBlocks("rollout_options", []map[string]interface{}{
 				{
 					"min_ready_seconds":                "10",
@@ -1085,6 +1182,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate3TestStep(initialCase Prov
 					"max_unavailable_replicas":         "10",
 					"scaling_policy":                   "OrderedReady",
 					"termination_grace_period_seconds": "20",
+					"rollout_on_reference_change":      "true",
 				},
 			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
@@ -1355,6 +1453,7 @@ func (wrt *WorkloadResourceTest) BuildServerlessUpdate4TestStep(initialCase Prov
 					"max_surge_replicas":               "30",
 					"scaling_policy":                   "Parallel",
 					"termination_grace_period_seconds": "40",
+					"rollout_on_reference_change":      "false",
 				},
 			}),
 			c.TestCheckNestedBlocks("security_options", []map[string]interface{}{
@@ -3874,6 +3973,146 @@ func (wrt *WorkloadResourceTest) BuildNetworkingGvcEndpointStep(c WorkloadResour
 	}
 }
 
+// BuildEnvFromAbsentStep returns a test step where the dictionary secrets exist and no container sets env_from.
+func (wrt *WorkloadResourceTest) BuildEnvFromAbsentStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.EnvFromAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "container.0.env_from.#"),
+		),
+	}
+}
+
+// BuildEnvFromRequiredOnlyStep returns a test step with a single env_from entry.
+func (wrt *WorkloadResourceTest) BuildEnvFromRequiredOnlyStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.EnvFromRequiredOnlyHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckResourceAttr("container.0.env_from.#", "1"),
+			resource.TestCheckResourceAttrPair(c.ResourceAddress, "container.0.env_from.0.secret_ref.name", "cpln_secret.env_from_01", "name"),
+		),
+	}
+}
+
+// BuildEnvFromMultiStep returns a test step with two ordered env_from entries and a data source read.
+func (wrt *WorkloadResourceTest) BuildEnvFromMultiStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Create a test case for the data source that reads the same workload
+	dataSource := ProviderTestCase{
+		Kind:            "workload",
+		ResourceName:    c.ResourceName,
+		ResourceAddress: fmt.Sprintf("data.cpln_workload.%s", c.ResourceName),
+		Name:            c.Name,
+		GvcName:         c.GvcName,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.EnvFromMultiHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckResourceAttr("container.0.env_from.#", "2"),
+			resource.TestCheckResourceAttrPair(c.ResourceAddress, "container.0.env_from.0.secret_ref.name", "cpln_secret.env_from_01", "name"),
+			resource.TestCheckResourceAttrPair(c.ResourceAddress, "container.0.env_from.1.secret_ref.name", "cpln_secret.env_from_02", "name"),
+			dataSource.TestCheckResourceAttr("container.0.env_from.#", "2"),
+			resource.TestCheckResourceAttrPair(dataSource.ResourceAddress, "container.0.env_from.0.secret_ref.name", "cpln_secret.env_from_01", "name"),
+			resource.TestCheckResourceAttrPair(dataSource.ResourceAddress, "container.0.env_from.1.secret_ref.name", "cpln_secret.env_from_02", "name"),
+		),
+	}
+}
+
+// BuildEnvFromExpandedStep returns a test step that grows env_from to three ordered entries.
+func (wrt *WorkloadResourceTest) BuildEnvFromExpandedStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.EnvFromExpandedHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckResourceAttr("container.0.env_from.#", "3"),
+			resource.TestCheckResourceAttrPair(c.ResourceAddress, "container.0.env_from.0.secret_ref.name", "cpln_secret.env_from_01", "name"),
+			resource.TestCheckResourceAttrPair(c.ResourceAddress, "container.0.env_from.1.secret_ref.name", "cpln_secret.env_from_02", "name"),
+			resource.TestCheckResourceAttrPair(c.ResourceAddress, "container.0.env_from.2.secret_ref.name", "cpln_secret.env_from_03", "name"),
+		),
+	}
+}
+
+// BuildDisruptionBudgetAbsentStep returns a test step where disruption_budget is omitted.
+func (wrt *WorkloadResourceTest) BuildDisruptionBudgetAbsentStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.DisruptionBudgetAbsentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.GetDefaultChecks(c.Description, "2"),
+			resource.TestCheckResourceAttr(c.ResourceAddress, "type", "serverless"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "disruption_budget.min_available"),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "disruption_budget.max_unavailable"),
+		),
+	}
+}
+
+// BuildDisruptionBudgetMaxUnavailableStep returns a test step with max_unavailable as a whole number.
+func (wrt *WorkloadResourceTest) BuildDisruptionBudgetMaxUnavailableStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.DisruptionBudgetMaxUnavailableHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckObjectAttr("disruption_budget", map[string]interface{}{
+				"max_unavailable": "1",
+			}),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "disruption_budget.min_available"),
+		),
+	}
+}
+
+// BuildDisruptionBudgetMaxUnavailablePercentStep returns a test step with max_unavailable as a percentage and a data source read.
+func (wrt *WorkloadResourceTest) BuildDisruptionBudgetMaxUnavailablePercentStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Create a test case for the data source that reads the same workload
+	dataSource := ProviderTestCase{
+		Kind:            "workload",
+		ResourceName:    c.ResourceName,
+		ResourceAddress: fmt.Sprintf("data.cpln_workload.%s", c.ResourceName),
+		Name:            c.Name,
+		GvcName:         c.GvcName,
+	}
+
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.DisruptionBudgetMaxUnavailablePercentHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckObjectAttr("disruption_budget", map[string]interface{}{
+				"max_unavailable": "20%",
+			}),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "disruption_budget.min_available"),
+			dataSource.TestCheckObjectAttr("disruption_budget", map[string]interface{}{
+				"max_unavailable": "20%",
+			}),
+		),
+	}
+}
+
+// BuildDisruptionBudgetMinAvailableStep returns a test step with min_available below the workload min_scale.
+func (wrt *WorkloadResourceTest) BuildDisruptionBudgetMinAvailableStep(c WorkloadResourceTestCase) resource.TestStep {
+	// Initialize and return the test step
+	return resource.TestStep{
+		Config: wrt.DisruptionBudgetMinAvailableHcl(c),
+		Check: resource.ComposeAggregateTestCheckFunc(
+			c.Exists(),
+			c.TestCheckObjectAttr("disruption_budget", map[string]interface{}{
+				"min_available": "1",
+			}),
+			resource.TestCheckNoResourceAttr(c.ResourceAddress, "disruption_budget.max_unavailable"),
+		),
+	}
+}
+
 // Configs //
 
 // K8sVolumeUriHcl returns a serverless workload configuration that mounts a k8s://secret volume to exercise the uri scheme validator.
@@ -4457,6 +4696,7 @@ resource "cpln_workload" "%s" {
     max_unavailable_replicas         = "10"
     scaling_policy                   = "OrderedReady"
     termination_grace_period_seconds = 20
+    rollout_on_reference_change      = true
   }
 
   security_options {
@@ -4709,6 +4949,7 @@ resource "cpln_workload" "%s" {
     max_surge_replicas               = "30"
     scaling_policy                   = "Parallel"
     termination_grace_period_seconds = 40
+    rollout_on_reference_change      = false
   }
 
   security_options {
@@ -7414,6 +7655,503 @@ resource "cpln_workload" "%s" {
   }
 }
 `, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.DescriptionUpdate, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// EnvFromAbsentHcl returns three dictionary secrets and a serverless workload without env_from.
+func (wrt *WorkloadResourceTest) EnvFromAbsentHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_secret" "env_from_01" {
+  name = "env-from-01-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL = "debug"
+  }
+}
+
+resource "cpln_secret" "env_from_02" {
+  name = "env-from-02-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL   = "info"
+    APP_VERSION = "1.0.0"
+  }
+}
+
+resource "cpln_secret" "env_from_03" {
+  name = "env-from-03-${var.random_name}"
+
+  dictionary = {
+    FEATURE_FLAG = "enabled"
+  }
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// EnvFromRequiredOnlyHcl returns three dictionary secrets and a serverless workload with a single env_from entry.
+func (wrt *WorkloadResourceTest) EnvFromRequiredOnlyHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_secret" "env_from_01" {
+  name = "env-from-01-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL = "debug"
+  }
+}
+
+resource "cpln_secret" "env_from_02" {
+  name = "env-from-02-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL   = "info"
+    APP_VERSION = "1.0.0"
+  }
+}
+
+resource "cpln_secret" "env_from_03" {
+  name = "env-from-03-${var.random_name}"
+
+  dictionary = {
+    FEATURE_FLAG = "enabled"
+  }
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    env_from = [
+      {
+        secret_ref = {
+          name = cpln_secret.env_from_01.name
+        }
+      }
+    ]
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// EnvFromMultiHcl returns three dictionary secrets, a serverless workload with two env_from entries, and a data source read.
+func (wrt *WorkloadResourceTest) EnvFromMultiHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_secret" "env_from_01" {
+  name = "env-from-01-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL = "debug"
+  }
+}
+
+resource "cpln_secret" "env_from_02" {
+  name = "env-from-02-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL   = "info"
+    APP_VERSION = "1.0.0"
+  }
+}
+
+resource "cpln_secret" "env_from_03" {
+  name = "env-from-03-${var.random_name}"
+
+  dictionary = {
+    FEATURE_FLAG = "enabled"
+  }
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    env_from = [
+      {
+        secret_ref = {
+          name = cpln_secret.env_from_01.name
+        }
+      },
+      {
+        secret_ref = {
+          name = cpln_secret.env_from_02.name
+        }
+      }
+    ]
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+
+data "cpln_workload" "%s" {
+  name = cpln_workload.%s.name
+  gvc  = cpln_workload.%s.gvc
+}
+`, wrt.RandomName, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.ResourceName, c.ResourceName,
+	)
+}
+
+// EnvFromExpandedHcl returns three dictionary secrets and a serverless workload with three env_from entries.
+func (wrt *WorkloadResourceTest) EnvFromExpandedHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+variable "random_name" {
+  type    = string
+  default = "%s"
+}
+
+# GVC Resource
+%s
+
+resource "cpln_secret" "env_from_01" {
+  name = "env-from-01-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL = "debug"
+  }
+}
+
+resource "cpln_secret" "env_from_02" {
+  name = "env-from-02-${var.random_name}"
+
+  dictionary = {
+    LOG_LEVEL   = "info"
+    APP_VERSION = "1.0.0"
+  }
+}
+
+resource "cpln_secret" "env_from_03" {
+  name = "env-from-03-${var.random_name}"
+
+  dictionary = {
+    FEATURE_FLAG = "enabled"
+  }
+}
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    env_from = [
+      {
+        secret_ref = {
+          name = cpln_secret.env_from_01.name
+        }
+      },
+      {
+        secret_ref = {
+          name = cpln_secret.env_from_02.name
+        }
+      },
+      {
+        secret_ref = {
+          name = cpln_secret.env_from_03.name
+        }
+      }
+    ]
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+}
+`, wrt.RandomName, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// DisruptionBudgetAbsentHcl returns a serverless workload with min_scale 2 and no disruption_budget.
+func (wrt *WorkloadResourceTest) DisruptionBudgetAbsentHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "concurrency"
+      target    = 100
+      min_scale = 2
+      max_scale = 3
+    }
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// DisruptionBudgetMaxUnavailableHcl returns a serverless workload with min_scale 2 and max_unavailable as a whole number.
+func (wrt *WorkloadResourceTest) DisruptionBudgetMaxUnavailableHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "concurrency"
+      target    = 100
+      min_scale = 2
+      max_scale = 3
+    }
+  }
+
+  disruption_budget = {
+    max_unavailable = "1"
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
+	)
+}
+
+// DisruptionBudgetMaxUnavailablePercentHcl returns a serverless workload with min_scale 2, max_unavailable as a percentage, and a data source read.
+func (wrt *WorkloadResourceTest) DisruptionBudgetMaxUnavailablePercentHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "concurrency"
+      target    = 100
+      min_scale = 2
+      max_scale = 3
+    }
+  }
+
+  disruption_budget = {
+    max_unavailable = "20%%"
+  }
+}
+
+data "cpln_workload" "%s" {
+  name = cpln_workload.%s.name
+  gvc  = cpln_workload.%s.gvc
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(), c.ResourceName, c.ResourceName, c.ResourceName,
+	)
+}
+
+// DisruptionBudgetMinAvailableHcl returns a serverless workload with min_scale 2 and min_available below it.
+func (wrt *WorkloadResourceTest) DisruptionBudgetMinAvailableHcl(c WorkloadResourceTestCase) string {
+	return fmt.Sprintf(`
+# GVC Resource
+%s
+
+resource "cpln_workload" "%s" {
+  depends_on = [%s]
+
+  name        = "%s"
+  description = "%s"
+
+  tags = {
+    terraform_generated = "true"
+    acceptance_test     = "true"
+  }
+
+  gvc  = %s
+  type = "serverless"
+
+  container {
+    name  = "container-01"
+    image = "gcr.io/knative-samples/helloworld-go"
+
+    ports {
+      protocol = "http"
+      number   = "8080"
+    }
+  }
+
+  options {
+    capacity_ai = false
+
+    autoscaling {
+      metric    = "concurrency"
+      target    = 100
+      min_scale = 2
+      max_scale = 3
+    }
+  }
+
+  disruption_budget = {
+    min_available = "1"
+  }
+}
+`, wrt.GvcConfig, c.ResourceName, wrt.GvcCase.ResourceAddress, c.Name, c.Description, wrt.GvcCase.GetResourceNameAttr(),
 	)
 }
 

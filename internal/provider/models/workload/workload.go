@@ -23,6 +23,7 @@ type ContainerModel struct {
 	MinCpu           types.String `tfsdk:"min_cpu"`
 	MinMemory        types.String `tfsdk:"min_memory"`
 	Env              types.Map    `tfsdk:"env"`
+	EnvFrom          types.List   `tfsdk:"env_from"`
 	GpuNvidia        types.List   `tfsdk:"gpu_nvidia"`
 	GpuCustom        types.List   `tfsdk:"gpu_custom"`
 	InheritEnv       types.Bool   `tfsdk:"inherit_env"`
@@ -48,6 +49,7 @@ func (c ContainerModel) AttributeTypes() attr.Type {
 			"min_cpu":           types.StringType,
 			"min_memory":        types.StringType,
 			"env":               types.MapType{ElemType: types.StringType},
+			"env_from":          types.ListType{ElemType: ContainerEnvFromModel{}.AttributeTypes()},
 			"gpu_nvidia":        types.ListType{ElemType: ContainerGpuNvidiaModel{}.AttributeTypes()},
 			"gpu_custom":        types.ListType{ElemType: ContainerGpuCustomModel{}.AttributeTypes()},
 			"inherit_env":       types.BoolType,
@@ -167,6 +169,34 @@ func (c ContainerHealthCheckHttpGetModel) AttributeTypes() attr.Type {
 			"port":         types.Int32Type,
 			"http_headers": types.MapType{ElemType: types.StringType},
 			"scheme":       types.StringType,
+		},
+	}
+}
+
+// Container -> Env From //
+
+type ContainerEnvFromModel struct {
+	SecretRef types.Object `tfsdk:"secret_ref"`
+}
+
+func (c ContainerEnvFromModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"secret_ref": ContainerEnvFromSecretRefModel{}.AttributeTypes(),
+		},
+	}
+}
+
+// Container -> Env From -> Secret Ref //
+
+type ContainerEnvFromSecretRefModel struct {
+	Name types.String `tfsdk:"name"`
+}
+
+func (c ContainerEnvFromSecretRefModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"name": types.StringType,
 		},
 	}
 }
@@ -715,6 +745,7 @@ type RolloutOptionsModel struct {
 	MaxSurgeReplicas              types.String `tfsdk:"max_surge_replicas"`
 	ScalingPolicy                 types.String `tfsdk:"scaling_policy"`
 	TerminationGracePeriodSeconds types.Int32  `tfsdk:"termination_grace_period_seconds"`
+	RolloutOnReferenceChange      types.Bool   `tfsdk:"rollout_on_reference_change"`
 }
 
 func (r RolloutOptionsModel) AttributeTypes() attr.Type {
@@ -725,6 +756,23 @@ func (r RolloutOptionsModel) AttributeTypes() attr.Type {
 			"max_surge_replicas":               types.StringType,
 			"scaling_policy":                   types.StringType,
 			"termination_grace_period_seconds": types.Int32Type,
+			"rollout_on_reference_change":      types.BoolType,
+		},
+	}
+}
+
+// Disruption Budget //
+
+type DisruptionBudgetModel struct {
+	MinAvailable   types.String `tfsdk:"min_available"`
+	MaxUnavailable types.String `tfsdk:"max_unavailable"`
+}
+
+func (d DisruptionBudgetModel) AttributeTypes() attr.Type {
+	return types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"min_available":   types.StringType,
+			"max_unavailable": types.StringType,
 		},
 	}
 }

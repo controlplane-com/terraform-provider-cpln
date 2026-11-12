@@ -29,6 +29,7 @@ Manages a GVC's [Workload](https://docs.controlplane.com/reference/workload).
 - **tags** (Map of String) Key-value map of resource tags.
 - **job** (Block List, Max: 1) ([see below](#nestedblock--job)) [Cron Job Reference Page](https://docs.controlplane.com/reference/workload#cron).
 - **rollout_options** (Block List, Max: 1) ([see below](#nestedblock--rollout_options))
+- **disruption_budget** (Attributes) Limits how many replicas voluntary disruptions (node drains, cluster autoscaler scale-down, node upgrades) can evict at once. ([see below](#nestedblock--disruption_budget))
 - **security_options** (Block List, Max: 1) ([see below](#nestedblock--security_options))
 - **load_balancer** (Block List, Max: 1) ([see below](#nestedblock--load_balancer))
 - **networking** (Attributes) Internal service-to-service networking configuration. ([see below](#nestedblock--networking))
@@ -60,6 +61,7 @@ Optional:
 - **min_cpu** (String) Minimum CPU when capacity AI is enabled.
 - **min_memory** (String) Minimum memory when capacity AI is enabled.
 - **env** (Map of String) Name-Value list of environment variables.
+- **env_from** (Attributes List) Inject all key/value pairs of the referenced dictionary secrets as environment variables. An explicit `env` variable overrides an `env_from` key of the same name; later entries override earlier ones. Keys that are not valid environment variable names are skipped. ([see below](#nestedblock--container--env_from))
 - **inherit_env** (Boolean) Enables inheritance of GVC environment variables. A variable in spec.env will override a GVC variable with the same name.
 - **command** (String) Override the entry point.
 - **args** (List of String) Command line arguments passed to the container at runtime.
@@ -200,6 +202,22 @@ Optional:
 - **http_headers** (Map of String) Name-Value list of HTTP Headers to send to container.
 - **scheme** (String) HTTP Scheme. Valid values: "HTTP", "HTTPS". Default: "HTTP".
 
+<a id="nestedblock--container--env_from"></a>
+
+### `container.env_from`
+
+Required:
+
+- **secret_ref** (Attributes) References a dictionary secret whose key/value pairs are injected as environment variables. ([see below](#nestedblock--container--env_from--secret_ref))
+
+<a id="nestedblock--container--env_from--secret_ref"></a>
+
+### `container.env_from.secret_ref`
+
+Required:
+
+- **name** (String) Name of a dictionary secret whose keys are injected as environment variables.
+
 <a id="nestedblock--container--gpu_nvidia"></a>
 
 ### `container.gpu_nvidia`
@@ -319,16 +337,16 @@ Optionals:
 
 ### `firewall_spec.external.http.inbound_header_filter`
 
-A list of header filters for HTTP workloads.
+A list of header filters for HTTP workloads. Each header key may appear only once, compared case-insensitively.
 
 Required:
 
-- **key** (String) The header to match for.
+- **key** (String) The header to match for: an HTTP header name (RFC 9110 token) or one of the pseudo-headers `:authority`, `:method`, `:path` and `:scheme`. Header names are case-insensitive.
 
 ~> **Note** Only one of the following below can be included in an inbound_header_filter block.
 
-- **allowed_values** (List of String) A list of regular expressions to match for allowed header values. Headers that do not match ANY of these values will be filtered and will not reach the workload.
-- **blocked_values** (List of String) A list of regular expressions to match for blocked header values. Headers that match ANY of these values will be filtered and will not reach the workload.
+- **allowed_values** (List of String) A list of regular expressions to match for allowed header values. When included, http requests must have AT LEAST ONE of these headers to be sent to the workload.
+- **blocked_values** (List of String) A list of regular expressions to match for blocked header values. When included, http requests with ANY of these headers will be filtered and will not reach the workload.
 
 <a id="nestedblock--firewall_spec--internal"></a>
 
@@ -543,8 +561,20 @@ Optional:
 - **max_surge_replicas** (String) The number of replicas that can be created above the desired amount of replicas during an update.
 - **scaling_policy** (String) The strategies used to update applications and services deployed. Valid values: `OrderedReady` (Updates workloads in a rolling fashion, taking down old ones and bringing up new ones incrementally, ensuring that the service remains available during the update.), `Parallel` (Causes all pods affected by a scaling operation to be created or destroyed simultaneously. This does not affect update operations.). Default: `OrderedReady`.
 - **termination_grace_period_seconds** (Number) The amount of time in seconds a workload has to gracefully terminate before forcefully terminating it. This includes the time it takes for the preStop hook to run. Default: 90.
+- **rollout_on_reference_change** (Boolean) When true, replicas are rolled out whenever a secret or the identity referenced by the workload is modified. Not supported for `vm` workloads.
 
 ~> **Note** Both max_surge_replicas and max_unavailable_replicas can be specified as either an integer (e.g. 2) or a percentage (e.g. 50%), and they cannot both be zero.
+
+<a id="nestedblock--disruption_budget"></a>
+
+### `disruption_budget`
+
+Set either `min_available` or `max_unavailable`. Not supported for `cron` or `vm` workloads. When omitted, workloads with `min_scale` 4 or more allow 20% of replicas to be unavailable.
+
+Optional:
+
+- **min_available** (String) Minimum number or percentage of replicas that must stay available during voluntary disruptions such as node drains. A whole number or whole percentage (e.g., `2`, `20%`), below `100%`. A value that would allow no evictions at the `min_scale` of `options` or any `local_options` is rejected.
+- **max_unavailable** (String) Maximum number or percentage of replicas that can be unavailable during voluntary disruptions such as node drains. A whole number or whole percentage (e.g., `2`, `20%`), at least `1` or above `0%`, and at most `100%`.
 
 <a id="nestedblock--security_options"></a>
 
@@ -948,6 +978,14 @@ resource "cpln_workload" "new" {
       env-name-02 = "env-value-02",
     }
 
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
+
     args = ["arg-01", "arg-02"]
 
     readiness_probe {
@@ -1165,6 +1203,14 @@ resource "cpln_workload" "new" {
       env-name-02 = "env-value-02",
     }
 
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
+
     lifecycle {
 
       post_start {
@@ -1328,6 +1374,11 @@ resource "cpln_workload" "new" {
     max_surge_replicas               = "20"
     scaling_policy                   = "Parallel"
     termination_grace_period_seconds = 90
+    rollout_on_reference_change      = false
+  }
+
+  disruption_budget = {
+    max_unavailable = "1"
   }
 
   security_options {
@@ -1443,6 +1494,14 @@ resource "cpln_workload" "new" {
       env-name-02 = "env-value-02",
     }
 
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
+
     lifecycle {
 
       post_start {
@@ -1522,10 +1581,15 @@ resource "cpln_workload" "new" {
   }
 
   rollout_options {
-    min_ready_seconds = 2
-    max_unavailable_replicas = "10"
-    max_surge_replicas = "20"
-    scaling_policy = "Parallel"
+    min_ready_seconds           = 2
+    max_unavailable_replicas    = "10"
+    max_surge_replicas          = "20"
+    scaling_policy              = "Parallel"
+    rollout_on_reference_change = false
+  }
+
+  disruption_budget = {
+    max_unavailable = "1"
   }
 
   security_options {
@@ -1623,6 +1687,14 @@ resource "cpln_workload" "new" {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
+
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
 
     args = ["arg-01", "arg-02"]
 
@@ -1752,6 +1824,14 @@ resource "cpln_workload" "new" {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
+
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
 
     args = ["arg-01", "arg-02"]
 
@@ -1960,6 +2040,14 @@ resource "cpln_workload" "new" {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
+
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
 
     args = ["arg-01", "arg-02"]
 
@@ -2188,6 +2276,14 @@ resource "cpln_workload" "new" {
       env-name-02 = "env-value-02"
     }
 
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
+
     volume {
       uri             = "cpln://volumeset/${cpln_volume_set.example.name}"
       path            = "/cpln-volume"
@@ -2339,6 +2435,11 @@ resource "cpln_workload" "new" {
     max_surge_replicas               = "20"
     scaling_policy                   = "Parallel"
     termination_grace_period_seconds = 90
+    rollout_on_reference_change      = false
+  }
+
+  disruption_budget = {
+    max_unavailable = "1"
   }
 
   security_options {
@@ -2449,6 +2550,14 @@ resource "cpln_workload" "new" {
       env-name-01 = "env-value-01",
       env-name-02 = "env-value-02",
     }
+
+    env_from = [
+      {
+        secret_ref = {
+          name = "my-dictionary-secret"
+        }
+      }
+    ]
 
     args = ["arg-01", "arg-02"]
 
